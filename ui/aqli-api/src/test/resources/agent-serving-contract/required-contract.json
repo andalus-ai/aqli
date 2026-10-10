@@ -1,0 +1,221 @@
+{
+  "required": {
+    "version": "v1",
+    "service_role": "inference_serving_engine",
+    "aqli_owns": [
+      "model_serving",
+      "provider_routing",
+      "system_prompt_mapping",
+      "tool_schema_ingestion",
+      "tool_contract_validation",
+      "mcp_registry_discovery",
+      "embedding_generation",
+      "rag_context_injection"
+    ],
+    "orchestrator_owns": [
+      "planning",
+      "memory_policy",
+      "retrieval_policy",
+      "vector_store_ownership",
+      "tool_authorization",
+      "tool_execution",
+      "tool_result_loop",
+      "workflow_state"
+    ],
+    "compatibility": [
+      "openai_chat_completions",
+      "openai_chat_streaming",
+      "openai_responses",
+      "openai_responses_streaming",
+      "openai_embeddings",
+      "model_capability_matrix",
+      "agent_capabilities",
+      "agent_contract",
+      "agent_feature_negotiation",
+      "agent_readiness_issue_catalog",
+      "agent_preflight",
+      "agent_request_validation",
+      "agent_tool_contract_validation",
+      "request_trace_context",
+      "mcp_tool_discovery",
+      "rag_context"
+    ],
+    "endpoints": {
+      "chat_completions": {"method": "POST", "path": "/v1/chat/completions"},
+      "responses": {"method": "POST", "path": "/v1/responses"},
+      "embeddings": {"method": "POST", "path": "/v1/embeddings"},
+      "model_capabilities": {"method": "GET", "path": "/v1/models/{id}/capabilities"},
+      "mcp_tools": {"method": "GET", "path": "/v1/mcp/tools?compat=openai"},
+      "agent_capabilities": {"method": "GET", "path": "/v1/agent/capabilities"},
+      "agent_contract": {"method": "GET", "path": "/v1/agent/contract"},
+      "agent_readiness_issues": {"method": "GET", "path": "/v1/agent/readiness/issues"},
+      "agent_preflight": {"method": "POST", "path": "/v1/agent/preflight"},
+      "agent_validation": {"method": "POST", "path": "/v1/agent/validate?surface={surface}"},
+      "agent_tool_validation": {"method": "POST", "path": "/v1/agent/tools/validate"}
+    },
+    "schemas": {
+      "chat_completions_request": {
+        "required": ["model", "messages"],
+        "properties": ["stream", "stream_options", "tools", "rag_context"]
+      },
+      "responses_request": {
+        "required": ["model", "input"],
+        "properties": ["instructions", "stream", "stream_options", "tools", "rag_context"]
+      },
+      "embeddings_request": {
+        "required": ["model"],
+        "properties": ["input", "inputs", "dimensions", "encoding_format"]
+      },
+      "stream_options": {
+        "properties": ["include_usage", "include_trace", "include_stream_metadata"]
+      },
+      "agent_validation_response": {
+        "required": ["object", "surface", "valid", "model_invoked", "trace", "boundary", "normalized"]
+      },
+      "agent_preflight_response": {
+        "required": [
+          "object",
+          "status",
+          "ready",
+          "surface",
+          "model",
+          "feature_profile",
+          "trace",
+          "boundary",
+          "blocking_issue_count",
+          "warning_count",
+          "ready_check_count",
+          "blocked_check_count",
+          "skipped_check_count",
+          "checks",
+          "check_results",
+          "readiness_report",
+          "issues",
+          "issues_by_area"
+        ],
+        "properties": [
+          "checks",
+          "check_results",
+          "readiness_report",
+          "feature_profile",
+          "blocking_messages",
+          "warning_messages"
+        ]
+      },
+      "agent_preflight_check_result": {
+        "required": ["status", "ready", "requested", "blocking_messages", "warning_messages"],
+        "properties": [
+          "status",
+          "ready",
+          "requested",
+          "blocking_messages",
+          "warning_messages",
+          "details"
+        ]
+      },
+      "tool_contract_validation_response": {
+        "required": ["object", "valid", "model_invoked", "tool_count", "normalized", "warnings", "boundary"]
+      }
+    }
+  },
+  "requests": {
+    "chat": {
+      "request_id": "req-chat-fixture",
+      "trace_id": "trace-chat-fixture",
+      "session_id": "session-chat-fixture",
+      "user": "user-chat-fixture",
+      "model": "demo-chat",
+      "messages": [
+        {"role": "system", "content": "Use supplied context."},
+        {"role": "user", "content": "Explain the boundary."}
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true,
+        "include_trace": true,
+        "include_stream_metadata": true
+      },
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "lookup_context",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "query": {"type": "string"}
+              },
+              "required": ["query"]
+            }
+          },
+          "x_aqli": {"mcp_server": "knowledge"}
+        }
+      ],
+      "rag_context": [
+        {"id": "doc-1", "source": "docs/agent", "text": "Aqli serves. Wayang orchestrates."}
+      ]
+    },
+    "responses": {
+      "request_id": "req-response-fixture",
+      "trace": "trace-response-fixture",
+      "conversation": "session-response-fixture",
+      "user": "user-response-fixture",
+      "model": "demo-response",
+      "instructions": "Use supplied context.",
+      "input": "Explain the boundary.",
+      "stream": true,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "lookup_context",
+            "parameters": {"type": "object"}
+          }
+        }
+      ],
+      "context_documents": [
+        {"source": "docs/agent", "content": "Retrieved by Wayang-Aqli."}
+      ]
+    },
+    "embeddings": {
+      "request_id": "req-embed-fixture",
+      "trace_id": "trace-embed-fixture",
+      "user": "user-embed-fixture",
+      "model": "demo-embed",
+      "input": ["first query", "second query"],
+      "dimensions": 384,
+      "encoding_format": "float",
+      "metadata": {"workflow": "contract-fixture"}
+    },
+    "tools": {
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "lookup_context",
+            "strict": true,
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "anyOf": [{"minLength": 1}]
+                }
+              },
+              "required": ["query"]
+            }
+          },
+          "x_aqli": {"mcp_server": "knowledge"}
+        },
+        {
+          "type": "mcp_tool",
+          "function": {
+            "name": "mcp_knowledge_search",
+            "parameters": {"type": "object"}
+          },
+          "metadata": {"mcp_server": "knowledge", "mcp_tool_name": "search"}
+        }
+      ]
+    }
+  }
+}

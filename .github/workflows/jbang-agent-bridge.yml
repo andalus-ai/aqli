@@ -1,0 +1,55 @@
+name: JBang Agent Contract
+
+on:
+  pull_request:
+    paths:
+      - "build.gradle.kts"
+      - "gradle/jbang-trainer-examples.gradle.kts"
+      - "examples/jbang/integration/agent_serving_contract_bridge.java"
+      - "examples/jbang/INDEX.md"
+      - "sdk/aqli-sdk-agent/**"
+      - "sdk/aqli-sdk-remote/**"
+      - ".github/workflows/jbang-agent-bridge.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "build.gradle.kts"
+      - "gradle/jbang-trainer-examples.gradle.kts"
+      - "examples/jbang/integration/agent_serving_contract_bridge.java"
+      - "examples/jbang/INDEX.md"
+      - "sdk/aqli-sdk-agent/**"
+      - "sdk/aqli-sdk-remote/**"
+      - ".github/workflows/jbang-agent-bridge.yml"
+  workflow_dispatch:
+
+jobs:
+  bridge-smoke:
+    name: Agent Contract Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Setup JBang
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -Ls https://sh.jbang.dev | bash -s - app setup
+          echo "$HOME/.jbang/bin" >> "$GITHUB_PATH"
+
+      - name: Smoke agent serving contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon smokeJbangAgentBridgeExamples \
+            -Paqli.jbang.agentBridge.offline=false

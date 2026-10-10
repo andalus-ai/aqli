@@ -1,0 +1,50 @@
+name: Error Codes Doc Check
+
+on:
+  push:
+    paths:
+      - "core/spi/aqli-spi/src/main/java/tech/kayys/aqli/spi/error/**"
+      - "scripts/generate-error-codes.sh"
+      - "docs/error-codes.md"
+      - ".github/workflows/error-codes.yml"
+  pull_request:
+    paths:
+      - "core/spi/aqli-spi/src/main/java/tech/kayys/aqli/spi/error/**"
+      - "scripts/generate-error-codes.sh"
+      - "docs/error-codes.md"
+      - ".github/workflows/error-codes.yml"
+
+jobs:
+  check-error-codes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Generate error codes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x ./scripts/generate-error-codes.sh ]; then
+            echo "ERROR: generate-error-codes.sh not found at ./scripts/generate-error-codes.sh"
+            ls -la ./scripts/
+            exit 1
+          fi
+          ./scripts/generate-error-codes.sh
+
+      - name: Verify docs are up-to-date
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --porcelain
+          if [ ! -f ./docs/error-codes.md ]; then
+            echo "ERROR: docs/error-codes.md not found"
+            exit 1
+          fi
+          git diff --exit-code docs/error-codes.md

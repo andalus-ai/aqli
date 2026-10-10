@@ -1,0 +1,21 @@
+package tech.kayys.aqli.inference.libtorch.nn;
+
+import tech.kayys.aqli.inference.libtorch.core.TorchTensor;
+import tech.kayys.alkhawarizm.core.tensor.Tensor;
+
+/**
+ * Tanh activation module wrapper.
+ * Equivalent to {@code libtorch::nn::Tanh}.
+ */
+public class Tanh extends Module {
+
+    @Override
+    public TorchTensor forward(TorchTensor input) {
+        return Functional.tanh(input);
+    }
+
+    @Override
+    public String toString() {
+        return "Tanh()";
+    }
+}

@@ -1,0 +1,57 @@
+plugins {
+    `java-library`
+    `maven-publish`
+}
+
+group = "tech.kayys.aqli"
+version = "0.1.0-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation(project(":spi:aqli-spi-inference"))
+    implementation(project(":core:aqli-core"))
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
+    implementation(project(":core:aqli-core"))
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-core:0.1.0-SNAPSHOT")
+
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation(project(":optimization:aqli-plugin-kv-cache"))
+    implementation(project(":optimization:aqli-plugin-paged-attention"))
+    implementation(group = "io.quarkus", name = "quarkus-arc")
+    compileOnly(group = "org.jboss.logging", name = "jboss-logging")
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    // Added missing SPI modules required by QLoraAdapterRunner
+    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation(project(":spi:aqli-spi"))
+    testImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
+
+    // duplicate dependencies removed
+
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}

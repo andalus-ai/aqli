@@ -1,0 +1,62 @@
+aqli:
+  provider:
+    runner: runner-gguf
+    defaultModel: google/gemma-4-E2B-it-Q4_K_M
+
+  plugins:
+    - name:
+      id:
+      path:
+      enable: true
+
+
+  strategies:
+    speculative:
+      enabled: true
+      priority: 100
+      parameters:
+        gamma: 5                    # draft tokens per step
+        draftProvider: "local-llama-1b"
+        targetProvider: "local-llama-70b"
+        acceptanceThreshold: 0.8
+    
+    cascade:
+      enabled: true
+      priority: 80
+      parameters:
+        modelChain: ["local-7b", "cloud-70b", "cloud-405b"]
+        confidenceThreshold: 0.85
+        maxSwitches: 2
+    
+    modelSwitch:
+      enabled: true
+      priority: 60
+      parameters:
+        trigger: "memory-pressure"  # or "latency", "quality", "manual"
+        preserveKV: true            # migrate KV cache on switch
+    
+    splitPhase:
+      enabled: false                # disabled by default
+      priority: 40
+      parameters:
+        prefillProvider: "cloud-a100"
+        decodeProvider: "local-4090"
+        splitThreshold: 512         # tokens
+    
+    moe:
+      enabled: false
+      priority: 20
+      parameters:
+        expertMap:
+          "coding": "local-code-16b"
+          "math": "cloud-math-70b"
+          "general": "local-7b"
+
+  memory:
+    pool:
+      type: "lock-free"             # or "synchronized", "jemalloc"
+      maxBytes: 32_000_000_000L     # 32GB
+    kvCache:
+      type: "paged"                 # or "monolithic"
+      blockSize: 16                 # tokens per block
+      pageSize: 256                 # bytes alignment

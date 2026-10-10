@@ -1,0 +1,204 @@
+name: Aqli CI
+
+on:
+  pull_request:
+    paths:
+      - "core/**"
+      - "backend/**"
+      - "buildSrc/**"
+      - "gradle/**"
+      - "plugins/**"
+      - "provider/**"
+      - "repository/**"
+      - "runner/**"
+      - "runtime/**"
+      - "sdk/**"
+      - "spi/**"
+      - "ui/**"
+      - "scripts/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/ci.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "core/**"
+      - "backend/**"
+      - "buildSrc/**"
+      - "framework/**"
+      - "gradle/**"
+      - "observability/**"
+      - "plugins/**"
+      - "provider/**"
+      - "repository/**"
+      - "runner/**"
+      - "runtime/**"
+      - "sdk/**"
+      - "spi/**"
+      - "ui/**"
+      - "scripts/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+jobs:
+  build-jvm:
+    name: Build CLI (JVM)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Check product boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/check-product-boundaries.sh
+
+      - name: Prepare llama.cpp source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x ./scripts/prepare-llama-source.sh ]; then
+            echo "ERROR: prepare-llama-source.sh not found at ./scripts/prepare-llama-source.sh"
+            ls -la ./scripts/
+            exit 1
+          fi
+          AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp" \
+          ./scripts/prepare-llama-source.sh
+
+      - name: Prepare libtorch source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x ./scripts/prepare-libtorch-source.sh ]; then
+            echo "ERROR: prepare-libtorch-source.sh not found at ./scripts/prepare-libtorch-source.sh"
+            ls -la ./scripts/
+            exit 1
+          fi
+          AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch" \
+          ./scripts/prepare-libtorch-source.sh
+
+      - name: Check markdown path hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x ./scripts/check-no-local-paths.sh ]; then
+            echo "ERROR: check-no-local-paths.sh not found at ./scripts/check-no-local-paths.sh"
+            ls -la ./scripts/
+            exit 1
+          fi
+          ./scripts/check-no-local-paths.sh
+
+      - name: Build Aqli CLI (JVM)
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx3G
+        run: |
+          set -euo pipefail
+          export AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp"
+          export AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch"
+          export AQLI_LIBTORCH_LIB_PATH="$HOME/.aqli/source/vendor/libtorch/lib"
+          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:quarkusBuild -x test
+
+  build-native:
+    name: Build CLI (Native Smoke)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: graalvm
+          java-version: "25"
+          cache: gradle
+
+      - name: Prepare llama.cpp source
+        shell: bash
+        run: |
+          set -euo pipefail
+          AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp" \
+          ./scripts/prepare-llama-source.sh
+
+      - name: Prepare libtorch source
+        shell: bash
+        run: |
+          set -euo pipefail
+          AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch" \
+          ./scripts/prepare-libtorch-source.sh
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libssl-dev zlib1g-dev pkg-config
+
+      - name: Build Aqli CLI (Native)
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx3G
+        run: |
+          set -euo pipefail
+          export AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp"
+          export AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch"
+          export AQLI_LIBTORCH_LIB_PATH="$HOME/.aqli/source/vendor/libtorch/lib"
+          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:buildNative -x test
+
+  publish-snapshot:
+    name: Publish Snapshot to Maven Local
+    runs-on: ubuntu-latest
+    needs: [build-jvm]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Prepare llama.cpp source
+        shell: bash
+        run: |
+          set -euo pipefail
+          AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp" \
+          ./scripts/prepare-llama-source.sh
+
+      - name: Prepare libtorch source
+        shell: bash
+        run: |
+          set -euo pipefail
+          AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch" \
+          ./scripts/prepare-libtorch-source.sh
+
+      - name: Publish snapshot
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx3G
+        run: |
+          set -euo pipefail
+          export AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp"
+          export AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch"
+          export AQLI_LIBTORCH_LIB_PATH="$HOME/.aqli/source/vendor/libtorch/lib"
+          ./gradlew --no-daemon publishToMavenLocal -x test

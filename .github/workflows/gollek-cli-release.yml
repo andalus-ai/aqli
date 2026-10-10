@@ -1,0 +1,472 @@
+name: Aqli CLI Release
+
+on:
+  push:
+    tags:
+      - 'test-latest'
+      - 'aqli-v*'
+      - 'v*'
+      - '*.*.*'
+  workflow_dispatch:
+
+concurrency:
+  group: aqli-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-native:
+    name: Build Native (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            binary_name: aqli-linux-x64
+            runner_pattern: aqli-cli-*-runner
+          - os: macos-latest
+            platform: macos
+            binary_name: aqli-macos-x64
+            runner_pattern: aqli-cli-*-runner
+          - os: windows-latest
+            platform: windows
+            binary_name: aqli-windows-x64.exe
+            runner_pattern: aqli-cli-*-runner.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: graalvm
+          java-version: '25'
+          cache: gradle
+
+      - name: Check product boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/check-product-boundaries.sh
+
+      - name: Prepare llama.cpp source (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp" \
+          ./scripts/prepare-llama-source.sh
+
+      - name: Prepare libtorch source (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch" \
+          ./scripts/prepare-libtorch-source.sh
+
+      - name: Install native build dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libssl-dev zlib1g-dev pkg-config
+
+      - name: Install native build dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install automake
+
+      - name: Build native executable (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          export AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp"
+          export AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch"
+          export AQLI_LIBTORCH_LIB_PATH="$AQLI_HOME/source/vendor/libtorch/lib"
+          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:buildNative -x test
+        env:
+          GRADLE_OPTS: -Xmx3G
+
+      - name: Build native executable (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          export AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp"
+          export AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch"
+          export AQLI_LIBTORCH_LIB_PATH="$AQLI_HOME/source/vendor/libtorch/lib"
+          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:buildNative -x test
+        env:
+          GRADLE_OPTS: -Xmx3G
+
+      - name: Stage native artifacts (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          BIN_PATH=$(ls ui/aqli-cli/build/${{ matrix.runner_pattern }} | head -n 1)
+          cp "$BIN_PATH" "dist/${{ matrix.binary_name }}"
+          chmod +x "dist/${{ matrix.binary_name }}"
+          tar -czf "dist/${{ matrix.binary_name }}.tar.gz" -C dist "${{ matrix.binary_name }}"
+
+      - name: Build macOS pkg installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#aqli-v}"
+          VERSION="${VERSION#v}"
+          if [ "$VERSION" = "test-latest" ]; then
+            VERSION="0.0.0"
+          fi
+          PKGROOT="$(pwd)/pkgroot"
+          mkdir -p "$PKGROOT/usr/local/bin"
+          cp "dist/${{ matrix.binary_name }}" "$PKGROOT/usr/local/bin/aqli"
+          chmod +x "$PKGROOT/usr/local/bin/aqli"
+          pkgbuild \
+            --identifier tech.kayys.aqli.cli \
+            --version "$VERSION" \
+            --install-location / \
+            "$PKGROOT" \
+            "dist/aqli-macos-x64.pkg"
+
+      - name: Stage native artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $bin = Get-ChildItem "ui/aqli-cli/build/${{ matrix.runner_pattern }}" | Select-Object -First 1
+          Copy-Item $bin.FullName "dist/${{ matrix.binary_name }}"
+          Compress-Archive -Path "dist/${{ matrix.binary_name }}" -DestinationPath "dist/aqli-windows-x64.zip" -Force
+
+      - name: Upload native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqli-native-${{ matrix.platform }}
+          path: dist/*
+
+  build-jvm-dist:
+    name: Build JVM Distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Prepare llama.cpp source
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp" \
+          ./scripts/prepare-llama-source.sh
+
+      - name: Prepare libtorch source
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch" \
+          ./scripts/prepare-libtorch-source.sh
+
+      - name: Build JVM package
+        shell: bash
+        run: |
+          export AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          export AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp"
+          export AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch"
+          export AQLI_LIBTORCH_LIB_PATH="$AQLI_HOME/source/vendor/libtorch/lib"
+          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:quarkusBuild -x test
+
+      - name: Stage JVM bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/jvm/bin dist/jvm/app
+          cp -R ui/aqli-cli/build/quarkus-app/. dist/jvm/app/
+
+          cat > dist/jvm/bin/aqli <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          APP_DIR="${SCRIPT_DIR}/../app"
+          exec java -jar "${APP_DIR}/quarkus-run.jar" "$@"
+          SH
+          chmod +x dist/jvm/bin/aqli
+
+          cat > dist/jvm/bin/aqli.bat <<'BAT'
+          @echo off
+          set SCRIPT_DIR=%~dp0
+          set APP_DIR=%SCRIPT_DIR%..\app
+          java -jar "%APP_DIR%\quarkus-run.jar" %*
+          BAT
+
+          (cd dist/jvm && zip -r ../aqli-jvm.zip .)
+
+      - name: Upload JVM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqli-jvm
+          path: dist/*
+
+  release:
+    name: Create GitHub Release
+    needs:
+      - build-native
+      - build-jvm-dist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: incoming
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_TAG="${GITHUB_REF_NAME}"
+          VERSION="${VERSION_TAG#aqli-v}"
+          VERSION="${VERSION#v}"
+          if [ "$VERSION_TAG" = "test-latest" ]; then
+            VERSION="0.0.0"
+          fi
+          REPO="${GITHUB_REPOSITORY}"
+
+          mkdir -p release
+          find incoming -type f -maxdepth 3 -print -exec cp {} release/ \;
+
+          pushd release >/dev/null
+          sha256sum * > SHA256SUMS
+          popd >/dev/null
+
+          cat > release/install.sh <<'INSTALL_SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          REPO="__REPO__"
+          TAG="__TAG__"
+          INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+          AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+          TMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+
+          OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          case "$OS" in
+            darwin) ASSET="aqli-macos-x64.tar.gz" ;;
+            linux) ASSET="aqli-linux-x64.tar.gz" ;;
+            *)
+              echo "Unsupported OS: $OS"
+              exit 1
+              ;;
+          esac
+
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+          curl -fsSL "${BASE_URL}/${ASSET}" -o "${TMP_DIR}/${ASSET}"
+          tar -xzf "${TMP_DIR}/${ASSET}" -C "${TMP_DIR}"
+          chmod +x "${TMP_DIR}/aqli"
+
+          if [ -w "${INSTALL_DIR}" ]; then
+            cp "${TMP_DIR}/aqli" "${INSTALL_DIR}/aqli"
+          else
+            sudo cp "${TMP_DIR}/aqli" "${INSTALL_DIR}/aqli"
+          fi
+
+          mkdir -p "$AQLI_HOME"/{config,logs,models,mcp,libs,source/vendor,run}
+
+          cat > "${AQLI_HOME}/config/environment" <<'ENVFILE'
+          AQLI_HOME=${AQLI_HOME:-$HOME/.aqli}
+          AQLI_CLI_LOG_FILE=${AQLI_CLI_LOG_FILE:-$AQLI_HOME/logs/aqli.log}
+          AQLI_SERVICE_CMD=${AQLI_SERVICE_CMD:-/usr/local/bin/aqli}
+          ENVFILE
+
+          echo "Installed to ${INSTALL_DIR}/aqli"
+          echo "Runtime home: ${AQLI_HOME}"
+          "${INSTALL_DIR}/aqli" --version || true
+          INSTALL_SH
+
+          cat > release/install-service.sh <<'INSTALL_SERVICE_SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if ! command -v systemctl >/dev/null 2>&1; then
+            echo "systemctl not found. install-service.sh currently supports Linux systemd user services."
+            exit 1
+          fi
+
+          AQLI_HOME="${AQLI_HOME:-$HOME/.aqli}"
+
+          mkdir -p "$AQLI_HOME"/{config,logs,models,mcp,run,libs,source/vendor}
+          if command -v aqli >/dev/null 2>&1; then
+            DEFAULT_SERVICE_CMD="$(command -v aqli)"
+          else
+            DEFAULT_SERVICE_CMD="/usr/local/bin/aqli"
+          fi
+          SERVICE_FILE="$HOME/.config/systemd/user/aqli.service"
+          mkdir -p "$(dirname "$SERVICE_FILE")"
+
+          cat > "$SERVICE_FILE" <<EOF
+          [Unit]
+          Description=Aqli Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          EnvironmentFile=-$AQLI_HOME/config/environment
+          Environment=AQLI_HOME=$AQLI_HOME
+          Environment=AQLI_CLI_LOG_FILE=$AQLI_HOME/logs/aqli.log
+          Environment=AQLI_SERVICE_CMD=\${AQLI_SERVICE_CMD:-$DEFAULT_SERVICE_CMD}
+          ExecStart=/bin/sh -lc '\$AQLI_SERVICE_CMD'
+          Restart=on-failure
+          RestartSec=5
+          StandardOutput=append:$AQLI_HOME/logs/aqli-service.log
+          StandardError=append:$AQLI_HOME/logs/aqli-service.log
+          WorkingDirectory=$AQLI_HOME
+
+          [Install]
+          WantedBy=default.target
+          EOF
+
+          systemctl --user daemon-reload
+          systemctl --user enable aqli.service
+          echo "Installed user service template: aqli.service"
+          echo "Set AQLI_SERVICE_CMD in \$AQLI_HOME/config/environment, then run:"
+          echo "  systemctl --user start aqli.service"
+          echo "Logs: $AQLI_HOME/logs/aqli.log"
+          INSTALL_SERVICE_SH
+
+          cat > release/install.ps1 <<'INSTALL_PS1'
+          $ErrorActionPreference = 'Stop'
+          $repo = '__REPO__'
+          $tag = '__TAG__'
+          $asset = 'aqli-windows-x64.exe'
+          $installDir = "$env:ProgramFiles\\Aqli"
+          $tmpExe = Join-Path $env:TEMP 'aqli.exe'
+          $url = "https://github.com/$repo/releases/download/$tag/$asset"
+
+          if (!(Test-Path $installDir)) {
+            New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+          }
+
+          $aqliHome = if ($env:AQLI_HOME) { $env:AQLI_HOME } else { Join-Path $HOME ".aqli" }
+          New-Item -ItemType Directory -Force -Path $aqliHome | Out-Null
+          foreach ($dir in @("config","logs","models","mcp","run","libs","source\\vendor")) {
+            New-Item -ItemType Directory -Force -Path (Join-Path $aqliHome $dir) | Out-Null
+          }
+
+          Invoke-WebRequest -Uri $url -OutFile $tmpExe
+          Copy-Item $tmpExe (Join-Path $installDir 'aqli.exe') -Force
+
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if ($userPath -notlike "*$installDir*") {
+            [Environment]::SetEnvironmentVariable('Path', "$userPath;$installDir", 'User')
+          }
+
+          Write-Host "Installed to $installDir\\aqli.exe"
+          Write-Host "Runtime home: $aqliHome"
+          INSTALL_PS1
+
+          sed -i "s#__REPO__#${REPO}#g" release/install.sh release/install.ps1
+          sed -i "s#__TAG__#${VERSION_TAG}#g" release/install.sh release/install.ps1
+          chmod +x release/install.sh
+          chmod +x release/install-service.sh
+
+          MAC_SHA=$(sha256sum release/aqli-macos-x64.tar.gz | awk '{print $1}')
+          WIN_SHA=$(sha256sum release/aqli-windows-x64.exe | awk '{print $1}')
+
+          cat > release/aqli.rb <<FORMULA
+          class Aqli < Formula
+            desc "Production-ready CLI for Aqli inference platform"
+            homepage "https://github.com/${REPO}"
+            url "https://github.com/${REPO}/releases/download/${VERSION_TAG}/aqli-macos-x64.tar.gz"
+            sha256 "${MAC_SHA}"
+            version "${VERSION}"
+
+            def install
+              bin.install "aqli-macos-x64" => "aqli"
+            end
+
+            test do
+              system "#{bin}/aqli", "--version"
+            end
+          end
+          FORMULA
+
+          mkdir -p release/chocolatey/tools
+          cat > release/chocolatey/aqli.nuspec <<NUSPEC
+          <?xml version="1.0" encoding="utf-8"?>
+          <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+            <metadata>
+              <id>aqli</id>
+              <version>${VERSION}</version>
+              <title>Aqli CLI</title>
+              <authors>Kayys Technologies</authors>
+              <owners>Kayys Technologies</owners>
+              <projectUrl>https://github.com/${REPO}</projectUrl>
+              <packageSourceUrl>https://github.com/${REPO}</packageSourceUrl>
+              <requireLicenseAcceptance>false</requireLicenseAcceptance>
+              <summary>Production-ready CLI for Aqli inference platform</summary>
+              <description>Native-compiled Aqli CLI for Windows.</description>
+              <releaseNotes>https://github.com/${REPO}/releases/tag/${VERSION_TAG}</releaseNotes>
+              <tags>aqli cli inference ai llm</tags>
+            </metadata>
+            <files>
+              <file src="tools\\**" target="tools" />
+            </files>
+          </package>
+          NUSPEC
+
+          cat > release/chocolatey/tools/chocolateyinstall.ps1 <<'CHOC'
+          $ErrorActionPreference = 'Stop'
+          $toolsDir = Split-Path -parent $MyInvocation.MyCommand.Definition
+          $url64 = 'https://github.com/__REPO__/releases/download/__TAG__/aqli-windows-x64.exe'
+
+          $packageArgs = @{
+            packageName    = $env:ChocolateyPackageName
+            fileFullPath   = Join-Path $toolsDir 'aqli.exe'
+            url64bit       = $url64
+            checksum64     = '__WIN_SHA__'
+            checksumType64 = 'sha256'
+          }
+
+          Get-ChocolateyWebFile @packageArgs
+          CHOC
+
+          cat > release/chocolatey/tools/chocolateyuninstall.ps1 <<'CHOCU'
+          # no-op
+          CHOCU
+
+          sed -i "s#__REPO__#${REPO}#g" release/chocolatey/tools/chocolateyinstall.ps1
+          sed -i "s#__TAG__#${VERSION_TAG}#g" release/chocolatey/tools/chocolateyinstall.ps1
+          sed -i "s#__WIN_SHA__#${WIN_SHA}#g" release/chocolatey/tools/chocolateyinstall.ps1
+
+          (cd release && zip -r aqli-chocolatey-template.zip chocolatey)
+          rm -rf release/chocolatey
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/*
+          draft: false
+          prerelease: ${{ github.ref_name == 'test-latest' }}
+          overwrite_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,120 @@
+/*
+ * PolyForm Noncommercial License 1.0.0
+ *
+ * Copyright (c) 2026 Kayys.tech
+ *
+ * This software is licensed for non-commercial use only.
+ * You may use, modify, and distribute this software for personal,
+ * educational, or research purposes.
+ *
+ * Commercial use, including SaaS or revenue-generating services,
+ * requires a separate commercial license from Kayys.tech.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+ *
+ * @author Bhangun
+ */
+
+package tech.kayys.aqli.plugin.core;
+
+import io.smallrye.mutiny.Uni;
+import tech.kayys.aqli.spi.plugin.AqliPlugin;
+import tech.kayys.aqli.spi.plugin.PluginContext;
+
+/**
+ * Abstract base plugin implementation
+ */
+public abstract class AbstractPlugin implements AqliPlugin {
+    private final String id;
+    private final String version;
+    private final PluginMetadata metadata;
+
+    protected AbstractPlugin(String id, String version) {
+        this.id = id;
+        this.version = version;
+        this.metadata = new PluginMetadata(id, version, getClass().getSimpleName(), 100);
+    }
+
+    @Override
+    public String id() {
+        return id;
+    }
+
+    @Override
+    public String version() {
+        return version;
+    }
+
+    @Override
+    public PluginMetadata metadata() {
+        return metadata;
+    }
+
+    @Override
+    public Uni<Void> initialize(PluginContext context) {
+        try {
+            onInitialize(context);
+            return Uni.createFrom().voidItem();
+        } catch (Throwable t) {
+            return Uni.createFrom().failure(t);
+        }
+    }
+
+    @Override
+    public Uni<Void> start() {
+        try {
+            onStart();
+            return Uni.createFrom().voidItem();
+        } catch (Throwable t) {
+            return Uni.createFrom().failure(t);
+        }
+    }
+
+    @Override
+    public Uni<Void> stop() {
+        try {
+            onStop();
+            return Uni.createFrom().voidItem();
+        } catch (Throwable t) {
+            return Uni.createFrom().failure(t);
+        }
+    }
+
+    @Override
+    public Uni<Void> shutdown() {
+        try {
+            onDestroy();
+            return Uni.createFrom().voidItem();
+        } catch (Throwable t) {
+            return Uni.createFrom().failure(t);
+        }
+    }
+
+    /**
+     * Called during plugin initialization
+     */
+    protected void onInitialize(PluginContext context) {
+        // Subclasses can override
+    }
+
+    /**
+     * Called when plugin starts
+     */
+    protected void onStart() {
+        // Subclasses can override
+    }
+
+    /**
+     * Called when plugin stops
+     */
+    protected void onStop() {
+        // Subclasses can override
+    }
+
+    /**
+     * Called when plugin is destroyed
+     */
+    protected void onDestroy() {
+        // Subclasses can override
+    }
+}

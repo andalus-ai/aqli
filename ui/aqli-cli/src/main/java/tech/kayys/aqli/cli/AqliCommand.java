@@ -1,0 +1,476 @@
+package tech.kayys.aqli.cli;
+
+import io.quarkus.picocli.runtime.annotations.TopCommand;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import picocli.CommandLine.Command;
+import tech.kayys.aqli.cli.commands.BenchmarkCommand;
+import tech.kayys.aqli.cli.commands.ChatCommand;
+import tech.kayys.aqli.cli.commands.PrepareCommand;
+import tech.kayys.aqli.cli.commands.DeleteCommand;
+import tech.kayys.aqli.cli.commands.ExtensionsCommand;
+import tech.kayys.aqli.cli.commands.FeaturesCommand;
+import tech.kayys.aqli.cli.commands.InfoCommand;
+import tech.kayys.aqli.cli.commands.ListCommand;
+import tech.kayys.aqli.cli.commands.PullCommand;
+import tech.kayys.aqli.cli.commands.ModelCommand;
+import tech.kayys.aqli.cli.commands.PrewarmCommand;
+import tech.kayys.aqli.cli.commands.RunCommand;
+import tech.kayys.aqli.cli.commands.SafetensorsCommand;
+import tech.kayys.aqli.cli.commands.ShowCommand;
+import tech.kayys.aqli.cli.commands.EmbedCommand;
+import tech.kayys.aqli.cli.commands.BatchCommand;
+import tech.kayys.aqli.cli.commands.JobsCommand;
+import tech.kayys.aqli.cli.commands.StatsCommand;
+import tech.kayys.aqli.cli.commands.LogsCommand;
+import tech.kayys.aqli.cli.commands.RegisterCommand;
+import tech.kayys.aqli.cli.commands.RouteBenchmarksCommand;
+import tech.kayys.aqli.cli.commands.MultimodalCommand;
+import tech.kayys.aqli.cli.commands.LiteRTCommand;
+import tech.kayys.aqli.cli.commands.OnnxCommand;
+import tech.kayys.aqli.cli.commands.QuantizeCommand;
+import tech.kayys.aqli.cli.commands.ServerCommand;
+import tech.kayys.aqli.cli.commands.ServeCommand;
+import tech.kayys.aqli.cli.commands.StopCommand;
+import tech.kayys.aqli.sdk.util.AqliHome;
+
+import picocli.CommandLine;
+import picocli.CommandLine.Option;
+
+@TopCommand
+@Command(name = "aqli", mixinStandardHelpOptions = true, versionProvider = AqliCommand.VersionProvider.class, description = "Aqli Inference CLI - Run local and cloud AI models", subcommands = {
+        RunCommand.class,
+        BenchmarkCommand.class,
+        ChatCommand.class,
+        PullCommand.class,
+        ModelCommand.class,
+        PrepareCommand.class,
+        PrewarmCommand.class,
+        ListCommand.class,
+        ShowCommand.class,
+        DeleteCommand.class,
+        ExtensionsCommand.class,
+        FeaturesCommand.class,
+        InfoCommand.class,
+        SafetensorsCommand.class,
+        EmbedCommand.class,
+        BatchCommand.class,
+        JobsCommand.class,
+        StatsCommand.class,
+        LogsCommand.class,
+        RouteBenchmarksCommand.class,
+        RegisterCommand.class,
+        MultimodalCommand.class,
+        LiteRTCommand.class,
+        OnnxCommand.class,
+        QuantizeCommand.class,
+        ServerCommand.class,
+        ServeCommand.class,
+        StopCommand.class
+})
+
+public class AqliCommand implements Runnable {
+    static {
+        // Enforce silent logging by default as early as possible (before Quarkus boots
+        // or any Logger is created)
+        System.setProperty("quarkus.log.console.enabled", "false");
+        System.setProperty("quarkus.log.console.json", "false");
+        System.setProperty("quarkus.log.level", "WARN");
+        System.setProperty("quarkus.log.console.level", "WARN");
+        System.setProperty("quarkus.log.category.\"tech.kayys.aqli\".level", "WARN");
+        System.setProperty("quarkus.log.category.\"tech.kayys.aqli.sdk\".level", "WARN");
+        System.setProperty("quarkus.log.category.\"io.quarkus\".level", "WARN");
+        System.setProperty("quarkus.log.category.\"io.quarkus.config\".level", "ERROR");
+        System.setProperty("quarkus.log.category.\"io.quarkus.runtime.logging.LoggingSetupRecorder\".level", "ERROR");
+    }
+
+    private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(AqliCommand.class);
+    private static final String HF_TOKEN_PROPERTY = "aqli.repository.huggingface.token";
+    private static final String GGUF_LIB_DIR_PROPERTY = "gguf.provider.native.library-dir";
+    private static final String MCP_SERVERS_JSON_PROPERTY = "aqli.mcp.mcp-servers-json";
+    private static final String MCP_SERVERS_JSON_FILE_PROPERTY = "aqli.mcp.mcp-servers-json-file";
+    private static final String AQLI_MCP_SERVERS_JSON = "AQLI_MCP_SERVERS_JSON";
+    private static final String AQLI_MCP_SERVERS_FILE = "AQLI_MCP_SERVERS_FILE";
+    private static final Path DEFAULT_MCP_REGISTRY_FILE = AqliHome.path("mcp", "servers.json");
+    private static final List<String> HF_TOKEN_KEYS = List.of(
+            "AQLI_REPOSITORY_HUGGINGFACE_TOKEN",
+            "HF_TOKEN",
+            "HUGGING_FACE_HUB_TOKEN",
+            HF_TOKEN_PROPERTY);
+
+    @Option(names = { "--log", "--verbose",
+            "-v" }, description = "Enable verbose logging", scope = CommandLine.ScopeType.INHERIT)
+    public boolean verbose;
+
+    @Option(names = {
+            "--mcp-servers-json" }, description = "Inline MCP config JSON with `mcpServers` object", scope = CommandLine.ScopeType.INHERIT)
+    String mcpServersJson;
+
+    @Option(names = {
+            "--mcp-servers-file" }, description = "Path to MCP config JSON file containing `mcpServers`", scope = CommandLine.ScopeType.INHERIT)
+    String mcpServersFile;
+
+    @Option(names = {
+            "--use-cpu" }, description = "Use CPU instead of GPU (disable GPU acceleration)", scope = CommandLine.ScopeType.INHERIT)
+    boolean useCpu;
+
+    public boolean isUseCpu() {
+        return useCpu;
+    }
+
+    @Option(names = {
+            "--enable-cpu" }, description = "Enable CPU fallback (use CPU if GPU not available)", scope = CommandLine.ScopeType.INHERIT)
+    boolean enableCpu;
+
+    @Option(names = {
+            "--platform" }, description = "Force specific kernel platform (metal, cuda, rocm, directml, cpu)", scope = CommandLine.ScopeType.INHERIT)
+    String platform;
+
+    public String platform() {
+        return platform;
+    }
+
+    public AqliCommand() {
+    }
+
+    /**
+     * Configure kernel platform based on CLI options.
+     */
+    private void configureKernelPlatform() {
+        if (useCpu) {
+            System.setProperty("aqli.kernel.force.cpu", "true");
+            System.out.println("⚠️  CPU usage enabled (GPU acceleration disabled)");
+        }
+
+        if (enableCpu) {
+            System.setProperty("aqli.kernel.cpu.fallback", "true");
+            LOG.info("CPU fallback enabled (will use CPU if GPU not available)");
+        }
+
+        if (platform != null && !platform.trim().isEmpty()) {
+            System.setProperty("aqli.kernel.platform", platform.trim().toLowerCase());
+            System.out.printf("⚠️  Kernel platform forced to: %s%n", platform.trim().toLowerCase());
+        }
+    }
+
+    public void bootstrapInheritedEnvironment() {
+        AqliHome.applySystemProperties();
+        configureFileLoggingFromEnvironment();
+        configureHuggingFaceTokenFromDotEnv();
+        configureGgufNativeLibraryDir();
+        configureMcpServersFromEnvironmentAndArgs();
+        configureKernelPlatform();
+        applyRuntimeOverrides();
+
+        // Default: hide console logs, log to file
+        System.setProperty("quarkus.log.console.enabled", "false");
+        System.setProperty("quarkus.log.file.enabled", "true");
+        if (!hasText(System.getProperty("quarkus.log.file.path"))) {
+            System.setProperty("quarkus.log.file.path", AqliHome.path("logs", "aqli.log").toString());
+        }
+
+        if (verbose) {
+            System.setProperty("quarkus.log.console.enabled", "true");
+            System.setProperty("quarkus.log.level", "DEBUG");
+            System.setProperty("quarkus.log.console.level", "DEBUG");
+            System.setProperty("quarkus.log.category.\"tech.kayys.aqli\".level", "DEBUG");
+            System.setProperty("quarkus.log.category.\"tech.kayys.aqli.inference.libtorch\".level", "DEBUG");
+            System.setProperty("gguf.provider.verbose-logging", "true");
+            System.setProperty("aqli.verbose", "true");
+            System.setProperty("alkhawarizm.metal.verbose", "true");
+        }
+    }
+
+    @Override
+    public void run() {
+        bootstrapInheritedEnvironment();
+    }
+
+    public void applyRuntimeOverrides() {
+        if (hasText(mcpServersJson)) {
+            System.setProperty(MCP_SERVERS_JSON_PROPERTY, mcpServersJson.trim());
+        }
+        if (hasText(mcpServersFile)) {
+            System.setProperty(MCP_SERVERS_JSON_FILE_PROPERTY, mcpServersFile.trim());
+        }
+    }
+
+    private void configureHuggingFaceTokenFromDotEnv() {
+        if (hasText(System.getProperty(HF_TOKEN_PROPERTY))) {
+            return;
+        }
+
+        // First map process environment variables to the Quarkus property key.
+        for (String key : HF_TOKEN_KEYS) {
+            String envValue = System.getenv(key);
+            if (hasText(envValue)) {
+                System.setProperty(HF_TOKEN_PROPERTY, envValue.trim());
+                return;
+            }
+        }
+
+        // Fallback to .env in current working directory.
+        Path dotEnvPath = Path.of(".env");
+        if (!Files.isRegularFile(dotEnvPath)) {
+            return;
+        }
+
+        try {
+            Map<String, String> dotEnv = parseDotEnv(dotEnvPath);
+            for (String key : HF_TOKEN_KEYS) {
+                String value = dotEnv.get(key);
+                if (hasText(value)) {
+                    System.setProperty(HF_TOKEN_PROPERTY, value.trim());
+                    return;
+                }
+            }
+        } catch (IOException ignored) {
+            // Ignore .env parse failures and continue normal startup.
+        }
+    }
+
+    private void configureFileLoggingFromEnvironment() {
+        String fileLogging = System.getenv("AQLI_CLI_FILE_LOG_ENABLED");
+        if (hasText(fileLogging)) {
+            System.setProperty("quarkus.log.file.enabled", fileLogging.trim());
+        }
+        String logFilePath = System.getenv("AQLI_CLI_LOG_FILE");
+        if (hasText(logFilePath)) {
+            System.setProperty("quarkus.log.file.path", logFilePath.trim());
+        }
+    }
+
+    private static Map<String, String> parseDotEnv(Path path) throws IOException {
+        Map<String, String> values = new HashMap<>();
+        List<String> lines = Files.readAllLines(path);
+        for (String rawLine : lines) {
+            String line = rawLine == null ? "" : rawLine.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            if (line.startsWith("export ")) {
+                line = line.substring("export ".length()).trim();
+            }
+            int separator = line.indexOf('=');
+            if (separator <= 0) {
+                continue;
+            }
+            String key = line.substring(0, separator).trim();
+            String value = line.substring(separator + 1).trim();
+            if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length() - 1);
+            }
+            values.put(key, value);
+        }
+        return values;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private void configureGgufNativeLibraryDir() {
+        if (hasText(System.getProperty(GGUF_LIB_DIR_PROPERTY)) || hasText(System.getenv("AQLI_LLAMA_LIB_DIR"))) {
+            return;
+        }
+
+        Path cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        String[] candidates = {
+                AqliHome.path("libs", "llama").toString(),
+                AqliHome.path("source", "vendor", "llama.cpp", "build", "bin").toString()
+        };
+
+        Path current = cwd;
+        for (int i = 0; i < 8 && current != null; i++) {
+            for (String candidate : candidates) {
+                Path dir = current.resolve(candidate);
+                if (Files.isDirectory(dir)) {
+                    System.setProperty(GGUF_LIB_DIR_PROPERTY, dir.toString());
+                    return;
+                }
+            }
+            current = current.getParent();
+        }
+    }
+
+    private void configureMcpServersFromEnvironmentAndArgs() {
+        if (!hasText(System.getProperty(MCP_SERVERS_JSON_PROPERTY))) {
+            String envJson = System.getenv(AQLI_MCP_SERVERS_JSON);
+            if (hasText(envJson)) {
+                System.setProperty(MCP_SERVERS_JSON_PROPERTY, envJson.trim());
+            }
+        }
+
+        if (!hasText(System.getProperty(MCP_SERVERS_JSON_FILE_PROPERTY))) {
+            String envFile = System.getenv(AQLI_MCP_SERVERS_FILE);
+            if (hasText(envFile)) {
+                System.setProperty(MCP_SERVERS_JSON_FILE_PROPERTY, envFile.trim());
+            }
+        }
+
+        Path dotEnvPath = Path.of(".env");
+        if (Files.isRegularFile(dotEnvPath)) {
+            try {
+                Map<String, String> dotEnv = parseDotEnv(dotEnvPath);
+                if (!hasText(System.getProperty(MCP_SERVERS_JSON_PROPERTY))) {
+                    String dotEnvJson = dotEnv.get(AQLI_MCP_SERVERS_JSON);
+                    if (hasText(dotEnvJson)) {
+                        System.setProperty(MCP_SERVERS_JSON_PROPERTY, dotEnvJson.trim());
+                    }
+                }
+                if (!hasText(System.getProperty(MCP_SERVERS_JSON_FILE_PROPERTY))) {
+                    String dotEnvFile = dotEnv.get(AQLI_MCP_SERVERS_FILE);
+                    if (hasText(dotEnvFile)) {
+                        System.setProperty(MCP_SERVERS_JSON_FILE_PROPERTY, dotEnvFile.trim());
+                    }
+                }
+            } catch (IOException ignored) {
+                // Ignore .env parse failures and continue normal startup.
+            }
+        }
+
+        List<String> args = parseCommandLineArgs(System.getProperty("sun.java.command", ""));
+        for (int i = 0; i < args.size(); i++) {
+            String arg = args.get(i);
+            if (arg.startsWith("--mcp-servers-json=")) {
+                String value = arg.substring("--mcp-servers-json=".length()).trim();
+                if (hasText(value)) {
+                    System.setProperty(MCP_SERVERS_JSON_PROPERTY, value);
+                }
+                continue;
+            }
+            if (arg.equals("--mcp-servers-json") && i + 1 < args.size()) {
+                String value = args.get(++i);
+                if (hasText(value)) {
+                    System.setProperty(MCP_SERVERS_JSON_PROPERTY, value.trim());
+                }
+                continue;
+            }
+            if (arg.startsWith("--mcp-servers-file=")) {
+                String value = arg.substring("--mcp-servers-file=".length()).trim();
+                if (hasText(value)) {
+                    System.setProperty(MCP_SERVERS_JSON_FILE_PROPERTY, value);
+                }
+                continue;
+            }
+            if (arg.equals("--mcp-servers-file") && i + 1 < args.size()) {
+                String value = args.get(++i);
+                if (hasText(value)) {
+                    System.setProperty(MCP_SERVERS_JSON_FILE_PROPERTY, value.trim());
+                }
+            }
+        }
+
+        if (!hasText(System.getProperty(MCP_SERVERS_JSON_PROPERTY))
+                && !hasText(System.getProperty(MCP_SERVERS_JSON_FILE_PROPERTY))
+                && Files.isRegularFile(DEFAULT_MCP_REGISTRY_FILE)) {
+            System.setProperty(MCP_SERVERS_JSON_FILE_PROPERTY, DEFAULT_MCP_REGISTRY_FILE.toString());
+        }
+    }
+
+    private static List<String> parseCommandLineArgs(String raw) {
+        List<String> tokens = new java.util.ArrayList<>();
+        if (!hasText(raw)) {
+            return tokens;
+        }
+
+        StringBuilder current = new StringBuilder();
+        boolean inSingle = false;
+        boolean inDouble = false;
+        boolean escaped = false;
+        for (int i = 0; i < raw.length(); i++) {
+            char ch = raw.charAt(i);
+            if (escaped) {
+                current.append(ch);
+                escaped = false;
+                continue;
+            }
+            if (ch == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (ch == '\'' && !inDouble) {
+                inSingle = !inSingle;
+                continue;
+            }
+            if (ch == '"' && !inSingle) {
+                inDouble = !inDouble;
+                continue;
+            }
+            if (Character.isWhitespace(ch) && !inSingle && !inDouble) {
+                if (current.length() > 0) {
+                    tokens.add(current.toString());
+                    current.setLength(0);
+                }
+                continue;
+            }
+            current.append(ch);
+        }
+        if (current.length() > 0) {
+            tokens.add(current.toString());
+        }
+        return tokens;
+    }
+
+    /**
+     * Picocli version provider that reads the version from Quarkus build-time
+     * properties so {@code aqli --version} always reflects the Maven project
+     * version rather than a hardcoded string.
+     *
+     * <p>
+     * Priority:
+     * <ol>
+     * <li>{@code quarkus.application.version} system property (set by Quarkus at
+     * boot)</li>
+     * <li>{@code /META-INF/aqli-version.properties} baked in at build time</li>
+     * <li>{@code /META-INF/maven/.../pom.properties}</li>
+     * <li>Fallback: {@code "dev"}</li>
+     * </ol>
+     */
+    public static class VersionProvider implements picocli.CommandLine.IVersionProvider {
+        @Override
+        public String[] getVersion() {
+            String version = readVersion();
+            return new String[] { "aqli " + version };
+        }
+
+        private String readVersion() {
+            // 1. Quarkus sets this system property at application startup
+            String sysProp = System.getProperty("quarkus.application.version");
+            if (hasText(sysProp))
+                return sysProp.trim();
+
+            // 2. Baked-in version properties file (generated by maven-resources-plugin
+            // filtering)
+            try (var is = VersionProvider.class.getResourceAsStream("/META-INF/aqli-version.properties")) {
+                if (is != null) {
+                    var props = new java.util.Properties();
+                    props.load(is);
+                    String v = props.getProperty("version");
+                    if (hasText(v))
+                        return v.trim();
+                }
+            } catch (Exception ignored) {
+            }
+
+            // 3. Standard Maven pom.properties (present in JVM uber-jar, not in native)
+            try (var is = VersionProvider.class.getResourceAsStream(
+                    "/META-INF/maven/tech.kayys.aqli/aqli-cli/pom.properties")) {
+                if (is != null) {
+                    var props = new java.util.Properties();
+                    props.load(is);
+                    String v = props.getProperty("version");
+                    if (hasText(v))
+                        return v.trim();
+                }
+            } catch (Exception ignored) {
+            }
+
+            return "dev";
+        }
+    }
+}

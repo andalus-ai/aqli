@@ -1,0 +1,170 @@
+{
+  "always": {
+    "modules": [
+      ":core:aqli-core",
+      ":core:aqli-error-code",
+      ":core:aqli-model-repository",
+      ":core:aqli-provider-core",
+      ":core:aqli-tokenizer-core",
+      ":sdk:aqli-sdk",
+      ":sdk:aqli-sdk-api",
+      ":sdk:aqli-sdk-core",
+      ":sdk:aqli-sdk-local",
+      ":sdk:aqli-sdk-session",
+      ":spi:aqli-spi",
+      ":spi:aqli-spi-inference",
+      ":spi:aqli-spi-model",
+      ":spi:aqli-spi-multimodal",
+      ":spi:aqli-spi-plugin",
+      ":spi:aqli-spi-provider",
+      ":spi:aqli-spi-runtime",
+      ":ui:aqli-api",
+      ":ui:aqli-cli"
+    ]
+  },
+  "backends": {
+    "metal": {
+      "platforms": ["macos", "cpu"],
+      "gradleBackends": ["cpu", "metal"],
+      "modules": [
+        ":backend:metal:aqli-backend-metal",
+        ":backend:metal:aqli-mlx-binding",
+        ":core:plugin:aqli-plugin-kernel-core"
+      ]
+    },
+    "cuda": {
+      "platforms": ["linux", "windows"],
+      "gradleBackends": ["cpu", "cuda"],
+      "modules": [
+        ":backend:cuda:aqli-backend-cuda",
+        ":backend:cuda:aqli-kernel-cuda",
+        ":backend:cuda:aqli-plugin-kernel-cuda",
+        ":core:plugin:aqli-plugin-kernel-core"
+      ]
+    },
+    "vulkan": {
+      "platforms": ["linux", "windows"],
+      "gradleBackends": ["cpu"],
+      "modules": []
+    },
+    "opencl": {
+      "platforms": ["linux", "windows"],
+      "gradleBackends": ["cpu"],
+      "modules": []
+    },
+    "all": {
+      "platforms": [],
+      "gradleBackends": [],
+      "modules": []
+    }
+  },
+  "formats": {
+    "safetensor": {
+      "modules": [
+        ":runner:safetensor:aqli-runner-safetensor",
+        ":runner:safetensor:aqli-runner-stable-diffusion",
+        ":runner:safetensor:aqli-safetensor-api",
+        ":runner:safetensor:aqli-safetensor-core",
+        ":runner:safetensor:aqli-safetensor-engine",
+        ":runner:safetensor:aqli-safetensor-loader",
+        ":runner:safetensor:aqli-safetensor-quantization",
+        ":runner:safetensor:aqli-safetensor-spi"
+      ]
+    },
+    "gguf": {
+      "modules": [
+        ":core:plugin:aqli-plugin-runner-gguf",
+        ":runner:gguf:aqli-gguf-converter",
+        ":runner:gguf:aqli-gguf-converter-java",
+        ":runner:gguf:aqli-gguf-core"
+      ]
+    },
+    "litert": {
+      "modules": [
+        ":runner:litert:aqli-litert-core",
+        ":runner:litert:aqli-plugin-runner-litert",
+        ":runner:litert:aqli-runner-litert"
+      ]
+    },
+    "onnx": {
+      "modules": [
+        ":runner:onnx:aqli-ml-export-onnx",
+        ":runner:onnx:aqli-ml-onnx",
+        ":runner:onnx:aqli-plugin-runner-onnx",
+        ":runner:onnx:aqli-runner-onnx"
+      ]
+    },
+    "all": {
+      "modules": []
+    }
+  },
+  "llmTypes": {
+    "text": {
+      "modules": [
+        ":models:aqli-model-gemma",
+        ":models:aqli-model-llama",
+        ":models:aqli-model-mistral",
+        ":models:aqli-model-phi",
+        ":models:aqli-model-qwen",
+        ":core:aqli-model-runner",
+        ":core:aqli-model-repo-hf",
+        ":core:aqli-model-repo-local"
+      ]
+    },
+    "vision": {
+      "modules": [
+        ":ml:aqli-ml-cnn",
+        ":ml:aqli-ml-vision"
+      ]
+    },
+    "audio": {
+      "modules": [
+        ":ml:aqli-ml-nlp",
+        ":ml:aqli-ml-audio"
+      ]
+    },
+    "multimodal": {
+      "modules": [
+        ":models:aqli-model-qwen",
+        ":spi:aqli-spi-multimodal",
+        ":ml:aqli-ml-multimodal"
+      ]
+    },
+    "stable-diffusion": {
+      "modules": [
+        ":runner:diffuser:aqli-diffuser",
+        ":runner:safetensor:aqli-runner-stable-diffusion"
+      ]
+    },
+    "whispering": {
+      "modules": [
+        ":runner:onnx:aqli-runner-onnx",
+        ":ml:aqli-ml-nlp",
+        ":ml:aqli-ml-audio"
+      ]
+    },
+    "all": {
+      "modules": []
+    }
+  },
+  "architectures": {
+    "native-java": {
+      "modules": [
+        ":core:aqli-tensor",
+        ":core:aqli-model-repo-hf",
+        ":core:aqli-model-repo-kaggle",
+        ":core:aqli-model-repo-local",
+        ":runner:gguf:aqli-gguf-core",
+        ":runner:safetensor:aqli-safetensor-core",
+        ":runner:safetensor:aqli-safetensor-engine"
+      ]
+    },
+    "binding": {
+      "modules": [
+        ":backend:metal:aqli-mlx-binding",
+        ":runner:litert:aqli-litert-core",
+        ":runner:onnx:aqli-runner-onnx"
+      ]
+    }
+  }
+}

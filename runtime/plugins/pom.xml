@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>tech.kayys.aqli</groupId>
+        <artifactId>aqli-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>aqli-plugin-parent</artifactId>
+    <packaging>pom</packaging>
+
+    <name>aqli-plugin-parent</name>
+    <description>aqli Plugin</description>
+
+
+    <properties>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Import Aqli BOM for internal module versions -->
+            <dependency>
+                <groupId>tech.kayys.aqli</groupId>
+                <artifactId>aqli-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>tech.kayys.aqli</groupId>
+            <artifactId>aqli-spi-inference</artifactId>
+        </dependency>
+    </dependencies>
+
+    <modules>
+        <module>aqli-plugin-content-safety</module>
+        <module>aqli-plugin-pii-redaction</module>
+        <module>aqli-plugin-semantic-cache</module>
+        <module>aqli-plugin-rag</module>
+        <!-- <module>aqli-plugin-model-router</module> Needs additional fixes -->
+        <!-- <module>aqli-plugin-prompt</module> Needs additional fixes -->
+        <!-- <module>aqli-plugin-reasoning</module> Needs additional fixes -->
+        <!-- <module>aqli-plugin-sampling</module> Needs additional fixes -->
+        <module>aqli-plugin-mcp</module>
+        <module>log-parser</module>
+    </modules>
+</project>

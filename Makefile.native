@@ -1,0 +1,178 @@
+# Native Library Installation Makefile
+# Helps copy native libraries to standard Aqli location (~/.aqli/libs/)
+
+.PHONY: help install-native-libs install-gguf-libs install-onnx-libs install-libtorch-libs install-litert-libs clean-native-libs
+
+AQLI_LIBS_DIR ?= $(HOME)/.aqli/libs
+LLAMA_LIBS_DIR = $(AQLI_LIBS_DIR)/llama
+ONNX_LIBS_DIR = $(AQLI_LIBS_DIR)/onnxruntime
+LIBTORCH_LIBS_DIR = $(AQLI_LIBS_DIR)/libtorch
+TFLITE_LIBS_DIR = $(AQLI_LIBS_DIR)/litert
+
+# Detect OS
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    LIB_EXT = .dylib
+    LIB_PREFIX = lib
+else ifeq ($(UNAME_S),Linux)
+    LIB_EXT = .so
+    LIB_PREFIX = lib
+else
+    # Windows (MinGW/Cygwin)
+    LIB_EXT = .dll
+    LIB_PREFIX = 
+endif
+
+help:
+	@echo "Aqli Native Library Installation"
+	@echo "==================================="
+	@echo ""
+	@echo "Usage:"
+	@echo "  make install-native-libs     - Install all native libraries"
+	@echo "  make install-gguf-libs       - Install GGUF/llama.cpp libraries"
+	@echo "  make install-onnx-libs       - Install ONNX Runtime libraries"
+	@echo "  make install-libtorch-libs   - Install LibTorch libraries"
+	@echo "  make install-litert-libs     - Install TensorFlow Lite libraries"
+	@echo "  make clean-native-libs       - Remove all installed libraries"
+	@echo ""
+	@echo "Standard location: $(AQLI_LIBS_DIR)"
+	@echo ""
+
+# Install all native libraries
+install-native-libs: install-gguf-libs install-onnx-libs install-libtorch-libs install-litert-libs
+	@echo "✓ All native libraries installed to $(AQLI_LIBS_DIR)"
+
+# Install GGUF / llama.cpp libraries
+install-gguf-libs:
+	@echo "Installing GGUF/llama.cpp libraries..."
+	@mkdir -p $(LLAMA_LIBS_DIR)
+	@# Try multiple source locations
+	@if [ -d "plugins/runner/gguf/aqli-ext-runner-gguf/src/main/resources/native-libs/cpu" ]; then \
+		cp plugins/runner/gguf/aqli-ext-runner-gguf/src/main/resources/native-libs/cpu/*$(LIB_EXT)* $(LLAMA_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "extension/format/gguf/aqli-ext-runner-gguf/target/llama-cpp/lib" ]; then \
+		cp extension/format/gguf/aqli-ext-runner-gguf/target/llama-cpp/lib/*$(LIB_EXT)* $(LLAMA_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "plugins/runner/gguf/source/llama-cpp/lib/cpu" ]; then \
+		cp plugins/runner/gguf/source/llama-cpp/lib/cpu/*$(LIB_EXT)* $(LLAMA_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "extension/format/gguf/vendor/llama-cpp/lib/cpu" ]; then \
+		cp extension/format/gguf/vendor/llama-cpp/lib/cpu/*$(LIB_EXT)* $(LLAMA_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "vendor/llama-cpp/lib/cpu" ]; then \
+		cp vendor/llama-cpp/lib/cpu/*$(LIB_EXT)* $(LLAMA_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@# Set executable permissions
+	@chmod +x $(LLAMA_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || true
+	@# Clear macOS quarantine
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		xattr -dr com.apple.quarantine $(LLAMA_LIBS_DIR) 2>/dev/null || true; \
+	fi
+	@echo "✓ GGUF libraries installed to $(LLAMA_LIBS_DIR)"
+	@ls -lh $(LLAMA_LIBS_DIR)/ 2>/dev/null || echo "  (no libraries found)"
+
+# Install ONNX Runtime libraries
+install-onnx-libs:
+	@echo "Installing ONNX Runtime libraries..."
+	@mkdir -p $(ONNX_LIBS_DIR)
+	@# Try multiple source locations
+	@if [ -d "plugins/runner/onnx/aqli-runner-onnx/src/main/cpp/onnxruntime/build/onnxruntime-osx-arm64-1.19.2/lib" ]; then \
+		cp plugins/runner/onnx/aqli-runner-onnx/src/main/cpp/onnxruntime/build/onnxruntime-osx-arm64-1.19.2/lib/*$(LIB_EXT)* $(ONNX_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "inference/format/onnx/onnxruntime/build/lib" ]; then \
+		cp inference/format/onnx/onnxruntime/build/lib/*$(LIB_EXT)* $(ONNX_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@# Set executable permissions
+	@chmod +x $(ONNX_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || true
+	@# Clear macOS quarantine
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		xattr -dr com.apple.quarantine $(ONNX_LIBS_DIR) 2>/dev/null || true; \
+	fi
+	@echo "✓ ONNX Runtime libraries installed to $(ONNX_LIBS_DIR)"
+	@ls -lh $(ONNX_LIBS_DIR)/ 2>/dev/null || echo "  (no libraries found)"
+
+# Install LibTorch libraries
+install-libtorch-libs:
+	@echo "Installing LibTorch libraries..."
+	@mkdir -p $(LIBTORCH_LIBS_DIR)
+	@# Try multiple source locations
+	@if [ -d "extension/kernel/libtorch/build/lib" ]; then \
+		cp extension/kernel/libtorch/build/lib/*$(LIB_EXT)* $(LIBTORCH_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "plugins/kernel/libtorch/build/lib" ]; then \
+		cp plugins/kernel/libtorch/build/lib/*$(LIB_EXT)* $(LIBTORCH_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "extension/kernel/libtorch/src/main/resources/native/Darwin/arm64" ]; then \
+		cp extension/kernel/libtorch/src/main/resources/native/Darwin/arm64/*$(LIB_EXT)* $(LIBTORCH_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@# Set executable permissions
+	@chmod +x $(LIBTORCH_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || true
+	@# Clear macOS quarantine
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		xattr -dr com.apple.quarantine $(LIBTORCH_LIBS_DIR) 2>/dev/null || true; \
+	fi
+	@echo "✓ LibTorch libraries installed to $(LIBTORCH_LIBS_DIR)"
+	@ls -lh $(LIBTORCH_LIBS_DIR)/ 2>/dev/null || echo "  (no libraries found)"
+
+# Install TensorFlow Lite libraries
+install-litert-libs:
+	@echo "Installing TensorFlow Lite libraries..."
+	@mkdir -p $(TFLITE_LIBS_DIR)
+	@# Try multiple source locations
+	@if [ -d "plugins/runner/litert/aqli-runner-litert/src/main/resources/native-libs" ]; then \
+		cp plugins/runner/litert/aqli-runner-litert/src/main/resources/native-libs/*$(LIB_EXT)* $(TFLITE_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@if [ -d "extension/runner/litert/build/lib" ]; then \
+		cp extension/runner/litert/build/lib/*$(LIB_EXT)* $(TFLITE_LIBS_DIR)/ 2>/dev/null || true; \
+	fi
+	@# Set executable permissions
+	@chmod +x $(TFLITE_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || true
+	@# Clear macOS quarantine
+	@if [ "$(UNAME_S)" = "Darwin" ]; then \
+		xattr -dr com.apple.quarantine $(TFLITE_LIBS_DIR) 2>/dev/null || true; \
+	fi
+	@echo "✓ TensorFlow Lite libraries installed to $(TFLITE_LIBS_DIR)"
+	@ls -lh $(TFLITE_LIBS_DIR)/ 2>/dev/null || echo "  (no libraries found)"
+
+# Clean all installed libraries
+clean-native-libs:
+	@echo "Removing all installed native libraries..."
+	@rm -rf $(AQLI_LIBS_DIR)/llama
+	@rm -rf $(AQLI_LIBS_DIR)/onnxruntime
+	@rm -rf $(AQLI_LIBS_DIR)/libtorch
+	@rm -rf $(AQLI_LIBS_DIR)/litert
+	@echo "✓ All native libraries removed from $(AQLI_LIBS_DIR)"
+
+# Verify installation
+verify-libs:
+	@echo "Verifying native library installation..."
+	@echo ""
+	@echo "GGUF/llama.cpp:"
+	@ls -lh $(LLAMA_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || echo "  Not installed"
+	@echo ""
+	@echo "ONNX Runtime:"
+	@ls -lh $(ONNX_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || echo "  Not installed"
+	@echo ""
+	@echo "LibTorch:"
+	@ls -lh $(LIBTORCH_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || echo "  Not installed"
+	@echo ""
+	@echo "TensorFlow Lite:"
+	@ls -lh $(TFLITE_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || echo "  Not installed"
+	@echo ""
+
+# Download pre-built binaries (optional)
+download-gguf:
+	@echo "Downloading pre-built llama.cpp binaries..."
+	@mkdir -p $(LLAMA_LIBS_DIR)
+	@curl -L https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-bin-macos-arm64.tar.gz | tar xz -C $(LLAMA_LIBS_DIR) || echo "Download failed"
+	@chmod +x $(LLAMA_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || true
+
+download-onnx:
+	@echo "Downloading pre-built ONNX Runtime..."
+	@mkdir -p $(ONNX_LIBS_DIR)
+	@curl -L https://github.com/microsoft/onnxruntime/releases/download/v1.19.2/onnxruntime-osx-arm64-1.19.2.tgz -o /tmp/onnxruntime.tgz
+	@tar xzf /tmp/onnxruntime.tgz -C $(ONNX_LIBS_DIR) --strip-components=1
+	@cp $(ONNX_LIBS_DIR)/lib/*$(LIB_EXT)* $(ONNX_LIBS_DIR)/ 2>/dev/null || true
+	@rm -rf $(ONNX_LIBS_DIR)/lib
+	@rm /tmp/onnxruntime.tgz
+	@chmod +x $(ONNX_LIBS_DIR)/*$(LIB_EXT)* 2>/dev/null || true

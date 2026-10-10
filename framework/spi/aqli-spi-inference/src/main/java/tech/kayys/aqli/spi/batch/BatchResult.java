@@ -1,0 +1,17 @@
+package tech.kayys.aqli.spi.batch;
+
+import tech.kayys.alkhawarizm.error.ErrorPayload;
+import tech.kayys.aqli.spi.inference.InferenceResponse;
+
+/**
+ * Represents an individual result within a batch execution.
+ */
+public record BatchResult(
+        String requestId,
+        InferenceResponse response,
+        ErrorPayload error) {
+
+    public boolean succeeded() {
+        return error == null && response != null;
+    }
+}

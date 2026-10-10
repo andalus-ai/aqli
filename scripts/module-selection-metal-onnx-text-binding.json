@@ -1,0 +1,69 @@
+{
+  "backendTargets": [
+    "metal"
+  ],
+  "formatTargets": [
+    "onnx"
+  ],
+  "llmTargets": [
+    "text"
+  ],
+  "architecture": "binding",
+  "profile": "snapshot",
+  "modules": [
+    ":backend:metal:aqli-backend-metal",
+    ":backend:metal:aqli-mlx-binding",
+    ":core:aqli-core",
+    ":core:aqli-error-code",
+    ":core:aqli-model-repository",
+    ":core:aqli-provider-core",
+    ":core:aqli-tokenizer-core",
+    ":core:plugin:aqli-plugin-kernel-core",
+    ":models:aqli-model-gemma",
+    ":models:aqli-model-llama",
+    ":models:aqli-model-mistral",
+    ":models:aqli-model-phi",
+    ":models:aqli-model-qwen",
+    ":core:aqli-model-repo-hf",
+    ":core:aqli-model-repo-local",
+    ":core:aqli-model-runner",
+    ":runner:litert:aqli-litert-core",
+    ":runner:onnx:aqli-ml-export-onnx",
+    ":runner:onnx:aqli-ml-onnx",
+    ":runner:onnx:aqli-plugin-runner-onnx",
+    ":runner:onnx:aqli-runner-onnx",
+    ":sdk:aqli-sdk",
+    ":sdk:aqli-sdk-api",
+    ":sdk:aqli-sdk-core",
+    ":sdk:aqli-sdk-local",
+    ":sdk:aqli-sdk-session",
+    ":spi:aqli-spi",
+    ":spi:aqli-spi-inference",
+    ":spi:aqli-spi-model",
+    ":spi:aqli-spi-multimodal",
+    ":spi:aqli-spi-plugin",
+    ":spi:aqli-spi-provider",
+    ":spi:aqli-spi-runtime",
+    ":ui:aqli-api",
+    ":ui:aqli-cli"
+  ],
+  "backendProperty": "cpu,metal",
+  "platformTags": [
+    "macos",
+    "cpu"
+  ],
+  "warnings": [],
+  "rawSelection": {
+    "backendTargets": [
+      "metal"
+    ],
+    "formatTargets": [
+      "onnx"
+    ],
+    "llmTargets": [
+      "text"
+    ],
+    "architecture": "binding",
+    "profile": "snapshot"
+  }
+}

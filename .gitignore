@@ -1,0 +1,333 @@
+
+# --------------------
+# Quarkus / Maven Multi-Module Specific
+# --------------------
+
+# Maven Build Output (applies to all modules, including root target)
+# The `target` directory in the root and all submodules.
+target/
+**/target/
+
+build/
+**/build/
+
+.venv
+**/.venv/
+
+.gradle-sandbox/
+.gradle-worker/
+
+# The generated Quarkus application runner JAR structure (inside target/)
+# This ensures that the final packaged application (which includes lib/) is ignored.
+quarkus-app/
+
+# Quarkus native executable artifacts generated at the repository root.
+/*-runner
+/*-runner.exe
+/*-runner.native
+/*-runner.build-artifacts.zip
+
+# Source modules whose names overlap with generated native runner artifacts
+# or broad local excludes.
+!/core/aqli-model-runner/
+!/core/aqli-model-runner/**
+!/runtime/
+!/runtime/aqli-runtime/
+!/runtime/aqli-runtime/build.gradle.kts
+!/runtime/aqli-runtime-distributed/
+!/runtime/aqli-runtime-distributed/build.gradle.kts
+/core/aqli-model-runner/build/
+/runtime/aqli-runtime/build/
+/runtime/aqli-runtime-distributed/build/
+/runtime/aqli-runtime/src/
+/runtime/aqli-runtime-distributed/src/
+
+# Native Image specific build files
+**/*.graal.log
+**/*.build.log
+**/*.o
+**/*.d
+**/*.gc.log
+
+# Maven Wrapper files (usually checked in, but sometimes people exclude the whole .mvn)
+# If you check in the wrapper scripts (mvnw, mvnw.cmd), keep these commented out.
+# .mvn/wrapper/maven-wrapper.jar
+
+# Log files generated during development or testing
+*.log
+log/
+tmp/
+logs/
+
+# --------------------
+# Java Specific
+# --------------------
+
+# Compiled class files
+*.class
+
+# Package Files (should be in target/, but for completeness)
+# *.jar
+# *.war
+# *.ear
+# *.zip
+# *.tar.gz
+
+# Virtual machine crash logs
+hs_err_pid*
+
+# --------------------
+# IDE / Tooling Specific
+# --------------------
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+*.launch
+.metadata
+
+# VS Code
+.vscode/
+
+# Build Dependency Caching (usually for CI/local builds)
+.m2/
+.gradle/
+.project
+.settings
+
+# --------------------
+# Native Libraries & Build Artifacts (CRITICAL FOR INFERENCE)
+# --------------------
+
+# ONNX Runtime build artifacts
+**/onnxruntime/build/
+**/onnxruntime-osx-*/
+**/libonnxruntime*.dylib*
+**/libonnxruntime*.so*
+**/libonnxruntime*.dll*
+**/onnxruntime*.tgz
+**/onnxruntime*.tar.gz
+
+# GGUF / llama.cpp build artifacts
+**/llama-cpp/build/
+**/llama-cpp/lib/
+**/source/llama-cpp/lib/
+**/libllama*.dylib*
+**/libllama*.so*
+**/libllama*.dll*
+**/libggml*.dylib*
+**/libggml*.so*
+**/libggml*.dll*
+**/libllama*.a
+**/libggml*.a
+
+# Standard native library location (user-specific, not tracked)
+~/.aqli/libs/
+.aqli/libs/
+**/.aqli/libs/
+
+# CUDA / GPU libraries
+**/*.cu
+**/libcuda*.so*
+**/libcudnn*.so*
+**/libnvinfer*.so*
+
+# Metal libraries (macOS)
+**/*.metal
+**/libmetal*.dylib
+
+# JNI native libraries
+**/*.jnilib
+**/*.so
+**/*.dll
+
+# CMake build directories
+**/CMakeFiles/
+**/cmake-build-*/
+**/CMakeCache.txt
+**/Makefile
+!backend/metal/aqli-backend-metal/src/main/cpp/metal/Makefile
+
+# Build logs and configuration
+**/CMakeConfigureLog.yaml
+**/compiler_depend.make
+**/compiler_depend.ts
+
+# --------------------
+# Generated Code (Large Files)
+# --------------------
+
+# Auto-generated Java header bindings
+**/llama_h.java
+**/llama_h_1.java
+**/llama_h_2.java
+**/onnxruntime_c_api.java
+**/*_h.java
+
+
+
+# --------------------
+# Security / Local Files
+# --------------------
+
+# Environment variable files
+.env
+.env.*
+application-local.properties
+application-dev.properties
+# If you have specific secret files:
+# *.key
+# *.pem
+# *.secrets
+
+# Windows files
+Thumbs.db
+.quarkus/
+.DS_Store
+
+.venv-gguf
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# --------------------
+# Test & Benchmark Artifacts
+# --------------------
+
+# JMH benchmarks
+**/benchmarks.jar
+**/jmh-results.json
+
+# Test output
+**/test-results/
+**/test-output/
+
+# Coverage reports
+**/jacoco/
+**/coverage/
+*.exec
+
+# --------------------
+# Documentation Build Output
+# --------------------
+
+# Javadoc
+**/javadoc/
+**/apidocs/
+
+# Site generation
+**/site/
+
+# --------------------
+# OS Specific
+# --------------------
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+
+# JBang Example
+**/sdk/integration/jbang-templates/examples/lib*.zip
+*.dylib
+
+*.log
+.notes
+# Ignore compiled artifacts – never commit them again
+/build/
+*/build/
+# Ignore compiled artifacts – never commit them again
+/build/
+*/build/
+# Ignore compiled artifacts – never commit them again
+/build/
+*/build/
+
+```
+# Dependencies
+node_modules/
+**/node_modules/**
+.gradle/
+
+# Build artifacts
+**/build/**
+**/target/**
+**/bin/**
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
