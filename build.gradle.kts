@@ -149,8 +149,6 @@ subprojects {
                 .using(module("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-tensor"))
                 .using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
-            substitute(module("tech.kayys.aljabr:aljabr-tensor"))
-                .using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.aljabr:tafkir-ml-core")).using(module("tech.kayys.tafkir:tafkir-ml-core:0.1.0-SNAPSHOT"))
         }
         resolutionStrategy.eachDependency {
