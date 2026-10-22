@@ -10,6 +10,10 @@ val tafkirDir = file("../tafkir")
 if (tafkirDir.exists() && (tafkirDir.resolve("build.gradle.kts").isFile || tafkirDir.resolve("build.gradle").isFile || tafkirDir.resolve("settings.gradle.kts").isFile || tafkirDir.resolve("settings.gradle").isFile)) {
     includeBuild("../tafkir")
 }
+// Keep logical grouping projects stable when optional modules come from
+// different roots (for example, built-in plugins and sibling Wayang modules).
+val optionalParentProjectDirs = mutableMapOf<String, java.io.File>()
+
 fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
     // Resolve the leaf first. Intermediate Gradle projects must point at real
     // ancestor directories of the selected module, not guessed paths such as
@@ -30,26 +34,29 @@ fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
         currentPath = if (currentPath.isEmpty()) part else "$currentPath:$part"
         include(currentPath)
 
-        // ':tokenizer' is a logical grouping project; its module lives under
-        // framework/core, so use the framework directory for the grouping node
-        // instead of creating a second project descriptor over ':core'’s directory.
-        var parentDir = if (parts[0] == "tokenizer" && i == 0) {
-            file("framework")
-        } else {
-            projectDir
-        }
-        if (!(parts[0] == "tokenizer" && i == 0)) {
-            repeat(parts.size - i - 1) {
-                parentDir = parentDir.parentFile
-                    ?: throw GradleException("Cannot resolve parent directory for Gradle project ':$currentPath'")
+        if (currentPath !in optionalParentProjectDirs) {
+            // ':tokenizer' is a logical grouping project; its module lives under
+            // framework/core, so use framework as its stable grouping directory.
+            // This also avoids sharing ':core'’s directory.
+            var parentDir = if (parts[0] == "tokenizer" && i == 0) {
+                file("framework")
+            } else {
+                projectDir
             }
+            if (!(parts[0] == "tokenizer" && i == 0)) {
+                repeat(parts.size - i - 1) {
+                    parentDir = parentDir.parentFile
+                        ?: throw GradleException("Cannot resolve parent directory for Gradle project ':$currentPath'")
+                }
+            }
+            if (!parentDir.isDirectory) {
+                throw GradleException(
+                    "Cannot include Gradle project ':$currentPath': mapped directory '$parentDir' does not exist"
+                )
+            }
+            optionalParentProjectDirs[currentPath] = parentDir
+            project(":$currentPath").projectDir = parentDir
         }
-        if (!parentDir.isDirectory) {
-            throw GradleException(
-                "Cannot include Gradle project ':$currentPath': mapped directory '$parentDir' does not exist"
-            )
-        }
-        project(":$currentPath").projectDir = parentDir
     }
 
     include(projectPath)
