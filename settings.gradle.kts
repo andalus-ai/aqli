@@ -11,10 +11,15 @@ if (tafkirDir.exists() && (tafkirDir.resolve("build.gradle.kts").isFile || tafki
     includeBuild("../tafkir")
 }
 fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
+    // Resolve the leaf first. Intermediate Gradle projects must point at real
+    // ancestor directories of the selected module, not guessed paths such as
+    // framework/tokenizer that may not exist in this repository layout.
     val projectDir = candidatePaths
         .map { file(it) }
         .firstOrNull { candidate ->
-            candidate.resolve("build.gradle.kts").isFile || candidate.resolve("build.gradle").isFile
+            candidate.isDirectory &&
+                    (candidate.resolve("build.gradle.kts").isFile ||
+                            candidate.resolve("build.gradle").isFile)
         }
         ?: return
 
@@ -24,17 +29,18 @@ fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
         val part = parts[i]
         currentPath = if (currentPath.isEmpty()) part else "$currentPath:$part"
         include(currentPath)
-        
-        val rootPart = parts[0]
-        var mappedDir = currentPath.replace(":", "/")
-        if (rootPart in listOf("core", "spi", "sdk", "plugin", "observability", "tokenizer")) {
-            mappedDir = "framework/" + mappedDir
-        } else if (rootPart in listOf("backend", "runner", "quantizer", "optimization", "plugins", "repository", "adapter")) {
-            mappedDir = "runtime/" + mappedDir
-        } else if (rootPart == "runtime") {
-            mappedDir = "runtime/core/" + mappedDir.removePrefix("runtime").removePrefix("/")
+
+        var parentDir = projectDir
+        repeat(parts.size - i - 1) {
+            parentDir = parentDir.parentFile
+                ?: throw GradleException("Cannot resolve parent directory for Gradle project ':$currentPath'")
         }
-        project(":$currentPath").projectDir = file(mappedDir)
+        if (!parentDir.isDirectory) {
+            throw GradleException(
+                "Cannot include Gradle project ':$currentPath': mapped directory '$parentDir' does not exist"
+            )
+        }
+        project(":$currentPath").projectDir = parentDir
     }
 
     include(projectPath)
