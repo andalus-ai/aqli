@@ -1,5 +1,16 @@
 rootProject.name = "aqli-engine"
 
+// Aljabr is the canonical successor to the former Alkhawarizm project.
+// Prefer a checkout inside the CI workspace, while supporting sibling checkouts locally.
+val aljabrDir = listOf(file("aljabr"), file("../aljabr"))
+    .firstOrNull { candidate ->
+        candidate.exists() &&
+                (candidate.resolve("settings.gradle.kts").isFile || candidate.resolve("settings.gradle").isFile)
+    }
+if (aljabrDir != null) {
+    includeBuild(aljabrDir)
+}
+
 // Include alkhawarizm and tafkir as composite builds if their directories exist locally (during local multi-project development)
 val alkhawarizmDir = file("../alkhawarizm")
 if (alkhawarizmDir.exists() && (alkhawarizmDir.resolve("build.gradle.kts").isFile || alkhawarizmDir.resolve("build.gradle").isFile || alkhawarizmDir.resolve("settings.gradle.kts").isFile || alkhawarizmDir.resolve("settings.gradle").isFile)) {
