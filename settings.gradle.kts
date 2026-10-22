@@ -30,10 +30,19 @@ fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
         currentPath = if (currentPath.isEmpty()) part else "$currentPath:$part"
         include(currentPath)
 
-        var parentDir = projectDir
-        repeat(parts.size - i - 1) {
-            parentDir = parentDir.parentFile
-                ?: throw GradleException("Cannot resolve parent directory for Gradle project ':$currentPath'")
+        // ':tokenizer' is a logical grouping project; its module lives under
+        // framework/core, so use the framework directory for the grouping node
+        // instead of creating a second project descriptor over ':core'’s directory.
+        var parentDir = if (parts[0] == "tokenizer" && i == 0) {
+            file("framework")
+        } else {
+            projectDir
+        }
+        if (!(parts[0] == "tokenizer" && i == 0)) {
+            repeat(parts.size - i - 1) {
+                parentDir = parentDir.parentFile
+                    ?: throw GradleException("Cannot resolve parent directory for Gradle project ':$currentPath'")
+            }
         }
         if (!parentDir.isDirectory) {
             throw GradleException(
