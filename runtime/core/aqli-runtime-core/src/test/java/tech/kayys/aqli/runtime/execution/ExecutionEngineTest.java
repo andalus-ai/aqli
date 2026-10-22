@@ -120,7 +120,7 @@ class ExecutionEngineTest {
                         return false;
                     }
                     if (returnType == char.class) {
-                        return '\\0';
+                        return '\0';
                     }
                     return 0;
                 });
