@@ -56,6 +56,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Checkout Aljabr composite dependency
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aljabr
+          path: aljabr
+      - name: Checkout Tafkir training and quantizer dependency
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/tafkir
+          path: tafkir
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -123,6 +133,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Checkout Aljabr composite dependency
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aljabr
+          path: aljabr
+      - name: Checkout Tafkir training and quantizer dependency
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/tafkir
+          path: tafkir
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -170,6 +190,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Checkout Aljabr composite dependency
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/aljabr
+          path: aljabr
+      - name: Checkout Tafkir training and quantizer dependency
+        uses: actions/checkout@v4
+        with:
+          repository: andalus-ai/tafkir
+          path: tafkir
 
       - name: Setup Java
         uses: actions/setup-java@v4
