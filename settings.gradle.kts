@@ -11,6 +11,18 @@ if (aljabrDir != null) {
     includeBuild(aljabrDir)
 }
 
+// Suling provides the optional Java audio codec facade used by audio-capable runners.
+// Resolve it from source in CI and local multi-repository workspaces instead of
+// relying on a separately published tech.kayys:suling snapshot.
+val sulingDir = listOf(file("suling"), file("../suling"))
+    .firstOrNull { candidate ->
+        candidate.exists() &&
+                (candidate.resolve("settings.gradle.kts").isFile || candidate.resolve("settings.gradle").isFile)
+    }
+if (sulingDir != null) {
+    includeBuild(sulingDir)
+}
+
 // Include alkhawarizm and tafkir as composite builds if their directories exist locally (during local multi-project development)
 val alkhawarizmDir = file("../alkhawarizm")
 if (alkhawarizmDir.exists() && (alkhawarizmDir.resolve("build.gradle.kts").isFile || alkhawarizmDir.resolve("build.gradle").isFile || alkhawarizmDir.resolve("settings.gradle.kts").isFile || alkhawarizmDir.resolve("settings.gradle").isFile)) {
