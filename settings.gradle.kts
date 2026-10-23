@@ -6,13 +6,9 @@ val aljabrDir = listOf(file("aljabr"), file("../aljabr"), file("../../Aljabr/alj
     .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
 if (aljabrDir != null) {
     includeBuild(aljabrDir) {
-        dependencySubstitution {
-            // Aqli consumes this Aljabr module directly; declare the source mapping
-            // explicitly so it works even if the included project's group differs
-            // from the published coordinate during migration.
-            substitute(module("tech.kayys.aljabr:aljabr-safetensor-quantization"))
-                .using(project(":core:aljabr-safetensor-quantization"))
-        }
+        // Do not substitute the optional Tafkir-backed quantization adapter here.
+        // Aljabr only includes :core:aljabr-safetensor-quantization with -PwithTafkir=true.
+        // Aqli's default inference build must not require that training integration.
     }
 }
 
