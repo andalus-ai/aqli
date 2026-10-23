@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "core/**"
+      - "framework/**"
+      - "training/**"
+      - "api/**"
       - "backend/**"
       - "buildSrc/**"
       - "gradle/**"
@@ -30,6 +33,8 @@ on:
       - "backend/**"
       - "buildSrc/**"
       - "framework/**"
+      - "training/**"
+      - "api/**"
       - "gradle/**"
       - "observability/**"
       - "plugins/**"
