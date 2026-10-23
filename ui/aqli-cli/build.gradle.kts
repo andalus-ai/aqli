@@ -81,7 +81,6 @@ dependencies {
     implementation(project(":runner:safetensor:aqli-safetensor-engine"))
     implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-model-gemma4:0.1.0-SNAPSHOT")
