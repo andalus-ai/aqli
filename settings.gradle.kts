@@ -8,13 +8,6 @@ if (aljabrDir != null) {
     includeBuild(aljabrDir)
 }
 
-// CI checks Tafkir out to ./tafkir; local development commonly uses ../tafkir.
-// The composite is optional so Aqli's core configuration remains usable without it.
-val tafkirDir = listOf(file("tafkir"), file("../tafkir"))
-    .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
-if (tafkirDir != null) {
-    includeBuild(tafkirDir)
-}
 // Keep logical grouping projects stable when optional modules come from
 // different roots (for example, built-in plugins and sibling Wayang modules).
 val optionalParentProjectDirs = mutableMapOf<String, java.io.File>()
