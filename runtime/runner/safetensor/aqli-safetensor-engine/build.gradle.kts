@@ -88,7 +88,9 @@ dependencies {
     implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT")
+    // Quantization adapters are optional and Tafkir-backed; the default inference
+    // engine deliberately does not depend on them. Add an inference-owned adapter
+    // behind the Aqli quantization SPI when runtime quantization support is implemented.
 
     implementation("tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT")
     // aqli-safetensor-audio removed — module does not exist in this repo;

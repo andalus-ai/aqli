@@ -1,11 +1,29 @@
 rootProject.name = "aqli-engine"
 
-// Include aljabr as composite build if directory exists locally (during local multi-project development)
-val aljabrDir = listOf(file("../aljabr"), file("../../Aljabr/aljabr"))
+// Include Aljabr as a composite build in CI (checked out to ./aljabr) and
+// during local multi-project development (sibling checkout paths).
+val aljabrDir = listOf(file("aljabr"), file("../aljabr"), file("../../Aljabr/aljabr"))
     .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
 if (aljabrDir != null) {
-    includeBuild(aljabrDir)
+    includeBuild(aljabrDir) {
+        // Do not substitute the optional Tafkir-backed quantization adapter here.
+        // Aljabr only includes :core:aljabr-safetensor-quantization with -PwithTafkir=true.
+        // Aqli's default inference build must not require that training integration.
+    }
 }
+
+// Suling is a runtime integration. Resolve its checked-out source in CI and sibling
+// development workspaces instead of looking for an unpublished Maven artifact.
+val sulingDir = listOf(file("suling"), file("../suling"))
+    .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
+if (sulingDir != null) {
+    includeBuild(sulingDir) {
+        dependencySubstitution {
+            substitute(module("tech.kayys:suling")).using(project(":"))
+        }
+    }
+}
+
 // Keep logical grouping projects stable when optional modules come from
 // different roots (for example, built-in plugins and sibling Wayang modules).
 val optionalParentProjectDirs = mutableMapOf<String, java.io.File>()
