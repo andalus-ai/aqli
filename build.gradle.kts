@@ -142,12 +142,10 @@ subprojects {
 
     configurations.configureEach {
         resolutionStrategy.dependencySubstitution {
-<<<<<<< HEAD
-            substitute(module("tech.kayys.aljabr:aljabr-tensor")).using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
-=======
-            // Alkhawarizm was renamed to Aljabr. Route legacy coordinates to the
-            // canonical Aljabr artifacts; the included composite build supplies them
-            // from source in CI and local multi-repository development.
+            // Preserve canonical Aljabr coordinates and route legacy Alkhawarizm
+            // coordinates to the renamed artifacts during the migration.
+            substitute(module("tech.kayys.aljabr:aljabr-tensor"))
+                .using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-spi-model"))
                 .using(module("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-tensor"))
@@ -184,7 +182,6 @@ subprojects {
                 .using(module("tech.kayys.aljabr:aljabr-spi-plugin:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-gguf-llamacpp"))
                 .using(module("tech.kayys.aljabr:aljabr-gguf-llamacpp:0.1.0-SNAPSHOT"))
->>>>>>> c8f05bd2685ff01ec9d1c475ec7c38ef5af5aaf9
             substitute(module("tech.kayys.aljabr:tafkir-ml-core")).using(module("tech.kayys.tafkir:tafkir-ml-core:0.1.0-SNAPSHOT"))
         }
         resolutionStrategy.eachDependency {
