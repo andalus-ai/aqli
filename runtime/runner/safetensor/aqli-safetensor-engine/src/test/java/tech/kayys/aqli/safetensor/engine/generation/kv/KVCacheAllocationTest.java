@@ -1,6 +1,6 @@
 package tech.kayys.aqli.safetensor.engine.generation.kv;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 

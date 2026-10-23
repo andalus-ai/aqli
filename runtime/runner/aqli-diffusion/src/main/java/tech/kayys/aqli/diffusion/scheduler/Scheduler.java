@@ -1,6 +1,6 @@
 package tech.kayys.aqli.diffusion.scheduler;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 /**
  * Diffusion scheduler contract used by the Java graph and runner layers.

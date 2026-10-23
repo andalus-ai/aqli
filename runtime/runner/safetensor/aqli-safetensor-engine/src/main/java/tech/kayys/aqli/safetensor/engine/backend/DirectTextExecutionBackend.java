@@ -7,9 +7,9 @@ import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
 import tech.kayys.aqli.safetensor.engine.planning.PreparedPrompt;
 import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionStateResolver;
 import tech.kayys.aqli.safetensor.engine.session.ConversationSessionManager;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
 import java.util.Map;

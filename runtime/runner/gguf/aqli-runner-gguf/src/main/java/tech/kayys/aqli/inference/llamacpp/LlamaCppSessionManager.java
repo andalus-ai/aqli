@@ -9,7 +9,7 @@ import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.gguf.llamacpp.*;
+import tech.kayys.aljabr.gguf.llamacpp.*;
 import tech.kayys.aqli.spi.observability.AdapterMetricSchema;
 import tech.kayys.aqli.spi.observability.AdapterMetricsRecorder;
 
@@ -151,21 +151,21 @@ public class LlamaCppSessionManager {
             String sessionId = java.util.UUID.randomUUID().toString();
 
             // Create artifact location
-            tech.kayys.alkhawarizm.spi.model.ArtifactLocation location = new tech.kayys.alkhawarizm.spi.model.ArtifactLocation(
+            tech.kayys.aljabr.spi.model.ArtifactLocation location = new tech.kayys.aljabr.spi.model.ArtifactLocation(
                     resolveModelPath(modelId, config),
                     null,
                     null,
                     null);
 
             // Create model manifest
-            tech.kayys.alkhawarizm.spi.model.ModelManifest manifest = tech.kayys.alkhawarizm.spi.model.ModelManifest.builder()
+            tech.kayys.aljabr.spi.model.ModelManifest manifest = tech.kayys.aljabr.spi.model.ModelManifest.builder()
                     .modelId(modelId)
                     .name(modelId)
                     .version("unknown")
                     .path(location.uri())
                     .apiKey(tech.kayys.aqli.spi.auth.ApiKeyConstants.COMMUNITY_API_KEY)
                     .requestId(requestId)
-                    .artifacts(Map.of(tech.kayys.alkhawarizm.core.model.ModelFormat.GGUF, location))
+                    .artifacts(Map.of(tech.kayys.aljabr.core.model.ModelFormat.GGUF, location))
                     .supportedDevices(java.util.Collections.emptyList())
                     .resourceRequirements(null)
                     .metadata(java.util.Collections.emptyMap())

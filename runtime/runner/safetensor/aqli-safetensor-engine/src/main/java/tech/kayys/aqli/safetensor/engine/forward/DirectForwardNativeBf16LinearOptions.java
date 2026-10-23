@@ -11,7 +11,7 @@ import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardRuntimeOpti
  * Configuration options for the native BF16 Metal linear projection path.
  *
  * <p>These options apply to any model that declares the {@code nativeBf16Matvec} capability
- * in its {@link tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits}. They are intentionally
+ * in its {@link tech.kayys.aljabr.spi.model.ModelRuntimeTraits}. They are intentionally
  * model-family agnostic — policy classes must not check model identity.
  */
 record DirectForwardNativeBf16LinearOptions(

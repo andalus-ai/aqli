@@ -1,7 +1,7 @@
 package tech.kayys.aqli.spi.embedding;
 
 import io.smallrye.mutiny.Uni;
-import tech.kayys.alkhawarizm.spi.model.MultimodalContent;
+import tech.kayys.aljabr.spi.model.MultimodalContent;
 import java.util.List;
 
 /**

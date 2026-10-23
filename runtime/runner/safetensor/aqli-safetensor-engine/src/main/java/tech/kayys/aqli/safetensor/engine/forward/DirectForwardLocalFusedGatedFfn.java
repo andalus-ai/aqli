@@ -5,10 +5,10 @@
  */
 package tech.kayys.aqli.safetensor.engine.forward;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
 
 final class DirectForwardLocalFusedGatedFfn {
     private static final String PROFILE_KEY = "ffn_gate_up_fused";

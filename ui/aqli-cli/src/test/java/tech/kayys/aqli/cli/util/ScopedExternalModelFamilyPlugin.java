@@ -6,9 +6,9 @@
 
 package tech.kayys.aqli.cli.util;
 
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
 
 import java.util.List;
 import java.util.Map;

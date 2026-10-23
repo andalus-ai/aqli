@@ -1,7 +1,7 @@
 package tech.kayys.aqli.runtime.plan;
 
 import tech.kayys.aqli.ir.*;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 
 /**
  * IR → Compiler → ExecutionPlan

@@ -24,22 +24,22 @@ dependencies {
     implementation(project(":sdk:aqli-sdk-api"))
     implementation("io.quarkus:quarkus-arc:3.32.2")
     implementation(project(":core:aqli-core"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
 
     
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-gguf-converter:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-converter:0.1.0-SNAPSHOT")
     implementation(project(":repository:aqli-model-repo-hf"))
     implementation(project(":repository:aqli-model-repo-local"))
     implementation(project(":tokenizer:aqli-tokenizer-core"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
     implementation(project(":spi:aqli-spi-plugin"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-gguf-core:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
     // implementation(project(":runner:safetensor:aqli-safetensor-engine"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-spi:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
     implementation(project(":optimization:aqli-plugin-kv-cache"))
 
 

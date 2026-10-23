@@ -186,7 +186,7 @@ public class SafetensorRunnerPlugin implements RunnerPlugin {
 
         try {
             // Retrieve health from the reactive backend
-            tech.kayys.alkhawarizm.spi.model.HealthStatus backendHealth = backend.health();
+            tech.kayys.aljabr.spi.model.HealthStatus backendHealth = backend.health();
             
             Map<String, Object> details = new HashMap<>();
             details.put("backend", config.backend());

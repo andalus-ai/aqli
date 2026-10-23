@@ -1,6 +1,6 @@
 package tech.kayys.aqli.provider.litert;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 
 public class TensorException extends InferenceException {

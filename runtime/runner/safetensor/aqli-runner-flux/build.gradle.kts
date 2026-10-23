@@ -18,16 +18,16 @@ repositories {
 }
 
 dependencies {
-    // Alkhawarizm foundation
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-spi:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-core:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-loader:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-quantization:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-core:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-model-flux:0.1.0-SNAPSHOT")
+    // Aljabr foundation
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-model-flux:0.1.0-SNAPSHOT")
 
     // Aqli SPIs and core
     implementation(project(":spi:aqli-spi"))

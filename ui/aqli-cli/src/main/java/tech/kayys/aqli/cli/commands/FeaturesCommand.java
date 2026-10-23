@@ -64,7 +64,7 @@ public class FeaturesCommand implements Runnable {
     private static final String ADAPTER_SERVICE_ENTRY = "META-INF/services/tech.kayys.aqli.spi.feature.FeatureAdapter";
     private static final String MODEL_FAMILY_KIND = "model-family";
     private static final String MODEL_FAMILY_SERVICE_ENTRY =
-            "META-INF/services/tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin";
+            "META-INF/services/tech.kayys.aljabr.spi.model.ModelFamilyPlugin";
     private static final String AQLI_PLUGIN_SERVICE_ENTRY =
             "META-INF/services/tech.kayys.aqli.spi.plugin.AqliPlugin";
     private static final String MANIFEST_ENTRY = "META-INF/aqli-extension.json";
@@ -1740,9 +1740,9 @@ public class FeaturesCommand implements Runnable {
         return """
                 package %s;
 
-                                import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-                import tech.kayys.alkhawarizm.spi.model.ModelTokenizerDescriptor;
+                                import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+                import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+                import tech.kayys.aljabr.spi.model.ModelTokenizerDescriptor;
 
                 import java.util.List;
                 import java.util.Map;
@@ -2246,7 +2246,7 @@ public class FeaturesCommand implements Runnable {
             case "wordpiece" -> "List.of(ModelTokenizerDescriptor.wordPiece(FAMILY_ID + \"-tokenizer\"))";
             case "custom" -> "List.of(new ModelTokenizerDescriptor("
                     + "FAMILY_ID + \"-tokenizer\", "
-                    + "tech.kayys.alkhawarizm.spi.model.ModelTokenizerKind.CUSTOM, "
+                    + "tech.kayys.aljabr.spi.model.ModelTokenizerKind.CUSTOM, "
                     + "List.of(), "
                     + "Map.of()))";
             case "none" -> "List.of()";

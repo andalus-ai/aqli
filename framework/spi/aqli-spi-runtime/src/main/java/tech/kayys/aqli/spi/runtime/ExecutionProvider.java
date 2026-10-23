@@ -3,7 +3,7 @@
  */
 package tech.kayys.aqli.spi.runtime;
 
-import tech.kayys.alkhawarizm.spi.model.HealthStatus;
+import tech.kayys.aljabr.spi.model.HealthStatus;
 
 /**
  * Unified provider abstraction that bridges <b>local runners</b>

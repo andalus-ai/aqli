@@ -8,11 +8,11 @@ package tech.kayys.aqli.safetensor.engine.forward;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.ForwardWorkspace;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 /**
  * Public FFN entry point for callers that need direct feed-forward execution

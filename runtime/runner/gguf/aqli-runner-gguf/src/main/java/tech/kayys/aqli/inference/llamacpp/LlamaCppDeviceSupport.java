@@ -1,6 +1,6 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

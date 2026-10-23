@@ -5,8 +5,8 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

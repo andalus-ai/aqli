@@ -4,8 +4,8 @@ plugins {
 
 dependencies {
     implementation(project(":spi:aqli-spi"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":core:aqli-core"))
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-rest-client")

@@ -191,10 +191,10 @@ import tech.kayys.aqli.spi.inference.AsyncJobStatus;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.alkhawarizm.spi.model.MultimodalRequest;
-import tech.kayys.alkhawarizm.spi.model.MultimodalResponse;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelRegistry;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -578,10 +578,10 @@ import tech.kayys.aqli.sdk.local.gguf.GgufDirectRuntime;
 import tech.kayys.aqli.sdk.model.*;
 import tech.kayys.aqli.sdk.util.AqliHome;
 import tech.kayys.aqli.spi.auth.ApiKeyConstants;
-import tech.kayys.alkhawarizm.spi.model.ModelFormatDetector;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry;
+import tech.kayys.aljabr.spi.model.ModelFormatDetector;
+import tech.kayys.aljabr.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelRegistry;
 import tech.kayys.aqli.spi.provider.ProviderInfo;
 
 import java.io.IOException;
@@ -1082,7 +1082,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.model.ModelResolution;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1273,8 +1273,8 @@ package tech.kayys.aqli.sdk.local.internal;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aqli.spi.context.RequestContext;
 
 import java.time.Instant;
@@ -1378,7 +1378,7 @@ public class ManifestStoreHelper {
 ```java
 package tech.kayys.aqli.sdk.local.internal;
 
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1455,8 +1455,8 @@ import tech.kayys.aqli.spi.inference.AsyncJobStatus;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.alkhawarizm.spi.model.MultimodalRequest;
-import tech.kayys.alkhawarizm.spi.model.MultimodalResponse;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
 import tech.kayys.aqli.spi.processor.MultimodalProcessor;
 import tech.kayys.aqli.spi.provider.LLMProvider;
 import tech.kayys.aqli.spi.provider.ProviderRegistry;
@@ -1910,7 +1910,7 @@ import jakarta.inject.Inject;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
-import tech.kayys.alkhawarizm.spi.model.ModelFormatDetector;
+import tech.kayys.aljabr.spi.model.ModelFormatDetector;
 import tech.kayys.aqli.spi.provider.*;
 
 import java.nio.file.Path;
@@ -2041,7 +2041,7 @@ import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -2288,10 +2288,10 @@ import tech.kayys.aqli.spi.inference.AsyncJobStatus;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.alkhawarizm.spi.model.MultimodalRequest;
-import tech.kayys.alkhawarizm.spi.model.MultimodalResponse;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelRegistry;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
 import tech.kayys.aqli.spi.provider.ProviderInfo;
 import tech.kayys.aqli.spi.provider.ProviderRegistry;

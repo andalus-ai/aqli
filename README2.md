@@ -13,7 +13,7 @@ FILE: README.md
   [![Native Image](https://img.shields.io/badge/GraalVM-Native%20Image-orange.svg)](https://www.graalvm.org/)
 </div>
 
-**Aqli** is a high-performance, low-level inference engine and serving layer for AI models. It is the unified evolution of the former `alkhawarizm` (tensor/model runtime) and `tafkir` (quantization) projects, now consolidated as a single standalone project.
+**Aqli** is a high-performance, low-level inference engine and serving layer for AI models. It is the unified evolution of the former `aljabr` (tensor/model runtime) and `tafkir` (quantization) projects, now consolidated as a single standalone project.
 
 Aqli acts as the foundation for the [Wayang](../wayang/) orchestration layer. While Wayang handles agents and orchestration, Aqli handles the raw inference machinery: model loading, tensor operations, quantization, GGUF/SafeTensor execution, and hardware-accelerated backends (CPU, Metal, CUDA).
 
@@ -34,7 +34,7 @@ Aqli acts as the foundation for the [Wayang](../wayang/) orchestration layer. Wh
 │  └──────────┘  └──────────┘  └───────────────────┘ │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
-│  │         alkhawarizm (tensor core)            │  │
+│  │         aljabr (tensor core)            │  │
 │  │  CPU · Metal (Apple Silicon) · CUDA          │  │
 │  └──────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────┘
@@ -220,7 +220,7 @@ MIT © Kayys.tech
 ================================================
 FILE: available_projects.txt
 ================================================
-:alkhawarizm
+:aljabr
 :core
 :core
 :core:aqli-adapter
@@ -546,7 +546,7 @@ subprojects {
 
     configurations.configureEach {
         resolutionStrategy.dependencySubstitution {
-            substitute(module("tech.kayys.aljabr:aljabr-tensor")).using(module("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.1"))
+            substitute(module("tech.kayys.aljabr:aljabr-tensor")).using(module("tech.kayys.aljabr:aljabr-tensor:0.1.1"))
             substitute(module("tech.kayys.aljabr:tafkir-ml-core")).using(module("tech.kayys.tafkir:tafkir-ml-core:0.1.0-SNAPSHOT"))
         }
         resolutionStrategy.eachDependency {
@@ -2331,10 +2331,10 @@ FILE: settings.gradle.kts
 ================================================
 rootProject.name = "aqli-engine"
 
-// Include alkhawarizm and tafkir as composite builds if their directories exist locally (during local multi-project development)
-val alkhawarizmDir = file("../alkhawarizm")
-if (alkhawarizmDir.exists() && (alkhawarizmDir.resolve("build.gradle.kts").isFile || alkhawarizmDir.resolve("build.gradle").isFile || alkhawarizmDir.resolve("settings.gradle.kts").isFile || alkhawarizmDir.resolve("settings.gradle").isFile)) {
-    includeBuild("../alkhawarizm")
+// Include aljabr and tafkir as composite builds if their directories exist locally (during local multi-project development)
+val aljabrDir = file("../aljabr")
+if (aljabrDir.exists() && (aljabrDir.resolve("build.gradle.kts").isFile || aljabrDir.resolve("build.gradle").isFile || aljabrDir.resolve("settings.gradle.kts").isFile || aljabrDir.resolve("settings.gradle").isFile)) {
+    includeBuild("../aljabr")
 }
 
 val tafkirDir = file("../tafkir")
@@ -2388,10 +2388,10 @@ includeOptionalProject("core:aqli-tokenizer-core", "framework/core/aqli-tokenize
 // Dynamically include model projects if they exist (avoid hard failure when some model dirs are missing)
 val staticallyIncludedModelProjects = setOf<String>()
 
-// Include statically listed ones only if their directories exist (also check alkhawarizm/models)
+// Include statically listed ones only if their directories exist (also check aljabr/models)
 staticallyIncludedModelProjects.forEach { name ->
-    val alkhawarizmAlt = "../alkhawarizm/models/alkhawarizm-model-${name.removePrefix("aqli-model-")}"
-    includeOptionalProject("models:$name", "models/$name", "../alkhawarizm/models/$name", alkhawarizmAlt)
+    val aljabrAlt = "../aljabr/models/aljabr-model-${name.removePrefix("aqli-model-")}"
+    includeOptionalProject("models:$name", "models/$name", "../aljabr/models/$name", aljabrAlt)
 }
 
 // Auto-include any additional model projects present under any 'models' directories in the repository
@@ -5769,7 +5769,7 @@ dependencies {
     implementation(platform("io.quarkus.platform:quarkus-bom:$quarkusVersion"))
     implementation("io.quarkus:quarkus-arc")
     implementation("io.smallrye.config:smallrye-config:3.10.1")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     // Optional intra-build project dependencies — only add if those projects are present
     val spiAqli = findProject(":spi:aqli-spi")
     if (spiAqli != null) {
@@ -5789,8 +5789,8 @@ dependencies {
     } else {
         println("   [Warning] spi:aqli-spi-model not present; skipping project dependency")
     }
-    // Depend on published alkhawarizm core aggregator for shared math/tensor/tokenizer foundations
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-core:0.1.0-SNAPSHOT")
+    // Depend on published aljabr core aggregator for shared math/tensor/tokenizer foundations
+    implementation("tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT")
     
     implementation("io.smallrye.reactive:mutiny:2.5.5")
     implementation("jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1")
@@ -5855,9 +5855,9 @@ package tech.kayys.aqli.core.config;
 
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -6019,13 +6019,13 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/data/GData.jav
 package tech.kayys.aqli.core.data;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 /**
  * Unified data contract for all Aqli runtime data types.
@@ -6042,7 +6042,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/data/GHandle.j
 package tech.kayys.aqli.core.data;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -6075,7 +6075,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/data/GScalar.j
 package tech.kayys.aqli.core.data;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -6108,13 +6108,13 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/data/GTensor.j
 package tech.kayys.aqli.core.data;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 public final class GTensor implements GData {
     private final String id;
@@ -6143,7 +6143,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/memory/Buffer.
 package tech.kayys.aqli.core.memory;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -6172,7 +6172,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/memory/CpuBuff
 package tech.kayys.aqli.core.memory;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -6230,9 +6230,9 @@ package tech.kayys.aqli.core.model;
 
 import tech.kayys.aqli.ir.GGraph;
 import tech.kayys.aqli.core.weight.WeightStore;
-import tech.kayys.alkhawarizm.spi.spec.*;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.spec.*;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 public final class LoadedModel {
     public final GGraph graph;
@@ -6326,7 +6326,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/params/ParamRe
 ================================================
 package tech.kayys.aqli.core.params;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.*;
 
 /**
@@ -6363,13 +6363,13 @@ public final class ParamRegistry {
 ================================================
 FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/tensor/DefaultTensor.java
 ================================================
-package tech.kayys.alkhawarizm.core.tensor;
+package tech.kayys.aljabr.core.tensor;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 import tech.kayys.aqli.core.memory.Buffer;
-import tech.kayys.alkhawarizm.core.backend.ComputeBackend;
+import tech.kayys.aljabr.core.backend.ComputeBackend;
 
 public final class DefaultTensor implements Tensor {
     private final Shape shape;
@@ -6958,7 +6958,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/util/ThreadPoo
 package tech.kayys.aqli.core.util;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7037,7 +7037,7 @@ package tech.kayys.aqli.model.download;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 
 import java.io.IOException;
@@ -7142,9 +7142,9 @@ package tech.kayys.aqli.model.download;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -7306,7 +7306,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.core.config.HardwareConfig;
-import tech.kayys.alkhawarizm.spi.spec.HardwareCapabilities;
+import tech.kayys.aljabr.spi.spec.HardwareCapabilities;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -7381,7 +7381,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/core/weight/WeightS
 ================================================
 package tech.kayys.aqli.core.weight;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 /**
  * 
@@ -7411,10 +7411,10 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/AdapterRegistry.
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.ModelWeightLoader;
-import tech.kayys.alkhawarizm.core.tensor.WeightAdapter;
+import tech.kayys.aljabr.core.tensor.ModelWeightLoader;
+import tech.kayys.aljabr.core.tensor.WeightAdapter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.ArrayList;
@@ -7442,12 +7442,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GAttrBool.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7464,12 +7464,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GAttrFloat.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7486,12 +7486,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GAttrInt.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7508,12 +7508,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GAttrString.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7530,12 +7530,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GAttrValue.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7568,12 +7568,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GContext.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7609,12 +7609,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GGraph.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7656,9 +7656,9 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GGraphBuilder.ja
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -7714,12 +7714,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GMeta.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7745,12 +7745,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/AqliGraph.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7805,12 +7805,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/AqliNode.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7834,10 +7834,10 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GOp.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import java.util.*;
 
 public final class GOp {
@@ -7898,12 +7898,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GradGraphAnalyze
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -7943,9 +7943,9 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GraphValidator.j
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
@@ -7992,12 +7992,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GType.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8021,14 +8021,14 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GValue.java
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8156,12 +8156,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GValueId.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8203,12 +8203,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/GValueRef.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8236,12 +8236,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/IRException.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8262,10 +8262,10 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/ModelRegistry.ja
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.ModelWeightLoader;
-import tech.kayys.alkhawarizm.core.tensor.WeightAdapter;
+import tech.kayys.aljabr.core.tensor.ModelWeightLoader;
+import tech.kayys.aljabr.core.tensor.WeightAdapter;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -8292,12 +8292,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/OpDescriptor.jav
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8323,12 +8323,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/OpId.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8374,12 +8374,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/OpKernel.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8400,14 +8400,14 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/OpRegistry.java
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8441,7 +8441,7 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/OpSchema.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
@@ -8542,14 +8542,14 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/Scheduler.java
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8608,12 +8608,12 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/WeightCodec.java
 ================================================
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
@@ -8632,10 +8632,10 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/schema/ShapeInfe
 ================================================
 package tech.kayys.aqli.ir.schema;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
 import tech.kayys.aqli.ir.*;
 import java.util.*;
@@ -8652,10 +8652,10 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/schema/TypeInfer
 ================================================
 package tech.kayys.aqli.ir.schema;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
 import java.util.*;
 
@@ -8707,10 +8707,10 @@ FILE: framework/core/aqli-core/src/main/java/tech/kayys/aqli/ir/validate/Validat
 ================================================
 package tech.kayys.aqli.ir.validate;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
 import tech.kayys.aqli.ir.*;
 import java.util.*;
@@ -8745,9 +8745,9 @@ plugins {
 }
 
 dependencies {
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation("jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1")
     implementation("org.jboss.logging:jboss-logging:3.5.3.Final")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")

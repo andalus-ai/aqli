@@ -1,7 +1,7 @@
 package tech.kayys.aqli.sdk.model;
 
 import java.util.Objects;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 /**
  * Result of a model resolution and preparation process.

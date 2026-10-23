@@ -10,7 +10,7 @@ import tech.kayys.aqli.sdk.mcp.McpServerSummary;
 import tech.kayys.aqli.sdk.mcp.McpServerView;
 import tech.kayys.aqli.sdk.mcp.McpTestReport;
 import tech.kayys.aqli.sdk.mcp.McpToolModel;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 import java.lang.reflect.Proxy;
 import java.util.List;

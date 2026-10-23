@@ -10,7 +10,7 @@ import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.i
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.linearRowView;
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.reusableOutputTensor;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 
 /**

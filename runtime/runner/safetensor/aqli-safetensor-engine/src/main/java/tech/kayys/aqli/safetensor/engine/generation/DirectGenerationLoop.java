@@ -9,9 +9,9 @@ import static tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfil
 import static tech.kayys.aqli.safetensor.engine.generation.GenerationTokenPolicy.recordSampleFrequency;
 
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.aqli.tokenizer.spi.DecodeOptions;
-import tech.kayys.aqli.tokenizer.spi.StreamingDecoder;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.tokenizer.DecodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.StreamingDecoder;
 
 import java.util.ArrayList;
 import java.util.Collections;

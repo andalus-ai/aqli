@@ -3,10 +3,10 @@ plugins {
 }
 
 dependencies {
-    api("tech.kayys.alkhawarizm:alkhawarizm-spi-inference:0.1.0-SNAPSHOT")
+    api("tech.kayys.aljabr:aljabr-spi-inference:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
     implementation("io.smallrye.reactive:mutiny:2.5.5")
     implementation("org.reactivestreams:reactive-streams:1.0.4")

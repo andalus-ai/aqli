@@ -6,9 +6,9 @@
 package tech.kayys.aqli.safetensor.engine.forward;
 
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 record ModelConfigTraits(
         ModelConfig source,
@@ -51,7 +51,7 @@ record ModelConfigTraits(
                 modelType,
                 hiddenSizePerLayerInput,
                 vocabSizePerLayerInput,
-                runtimeTraits.promptBosPolicy() == tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits.PromptBosPolicy.TURN_AWARE,
+                runtimeTraits.promptBosPolicy() == tech.kayys.aljabr.spi.model.ModelRuntimeTraits.PromptBosPolicy.TURN_AWARE,
                 runtimeTraits.attention().largeAttentionMatvecCandidate(),
                 perLayerInputPath,
                 runtimeTraits.nativeBf16Matvec(),

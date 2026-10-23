@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     implementation(project(":ml:aqli-ml-runner-api"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     compileOnly(group = "org.jboss.logging", name = "jboss-logging")
 }
 

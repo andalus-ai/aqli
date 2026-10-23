@@ -8,9 +8,9 @@ package tech.kayys.aqli.cli.util;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyRuntimeManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyUnifiedRuntimeRequirement;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyRuntimeManifest;
+import tech.kayys.aljabr.spi.model.ModelFamilyUnifiedRuntimeRequirement;
 import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeManifest;
 import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeRegistry;
 

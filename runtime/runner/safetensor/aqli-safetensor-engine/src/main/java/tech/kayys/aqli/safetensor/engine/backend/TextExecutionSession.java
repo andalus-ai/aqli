@@ -4,7 +4,7 @@ import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionSnapshot;
 import tech.kayys.aqli.safetensor.engine.session.ConversationTurnPlan;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.util.Optional;
 

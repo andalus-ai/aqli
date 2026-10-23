@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

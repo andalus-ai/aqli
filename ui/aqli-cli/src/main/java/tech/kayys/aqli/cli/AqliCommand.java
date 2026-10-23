@@ -181,7 +181,7 @@ public class AqliCommand implements Runnable {
             System.setProperty("quarkus.log.category.\"tech.kayys.aqli.inference.libtorch\".level", "DEBUG");
             System.setProperty("gguf.provider.verbose-logging", "true");
             System.setProperty("aqli.verbose", "true");
-            System.setProperty("alkhawarizm.metal.verbose", "true");
+            System.setProperty("aljabr.metal.verbose", "true");
         }
     }
 

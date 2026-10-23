@@ -7,7 +7,7 @@ import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionSnapshot;
 import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionState;
 import tech.kayys.aqli.safetensor.engine.session.ConversationTurnPlan;
 import tech.kayys.aqli.safetensor.engine.session.ConversationSessionManager;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.util.Objects;
 import java.util.Optional;

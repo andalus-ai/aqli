@@ -7,7 +7,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aqli.model.domain.download.ModelDownloadManager;
 import tech.kayys.aqli.model.domain.download.ModelDownloadState;
 import tech.kayys.aqli.registry.service.ModelRegistryService;

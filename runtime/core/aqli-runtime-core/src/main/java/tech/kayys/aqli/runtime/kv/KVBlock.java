@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runtime.kv;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 public final class KVBlock {
     public Tensor key;

@@ -1,9 +1,9 @@
 package tech.kayys.aqli.runtime;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.runtime.AdaptiveRuntime.Mode;
 import tech.kayys.aqli.runtime.exec.*;
 import tech.kayys.aqli.runtime.kv.*;

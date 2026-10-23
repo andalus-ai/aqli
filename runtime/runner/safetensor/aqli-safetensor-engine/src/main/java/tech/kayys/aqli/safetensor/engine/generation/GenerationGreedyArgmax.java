@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

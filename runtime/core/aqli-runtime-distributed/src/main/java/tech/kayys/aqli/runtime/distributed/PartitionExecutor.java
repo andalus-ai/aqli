@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runtime.distributed;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.Map;
 
 public interface PartitionExecutor {

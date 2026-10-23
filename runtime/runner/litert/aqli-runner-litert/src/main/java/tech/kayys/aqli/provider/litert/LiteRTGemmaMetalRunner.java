@@ -1,6 +1,6 @@
 package tech.kayys.aqli.provider.litert;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

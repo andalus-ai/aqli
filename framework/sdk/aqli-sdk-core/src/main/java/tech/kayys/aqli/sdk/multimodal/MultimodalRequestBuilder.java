@@ -1,6 +1,6 @@
 package tech.kayys.aqli.sdk.multimodal;
 
-import tech.kayys.alkhawarizm.spi.model.ModalityType;
+import tech.kayys.aljabr.spi.model.ModalityType;
 import tech.kayys.aqli.sdk.multimodal.MultimodalContent;
 import tech.kayys.aqli.sdk.multimodal.MultimodalRequest;
 import tech.kayys.aqli.sdk.multimodal.MultimodalResponse;

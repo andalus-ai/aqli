@@ -2,7 +2,7 @@ package tech.kayys.aqli.model.repo.hf;
 
 
 import java.net.URI;
-import tech.kayys.alkhawarizm.spi.model.ModelRef;
+import tech.kayys.aljabr.spi.model.ModelRef;
 
 /**
  * Helper to resolve HuggingFace refs into structured artifact info.

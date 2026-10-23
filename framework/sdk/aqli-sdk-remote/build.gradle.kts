@@ -26,7 +26,7 @@ dependencies {
     api(project(":sdk:aqli-sdk-core"))
     api(project(":spi:aqli-spi"))
     api(project(":spi:aqli-spi-inference"))
-    api("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    api("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     api(project(":spi:aqli-spi-multimodal"))
     implementation(group = "com.fasterxml.jackson.core", name = "jackson-databind", version = jacksonVersion)
     implementation(group = "io.smallrye.reactive", name = "mutiny", version = mutinyVersion)

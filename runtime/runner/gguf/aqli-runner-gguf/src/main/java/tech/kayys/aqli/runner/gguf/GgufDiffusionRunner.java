@@ -4,11 +4,11 @@ import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.gguf.loader.quant.Dequantizer;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.RunnerMetadata;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.gguf.loader.quant.Dequantizer;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.RunnerMetadata;
 import tech.kayys.aqli.exception.RunnerInitializationException;
 import tech.kayys.aqli.extension.AbstractAqliRunner;
 import tech.kayys.aqli.runner.RunnerCapabilities;
@@ -32,7 +32,7 @@ import java.util.Set;
 /**
  * GGUF Quantized Diffusion Runner for FLUX and Stable Diffusion models.
  * Enables low-VRAM/RAM execution of quantized checkpoints (Q4_K_M, Q5_K_S, Q8_0)
- * using the JDK 25 FFM-powered alkhawarizm-gguf-core dequantization engine.
+ * using the JDK 25 FFM-powered aljabr-gguf-core dequantization engine.
  */
 @ApplicationScoped
 public class GgufDiffusionRunner extends AbstractAqliRunner implements ImageGenerationPipeline {
@@ -75,7 +75,7 @@ public class GgufDiffusionRunner extends AbstractAqliRunner implements ImageGene
                 List.of(DeviceType.CPU, DeviceType.METAL, DeviceType.CUDA),
                 Map.of(
                         "quantization", quantizationType,
-                        "dequantizerEngine", "alkhawarizm-gguf-core-ffm"
+                        "dequantizerEngine", "aljabr-gguf-core-ffm"
                 )
         );
     }

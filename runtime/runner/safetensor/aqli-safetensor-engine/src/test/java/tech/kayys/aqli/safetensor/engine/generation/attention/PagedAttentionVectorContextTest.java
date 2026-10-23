@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 
 import java.util.List;

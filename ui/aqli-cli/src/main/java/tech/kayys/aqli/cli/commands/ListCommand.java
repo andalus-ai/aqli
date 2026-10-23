@@ -9,7 +9,7 @@ import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 import tech.kayys.aqli.sdk.model.ModelListRequest;
 
@@ -231,7 +231,7 @@ public class ListCommand implements Runnable {
             // Short ID
             String id = model.getShortId();
             if (id == null || id.isBlank() || id.equalsIgnoreCase("n/a")) {
-                id = tech.kayys.alkhawarizm.spi.model.ModelUtils.generateShortId(model.getModelId());
+                id = tech.kayys.aljabr.spi.model.ModelUtils.generateShortId(model.getModelId());
             }
 
             // Group from modelId (e.g., "Qwen/Qwen2.5-..." → "Qwen")
@@ -306,7 +306,7 @@ public class ListCommand implements Runnable {
             }
             String shortId = model.getShortId();
             if (shortId == null || shortId.isBlank()) {
-                shortId = tech.kayys.alkhawarizm.spi.model.ModelUtils.generateShortId(modelId);
+                shortId = tech.kayys.aljabr.spi.model.ModelUtils.generateShortId(modelId);
             }
             String task = taskTypeOf(model);
             System.out.printf(

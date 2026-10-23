@@ -3,9 +3,9 @@ package tech.kayys.aqli.registry.repository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import tech.kayys.alkhawarizm.spi.model.ModelArtifact;
-import tech.kayys.alkhawarizm.spi.model.ModelRef;
-import tech.kayys.alkhawarizm.spi.model.ModelRepository;
+import tech.kayys.aljabr.spi.model.ModelArtifact;
+import tech.kayys.aljabr.spi.model.ModelRef;
+import tech.kayys.aljabr.spi.model.ModelRepository;
 
 import java.util.HashMap;
 import java.util.Map;

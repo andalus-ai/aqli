@@ -12,7 +12,7 @@ import org.mockito.Mockito;
 import jakarta.inject.Inject;
 import tech.kayys.aqli.cli.commands.ListCommand;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.context.RequestContext;
 import tech.kayys.aqli.sdk.model.ModelListRequest;
 

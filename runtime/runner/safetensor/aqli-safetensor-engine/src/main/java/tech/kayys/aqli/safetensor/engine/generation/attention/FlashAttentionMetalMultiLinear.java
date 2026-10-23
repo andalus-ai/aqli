@@ -5,11 +5,11 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 final class FlashAttentionMetalMultiLinear {
     private final MetalBinding metalBinding;

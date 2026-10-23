@@ -1,7 +1,7 @@
 package tech.kayys.aqli.runtime;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
-import tech.kayys.alkhawarizm.core.backend.ComputeBackend;
+import tech.kayys.aljabr.core.tensor.Tensor;
+import tech.kayys.aljabr.core.backend.ComputeBackend;
 import tech.kayys.aqli.runtime.kv.KVCache;
 import java.util.List;
 

@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  */
 public final class ExternalPluginClasspath {
     public static final String MODEL_FAMILY_SERVICE_ENTRY =
-            "META-INF/services/tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin";
+            "META-INF/services/tech.kayys.aljabr.spi.model.ModelFamilyPlugin";
     public static final String AQLI_PLUGIN_SERVICE_ENTRY =
             "META-INF/services/tech.kayys.aqli.spi.plugin.AqliPlugin";
     public static final String UNIFIED_MULTIMODAL_RUNTIME_SERVICE_ENTRY =

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 class DirectForwardMetalFfnCandidatePlanTest {
     private static final String PROFILE_KEY = "ffn_candidate_test";

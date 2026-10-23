@@ -19,9 +19,9 @@ package tech.kayys.aqli.model.download;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 
 import java.io.IOException;
 import java.io.InputStream;

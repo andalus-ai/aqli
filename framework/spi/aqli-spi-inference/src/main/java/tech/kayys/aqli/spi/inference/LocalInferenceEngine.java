@@ -2,7 +2,7 @@ package tech.kayys.aqli.spi.inference;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.alkhawarizm.spi.model.HealthStatus;
+import tech.kayys.aljabr.spi.model.HealthStatus;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
 import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
 

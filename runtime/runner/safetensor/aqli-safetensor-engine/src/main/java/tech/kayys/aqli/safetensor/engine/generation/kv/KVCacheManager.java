@@ -6,8 +6,8 @@
 package tech.kayys.aqli.safetensor.engine.generation.kv;
 
 import tech.kayys.aqli.safetensor.engine.generation.attention.SharedKvState;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 import java.util.Map;
 import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,15 +42,15 @@ public class KVCacheManager {
         private ForwardWorkspace workspace;
         private final Map<Integer, SharedKvState> sharedKvStates =
                 new java.util.concurrent.ConcurrentHashMap<>();
-        private tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization kvQuantization =
-                tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
+        private tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization kvQuantization =
+                tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
             this.maxSeqLen = maxSeqLen;
             this.blockManager = blockManager;
         }
 
-        public void allocate(ModelConfig config, tech.kayys.aqli.safetensor.generation.GenerationConfig genConfig) {
+        public void allocate(ModelConfig config, tech.kayys.aljabr.safetensor.generation.GenerationConfig genConfig) {
             this.numLayers = config.numHiddenLayers();
             this.numKVHeads = config.resolvedMaxKvHeads();
             this.headDim = config.resolvedMaxHeadDim();
@@ -194,21 +194,21 @@ public class KVCacheManager {
             sharedKvStates.clear();
         }
 
-        public tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization kvQuantization() {
+        public tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization kvQuantization() {
             return kvQuantization;
         }
 
         public boolean isQuantizedInt8() {
-            return kvQuantization == tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization.INT8;
+            return kvQuantization == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT8;
         }
 
         public boolean isQuantizedInt4() {
-            return kvQuantization == tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization.INT4
-                    || kvQuantization == tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization.TURBO;
+            return kvQuantization == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT4
+                    || kvQuantization == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.TURBO;
         }
 
         public boolean isQuantized() {
-            return kvQuantization != tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
+            return kvQuantization != tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
         }
 
         @Override

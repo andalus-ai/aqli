@@ -7,8 +7,8 @@ package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.lang.foreign.MemorySegment;
 

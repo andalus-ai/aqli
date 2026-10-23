@@ -7,7 +7,7 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import org.junit.jupiter.api.Test;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;

@@ -22,12 +22,12 @@ dependencies {
     implementation(project(":core:aqli-core"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":tokenizer:aqli-tokenizer-core"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-backend-metal:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT")
     implementation("io.smallrye.reactive:mutiny:2.5.5")
     implementation("io.smallrye.config:smallrye-config:3.10.1")
     implementation("org.jboss.logging:jboss-logging:3.6.1.Final")
@@ -41,7 +41,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.10.2")
     testImplementation("org.junit.platform:junit-platform-launcher:1.10.2")
     testImplementation("org.slf4j:slf4j-simple:2.0.12")
-    testImplementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-loader:0.1.0-SNAPSHOT")
+    testImplementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
 }
 
 

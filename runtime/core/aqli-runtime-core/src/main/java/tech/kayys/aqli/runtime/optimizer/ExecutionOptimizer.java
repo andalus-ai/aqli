@@ -1,12 +1,12 @@
 package tech.kayys.aqli.runtime.optimizer;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 import tech.kayys.aqli.runtime.plan.*;
 import tech.kayys.aqli.runtime.kernel.*;
 import tech.kayys.aqli.runtime.cost.*;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 import tech.kayys.aqli.runtime.*;
 import java.util.*;
 

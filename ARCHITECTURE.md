@@ -2,32 +2,32 @@
 
 ## Vision: A Pure Inference Runtime
 
-Aqli is the **inference/serving engine runtime** built on top of Alkhawarizm. It is a
+Aqli is the **inference/serving engine runtime** built on top of Aljabr. It is a
 *pure runtime* — it provides no SPIs of its own in the long run. As SPI contracts mature,
-they are elevated into Alkhawarizm so that **any** compliant engine can implement them.
+they are elevated into Aljabr so that **any** compliant engine can implement them.
 
 ## Ecosystem Layer Order
 
 ```
-Alkhawarizm  (ML framework: tensors, backends, hardware, ALL serving SPIs)
-     │  publishes as  tech.kayys.alkhawarizm:*
-     │  hosts:        alkhawarizm-spi-inference  ← InferenceRequest/Response, Engine, Pipeline
-     │                alkhawarizm-spi-plugin     ← Plugin lifecycle contracts
-     │                alkhawarizm-spi-tokenizer  ← Tokenizer SPI
-     │                alkhawarizm-spi-model      ← ModelConfig, ModelRunner, Multimodal
-     │                alkhawarizm-tensor         ← Tensor, Shape, DType, ComputeBackend
+Aljabr  (ML framework: tensors, backends, hardware, ALL serving SPIs)
+     │  publishes as  tech.kayys.aljabr:*
+     │  hosts:        aljabr-spi-inference  ← InferenceRequest/Response, Engine, Pipeline
+     │                aljabr-spi-plugin     ← Plugin lifecycle contracts
+     │                aljabr-spi-tokenizer  ← Tokenizer SPI
+     │                aljabr-spi-model      ← ModelConfig, ModelRunner, Multimodal
+     │                aljabr-tensor         ← Tensor, Shape, DType, ComputeBackend
      ▼
 Aqli        (inference runtime: runners, repos, SDK, optimization plugins)
      │  publishes as  tech.kayys.aqli:*
      │  implements:   ModelRunner → GGUF, ONNX, LiteRT, Torch runners
      │                ModelRepository → HF, Kaggle, local, Panache DB
-     │                AlkhawarizmPlugin → kv-cache, paged-attn, ...
+     │                AljabrPlugin → kv-cache, paged-attn, ...
      ▼
 Wayang        (agent orchestration: RAG, MCP tools, providers, plugins)
 ```
 
 > **SPI Elevation Rule**: When a Aqli SPI is general enough that *any* inference engine
-> could implement it, it should be moved to Alkhawarizm. Aqli-specific orchestration
+> could implement it, it should be moved to Aljabr. Aqli-specific orchestration
 > details stay in Aqli.
 
 ---
@@ -40,19 +40,19 @@ Contains **only** interfaces, SPIs, abstract base classes, canonical data types,
 
 **Rules:**
 - ✅ May contain: interfaces, abstract classes, enums, records, annotations, constants
-- ✅ May depend on: other `framework/` modules, published `tech.kayys.alkhawarizm:*` artifacts
+- ✅ May depend on: other `framework/` modules, published `tech.kayys.aljabr:*` artifacts
 - ❌ Must NOT contain: concrete implementations, I/O, DB access, network calls, hardware-specific code
 - ❌ Must NOT depend on: any `runtime/` module
 
 | Gradle Path | Directory | Purpose |
 |---|---|---|
 | `:core:aqli-core` | `framework/core/aqli-core` | Canonical IR: GData, GTensor, GHandle, GScalar, AqliGraph |
-| `:tokenizer:aqli-tokenizer-core` | `framework/core/aqli-tokenizer-core` | Tokenizer (SPI + impls) — SPI to be elevated to `alkhawarizm-spi-tokenizer` |
+| `:tokenizer:aqli-tokenizer-core` | `framework/core/aqli-tokenizer-core` | Tokenizer (SPI + impls) — SPI to be elevated to `aljabr-spi-tokenizer` |
 | `:spi:aqli-spi` | `framework/spi/aqli-spi` | Root SPI (node, plugin, tool, observability contracts) |
-| `:spi:aqli-spi-inference` | `framework/spi/aqli-spi-inference` | InferenceRequest/Response — **↑ elevate to `alkhawarizm-spi-inference`** |
-| `:spi:aqli-spi-runner` | `framework/spi/aqli-spi-runner` | ModelRunner + AbstractAqliRunner — **↑ elevate to `alkhawarizm-spi-model`** |
+| `:spi:aqli-spi-inference` | `framework/spi/aqli-spi-inference` | InferenceRequest/Response — **↑ elevate to `aljabr-spi-inference`** |
+| `:spi:aqli-spi-runner` | `framework/spi/aqli-spi-runner` | ModelRunner + AbstractAqliRunner — **↑ elevate to `aljabr-spi-model`** |
 | `:spi:aqli-spi-multimodal` | `framework/spi/aqli-spi-multimodal` | Multimodal pipeline SPI |
-| `:spi:aqli-spi-plugin` | `framework/spi/aqli-spi-plugin` | Plugin lifecycle SPI — **↑ elevate to `alkhawarizm-spi-plugin`** |
+| `:spi:aqli-spi-plugin` | `framework/spi/aqli-spi-plugin` | Plugin lifecycle SPI — **↑ elevate to `aljabr-spi-plugin`** |
 | `:spi:aqli-spi-runtime` | `framework/spi/aqli-spi-runtime` | Runtime management SPI |
 | `:spi:aqli-spi-model` | `framework/spi/aqli-spi-model` | Model descriptor SPI |
 | `:spi:aqli-spi-audio` | `framework/spi/aqli-spi-audio` | Audio modality SPI |
@@ -75,7 +75,7 @@ Contains all working code that touches the real world: file I/O, HTTP, databases
 
 **Rules:**
 - ✅ May contain: concrete implementations of `framework/` SPIs, I/O, DB, network, JNI
-- ✅ May depend on: `framework/` modules, other `runtime/` modules, `tech.kayys.alkhawarizm:*` artifacts
+- ✅ May depend on: `framework/` modules, other `runtime/` modules, `tech.kayys.aljabr:*` artifacts
 - ❌ Must NOT be depended on by: any `framework/` module
 
 | Gradle Path | Directory | Purpose |
@@ -97,22 +97,22 @@ Contains all working code that touches the real world: file I/O, HTTP, databases
 
 ---
 
-## Alkhawarizm Boundary
+## Aljabr Boundary
 
-Aqli must **never** declare classes in `package tech.kayys.alkhawarizm.*`. Any such class belongs in the `Families/Alkhawarizm/alkhawarizm` repository.
+Aqli must **never** declare classes in `package tech.kayys.aljabr.*`. Any such class belongs in the `Families/Aljabr/aljabr` repository.
 
-### Owned by Alkhawarizm (do not duplicate in Aqli)
+### Owned by Aljabr (do not duplicate in Aqli)
 
-| Type | Alkhawarizm Module |
+| Type | Aljabr Module |
 |---|---|
-| `DefaultTensor`, `Tensor`, `Shape`, `DType`, `DeviceType` | `alkhawarizm-tensor` |
-| `ComputeBackend`, `CpuBuffer` | `alkhawarizm-tensor` |
-| `MultimodalRequest`, `MultimodalResponse`, `MultimodalContent` | `alkhawarizm-spi-model` |
-| `ModalityType`, `MultimodalCapability` | `alkhawarizm-spi-model` |
-| `ModelConfig`, `ModelArchitecture`, `ModelRuntimeTraits` | `alkhawarizm-spi-model` |
-| `ModelRegistry`, `ModelStatsProvider`, `ResourceMetrics` | `alkhawarizm-spi-model` |
-| GGUF parsing utilities | `alkhawarizm-gguf-core`, `alkhawarizm-gguf-converter` |
-| Safetensor loading | `alkhawarizm-safetensor-core`, `alkhawarizm-safetensor-spi` |
+| `DefaultTensor`, `Tensor`, `Shape`, `DType`, `DeviceType` | `aljabr-tensor` |
+| `ComputeBackend`, `CpuBuffer` | `aljabr-tensor` |
+| `MultimodalRequest`, `MultimodalResponse`, `MultimodalContent` | `aljabr-spi-model` |
+| `ModalityType`, `MultimodalCapability` | `aljabr-spi-model` |
+| `ModelConfig`, `ModelArchitecture`, `ModelRuntimeTraits` | `aljabr-spi-model` |
+| `ModelRegistry`, `ModelStatsProvider`, `ResourceMetrics` | `aljabr-spi-model` |
+| GGUF parsing utilities | `aljabr-gguf-core`, `aljabr-gguf-converter` |
+| Safetensor loading | `aljabr-safetensor-core`, `aljabr-safetensor-spi` |
 
 ---
 
@@ -127,8 +127,8 @@ grep -rn 'project(":' framework/ --include="*.kts" \
   | grep -E 'runner:|repository:|optimization:|adapter:|runtime:'
 # Expect: no output
 
-# 2. No Aqli source declares an Alkhawarizm package
-grep -rn '^package tech.kayys.alkhawarizm' --include="*.java" \
+# 2. No Aqli source declares an Aljabr package
+grep -rn '^package tech.kayys.aljabr' --include="*.java" \
   framework/ runtime/
 # Expect: no output
 
@@ -148,7 +148,7 @@ grep -rn 'tech.kayys.aqli.runtime.data' --include="*.java" runtime/
 | What you want to add | Where it goes |
 |---|---|
 | New inference contract / request-response type | `framework/spi/aqli-spi-inference` or `aqli-spi-multimodal` |
-| New tensor or data primitive | `Families/Alkhawarizm/alkhawarizm` |
+| New tensor or data primitive | `Families/Aljabr/aljabr` |
 | New model download source (e.g. S3) | `runtime/repository/aqli-model-repo-s3` |
 | New hardware runner (e.g. Vulkan) | `runtime/runner/vulkan/aqli-runner-vulkan` |
 | New optimization plugin | `runtime/optimization/aqli-plugin-<name>` |

@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runner.flux;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import java.util.Arrays;
 import java.util.Map;

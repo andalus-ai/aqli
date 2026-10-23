@@ -3,8 +3,8 @@ package tech.kayys.aqli.runner;
 import java.util.Map;
 
 import tech.kayys.aqli.spi.context.RequestContext;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.RunnerMetadata;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.RunnerMetadata;
 import tech.kayys.aqli.model.exception.ModelLoadException;
 
 /**

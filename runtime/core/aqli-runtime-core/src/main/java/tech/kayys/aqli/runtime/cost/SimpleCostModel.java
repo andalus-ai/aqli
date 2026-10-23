@@ -2,7 +2,7 @@ package tech.kayys.aqli.runtime.cost;
 
 import tech.kayys.aqli.ir.GOp;
 import tech.kayys.aqli.runtime.kernel.KernelCandidate;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 
 public final class SimpleCostModel implements CostModel {
     @Override

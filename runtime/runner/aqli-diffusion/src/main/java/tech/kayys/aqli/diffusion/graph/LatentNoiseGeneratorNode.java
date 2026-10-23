@@ -1,7 +1,7 @@
 package tech.kayys.aqli.diffusion.graph;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
-import tech.kayys.alkhawarizm.core.tensor.TensorFactory;
+import tech.kayys.aljabr.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.TensorFactory;
 
 import java.util.Map;
 import java.util.Random;

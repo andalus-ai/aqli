@@ -1,9 +1,9 @@
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 final class FlashAttentionModelPolicy {
     private final ModelArchitecture architecture;

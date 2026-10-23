@@ -7,11 +7,11 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.attention.SharedKvState;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.util.Map;
 

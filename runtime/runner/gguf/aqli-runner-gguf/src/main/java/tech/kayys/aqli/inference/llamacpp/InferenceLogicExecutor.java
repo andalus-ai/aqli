@@ -5,7 +5,7 @@ package tech.kayys.aqli.inference.llamacpp;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aqli.spi.Message;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     implementation(group = "org.slf4j", name = "slf4j-api")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation("jakarta.validation:jakarta.validation-api:3.0.2")

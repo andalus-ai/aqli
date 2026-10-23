@@ -75,22 +75,22 @@ dependencies {
 
     implementation(project(":core:aqli-core"))
     implementation(project(":core:aqli-core"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":tokenizer:aqli-tokenizer-core"))
     implementation(project(":sdk:aqli-sdk-core"))
     implementation(project(":spi:aqli-spi"))
     implementation("tech.kayys:suling:0.1.0")
 
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-api:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-core:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-spi:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-loader:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-quantization:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-api:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT")
 
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-backend-metal:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT")
     // aqli-safetensor-audio removed — module does not exist in this repo;
     // audio inference paths are excluded via sourceSets above.
 
@@ -111,7 +111,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     // planning tests build ProviderRequest fixtures; resolved from mavenLocal()
     testImplementation("tech.kayys.aqli:aqli-spi-provider:0.1.0-SNAPSHOT")
-    testImplementation("tech.kayys.alkhawarizm:alkhawarizm-model-gemma:0.1.0-SNAPSHOT")
+    testImplementation("tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

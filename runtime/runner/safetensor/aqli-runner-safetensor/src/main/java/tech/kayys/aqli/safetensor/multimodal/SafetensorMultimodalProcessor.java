@@ -27,7 +27,7 @@ package tech.kayys.aqli.plugin.runner.safetensor.multimodal;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.spi.model.*;
+import tech.kayys.aljabr.spi.model.*;
 import tech.kayys.aqli.spi.processor.MultimodalProcessor;
 import tech.kayys.aqli.plugin.runner.safetensor.SafetensorRunnerPlugin;
 

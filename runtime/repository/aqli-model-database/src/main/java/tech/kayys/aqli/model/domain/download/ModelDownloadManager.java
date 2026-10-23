@@ -19,7 +19,7 @@ import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.download.DownloadManager; // The core one
 
 @ApplicationScoped

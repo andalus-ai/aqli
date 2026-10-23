@@ -2,8 +2,8 @@ package tech.kayys.aqli.spi.processor;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.alkhawarizm.spi.model.MultimodalRequest;
-import tech.kayys.alkhawarizm.spi.model.MultimodalResponse;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
 
 /**
  * Processor for multimodal inference.

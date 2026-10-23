@@ -3,7 +3,7 @@ package tech.kayys.aqli.runtime.batch;
 import tech.kayys.aqli.runtime.plan.ExecutionPlan;
 import tech.kayys.aqli.runtime.kv.*;
 import tech.kayys.aqli.runtime.ExecutionEngine;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.*;
 
 public final class BatchDecodeEngine {

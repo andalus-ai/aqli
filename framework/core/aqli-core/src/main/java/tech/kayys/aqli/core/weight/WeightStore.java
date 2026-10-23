@@ -1,6 +1,6 @@
 package tech.kayys.aqli.core.weight;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 /**
  * 

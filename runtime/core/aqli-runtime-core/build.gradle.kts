@@ -3,10 +3,10 @@ plugins {
 }
 
 dependencies {
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":core:aqli-core"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
 }

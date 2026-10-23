@@ -2,7 +2,7 @@ package tech.kayys.aqli.runtime.client;
 
 import tech.kayys.aqli.runtime.plan.ExecutionPlan;
 import tech.kayys.aqli.runtime.control.ExecutionSession;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.runtime.kv.KVCache;
 import tech.kayys.aqli.runtime.kv.KVCacheSnapshot;
 import java.util.Map;

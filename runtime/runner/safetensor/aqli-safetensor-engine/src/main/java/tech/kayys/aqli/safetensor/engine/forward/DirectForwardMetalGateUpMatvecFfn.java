@@ -6,11 +6,11 @@
 package tech.kayys.aqli.safetensor.engine.forward;
 
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 final class DirectForwardMetalGateUpMatvecFfn {
     private static final String PATH = "gate-up-gated-matvec";

@@ -7,15 +7,15 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aqli.spi.context.RequestContext;
 import tech.kayys.aqli.spi.auth.ApiKeyConstants;
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelStatsProvider;
+import tech.kayys.aljabr.spi.model.ModelRegistry;
+import tech.kayys.aljabr.spi.model.ModelStatsProvider;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import tech.kayys.alkhawarizm.spi.model.Pageable;
-import tech.kayys.alkhawarizm.spi.model.ModelStorageService;
+import tech.kayys.aljabr.spi.model.Pageable;
+import tech.kayys.aljabr.spi.model.ModelStorageService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -240,7 +240,7 @@ public class ModelRegistryService implements ModelRegistry {
             String storageUri,
             String checksum,
             Long sizeBytes) {
-        Map<tech.kayys.alkhawarizm.core.model.ModelFormat, tech.kayys.alkhawarizm.spi.model.ArtifactLocation> artifacts = buildArtifacts(
+        Map<tech.kayys.aljabr.core.model.ModelFormat, tech.kayys.aljabr.spi.model.ArtifactLocation> artifacts = buildArtifacts(
                 request.framework(),
                 storageUri,
                 checksum,
@@ -291,7 +291,7 @@ public class ModelRegistryService implements ModelRegistry {
         return builder.build();
     }
 
-    private Map<tech.kayys.alkhawarizm.core.model.ModelFormat, tech.kayys.alkhawarizm.spi.model.ArtifactLocation> buildArtifacts(
+    private Map<tech.kayys.aljabr.core.model.ModelFormat, tech.kayys.aljabr.spi.model.ArtifactLocation> buildArtifacts(
             String format,
             String storageUri,
             String checksum,
@@ -300,27 +300,27 @@ public class ModelRegistryService implements ModelRegistry {
             return Collections.emptyMap();
         }
 
-        tech.kayys.alkhawarizm.core.model.ModelFormat resolved = resolveFormat(format, storageUri);
+        tech.kayys.aljabr.core.model.ModelFormat resolved = resolveFormat(format, storageUri);
         if (resolved == null) {
             return Collections.emptyMap();
         }
 
         return Map.of(resolved,
-                new tech.kayys.alkhawarizm.spi.model.ArtifactLocation(
+                new tech.kayys.aljabr.spi.model.ArtifactLocation(
                         storageUri,
                         checksum,
                         sizeBytes,
                         null));
     }
 
-    private tech.kayys.alkhawarizm.core.model.ModelFormat resolveFormat(String format, String storageUri) {
+    private tech.kayys.aljabr.core.model.ModelFormat resolveFormat(String format, String storageUri) {
         if (format != null && !format.isBlank()) {
             String normalized = format.trim().toLowerCase();
             if ("litert".equals(normalized) || "litert".equals(normalized)) {
-                return tech.kayys.alkhawarizm.core.model.ModelFormat.LITERT;
+                return tech.kayys.aljabr.core.model.ModelFormat.LITERT;
             }
-            return tech.kayys.alkhawarizm.core.model.ModelFormat.findByRuntime(format)
-                    .or(() -> tech.kayys.alkhawarizm.core.model.ModelFormat.findByExtension(format))
+            return tech.kayys.aljabr.core.model.ModelFormat.findByRuntime(format)
+                    .or(() -> tech.kayys.aljabr.core.model.ModelFormat.findByExtension(format))
                     .orElse(null);
         }
 
@@ -333,7 +333,7 @@ public class ModelRegistryService implements ModelRegistry {
             int dot = path.lastIndexOf('.');
             if (dot >= 0 && dot + 1 < path.length()) {
                 String ext = path.substring(dot + 1);
-                return tech.kayys.alkhawarizm.core.model.ModelFormat.findByExtension(ext).orElse(null);
+                return tech.kayys.aljabr.core.model.ModelFormat.findByExtension(ext).orElse(null);
             }
         }
 

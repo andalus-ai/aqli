@@ -1,6 +1,6 @@
 package tech.kayys.aqli.spi.batch;
 
-import tech.kayys.alkhawarizm.error.ErrorPayload;
+import tech.kayys.aljabr.error.ErrorPayload;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 /**

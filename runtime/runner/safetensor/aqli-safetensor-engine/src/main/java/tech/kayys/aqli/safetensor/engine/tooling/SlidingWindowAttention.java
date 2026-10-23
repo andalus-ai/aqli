@@ -46,7 +46,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.tooling;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 /**
  * Sliding window attention mask utilities.

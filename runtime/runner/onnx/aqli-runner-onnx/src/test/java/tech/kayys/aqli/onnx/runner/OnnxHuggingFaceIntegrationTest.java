@@ -4,9 +4,9 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.runner.RunnerConfiguration;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.Message;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.spi.model.ArtifactLocation;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ArtifactLocation;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 
 import java.lang.reflect.Field;
 import java.nio.file.Files;

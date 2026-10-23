@@ -15,8 +15,8 @@ import jakarta.inject.Inject;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
@@ -237,7 +237,7 @@ public class RunCommandTest {
                 }
 
                 Path serviceFile = classesDir.resolve(
-                                "META-INF/services/tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin");
+                                "META-INF/services/tech.kayys.aljabr.spi.model.ModelFamilyPlugin");
                 Files.createDirectories(serviceFile.getParent());
                 Files.writeString(
                                 serviceFile,
@@ -252,10 +252,10 @@ public class RunCommandTest {
 
                                 import java.util.List;
                                 import java.util.Map;
-                                import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-                                import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-                                import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-                                import tech.kayys.alkhawarizm.spi.model.ModelTokenizerDescriptor;
+                                import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+                                import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+                                import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+                                import tech.kayys.aljabr.spi.model.ModelTokenizerDescriptor;
 
                                 public final class RunExternalModelFamilyPlugin implements ModelFamilyPlugin {
                                     @Override

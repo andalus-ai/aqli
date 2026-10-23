@@ -3,9 +3,9 @@ package tech.kayys.aqli.model.repo.hf;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.alkhawarizm.spi.model.ModelRepository;
-import tech.kayys.alkhawarizm.spi.model.ModelRepositoryProvider;
-import tech.kayys.alkhawarizm.spi.model.RepositoryContext;
+import tech.kayys.aljabr.spi.model.ModelRepository;
+import tech.kayys.aljabr.spi.model.ModelRepositoryProvider;
+import tech.kayys.aljabr.spi.model.RepositoryContext;
 
 @ApplicationScoped
 public final class HuggingFaceRepositoryProvider implements ModelRepositoryProvider {

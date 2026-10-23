@@ -7,8 +7,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-import tech.kayys.alkhawarizm.spi.model.ModelArtifact;
-import tech.kayys.alkhawarizm.spi.model.ModelDescriptor;
+import tech.kayys.aljabr.spi.model.ModelArtifact;
+import tech.kayys.aljabr.spi.model.ModelDescriptor;
 
 /**
  * Helper to download artifacts from HuggingFace.

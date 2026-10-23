@@ -19,14 +19,14 @@ repositories {
 }
 
 dependencies {
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-image"))
     implementation(project(":spi:aqli-spi-runner"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-model-flux:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-model-flux:0.1.0-SNAPSHOT")
     implementation("tech.kayys:suling:0.1.0")
     implementation(project(":spi:aqli-spi-multimodal"))
     implementation(project(":core:aqli-core"))

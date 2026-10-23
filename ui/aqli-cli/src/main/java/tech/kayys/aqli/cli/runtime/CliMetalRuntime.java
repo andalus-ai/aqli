@@ -31,7 +31,7 @@ public final class CliMetalRuntime {
 
     public static void initialize() {
         try {
-            Class<?> metalBindingClass = Class.forName("tech.kayys.alkhawarizm.metal.binding.MetalBinding");
+            Class<?> metalBindingClass = Class.forName("tech.kayys.aljabr.metal.binding.MetalBinding");
             Method initializeMethod = metalBindingClass.getMethod("initialize");
             initializeMethod.invoke(null);
             Method getInstanceMethod = metalBindingClass.getMethod("getInstance");
@@ -50,7 +50,7 @@ public final class CliMetalRuntime {
 
     public static NativeStatus status() {
         try {
-            Class<?> metalBindingClass = Class.forName("tech.kayys.alkhawarizm.metal.binding.MetalBinding");
+            Class<?> metalBindingClass = Class.forName("tech.kayys.aljabr.metal.binding.MetalBinding");
             Method getInstanceMethod = metalBindingClass.getMethod("getInstance");
             Object binding = getInstanceMethod.invoke(null);
 

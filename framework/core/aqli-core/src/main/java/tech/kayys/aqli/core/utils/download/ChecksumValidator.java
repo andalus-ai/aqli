@@ -19,7 +19,7 @@ package tech.kayys.aqli.model.download;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 
 import java.io.IOException;

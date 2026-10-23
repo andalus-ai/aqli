@@ -1,12 +1,12 @@
 package tech.kayys.aqli.runtime;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 import tech.kayys.aqli.runtime.plan.*;
 import tech.kayys.aqli.core.weight.WeightStore;
 import tech.kayys.aqli.runtime.control.*;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.ir.GOp;
 import tech.kayys.aqli.ir.GValueId;
 import tech.kayys.aqli.ir.GValueRef;

@@ -1,14 +1,14 @@
 package tech.kayys.aqli.adapter;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
 
-import tech.kayys.alkhawarizm.core.tensor.ModelWeightLoader;
+import tech.kayys.aljabr.core.tensor.ModelWeightLoader;
 import java.nio.file.Path;
 
 public final class GGUFModelLoader implements ModelWeightLoader {

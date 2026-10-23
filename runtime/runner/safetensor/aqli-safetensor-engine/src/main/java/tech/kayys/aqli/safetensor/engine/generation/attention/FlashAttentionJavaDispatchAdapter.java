@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 
 final class FlashAttentionJavaDispatchAdapter implements FlashAttentionJavaDispatchBackend {

@@ -7,9 +7,9 @@ package tech.kayys.aqli.safetensor.engine.sdk;
 
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.safetensor.engine.prompt.PromptTemplateCompat;
-import tech.kayys.aqli.spi.Message;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.Message;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +51,7 @@ final class LegacyDirectTextPolicy {
 
         try {
             return PromptTemplateCompat.format(
-                    new ArrayList<>(messages),
+                    messages,
                     modelProfile.modelType(),
                     modelProfile.runtimeTraits());
         } catch (Exception e) {

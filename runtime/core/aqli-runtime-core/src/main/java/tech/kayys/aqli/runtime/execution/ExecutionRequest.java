@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runtime.execution;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.runtime.plan.ExecutionPlan;
 import tech.kayys.aqli.runtime.control.ExecutionSession;
 

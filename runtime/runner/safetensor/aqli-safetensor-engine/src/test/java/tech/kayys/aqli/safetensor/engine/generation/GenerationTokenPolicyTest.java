@@ -6,10 +6,10 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 import tech.kayys.aqli.tokenizer.spi.DecodeOptions;
 import tech.kayys.aqli.tokenizer.spi.EncodeOptions;
 import tech.kayys.aqli.tokenizer.spi.Tokenizer;

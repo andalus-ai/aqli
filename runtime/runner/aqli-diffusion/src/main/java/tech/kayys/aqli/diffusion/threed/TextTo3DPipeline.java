@@ -1,9 +1,9 @@
 package tech.kayys.aqli.diffusion.threed;
 
-import tech.kayys.alkhawarizm.threed.export.GltfExporter;
-import tech.kayys.alkhawarizm.threed.export.ObjExporter;
-import tech.kayys.alkhawarizm.threed.export.PlyExporter;
-import tech.kayys.alkhawarizm.threed.geometry.Mesh3D;
+import tech.kayys.aljabr.threed.export.GltfExporter;
+import tech.kayys.aljabr.threed.export.ObjExporter;
+import tech.kayys.aljabr.threed.export.PlyExporter;
+import tech.kayys.aljabr.threed.geometry.Mesh3D;
 
 import java.io.IOException;
 import java.nio.file.Path;

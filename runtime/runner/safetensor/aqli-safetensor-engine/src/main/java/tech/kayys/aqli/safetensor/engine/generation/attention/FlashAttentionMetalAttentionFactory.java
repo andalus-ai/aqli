@@ -5,8 +5,8 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.metal.binding.MetalFlashAttentionBinding;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.metal.binding.MetalFlashAttentionBinding;
 
 import java.util.Objects;
 import java.util.function.BooleanSupplier;

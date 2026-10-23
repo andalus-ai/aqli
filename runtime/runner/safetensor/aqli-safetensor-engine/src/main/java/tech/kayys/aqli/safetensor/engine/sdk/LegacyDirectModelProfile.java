@@ -9,9 +9,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.models.core.ChatTemplateFormatter;
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -11,7 +11,7 @@ import tech.kayys.aqli.safetensor.engine.route.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import tech.kayys.aqli.cli.util.PluginGatesReportFields.Root;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeRegistry;
 
 import java.nio.file.Files;

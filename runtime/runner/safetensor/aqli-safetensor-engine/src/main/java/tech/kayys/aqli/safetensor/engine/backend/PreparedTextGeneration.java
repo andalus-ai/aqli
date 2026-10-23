@@ -1,6 +1,6 @@
 package tech.kayys.aqli.safetensor.engine.backend;
 
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.safetensor.engine.planning.PreparedPrompt;
 
 import java.util.Objects;

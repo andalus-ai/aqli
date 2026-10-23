@@ -7,7 +7,7 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import java.util.Objects;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 record DirectForwardMetalHalfMatvecRoutingPolicy(
         DirectForwardMetalHalfMatvecLogitsPolicy logitsPolicy,

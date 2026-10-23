@@ -3,9 +3,9 @@ package tech.kayys.aqli.provider.litert;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorFFMLoader;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorLoadResult;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorTensor;
+import tech.kayys.aljabr.safetensor.loader.SafetensorFFMLoader;
+import tech.kayys.aljabr.safetensor.loader.SafetensorLoadResult;
+import tech.kayys.aljabr.safetensor.loader.SafetensorTensor;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

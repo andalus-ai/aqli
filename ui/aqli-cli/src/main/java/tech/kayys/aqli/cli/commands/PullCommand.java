@@ -9,7 +9,7 @@ import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;

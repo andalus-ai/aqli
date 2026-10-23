@@ -5,16 +5,16 @@ WARNING: Restricted methods will be blocked in a future release unless native ac
 
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.4.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
-> Task :alkhawarizm:buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :alkhawarizm:buildSrc:compileKotlin UP-TO-DATE
-> Task :alkhawarizm:buildSrc:compileJava NO-SOURCE
-> Task :alkhawarizm:buildSrc:compileGroovy NO-SOURCE
-> Task :alkhawarizm:buildSrc:pluginDescriptors UP-TO-DATE
-> Task :alkhawarizm:buildSrc:processResources NO-SOURCE
-> Task :alkhawarizm:buildSrc:classes UP-TO-DATE
-> Task :alkhawarizm:buildSrc:jar UP-TO-DATE
+> Task :aljabr:buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :aljabr:buildSrc:compileKotlin UP-TO-DATE
+> Task :aljabr:buildSrc:compileJava NO-SOURCE
+> Task :aljabr:buildSrc:compileGroovy NO-SOURCE
+> Task :aljabr:buildSrc:pluginDescriptors UP-TO-DATE
+> Task :aljabr:buildSrc:processResources NO-SOURCE
+> Task :aljabr:buildSrc:classes UP-TO-DATE
+> Task :aljabr:buildSrc:jar UP-TO-DATE
 
-> Configure project :alkhawarizm:core:aqli-core
+> Configure project :aljabr:core:aqli-core
 ⚙️ Configuring aqli-core build:
    - Backends: [cpu]
    - Inference Enabled: true
@@ -694,12 +694,12 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 +--- com.github.albfernandez:juniversalchardet:2.4.0
 +--- project :sdk:aqli-sdk
 |    +--- project :sdk:aqli-sdk-core
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    +--- project :sdk:aqli-sdk-api
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    |    +--- project :spi:aqli-spi-inference
 |    |    |    |    +--- project :spi:aqli-spi
-|    |    |    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-error-code
+|    |    |    |    |    +--- tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-error-code
 |    |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
 |    |    |    |    |    |    \--- jakarta.validation:jakarta.validation-api:3.0.2 -> 3.1.1
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
@@ -708,11 +708,11 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    |    |    +--- org.jetbrains:annotations:24.0.1 -> 26.0.2
 |    |    |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    |    |    |    |    +--- jakarta.ws.rs:jakarta.ws.rs-api:3.1.0
-|    |    |    |    |    \--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
-|    |    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-error-code (*)
-|    |    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model
-|    |    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-error-code (*)
-|    |    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-tensor
+|    |    |    |    |    \--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
+|    |    |    |    +--- tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-error-code (*)
+|    |    |    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model
+|    |    |    |    |    +--- project :aljabr:core:aljabr-error-code (*)
+|    |    |    |    |    +--- project :aljabr:core:aljabr-tensor
 |    |    |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
@@ -721,7 +721,7 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    |    +--- project :spi:aqli-spi-multimodal
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
 |    |    |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
-|    |    |    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    |    |    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
 |    |    |    |    |    \--- org.jboss.logging:jboss-logging:3.5.3.Final -> 3.6.2.Final
 |    |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
@@ -729,18 +729,18 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
 |    |    |    |    +--- jakarta.validation:jakarta.validation-api:3.0.2 -> 3.1.1
 |    |    |    |    \--- org.jetbrains:annotations:24.0.1 -> 26.0.2
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    |    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    |    |    +--- project :spi:aqli-spi-multimodal (*)
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-core:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-core
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-api
-|    |    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-spi
-|    |    |    |    |    |    +--- project :alkhawarizm:core:aqli-tokenizer-core
-|    |    |    |    |    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
-|    |    |    |    |    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    |    |    +--- tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-core
+|    |    |    |    +--- project :aljabr:core:aljabr-safetensor-api
+|    |    |    |    |    +--- project :aljabr:core:aljabr-safetensor-spi
+|    |    |    |    |    |    +--- project :aljabr:core:aqli-tokenizer-core
+|    |    |    |    |    |    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
+|    |    |    |    |    |    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    |    |    |    |    |    |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1 -> 4.1.0 (*)
 |    |    |    |    |    |    |    +--- org.jboss.logging:jboss-logging:3.5.3.Final -> 3.6.2.Final
 |    |    |    |    |    |    |    \--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
-|    |    |    |    |    |    \--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    |    |    |    |    |    \--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
 |    |    |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
@@ -803,9 +803,9 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    |    |    |         +--- io.quarkus:quarkus-jackson:3.32.2 (*)
 |    |    |    |    |    |         \--- io.quarkus:quarkus-jsonp:3.32.2 (*)
 |    |    |    |    |    \--- org.jboss.logging:jboss-logging:3.5.3.Final -> 3.6.2.Final
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-spi (*)
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-loader
-|    |    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-spi (*)
+|    |    |    |    +--- project :aljabr:core:aljabr-safetensor-spi (*)
+|    |    |    |    +--- project :aljabr:core:aljabr-safetensor-loader
+|    |    |    |    |    +--- project :aljabr:core:aljabr-safetensor-spi (*)
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.16.1 -> 2.21.1 (*)
 |    |    |    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
@@ -831,7 +831,7 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    |    |    +--- io.micrometer:micrometer-core:1.16.3 (*)
 |    |    |    |    |    +--- jakarta.annotation:jakarta.annotation-api:2.1.1 -> 3.0.0
 |    |    |    |    |    \--- org.jboss.logging:jboss-logging:3.6.1.Final -> 3.6.2.Final
-|    |    |    |    +--- project :alkhawarizm:core:aqli-tokenizer-core (*)
+|    |    |    |    +--- project :aljabr:core:aqli-tokenizer-core (*)
 |    |    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
 |    |    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
 |    |    |    |    +--- com.google.code.gson:gson:2.10.1 -> 2.13.2
@@ -839,10 +839,10 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1 -> 4.1.0 (*)
 |    |    |    |    +--- jakarta.inject:jakarta.inject-api:2.0.1
 |    |    |    |    \--- org.jboss.logging:jboss-logging:3.6.1.Final -> 3.6.2.Final
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-quantization:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-quantization
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-api (*)
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-core (*)
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-safetensor-loader (*)
+|    |    |    +--- tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-quantization
+|    |    |    |    +--- project :aljabr:core:aljabr-safetensor-api (*)
+|    |    |    |    +--- project :aljabr:core:aljabr-safetensor-core (*)
+|    |    |    |    +--- project :aljabr:core:aljabr-safetensor-loader (*)
 |    |    |    |    +--- io.quarkus:quarkus-core -> 3.32.2 (*)
 |    |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    |    |    |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1 -> 4.1.0 (*)
@@ -896,16 +896,16 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    +--- io.quarkus.platform:quarkus-bom:3.32.2 (*)
 |    |    |    +--- io.quarkus:quarkus-arc -> 3.32.2 (*)
 |    |    |    +--- io.smallrye.config:smallrye-config:3.10.1 -> 3.16.0 (*)
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    |    +--- project :spi:aqli-spi (*)
 |    |    |    +--- project :spi:aqli-spi-inference (*)
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-core:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-core
-|    |    |    |    +--- project :alkhawarizm:core:alkhawarizm-tensor
-|    |    |    |    \--- project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    |    |    +--- tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-core
+|    |    |    |    +--- project :aljabr:core:aljabr-tensor
+|    |    |    |    \--- project :aljabr:core:aljabr-spi-model (*)
 |    |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    |    |    \--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1 -> 4.1.0 (*)
 |    |    +--- project :plugin:aqli-plugin-kernel-core
-|    |    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    |    +--- project :spi:aqli-spi (*)
 |    |    |    +--- project :spi:aqli-spi-plugin
 |    |    |    |    +--- project :spi:aqli-spi (*)
@@ -918,7 +918,7 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    |    \--- jakarta.annotation:jakarta.annotation-api:2.1.1 -> 3.0.0
 |    |    +--- project :spi:aqli-spi (*)
 |    |    +--- project :spi:aqli-spi-inference (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    |    +--- project :spi:aqli-spi-multimodal (*)
 |    |    +--- project :spi:aqli-spi-plugin (*)
 |    |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
@@ -976,7 +976,7 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    |    +--- io.perfmark:perfmark-api:0.27.0
 |    |    +--- io.grpc:grpc-api:1.79.0 (*)
 |    |    \--- org.codehaus.mojo:animal-sniffer-annotations:1.26
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    +--- project :spi:aqli-spi-inference (*)
 |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    \--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
@@ -984,22 +984,22 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 +--- project :sdk:aqli-sdk-core (*)
 +--- project :spi:aqli-spi (*)
 +--- project :spi:aqli-spi-inference (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
++--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 +--- project :spi:aqli-spi-multimodal (*)
 +--- project :spi:aqli-spi-runtime
 |    +--- project :spi:aqli-spi (*)
 |    +--- project :spi:aqli-spi-inference (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1 -> 4.1.0 (*)
 |    +--- jakarta.inject:jakarta.inject-api:2.0.1
 |    \--- org.jboss.logging:jboss-logging:3.5.3.Final -> 3.6.2.Final
 +--- project :core:aqli-core (*)
 +--- project :core:aqli-tokenizer-core
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    +--- project :spi:aqli-spi (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1 -> 4.1.0 (*)
 |    +--- org.jboss.logging:jboss-logging:3.5.3.Final -> 3.6.2.Final
 |    \--- com.fasterxml.jackson.core:jackson-databind:2.16.1 -> 2.21.1 (*)
@@ -1083,43 +1083,43 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 +--- project :plugin:aqli-plugin-runner-core
 |    +--- project :spi:aqli-spi (*)
 |    +--- project :spi:aqli-spi-inference (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    +--- org.jboss.logging:jboss-logging:3.6.0.Final -> 3.6.2.Final
 |    \--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 +--- project :plugin:aqli-plugin-runner-gguf
 |    +--- project :plugin:aqli-plugin-runner-core (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-gguf-core:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-gguf-core
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-nn:0.1.0 -> project :alkhawarizm:core:alkhawarizm-nn
-|    |    |    \--- project :alkhawarizm:core:alkhawarizm-tensor
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0 -> project :alkhawarizm:core:alkhawarizm-tensor
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-gguf-core
+|    |    +--- tech.kayys.aljabr:aljabr-nn:0.1.0 -> project :aljabr:core:aljabr-nn
+|    |    |    \--- project :aljabr:core:aljabr-tensor
+|    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0 -> project :aljabr:core:aljabr-tensor
+|    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    |    +--- com.google.code.gson:gson:2.10.1 -> 2.13.2 (*)
-|    |    +--- project :alkhawarizm:core:aqli-tokenizer-core (*)
+|    |    +--- project :aljabr:core:aqli-tokenizer-core (*)
 |    |    +--- io.quarkus:quarkus-core:3.32.2 (*)
 |    |    \--- org.jboss.logging:jboss-logging:3.6.1.Final -> 3.6.2.Final
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-nn:0.1.0 -> project :alkhawarizm:core:alkhawarizm-nn (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0 -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-nn:0.1.0 -> project :aljabr:core:aljabr-nn (*)
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0 -> project :aljabr:core:aljabr-tensor
 |    +--- project :spi:aqli-spi-inference (*)
 |    \--- project :runner:safetensor:aqli-safetensor-engine
 |         +--- project :sdk:aqli-sdk-core (*)
 |         +--- io.quarkus.platform:quarkus-bom:3.32.2 (*)
 |         +--- project :core:aqli-core (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|         +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |         +--- project :core:aqli-tokenizer-core (*)
 |         +--- project :spi:aqli-spi (*)
 |         +--- project :suling
 |         +--- project :spi:aqli-spi-inference (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|         +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |         +--- project :spi:aqli-spi-multimodal (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-api:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-api (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-core:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-core (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-spi:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-spi (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-loader:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-loader (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-quantization:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-quantization (*)
-|         +--- tech.kayys.alkhawarizm:alkhawarizm-backend-metal:0.1.0-SNAPSHOT -> project :alkhawarizm:backend:metal:alkhawarizm-backend-metal
-|         |    +--- project :alkhawarizm:core:alkhawarizm-tensor
-|         |    +--- project :alkhawarizm:backend:cpu:alkhawarizm-backend-cpu
-|         |    |    \--- project :alkhawarizm:core:alkhawarizm-tensor
+|         +--- tech.kayys.aljabr:aljabr-safetensor-api:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-api (*)
+|         +--- tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-core (*)
+|         +--- tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-spi (*)
+|         +--- tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-loader (*)
+|         +--- tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-quantization (*)
+|         +--- tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT -> project :aljabr:backend:metal:aljabr-backend-metal
+|         |    +--- project :aljabr:core:aljabr-tensor
+|         |    +--- project :aljabr:backend:cpu:aljabr-backend-cpu
+|         |    |    \--- project :aljabr:core:aljabr-tensor
 |         |    +--- org.jboss.logging:jboss-logging:3.6.1.Final -> 3.6.2.Final
 |         |    \--- jakarta.enterprise:jakarta.enterprise.cdi-api:4.1.0 (*)
 |         +--- com.fasterxml.jackson.core:jackson-annotations:2.16.1 -> 2.21
@@ -1136,7 +1136,7 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |         \--- org.jboss.logging:jboss-logging:3.6.1.Final -> 3.6.2.Final
 +--- project :observability:aqli-observability
 |    +--- org.slf4j:slf4j-api -> 2.0.17
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    +--- project :spi:aqli-spi (*)
 |    +--- project :spi:aqli-spi-inference (*)
 |    +--- project :core:aqli-core (*)
@@ -1300,12 +1300,12 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 +--- project :core:aqli-model-repo-hf
 |    +--- project :core:aqli-core (*)
 |    +--- project :spi:aqli-spi (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    +--- project :core:aqli-model-repo-local
 |    |    +--- project :spi:aqli-spi (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
+|    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    +--- project :core:aqli-core (*)
 |    |    +--- io.quarkus:quarkus-arc -> 3.32.2 (*)
 |    |    +--- io.quarkus:quarkus-rest-client -> 3.32.2
@@ -1535,8 +1535,8 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 +--- project :core:aqli-model-repo-kaggle
 |    +--- project :core:aqli-core (*)
 |    +--- project :spi:aqli-spi (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    +--- io.quarkus:quarkus-arc -> 3.32.2 (*)
 |    +--- io.quarkus:quarkus-rest-client -> 3.32.2 (*)
 |    +--- io.quarkus:quarkus-rest-client-jackson -> 3.32.2 (*)
@@ -1563,12 +1563,12 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    +--- project :core:aqli-core (*)
 |    +--- project :spi:aqli-spi (*)
 |    +--- project :spi:aqli-spi-inference (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    +--- project :spi:aqli-spi-multimodal (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-error-code (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-error-code (*)
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    +--- project :core:aqli-tokenizer-core (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-backend-metal:0.1.0-SNAPSHOT -> project :alkhawarizm:backend:metal:alkhawarizm-backend-metal (*)
+|    +--- tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT -> project :aljabr:backend:metal:aljabr-backend-metal (*)
 |    +--- io.smallrye.reactive:mutiny:2.5.5 -> 3.1.1 (*)
 |    +--- io.smallrye.config:smallrye-config:3.10.1 -> 3.16.0 (*)
 |    +--- org.jboss.logging:jboss-logging:3.6.1.Final -> 3.6.2.Final
@@ -1586,16 +1586,16 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |              |    \--- org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2 (c)
 |              \--- org.jetbrains.kotlin:kotlin-stdlib:2.1.0 -> 2.3.10 (*)
 +--- project :runner:onnx:aqli-runner-onnx
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-error-code (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
-|    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    +--- tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-error-code (*)
+|    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
+|    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    +--- project :spi:aqli-spi (*)
 |    +--- project :spi:aqli-spi-runner
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
+|    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
 |    |    +--- project :spi:aqli-spi-inference (*)
 |    |    +--- project :spi:aqli-spi (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-error-code (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-tensor
+|    |    +--- tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-error-code (*)
+|    |    +--- tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-tensor
 |    |    +--- project :core:aqli-core (*)
 |    |    +--- org.slf4j:slf4j-api -> 2.0.17
 |    |    \--- io.quarkus:quarkus-arc -> 3.32.2 (*)
@@ -1607,27 +1607,27 @@ testRuntimeClasspath - Runtime classpath of source set 'test'.
 |    +--- project :optimization:aqli-plugin-kv-cache
 |    |    +--- project :spi:aqli-spi (*)
 |    |    +--- project :spi:aqli-spi-inference (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-spi-model (*)
-|    |    +--- tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-error-code (*)
+|    |    +--- tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-spi-model (*)
+|    |    +--- tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-error-code (*)
 |    |    \--- project :core:aqli-core (*)
 |    +--- com.fasterxml.jackson.core:jackson-databind -> 2.21.1 (*)
 |    +--- com.microsoft.onnxruntime:onnxruntime:1.19.2
 |    +--- io.quarkus:quarkus-arc -> 3.32.2 (*)
 |    \--- io.smallrye.reactive:mutiny -> 3.1.1 (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-gguf-core:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-gguf-core (*)
++--- tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-gguf-core (*)
 +--- project :suling
 +--- com.google.ai.edge.litertlm:litertlm-jvm:0.11.0 (*)
 +--- project :runner:safetensor:aqli-safetensor-engine (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-loader:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-loader (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-spi:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-spi (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-safetensor-quantization:0.1.0-SNAPSHOT -> project :alkhawarizm:core:alkhawarizm-safetensor-quantization (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-backend-metal:0.1.0-SNAPSHOT -> project :alkhawarizm:backend:metal:alkhawarizm-backend-metal (*)
-+--- tech.kayys.alkhawarizm:alkhawarizm-model-gemma:0.1.0-SNAPSHOT -> project :alkhawarizm:models:alkhawarizm-model-gemma
-|    +--- project :alkhawarizm:core:alkhawarizm-spi-model (*)
++--- tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-loader (*)
++--- tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-spi (*)
++--- tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT -> project :aljabr:core:aljabr-safetensor-quantization (*)
++--- tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT -> project :aljabr:backend:metal:aljabr-backend-metal (*)
++--- tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT -> project :aljabr:models:aljabr-model-gemma
+|    +--- project :aljabr:core:aljabr-spi-model (*)
 |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api -> 4.1.0 (*)
 |    \--- jakarta.inject:jakarta.inject-api -> 2.0.1
-+--- tech.kayys.alkhawarizm:alkhawarizm-model-qwen:0.1.0-SNAPSHOT -> project :alkhawarizm:models:alkhawarizm-model-qwen
-|    +--- project :alkhawarizm:core:alkhawarizm-spi-model (*)
++--- tech.kayys.aljabr:aljabr-model-qwen:0.1.0-SNAPSHOT -> project :aljabr:models:aljabr-model-qwen
+|    +--- project :aljabr:core:aljabr-spi-model (*)
 |    +--- jakarta.enterprise:jakarta.enterprise.cdi-api -> 4.1.0 (*)
 |    \--- jakarta.inject:jakarta.inject-api -> 2.0.1
 +--- org.junit:junit-bom:5.10.2 -> 6.0.3

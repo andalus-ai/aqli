@@ -7,8 +7,8 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.isSingleTokenHalfLinearCandidate;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 final class DirectForwardLinearCachePolicy {
     private static final DirectForwardLinearCacheOptions OPTIONS =

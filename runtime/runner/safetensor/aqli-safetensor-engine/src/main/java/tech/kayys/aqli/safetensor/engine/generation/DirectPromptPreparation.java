@@ -5,9 +5,9 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 /**
  * Prepared prompt state needed by direct generation entry points.

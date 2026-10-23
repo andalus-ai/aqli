@@ -5,8 +5,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.spi.context.RequestContext;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.Pageable;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.Pageable;
 import tech.kayys.aqli.model.cache.CachedModelRepository;
 
 import java.util.List;

@@ -8,7 +8,7 @@ import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
 import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.micrometer.core.instrument.MeterRegistry;

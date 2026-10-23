@@ -8,8 +8,8 @@ package tech.kayys.aqli.cli.util;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyContractViolation;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyRuntimeCompatibilitySummary;
+import tech.kayys.aljabr.spi.model.ModelFamilyContractViolation;
+import tech.kayys.aljabr.spi.model.ModelFamilyRuntimeCompatibilitySummary;
 
 import java.util.ArrayList;
 import java.util.Collections;

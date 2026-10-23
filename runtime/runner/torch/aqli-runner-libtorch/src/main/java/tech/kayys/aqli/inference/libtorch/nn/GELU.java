@@ -1,7 +1,7 @@
 package tech.kayys.aqli.inference.libtorch.nn;
 
 import tech.kayys.aqli.inference.libtorch.core.TorchTensor;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 /**
  * GELU activation module wrapper.

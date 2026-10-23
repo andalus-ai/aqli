@@ -3,8 +3,8 @@ package tech.kayys.aqli.observability;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelStatsProvider;
+import tech.kayys.aljabr.spi.model.ModelRegistry;
+import tech.kayys.aljabr.spi.model.ModelStatsProvider;
 
 import java.time.LocalDateTime;
 

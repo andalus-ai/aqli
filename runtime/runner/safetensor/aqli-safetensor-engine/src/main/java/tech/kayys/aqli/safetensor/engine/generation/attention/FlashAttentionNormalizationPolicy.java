@@ -5,8 +5,8 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 /**
  * Centralizes model-family normalization and scale decisions for attention.

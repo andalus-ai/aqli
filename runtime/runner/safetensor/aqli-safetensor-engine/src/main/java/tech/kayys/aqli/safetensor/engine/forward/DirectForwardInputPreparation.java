@@ -5,11 +5,11 @@
  */
 package tech.kayys.aqli.safetensor.engine.forward;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.ForwardWorkspace;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 final class DirectForwardInputPreparation {
     private DirectForwardInputPreparation() {

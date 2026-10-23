@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
 
 import java.util.List;
 

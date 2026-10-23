@@ -7,21 +7,21 @@ package tech.kayys.aqli.safetensor.engine.generation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorLoaderFacade;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.alkhawarizm.safetensor.quantization.bridge.AccelWeightBridge;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.runtime.TokenizerFactory;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
+import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.tokenizer.TokenizerFactory;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;

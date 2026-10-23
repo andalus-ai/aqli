@@ -1,6 +1,6 @@
 package tech.kayys.aqli.ir;
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;

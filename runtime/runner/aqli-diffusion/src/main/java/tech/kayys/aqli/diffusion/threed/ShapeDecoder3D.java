@@ -1,10 +1,10 @@
 package tech.kayys.aqli.diffusion.threed;
 
-import tech.kayys.alkhawarizm.threed.geometry.BoundingBox3D;
-import tech.kayys.alkhawarizm.threed.geometry.Mesh3D;
-import tech.kayys.alkhawarizm.threed.geometry.Point3D;
-import tech.kayys.alkhawarizm.threed.voxel.MarchingCubes;
-import tech.kayys.alkhawarizm.threed.voxel.VoxelGrid3D;
+import tech.kayys.aljabr.threed.geometry.BoundingBox3D;
+import tech.kayys.aljabr.threed.geometry.Mesh3D;
+import tech.kayys.aljabr.threed.geometry.Point3D;
+import tech.kayys.aljabr.threed.voxel.MarchingCubes;
+import tech.kayys.aljabr.threed.voxel.VoxelGrid3D;
 
 /**
  * Neural / geometric shape decoder that converts a completed sequence of discrete shape codes

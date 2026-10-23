@@ -44,8 +44,8 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;

@@ -1,9 +1,9 @@
 package tech.kayys.aqli.safetensor.engine.prompt;
 
 import java.util.List;
-import tech.kayys.aqli.models.core.ChatTemplateFormatter;
-import tech.kayys.aqli.spi.Message;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.tokenizer.ChatTemplateFormatter;
+import tech.kayys.aljabr.spi.Message;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 /**
  * Runtime prompt-template compatibility layer for checkpoints whose prompt

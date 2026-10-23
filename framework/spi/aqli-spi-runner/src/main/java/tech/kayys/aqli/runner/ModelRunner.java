@@ -3,14 +3,14 @@ package tech.kayys.aqli.runner;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.alkhawarizm.spi.model.HealthStatus;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ResourceMetrics;
-import tech.kayys.alkhawarizm.spi.model.RunnerMetadata;
+import tech.kayys.aljabr.spi.model.HealthStatus;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ResourceMetrics;
+import tech.kayys.aljabr.spi.model.RunnerMetadata;
 
 import io.smallrye.mutiny.Multi;
 import tech.kayys.aqli.exception.RunnerInitializationException;

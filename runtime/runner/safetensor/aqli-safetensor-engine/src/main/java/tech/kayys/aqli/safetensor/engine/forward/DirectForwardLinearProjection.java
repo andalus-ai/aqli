@@ -5,8 +5,8 @@
  */
 package tech.kayys.aqli.safetensor.engine.forward;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 
 final class DirectForwardLinearProjection {

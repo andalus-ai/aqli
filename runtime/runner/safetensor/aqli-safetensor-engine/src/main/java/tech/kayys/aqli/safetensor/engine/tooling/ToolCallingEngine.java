@@ -58,7 +58,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.tool.ToolCall;
 import tech.kayys.aqli.spi.tool.ToolDefinition;
 

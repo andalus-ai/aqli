@@ -1,12 +1,12 @@
 package tech.kayys.aqli.safetensor.engine.warmup;
 
-import tech.kayys.aqli.spi.inference.LocalInferenceEngine;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.alkhawarizm.spi.model.HealthStatus;
+import tech.kayys.aljabr.spi.inference.LocalInferenceEngine;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.model.HealthStatus;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.Multi;
-import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
+import tech.kayys.aljabr.spi.inference.StreamingInferenceChunk;
 
 import jakarta.enterprise.context.ApplicationScoped;
 

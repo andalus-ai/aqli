@@ -8,7 +8,7 @@ package tech.kayys.aqli.safetensor.engine.generation;
 import static tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler.maybePrintProfileSummary;
 import static tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler.putGenerationBenchMetadata;
 
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
 import java.time.Duration;

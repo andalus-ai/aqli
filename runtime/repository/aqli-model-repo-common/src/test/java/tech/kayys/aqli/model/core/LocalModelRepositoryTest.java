@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import tech.kayys.aqli.model.local.LocalModelRepository;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.Pageable;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.Pageable;
 
 import java.nio.file.Path;
 import java.time.Instant;

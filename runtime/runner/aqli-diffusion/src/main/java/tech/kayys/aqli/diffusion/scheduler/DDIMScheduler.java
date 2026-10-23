@@ -1,7 +1,7 @@
 package tech.kayys.aqli.diffusion.scheduler;
 
-import tech.kayys.alkhawarizm.core.backend.ComputeBackend;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.backend.ComputeBackend;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 public final class DDIMScheduler implements Scheduler {
     private final float[] alphasCumprod;

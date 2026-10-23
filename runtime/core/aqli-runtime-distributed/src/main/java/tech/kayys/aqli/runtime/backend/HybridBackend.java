@@ -2,7 +2,7 @@ package tech.kayys.aqli.runtime.backend;
 
 import tech.kayys.aqli.runtime.plan.ExecutionPlan;
 import tech.kayys.aqli.runtime.control.ExecutionSession;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.Map;
 
 public final class HybridBackend implements ExecutionBackend {

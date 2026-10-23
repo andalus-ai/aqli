@@ -13,7 +13,7 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
 import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.gguf.llamacpp.*;
+import tech.kayys.aljabr.gguf.llamacpp.*;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.spi.inference.LocalInferenceEngine;
 import tech.kayys.aqli.spi.exception.ProviderException;
@@ -27,9 +27,9 @@ import tech.kayys.aqli.spi.observability.NoopAdapterMetricsRecorder;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.Message;
-import tech.kayys.alkhawarizm.spi.model.HealthStatus;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.HealthStatus;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -170,7 +170,7 @@ public class LlamaCppEngine implements LocalInferenceEngine {
 
         // v2.2.0 Hardening: Verify magic header if it's a file
         if (exists && java.nio.file.Files.isRegularFile(p)) {
-            if (!tech.kayys.alkhawarizm.spi.model.ModelFormatDetector.isGguf(p)) {
+            if (!tech.kayys.aljabr.spi.model.ModelFormatDetector.isGguf(p)) {
                 log.debugf("Model rejected: %s (not a GGUF file)", modelPath);
                 return false;
             }

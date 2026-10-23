@@ -6,8 +6,8 @@
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.metal.binding.MetalFlashAttentionBinding;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.metal.binding.MetalFlashAttentionBinding;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;

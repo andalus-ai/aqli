@@ -1,6 +1,6 @@
 package tech.kayys.aqli.server.api.v1;
 
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import java.util.List;
 import java.util.Optional;
 

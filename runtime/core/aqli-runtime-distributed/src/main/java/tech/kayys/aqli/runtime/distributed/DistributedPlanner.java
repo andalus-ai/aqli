@@ -2,7 +2,7 @@ package tech.kayys.aqli.runtime.distributed;
 
 import tech.kayys.aqli.core.graph.Node;
 import tech.kayys.aqli.core.graph.exec.ExecutionPlan;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 
 import java.util.ArrayList;
 import java.util.List;

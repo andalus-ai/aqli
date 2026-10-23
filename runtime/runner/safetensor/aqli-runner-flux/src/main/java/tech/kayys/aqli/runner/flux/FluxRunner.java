@@ -4,17 +4,17 @@ import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.core.random.GaussianNoise;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.models.flux.FluxModelArchitecture;
-import tech.kayys.alkhawarizm.models.flux.FluxVariant;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorShardLoader;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
-import tech.kayys.alkhawarizm.safetensor.quantization.bridge.AccelWeightBridge;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.RunnerMetadata;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.core.random.GaussianNoise;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.models.flux.FluxModelArchitecture;
+import tech.kayys.aljabr.models.flux.FluxVariant;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader;
+import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
+import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.RunnerMetadata;
 import tech.kayys.aqli.exception.RunnerInitializationException;
 import tech.kayys.aqli.extension.AbstractAqliRunner;
 import tech.kayys.aqli.runner.RunnerCapabilities;
@@ -271,7 +271,7 @@ public class FluxRunner extends AbstractAqliRunner implements ImageGenerationPip
 
         } catch (Exception e) {
             throw new RunnerInitializationException(
-                    tech.kayys.alkhawarizm.error.ErrorCode.INIT_NATIVE_LIBRARY_FAILED,
+                    tech.kayys.aljabr.error.ErrorCode.INIT_NATIVE_LIBRARY_FAILED,
                     "Failed to load FLUX weights from " + baseDir + ": " + e.getMessage());
         }
     }

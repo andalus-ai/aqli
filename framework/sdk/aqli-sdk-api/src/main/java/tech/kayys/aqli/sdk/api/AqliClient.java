@@ -4,7 +4,7 @@ package tech.kayys.aqli.sdk.api;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 /**
  * Unified Aqli inference client — single entry point regardless of backend

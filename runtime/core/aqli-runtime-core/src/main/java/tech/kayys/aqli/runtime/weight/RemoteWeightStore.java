@@ -1,11 +1,11 @@
 package tech.kayys.aqli.runtime.weight;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 import tech.kayys.aqli.core.weight.WeightStore;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
-import tech.kayys.alkhawarizm.core.backend.ComputeBackend;
+import tech.kayys.aljabr.core.tensor.Tensor;
+import tech.kayys.aljabr.core.backend.ComputeBackend;
 
 import java.io.IOException;
 import java.net.URI;

@@ -1,4 +1,4 @@
-:alkhawarizm
+:aljabr
 :core
 :core
 :core:aqli-adapter

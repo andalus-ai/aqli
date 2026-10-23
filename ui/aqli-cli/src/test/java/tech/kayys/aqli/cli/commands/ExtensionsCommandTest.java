@@ -21,11 +21,11 @@ import tech.kayys.aqli.cli.util.UnifiedRuntimeRequirementProblemCodes;
 import tech.kayys.aqli.plugin.core.ExtensionAvailability;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityProvider;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 
 import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
@@ -2075,7 +2075,7 @@ class ExtensionsCommandTest {
                 "external.modules.ModulesExternalExtensionProvider");
         writeServiceDescriptor(
                 classesDir,
-                "tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin",
+                "tech.kayys.aljabr.spi.model.ModelFamilyPlugin",
                 "external.modules.ModulesExternalModelFamilyPlugin");
         return classesDir;
     }
@@ -2248,10 +2248,10 @@ class ExtensionsCommandTest {
 
                 import java.util.List;
                 import java.util.Map;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-                import tech.kayys.alkhawarizm.spi.model.ModelTokenizerDescriptor;
+                import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+                import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+                import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+                import tech.kayys.aljabr.spi.model.ModelTokenizerDescriptor;
 
                 public final class ModulesExternalModelFamilyPlugin implements ModelFamilyPlugin {
                     @Override

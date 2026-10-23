@@ -3,7 +3,7 @@ package tech.kayys.aqli.safetensor.engine.generation.attention;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped

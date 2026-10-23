@@ -5,13 +5,13 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.spi.EncodeOptions;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.tokenizer.EncodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.lang.foreign.MemorySegment;
 import java.util.BitSet;

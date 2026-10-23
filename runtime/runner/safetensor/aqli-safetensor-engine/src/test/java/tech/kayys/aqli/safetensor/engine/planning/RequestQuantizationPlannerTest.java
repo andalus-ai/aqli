@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.planning;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.provider.ProviderRequest;
 

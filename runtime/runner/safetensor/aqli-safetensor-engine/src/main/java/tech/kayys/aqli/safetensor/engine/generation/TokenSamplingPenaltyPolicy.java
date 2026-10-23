@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 
 final class TokenSamplingPenaltyPolicy {
     private TokenSamplingPenaltyPolicy() {

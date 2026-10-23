@@ -1,7 +1,7 @@
 package tech.kayys.aqli.sdk.model;
 
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.context.RequestContext;
 
 import java.nio.file.Files;
@@ -48,7 +48,7 @@ public final class ModelResolver {
                     .filter(m -> requestedId.equalsIgnoreCase(m.getShortId())
                             || requestedId.equalsIgnoreCase(stringMetadata(m, "shortId"))
                             || requestedId.equalsIgnoreCase(stringMetadata(m, "manifestId"))
-                            || requestedId.equalsIgnoreCase(tech.kayys.alkhawarizm.spi.model.ModelUtils.generateShortId(m.getModelId())))
+                            || requestedId.equalsIgnoreCase(tech.kayys.aljabr.spi.model.ModelUtils.generateShortId(m.getModelId())))
                     .findFirst();
             if (byShortId.isPresent()) {
                 ModelInfo mi = byShortId.get();

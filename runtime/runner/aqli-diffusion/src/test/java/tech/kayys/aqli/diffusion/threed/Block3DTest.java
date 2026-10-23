@@ -1,8 +1,8 @@
 package tech.kayys.aqli.diffusion.threed;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.threed.export.ObjExporter;
-import tech.kayys.alkhawarizm.threed.geometry.Mesh3D;
+import tech.kayys.aljabr.threed.export.ObjExporter;
+import tech.kayys.aljabr.threed.geometry.Mesh3D;
 
 import static org.junit.jupiter.api.Assertions.*;
 

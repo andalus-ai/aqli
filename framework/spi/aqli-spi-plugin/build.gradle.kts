@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    api("tech.kayys.alkhawarizm:alkhawarizm-spi-plugin:0.1.0-SNAPSHOT")
+    api("tech.kayys.aljabr:aljabr-spi-plugin:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation("io.smallrye.reactive:mutiny:2.5.5")

@@ -669,7 +669,12 @@ public final class InferenceRequest {
         public InferenceRequest build() {
             Objects.requireNonNull(model, "model is required");
             if (messages.isEmpty()) {
-                throw new IllegalStateException("At least one message is required");
+                Object p = parameters != null ? parameters.get("prompt") : null;
+                if (p != null && !p.toString().isBlank()) {
+                    this.messages.add(tech.kayys.aqli.spi.Message.user(p.toString()));
+                } else {
+                    throw new IllegalStateException("At least one message is required");
+                }
             }
             return new InferenceRequest(
                     requestId, apiKey, model, messages, parameters, tools, toolChoice, streaming,

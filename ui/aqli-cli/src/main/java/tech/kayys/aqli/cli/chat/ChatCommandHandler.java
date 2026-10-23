@@ -4,7 +4,7 @@ import jakarta.enterprise.context.Dependent;
 import jakarta.inject.Inject;
 import tech.kayys.aqli.cli.commands.*;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 
 import java.util.List;
 

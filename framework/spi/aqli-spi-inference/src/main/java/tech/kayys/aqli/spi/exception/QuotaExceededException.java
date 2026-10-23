@@ -1,6 +1,6 @@
 package tech.kayys.aqli.spi.exception;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 
 public class QuotaExceededException extends InferenceException {
 

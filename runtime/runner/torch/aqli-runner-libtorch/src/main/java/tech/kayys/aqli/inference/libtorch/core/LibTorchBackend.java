@@ -1,10 +1,10 @@
 package tech.kayys.aqli.inference.libtorch.core;
 
 import tech.kayys.aqli.core.backend.ComputeBackendType;
-import tech.kayys.alkhawarizm.core.tensor.DType;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 import tech.kayys.aqli.core.graph.ExecutionContext;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 /**
  * LibTorch backend implementation for the core runtime graph and tensor
@@ -22,40 +22,40 @@ import tech.kayys.alkhawarizm.core.tensor.Tensor;
 public class LibTorchBackend implements tech.kayys.aqli.core.backend.ComputeBackend {
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor add(tech.kayys.alkhawarizm.core.tensor.Tensor a,
-            tech.kayys.alkhawarizm.core.tensor.Tensor b) {
+    public tech.kayys.aljabr.core.tensor.Tensor add(tech.kayys.aljabr.core.tensor.Tensor a,
+            tech.kayys.aljabr.core.tensor.Tensor b) {
         return a;
     }
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor sub(tech.kayys.alkhawarizm.core.tensor.Tensor a,
-            tech.kayys.alkhawarizm.core.tensor.Tensor b) {
+    public tech.kayys.aljabr.core.tensor.Tensor sub(tech.kayys.aljabr.core.tensor.Tensor a,
+            tech.kayys.aljabr.core.tensor.Tensor b) {
         return a;
     }
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor mul(tech.kayys.alkhawarizm.core.tensor.Tensor a, float scalar) {
+    public tech.kayys.aljabr.core.tensor.Tensor mul(tech.kayys.aljabr.core.tensor.Tensor a, float scalar) {
         return a;
     }
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor div(tech.kayys.alkhawarizm.core.tensor.Tensor a, float scalar) {
+    public tech.kayys.aljabr.core.tensor.Tensor div(tech.kayys.aljabr.core.tensor.Tensor a, float scalar) {
         return a;
     }
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor matmul(tech.kayys.alkhawarizm.core.tensor.Tensor a,
-            tech.kayys.alkhawarizm.core.tensor.Tensor b) {
+    public tech.kayys.aljabr.core.tensor.Tensor matmul(tech.kayys.aljabr.core.tensor.Tensor a,
+            tech.kayys.aljabr.core.tensor.Tensor b) {
         return a;
     }
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor relu(tech.kayys.alkhawarizm.core.tensor.Tensor a) {
+    public tech.kayys.aljabr.core.tensor.Tensor relu(tech.kayys.aljabr.core.tensor.Tensor a) {
         return a;
     }
 
     @Override
-    public tech.kayys.alkhawarizm.core.tensor.Tensor transpose(tech.kayys.alkhawarizm.core.tensor.Tensor a, int dim0,
+    public tech.kayys.aljabr.core.tensor.Tensor transpose(tech.kayys.aljabr.core.tensor.Tensor a, int dim0,
             int dim1) {
         return a;
     }
@@ -67,11 +67,11 @@ public class LibTorchBackend implements tech.kayys.aqli.core.backend.ComputeBack
 
     @Override
     @Override
-    public long numel(tech.kayys.alkhawarizm.core.tensor.Tensor a) {
+    public long numel(tech.kayys.aljabr.core.tensor.Tensor a) {
         return a.shape().numel();
     }
 
-    public tech.kayys.alkhawarizm.core.tensor.Tensor createTensor(
+    public tech.kayys.aljabr.core.tensor.Tensor createTensor(
             long[] shape,
             DType dtype,
             Device device,
@@ -96,7 +96,7 @@ public class LibTorchBackend implements tech.kayys.aqli.core.backend.ComputeBack
      * @return the LibTorch tensor
      * @throws IllegalArgumentException if the tensor is not a LibTorch tensor
      */
-    private TorchTensor requireLibTorch(tech.kayys.alkhawarizm.core.tensor.Tensor t) {
+    private TorchTensor requireLibTorch(tech.kayys.aljabr.core.tensor.Tensor t) {
         if (t instanceof TorchTensor lt) {
             return lt;
         }
@@ -124,13 +124,13 @@ public class LibTorchBackend implements tech.kayys.aqli.core.backend.ComputeBack
 
     private tech.kayys.aqli.inference.libtorch.core.Device.Type mapDevice(Device device) {
         return switch (device) {
-            case CPU -> tech.kayys.alkhawarizm.core.tensor.DeviceType.CPU;
-            case CUDA -> tech.kayys.alkhawarizm.core.tensor.DeviceType.CUDA;
+            case CPU -> tech.kayys.aljabr.core.tensor.DeviceType.CPU;
+            case CUDA -> tech.kayys.aljabr.core.tensor.DeviceType.CUDA;
             case METAL -> tech.kayys.aqli.inference.libtorch.core.Device.Type.MPS;
             case ROCM -> tech.kayys.aqli.inference.libtorch.core.Device.Type.HIP;
-            case TPU -> tech.kayys.alkhawarizm.core.tensor.DeviceType.TPU;
-            case NPU -> tech.kayys.alkhawarizm.core.tensor.DeviceType.CPU;
-            default -> tech.kayys.alkhawarizm.core.tensor.DeviceType.CPU;
+            case TPU -> tech.kayys.aljabr.core.tensor.DeviceType.TPU;
+            case NPU -> tech.kayys.aljabr.core.tensor.DeviceType.CPU;
+            default -> tech.kayys.aljabr.core.tensor.DeviceType.CPU;
         };
     }
 }

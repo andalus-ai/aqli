@@ -12,7 +12,7 @@ import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.sdk.util.AqliHome;
 import tech.kayys.aqli.model.repo.kaggle.KaggleClient;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

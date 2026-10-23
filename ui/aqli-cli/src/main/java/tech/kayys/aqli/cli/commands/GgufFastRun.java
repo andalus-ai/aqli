@@ -42,8 +42,8 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import tech.kayys.alkhawarizm.gguf.runtime.GgufRuntimeProfile;
-import tech.kayys.alkhawarizm.gguf.runtime.GgufRuntimeProbe;
+import tech.kayys.aljabr.gguf.runtime.GgufRuntimeProfile;
+import tech.kayys.aljabr.gguf.runtime.GgufRuntimeProbe;
 
 /**
  * Small GGUF/llama.cpp fast path used by the local macOS shim for simple
@@ -515,71 +515,67 @@ public final class GgufFastRun {
 
                 // Resolve prompt through the same model-specific chat template the llamacpp path uses.
                 String formattedPrompt = formatPromptForModel(args.prompt, modelPath);
+                if (args.debugPrompt) {
+                    out.println("[Raw Prompt Dispatched (Before LLM)]:");
+                    out.println("--------------------------------------------------");
+                    out.print(formattedPrompt);
+                    if (!formattedPrompt.endsWith("\n")) {
+                        out.println();
+                    }
+                    out.println("--------------------------------------------------");
+                }
 
                 // Build the InferenceRequest carrying prompt + sampling params.
-                // InferenceRequest.build() requires model to be non-null.
                 String modelName = modelPath.getFileName().toString();
-                tech.kayys.aqli.spi.inference.InferenceRequest inferenceRequest =
-                        tech.kayys.aqli.spi.inference.InferenceRequest.builder()
+                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest =
+                        tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
                                 .model(modelName)
                                 .prompt(formattedPrompt)
+                                .message(tech.kayys.aljabr.spi.Message.user(args.prompt))
                                 .maxTokens(args.maxTokens)
                                 .temperature(args.temperature)
                                 .topP(args.topP)
                                 .topK(args.topK)
                                 .build();
 
-                // Wrap in RunnerRequest so JavaNativeGgufBackend can read it.
-                tech.kayys.aqli.plugin.runner.RunnerRequest runnerRequest =
-                        tech.kayys.aqli.plugin.runner.RunnerRequest.builder()
-                                .type(tech.kayys.aqli.plugin.runner.RequestType.INFER)
-                                .inferenceRequest(inferenceRequest)
-                                .build();
-
-                // Use LlamaCppRunnerPlugin
-                tech.kayys.aqli.plugin.runner.llamacpp.LlamaCppRunnerPlugin plugin =
-                        new tech.kayys.aqli.plugin.runner.llamacpp.LlamaCppRunnerPlugin();
-                // Force backend=java; GgufBackendSelection reads this from load metadata.
-                tech.kayys.aqli.plugin.runner.RunnerContext ctx =
-                        tech.kayys.aqli.plugin.runner.RunnerContext.builder()
-                                .metadata(java.util.Map.of("gguf.backend", "java"))
-                                .build();
-                plugin.initialize(ctx);
-
-                tech.kayys.aqli.plugin.runner.ModelLoadRequest loadRequest =
-                        new tech.kayys.aqli.plugin.runner.ModelLoadRequest(
-                                modelPath.toString(),
-                                "gguf",
-                                tech.kayys.aqli.plugin.runner.RunnerConfig.defaultConfig(),
-                                java.util.Map.of("gguf.backend", "java"));
+                tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
+                        new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
 
                 long openStartNanos = System.nanoTime();
-                tech.kayys.aqli.plugin.runner.ModelHandle handle = plugin.loadModel(loadRequest, ctx);
-                long openNanos = System.nanoTime() - openStartNanos;
+                long openNanos;
+                long generateNanos;
+                long afterGenerateNanos;
+                String text;
 
-                long generateStartNanos = System.nanoTime();
-                tech.kayys.aqli.plugin.runner.RunnerResult<?> result = plugin.execute(runnerRequest, ctx);
-                long afterGenerateNanos = System.nanoTime();
-                long generateNanos = afterGenerateNanos - generateStartNanos;
+                try (tech.kayys.aljabr.gguf.api.GgufBackend backend = provider.create(modelPath, Map.of("backend", "java"))) {
+                    openNanos = System.nanoTime() - openStartNanos;
 
-                plugin.unloadModel(handle, ctx);
-                plugin.shutdown();
+                    long generateStartNanos = System.nanoTime();
+                    tech.kayys.aljabr.spi.inference.InferenceResponse response = backend.execute(inferenceRequest);
+                    afterGenerateNanos = System.nanoTime();
+                    generateNanos = afterGenerateNanos - generateStartNanos;
 
-                if (!result.isSuccess()) {
-                    err.println("Java-native GGUF failed: " + result.getErrorMessage().orElse("unknown error"));
-                    return COMMAND_ERROR;
+                    text = response != null && response.getContent() != null ? response.getContent() : "";
                 }
 
-                // Extract text from InferenceResponse.
-                String text = "";
-                Object data = result.getData();
-                if (data instanceof tech.kayys.aqli.spi.inference.InferenceResponse response) {
-                    text = response.getContent() != null ? response.getContent() : "";
-                } else if (data != null) {
-                    text = data.toString();
+                if (args.debugPrompt) {
+                    out.println("[Raw Output (From LLM Before Decode/Strip)]:");
+                    out.println("--------------------------------------------------");
+                    out.print(text);
+                    if (!text.endsWith("\n")) {
+                        out.println();
+                    }
+                    out.println("--------------------------------------------------");
+                    out.println("[Decoded/Sanitized Output]:");
+                    out.println("--------------------------------------------------");
+                    out.print(stripThinkingChannels(text));
+                    if (!stripThinkingChannels(text).endsWith("\n")) {
+                        out.println();
+                    }
+                    out.println("--------------------------------------------------");
+                } else {
+                    out.print(args.raw ? text : stripThinkingChannels(text));
                 }
-
-                out.print(args.raw ? text : stripThinkingChannels(text));
 
                 if (!fastRunQuiet() && !args.noInfo) {
                     // Approximate output tokens for stats.
@@ -867,11 +863,37 @@ public final class GgufFastRun {
                         cpuFallback,
                         warmSuffix);
             }
+            if (args.debugPrompt) {
+                out.println("[Raw Prompt Dispatched (Before LLM)]:");
+                out.println("--------------------------------------------------");
+                out.print(prompt);
+                if (!prompt.endsWith("\n")) {
+                    out.println();
+                }
+                out.println("--------------------------------------------------");
+            }
             long generateStartNanos = System.nanoTime();
             String output = session.generate(prompt, args.maxTokens, args.temperature, args.topK, args.topP);
             long afterGenerateNanos = System.nanoTime();
             long generateNanos = afterGenerateNanos - generateStartNanos;
-            out.print(args.raw ? output : stripThinkingChannels(output));
+            if (args.debugPrompt) {
+                out.println("[Raw Output (From LLM Before Decode/Strip)]:");
+                out.println("--------------------------------------------------");
+                out.print(output);
+                if (!output.endsWith("\n")) {
+                    out.println();
+                }
+                out.println("--------------------------------------------------");
+                out.println("[Decoded/Sanitized Output]:");
+                out.println("--------------------------------------------------");
+                out.print(stripThinkingChannels(output));
+                if (!stripThinkingChannels(output).endsWith("\n")) {
+                    out.println();
+                }
+                out.println("--------------------------------------------------");
+            } else {
+                out.print(args.raw ? output : stripThinkingChannels(output));
+            }
             String label = benchmarkMode ? "llama.cpp fallback" : "Fast GGUF";
             Optional<String> nativeMetrics = safeMetrics(
                     session,
@@ -1368,7 +1390,7 @@ public final class GgufFastRun {
         if (useConciseQuestionInstruction(prompt)) {
             userPrompt = "Answer directly and concisely.\nQuestion: " + prompt;
         }
-        return "<|turn>user\n" + userPrompt + "<turn|>\n<|turn>model\n";
+        return "<bos><|turn>user\n" + userPrompt + "<turn|>\n<|turn>model\n<|channel>thought\n<channel|>";
     }
 
     static String effectiveEngineModeName(String provider, String engine) {
@@ -2698,7 +2720,7 @@ public final class GgufFastRun {
 
     private static String launchctlLabel() {
         return stringConfig("aqli.gguf.fast_run.daemon_launchctl_label",
-                "tech.kayys.alkhawarizm.gguf-fast-daemon");
+                "tech.kayys.aljabr.gguf-fast-daemon");
     }
 
     private static void removeLaunchctlDaemon() {
@@ -2846,6 +2868,7 @@ public final class GgufFastRun {
         private boolean banner = true;
         private boolean noInfo = false;
         private boolean raw = false;
+        private boolean debugPrompt = false;
         private boolean supported = true;
 
         private boolean supported() {
@@ -2931,6 +2954,7 @@ public final class GgufFastRun {
                     case "--no-banner", "--suppress-banner" -> parsed.banner = false;
                     case "--no-info" -> parsed.noInfo = true;
                     case "--raw" -> parsed.raw = true;
+                    case "--debug-prompt" -> parsed.debugPrompt = true;
                     case "--only-text" -> { parsed.banner = false; parsed.noInfo = true; }
                     case "--use-cpu" -> parsed.backend = "cpu";
                     case "--max-tokens" -> {

@@ -14,9 +14,9 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.mapper.GgufMetadataMapper;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.mapper.GgufMetadataMapper;
 
 class FlashAttentionMetalLinearWeightsTest {
     private final FlashAttentionMetalLinearWeights weights = new FlashAttentionMetalLinearWeights();

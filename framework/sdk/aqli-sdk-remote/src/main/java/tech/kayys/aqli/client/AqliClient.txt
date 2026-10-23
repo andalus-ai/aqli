@@ -13,7 +13,7 @@ import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.client.exception.*;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.exception.SdkException;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.spi.auth.ApiKeyConstants;
 import tech.kayys.aqli.spi.batch.BatchInferenceRequest;

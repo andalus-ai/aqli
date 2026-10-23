@@ -8,8 +8,8 @@ package tech.kayys.aqli.cli.util;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

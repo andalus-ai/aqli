@@ -3,16 +3,16 @@ plugins {
     id("io.quarkus")
 }
 
-// Prevent old tech.kayys.alkhawarizm:aqli-spi* published snapshots from landing on the
+// Prevent old tech.kayys.aljabr:aqli-spi* published snapshots from landing on the
 // classpath alongside the live project modules.  Both carry identical Quarkus CDI extensions
 // that would register the same synthetic beans (e.g. KaggleConfig) twice, causing:
 //   IllegalStateException: A synthetic bean … is already registered
 configurations.all {
-    exclude(group = "tech.kayys.alkhawarizm", module = "aqli-spi")
-    exclude(group = "tech.kayys.alkhawarizm", module = "aqli-spi-inference")
-    exclude(group = "tech.kayys.alkhawarizm", module = "aqli-spi-multimodal")
-    exclude(group = "tech.kayys.alkhawarizm", module = "aqli-spi-plugin")
-    exclude(group = "tech.kayys.alkhawarizm", module = "aqli-spi-runtime")
+    exclude(group = "tech.kayys.aljabr", module = "aqli-spi")
+    exclude(group = "tech.kayys.aljabr", module = "aqli-spi-inference")
+    exclude(group = "tech.kayys.aljabr", module = "aqli-spi-multimodal")
+    exclude(group = "tech.kayys.aljabr", module = "aqli-spi-plugin")
+    exclude(group = "tech.kayys.aljabr", module = "aqli-spi-runtime")
     
     // Also exclude obsolete tech.kayys.aqli artifacts that have been merged/refactored
     // (e.g. aqli-runtime-config was split into aqli-model-repo-hf and others)
@@ -55,7 +55,7 @@ dependencies {
     implementation(project(":sdk:aqli-sdk-core"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
     implementation(project(":spi:aqli-spi-runtime"))
     implementation(project(":core:aqli-core"))
@@ -73,16 +73,19 @@ dependencies {
     implementation(project(":plugins:log-parser"))
     implementation(project(":runner:litert:aqli-runner-litert"))
     implementation(project(":runner:onnx:aqli-runner-onnx"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-gguf-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-api:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-java:0.1.0-SNAPSHOT")
     implementation("tech.kayys:suling:0.1.0")
     implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.11.0")
     implementation(project(":runner:safetensor:aqli-safetensor-engine"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-loader:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-spi:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-safetensor-quantization:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-backend-metal:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-model-gemma:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-model-qwen:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-model-gemma4:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-model-qwen:0.1.0-SNAPSHOT")
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")

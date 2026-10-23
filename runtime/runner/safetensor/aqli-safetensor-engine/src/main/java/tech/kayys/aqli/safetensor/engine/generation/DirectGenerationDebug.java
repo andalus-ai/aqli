@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.util.function.BiConsumer;
 

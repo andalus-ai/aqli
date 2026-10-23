@@ -1,10 +1,10 @@
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.ModelWeightLoader;
-import tech.kayys.alkhawarizm.core.tensor.WeightAdapter;
+import tech.kayys.aljabr.core.tensor.ModelWeightLoader;
+import tech.kayys.aljabr.core.tensor.WeightAdapter;
 import java.nio.file.Path;
 import java.util.*;
 

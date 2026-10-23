@@ -9,13 +9,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.QuantType;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.QuantType;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardFfnService;
 import tech.kayys.aqli.safetensor.engine.weights.WeightTensorResolver;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 @ApplicationScoped
 public class MoeForwardPass {

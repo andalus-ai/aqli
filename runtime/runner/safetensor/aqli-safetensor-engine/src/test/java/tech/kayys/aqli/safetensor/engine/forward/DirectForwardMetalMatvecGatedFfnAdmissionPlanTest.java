@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
 
 class DirectForwardMetalMatvecGatedFfnAdmissionPlanTest {
 

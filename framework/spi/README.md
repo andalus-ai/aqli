@@ -230,8 +230,8 @@ public class MyModelLoader implements ModelLoader {
 }
 
 // Register in META-INF/services
-// META-INF/services/tech.kayys.alkhawarizm.spi.model.ModelLoader
-tech.kayys.alkhawarizm.spi.model.MyModelLoader
+// META-INF/services/tech.kayys.aljabr.spi.model.ModelLoader
+tech.kayys.aljabr.spi.model.MyModelLoader
 ```
 
 ## 📁 Location

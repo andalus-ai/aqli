@@ -8,8 +8,8 @@ package tech.kayys.aqli.safetensor.engine.forward;
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardDiagnostics.logSegmentStats;
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardDiagnostics.logTensorStats;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 import tech.kayys.aqli.safetensor.engine.generation.moe.MoeForwardPass;
 

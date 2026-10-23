@@ -2,9 +2,9 @@ package tech.kayys.aqli.core.model;
 
 import tech.kayys.aqli.ir.GGraph;
 import tech.kayys.aqli.core.weight.WeightStore;
-import tech.kayys.alkhawarizm.spi.spec.*;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.spec.*;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 public final class LoadedModel {
     public final GGraph graph;

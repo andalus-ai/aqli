@@ -9,7 +9,7 @@ import tech.kayys.aqli.safetensor.engine.backend.TextExecutionPreparationPlan;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionPlan;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionReuseDecision;
 import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionState;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 import java.nio.file.Path;
 import java.util.Objects;

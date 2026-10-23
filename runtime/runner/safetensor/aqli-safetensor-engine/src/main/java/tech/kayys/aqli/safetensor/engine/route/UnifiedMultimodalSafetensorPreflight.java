@@ -12,7 +12,7 @@ import tech.kayys.aqli.sdk.route.RoutePreflightDiagnosticFields.ComponentReadine
 import tech.kayys.aqli.sdk.route.RoutePreflightDiagnosticFields.HeaderInspection;
 import tech.kayys.aqli.sdk.route.RoutePreflightDiagnosticFields.ProblemDetail;
 import tech.kayys.aqli.sdk.route.RoutePreflightDiagnosticFields.TensorInventory;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

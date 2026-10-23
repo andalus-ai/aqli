@@ -2,12 +2,12 @@ package tech.kayys.aqli.cli.util;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyResolution;
-import tech.kayys.alkhawarizm.spi.model.ModelTokenizerDescriptor;
+import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyResolution;
+import tech.kayys.aljabr.spi.model.ModelTokenizerDescriptor;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;

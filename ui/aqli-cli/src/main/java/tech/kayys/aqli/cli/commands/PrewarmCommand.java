@@ -20,7 +20,7 @@ import picocli.CommandLine.ParentCommand;
 import tech.kayys.aqli.cli.AqliCommand;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 @Command(name = "prewarm",
@@ -204,7 +204,7 @@ public class PrewarmCommand implements Callable<Integer> {
         long start = System.nanoTime();
         try {
             engine.loadModel(resolved);
-            InferenceResponse response = engine.generate(warmPrompt, resolved, cfg)
+            tech.kayys.aljabr.spi.inference.InferenceResponse response = engine.generate(warmPrompt, resolved, cfg)
                     .await().atMost(Duration.ofMinutes(10));
             double totalMs = (System.nanoTime() - start) / 1_000_000.0;
             Map<String, Object> metadata = response.getMetadata();

@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.forward;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.attention.AttentionInput;
 import tech.kayys.aqli.safetensor.engine.generation.attention.SharedKvState;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;

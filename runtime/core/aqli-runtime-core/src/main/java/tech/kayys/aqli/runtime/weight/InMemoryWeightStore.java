@@ -1,7 +1,7 @@
 package tech.kayys.aqli.runtime.weight;
 
 import tech.kayys.aqli.core.weight.WeightStore;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 

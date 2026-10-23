@@ -5,9 +5,9 @@
  */
 package tech.kayys.aqli.safetensor.engine.route;
 
-import tech.kayys.aqli.models.core.ChatTemplateFormatter;
-import tech.kayys.aqli.spi.Message;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.tokenizer.ChatTemplateFormatter;
+import tech.kayys.aljabr.spi.Message;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.util.List;
 import java.util.regex.Pattern;

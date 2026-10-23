@@ -6,7 +6,7 @@ import jakarta.enterprise.context.Dependent;
 import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import tech.kayys.aqli.cli.util.CLIUtils;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.model.SystemInfo;
 import picocli.CommandLine.Parameters;

@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-plugin"))
     implementation("org.jboss.logging:jboss-logging:3.5.3.Final")

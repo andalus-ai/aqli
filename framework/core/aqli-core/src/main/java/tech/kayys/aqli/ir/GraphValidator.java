@@ -1,9 +1,9 @@
 package tech.kayys.aqli.ir;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;

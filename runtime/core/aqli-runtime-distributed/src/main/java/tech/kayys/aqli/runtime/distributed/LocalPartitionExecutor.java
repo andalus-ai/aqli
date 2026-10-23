@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runtime.distributed;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.runtime.ExecutionEngine;
 import java.util.Map;
 

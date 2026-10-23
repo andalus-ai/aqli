@@ -15,7 +15,7 @@ import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.Message;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 

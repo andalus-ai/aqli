@@ -7,8 +7,8 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import java.util.Objects;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 record DirectForwardMetalFusedGatedFfnKernelPlan(
         DirectForwardMetalFfnActivationPlan activation,

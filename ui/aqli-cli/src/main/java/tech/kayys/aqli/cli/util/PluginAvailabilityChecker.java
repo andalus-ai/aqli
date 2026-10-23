@@ -13,8 +13,8 @@ import tech.kayys.aqli.plugin.core.ExtensionAvailability;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityContractReport;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityContractViolation;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 import tech.kayys.aqli.plugin.runner.RunnerPlugin;
 import tech.kayys.aqli.plugin.runner.RunnerPluginManager;
 

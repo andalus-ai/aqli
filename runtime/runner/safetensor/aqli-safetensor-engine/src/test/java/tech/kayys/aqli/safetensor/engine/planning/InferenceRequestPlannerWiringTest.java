@@ -22,12 +22,12 @@ import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionManager;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionRegistry;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionReuseDecision;
 import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 import tech.kayys.aqli.spi.provider.ProviderRequest;
 import tech.kayys.aqli.tokenizer.spi.Tokenizer;
 

@@ -103,7 +103,7 @@ class LlamaCppProviderTest {
         assertThat(capabilities).isNotNull();
         assertThat(capabilities.getMaxContextTokens()).isEqualTo(config.maxContextTokens());
         assertThat(capabilities.getSupportedFormats())
-                .contains(tech.kayys.alkhawarizm.spi.model.ModelFormat.GGUF);
+                .contains(tech.kayys.aljabr.spi.model.ModelFormat.GGUF);
     }
 
     @Test

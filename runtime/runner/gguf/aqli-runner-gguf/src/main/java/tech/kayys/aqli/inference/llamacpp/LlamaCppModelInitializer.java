@@ -1,8 +1,8 @@
 package tech.kayys.aqli.inference.llamacpp;
 
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;

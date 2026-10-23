@@ -3,8 +3,8 @@ import os
 dir_path = "/Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/aqli/runner/onnx/aqli-runner-onnx"
 
 replacements = {
-    "import tech.kayys.aqli.spi.inference.": "import tech.kayys.alkhawarizm.spi.inference.",
-    "import tech.kayys.aqli.spi.model.MultimodalProcessor;": "import tech.kayys.alkhawarizm.spi.model.MultimodalProcessor;",
+    "import tech.kayys.aqli.spi.inference.": "import tech.kayys.aljabr.spi.inference.",
+    "import tech.kayys.aqli.spi.model.MultimodalProcessor;": "import tech.kayys.aljabr.spi.model.MultimodalProcessor;",
 }
 
 for root, dirs, files in os.walk(dir_path):

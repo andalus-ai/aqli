@@ -1,13 +1,13 @@
 package tech.kayys.aqli.core.data;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 public final class GTensor implements GData {
     private final String id;

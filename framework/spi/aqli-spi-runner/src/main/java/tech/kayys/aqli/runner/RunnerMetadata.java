@@ -3,8 +3,8 @@ package tech.kayys.aqli.runner;
 import java.util.List;
 import java.util.Map;
 
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 /**
  * Runner metadata for selection and diagnostics

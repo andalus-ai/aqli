@@ -556,12 +556,12 @@ Changes not staged for commit:
 	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/LlamaForward.java
 	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/LlamaWeights.java
 	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/ModelConfig.java
-	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/alkhawarizm/LlamaAttention.java
-	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/alkhawarizm/LlamaDecoderLayer.java
-	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/alkhawarizm/LlamaMLP.java
-	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/alkhawarizm/LlamaModel.java
-	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/alkhawarizm/SigLIPVisionTransformer.java
-	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/alkhawarizm/VisionProjector.java
+	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/aljabr/LlamaAttention.java
+	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/aljabr/LlamaDecoderLayer.java
+	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/aljabr/LlamaMLP.java
+	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/aljabr/LlamaModel.java
+	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/aljabr/SigLIPVisionTransformer.java
+	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/model/aljabr/VisionProjector.java
 	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/runner/AljabrWeightAdapter.java
 	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/runner/GgufBackend.java
 	deleted:    runner/gguf/aqli-gguf-core/src/main/java/tech/kayys/aqli/gguf/runner/GgufRunnerPlugin.java

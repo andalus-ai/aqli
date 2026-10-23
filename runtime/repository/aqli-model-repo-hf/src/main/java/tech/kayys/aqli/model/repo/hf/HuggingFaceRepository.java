@@ -11,18 +11,18 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Optional;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelRepository;
-import tech.kayys.alkhawarizm.spi.model.ArtifactLocation;
-import tech.kayys.alkhawarizm.spi.model.ModelArtifact;
-import tech.kayys.alkhawarizm.spi.model.ModelDescriptor;
-import tech.kayys.alkhawarizm.spi.model.ModelRef;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.Pageable;
+import tech.kayys.aljabr.spi.model.ModelRepository;
+import tech.kayys.aljabr.spi.model.ArtifactLocation;
+import tech.kayys.aljabr.spi.model.ModelArtifact;
+import tech.kayys.aljabr.spi.model.ModelDescriptor;
+import tech.kayys.aljabr.spi.model.ModelRef;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.Pageable;
 
 @ApplicationScoped
 public final class HuggingFaceRepository implements ModelRepository {
@@ -120,7 +120,7 @@ public final class HuggingFaceRepository implements ModelRepository {
                     Path targetFolder = ManifestStore.resolveBlobDir(repoId, manifestName);
 
                     Path downloaded = downloadBestArtifact(repoId, targetFolder,
-                            tech.kayys.alkhawarizm.spi.model.PullOptions.DEFAULT);
+                            tech.kayys.aljabr.spi.model.PullOptions.DEFAULT);
                     if (downloaded != null) {
                         ModelFormat format = detectFormat(downloaded);
                         AqliManifest manifest = new AqliManifest();
@@ -152,7 +152,7 @@ public final class HuggingFaceRepository implements ModelRepository {
         ModelFormat format = ModelFormat.fromId(gm.getFormat());
         String path = gm.getBlobPath();
 
-        tech.kayys.alkhawarizm.spi.model.ArtifactLocation artifact = new tech.kayys.alkhawarizm.spi.model.ArtifactLocation(
+        tech.kayys.aljabr.spi.model.ArtifactLocation artifact = new tech.kayys.aljabr.spi.model.ArtifactLocation(
                 path != null ? Path.of(path).toUri().toString() : "",
                 null, gm.getSizeBytes(), "application/octet-stream");
 
@@ -201,7 +201,7 @@ public final class HuggingFaceRepository implements ModelRepository {
     }
 
     @Override
-    public Uni<ModelManifest> pull(String modelId, tech.kayys.alkhawarizm.spi.model.PullOptions options) {
+    public Uni<ModelManifest> pull(String modelId, tech.kayys.aljabr.spi.model.PullOptions options) {
         return Uni.createFrom().item(() -> {
             try {
                 String repoId = normalizeRepoId(modelId);
@@ -280,7 +280,7 @@ public final class HuggingFaceRepository implements ModelRepository {
         return normalized;
     }
 
-    private Path downloadBestArtifact(String repoId, Path targetDir, tech.kayys.alkhawarizm.spi.model.PullOptions options)
+    private Path downloadBestArtifact(String repoId, Path targetDir, tech.kayys.aljabr.spi.model.PullOptions options)
             throws Exception {
         Files.createDirectories(targetDir);
         String revision = options.getRevision() != null ? options.getRevision()

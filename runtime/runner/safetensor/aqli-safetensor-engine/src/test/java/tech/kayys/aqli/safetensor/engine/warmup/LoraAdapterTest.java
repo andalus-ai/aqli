@@ -137,13 +137,13 @@ class LoraAdapterTest {
     @Test
     void testLoadedAdapter_GetLoraPair() {
         // Create a mock LoadedAdapter
-        java.util.Map<String, tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor> weights = new java.util.HashMap<>();
+        java.util.Map<String, tech.kayys.aljabr.safetensor.core.tensor.AccelTensor> weights = new java.util.HashMap<>();
 
         // Mock tensors (using zeros for testing)
-        tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor mockA =
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(16, 4096);
-        tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor mockB =
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(4096, 16);
+        tech.kayys.aljabr.safetensor.core.tensor.AccelTensor mockA =
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(16, 4096);
+        tech.kayys.aljabr.safetensor.core.tensor.AccelTensor mockB =
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(4096, 16);
 
         weights.put("model.layers.0.self_attn.q_proj.lora_A.weight", mockA);
         weights.put("model.layers.0.self_attn.q_proj.lora_B.weight", mockB);
@@ -173,25 +173,25 @@ class LoraAdapterTest {
 
     @Test
     void testLoadedAdapter_GetModuleNames() {
-        java.util.Map<String, tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor> weights = new java.util.HashMap<>();
+        java.util.Map<String, tech.kayys.aljabr.safetensor.core.tensor.AccelTensor> weights = new java.util.HashMap<>();
 
         // Add multiple LoRA modules
         weights.put("model.layers.0.self_attn.q_proj.lora_A.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
         weights.put("model.layers.0.self_attn.q_proj.lora_B.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
         weights.put("model.layers.0.self_attn.v_proj.lora_A.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
         weights.put("model.layers.0.self_attn.v_proj.lora_B.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
         weights.put("model.layers.0.mlp.gate_proj.lora_A.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
         weights.put("model.layers.0.mlp.gate_proj.lora_B.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
 
         // Add non-LoRA tensor (should be ignored)
         weights.put("model.layers.0.self_attn.q_proj.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(4096, 4096));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(4096, 4096));
 
         AdapterConfig config = new AdapterConfig(
                 16, 16.0f, 0.0f, "none",
@@ -215,11 +215,11 @@ class LoraAdapterTest {
 
     @Test
     void testLoadedAdapter_HasModule() {
-        java.util.Map<String, tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor> weights = new java.util.HashMap<>();
+        java.util.Map<String, tech.kayys.aljabr.safetensor.core.tensor.AccelTensor> weights = new java.util.HashMap<>();
         weights.put("model.layers.0.self_attn.q_proj.lora_A.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(16, 4096));
         weights.put("model.layers.0.self_attn.q_proj.lora_B.weight",
-                tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
+                tech.kayys.aljabr.safetensor.core.tensor.AccelTensor.zeros(4096, 16));
 
         AdapterConfig config = new AdapterConfig(
                 16, 16.0f, 0.0f, "none",

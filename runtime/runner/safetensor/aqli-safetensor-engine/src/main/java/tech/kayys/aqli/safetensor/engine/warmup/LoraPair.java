@@ -1,6 +1,6 @@
 package tech.kayys.aqli.safetensor.engine.warmup;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 /**
  * A pair of LoRA matrices (A, B) for a single module.

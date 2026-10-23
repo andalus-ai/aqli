@@ -1,7 +1,7 @@
 package tech.kayys.aqli.runner.flux;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 /**
  * Flow Matching Euler scheduler for FLUX inference.

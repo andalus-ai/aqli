@@ -3,7 +3,7 @@ package tech.kayys.aqli.model.cache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.alkhawarizm.provider.core.loader.ArtifactResolver;
+import tech.kayys.aljabr.provider.core.loader.ArtifactResolver;
 
 import org.jboss.logging.Logger;
 

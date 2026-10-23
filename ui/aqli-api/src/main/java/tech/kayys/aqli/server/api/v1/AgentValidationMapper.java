@@ -1,7 +1,7 @@
 package tech.kayys.aqli.server.api.v1;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.core.HttpHeaders;
 import tech.kayys.aqli.spi.Message;

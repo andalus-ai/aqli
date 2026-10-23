@@ -1,8 +1,8 @@
 package tech.kayys.aqli.runner.flux;
 
-import tech.kayys.alkhawarizm.models.flux.FluxModelArchitecture;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.models.flux.FluxModelArchitecture;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.tokenizer.runtime.TokenizerFactory;
 import tech.kayys.aqli.tokenizer.spi.EncodeOptions;
 import tech.kayys.aqli.tokenizer.spi.Tokenizer;

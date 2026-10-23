@@ -7,7 +7,7 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import java.util.Objects;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 record DirectForwardContiguousTensor(AccelTensor source, AccelTensor tensor) implements AutoCloseable {
 

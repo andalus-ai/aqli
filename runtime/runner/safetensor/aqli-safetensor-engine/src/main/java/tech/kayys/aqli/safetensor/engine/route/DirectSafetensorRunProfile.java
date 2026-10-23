@@ -7,9 +7,9 @@ package tech.kayys.aqli.safetensor.engine.route;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

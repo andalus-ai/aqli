@@ -5,8 +5,8 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalFlashAttentionBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.metal.binding.MetalFlashAttentionBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;

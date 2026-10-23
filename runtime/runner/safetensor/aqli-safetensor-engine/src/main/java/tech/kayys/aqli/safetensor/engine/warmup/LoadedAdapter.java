@@ -1,7 +1,7 @@
 package tech.kayys.aqli.safetensor.engine.warmup;
 
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import java.nio.file.Path;
 import java.util.*;

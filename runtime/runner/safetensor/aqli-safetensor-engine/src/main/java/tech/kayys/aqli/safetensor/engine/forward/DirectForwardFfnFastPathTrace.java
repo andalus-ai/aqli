@@ -7,9 +7,9 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.tensorSummary;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

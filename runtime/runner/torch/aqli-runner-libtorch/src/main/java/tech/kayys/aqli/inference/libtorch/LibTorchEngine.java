@@ -32,7 +32,7 @@ import tech.kayys.aqli.inference.libtorch.util.SafetensorsLoader;
 import tech.kayys.aqli.spi.observability.AdapterSpec;
 import tech.kayys.aqli.spi.observability.AdapterSpecResolver;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.core.model.ModelFormat;
 import tech.kayys.aqli.spi.provider.ProviderHealth;
 import tech.kayys.aqli.spi.provider.ProviderMetadata;
 import tech.kayys.aqli.spi.inference.LocalInferenceEngine;

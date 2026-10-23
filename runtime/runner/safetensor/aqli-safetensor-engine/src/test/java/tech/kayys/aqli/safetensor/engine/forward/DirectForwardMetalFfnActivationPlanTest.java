@@ -7,7 +7,7 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import org.junit.jupiter.api.Test;
 
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

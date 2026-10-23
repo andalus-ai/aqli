@@ -1,8 +1,8 @@
 package tech.kayys.aqli.ml.runner.onnx;
 
 import tech.kayys.aqli.ml.runner.*;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
 import org.jboss.logging.Logger;
 
 import java.lang.foreign.*;

@@ -1,7 +1,7 @@
 package tech.kayys.aqli.ml.export.litert;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
-import tech.kayys.alkhawarizm.core.nn.NNModule;
+import tech.kayys.aljabr.core.tensor.Tensor;
+import tech.kayys.aljabr.core.nn.NNModule;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

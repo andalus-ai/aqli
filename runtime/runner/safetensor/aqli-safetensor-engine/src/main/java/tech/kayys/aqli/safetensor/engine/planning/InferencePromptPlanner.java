@@ -7,8 +7,8 @@ package tech.kayys.aqli.safetensor.engine.planning;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import tech.kayys.aqli.safetensor.engine.prompt.PromptTemplateCompat;
-import tech.kayys.aqli.spi.Message;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.Message;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.util.ArrayList;
 import java.util.List;

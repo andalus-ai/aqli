@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import tech.kayys.aqli.server.SdkProvider;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.PullProgress;
 
 import java.util.List;

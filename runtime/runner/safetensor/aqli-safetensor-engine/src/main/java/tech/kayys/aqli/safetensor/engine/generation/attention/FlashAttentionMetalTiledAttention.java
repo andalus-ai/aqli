@@ -5,11 +5,11 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

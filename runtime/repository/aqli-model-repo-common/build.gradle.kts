@@ -6,11 +6,11 @@ val quarkusVersion = rootProject.extra["quarkusVersion"] as String
 
 dependencies {
     implementation(project(":core:aqli-core"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-error-code:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-error-code:0.1.0-SNAPSHOT")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.16.1")
     implementation("io.smallrye.reactive:mutiny:2.5.5")

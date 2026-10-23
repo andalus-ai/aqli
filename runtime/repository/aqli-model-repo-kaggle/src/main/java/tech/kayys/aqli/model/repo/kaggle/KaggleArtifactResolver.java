@@ -1,7 +1,7 @@
 package tech.kayys.aqli.model.repo.kaggle;
 
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.spi.model.ModelRef;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModelRef;
 
 import java.net.URI;
 import java.util.Locale;

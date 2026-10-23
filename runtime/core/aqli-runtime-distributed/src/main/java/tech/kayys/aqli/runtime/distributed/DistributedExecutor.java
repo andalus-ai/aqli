@@ -1,7 +1,7 @@
 package tech.kayys.aqli.runtime.distributed;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 
 import java.util.*;
 

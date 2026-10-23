@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":core:aqli-core"))
     implementation(project(":core:aqli-core"))
     implementation(project(":runtime:aqli-runtime-core"))

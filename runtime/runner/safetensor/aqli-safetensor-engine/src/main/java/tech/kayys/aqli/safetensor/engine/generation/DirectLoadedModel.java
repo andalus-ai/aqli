@@ -9,14 +9,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
     private final Path path;

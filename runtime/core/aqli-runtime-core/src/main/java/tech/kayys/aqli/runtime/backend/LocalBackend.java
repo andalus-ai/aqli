@@ -3,7 +3,7 @@ package tech.kayys.aqli.runtime.backend;
 import tech.kayys.aqli.runtime.*;
 import tech.kayys.aqli.runtime.plan.*;
 import tech.kayys.aqli.runtime.control.ExecutionSession;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.Map;
 
 public final class LocalBackend implements ExecutionBackend {

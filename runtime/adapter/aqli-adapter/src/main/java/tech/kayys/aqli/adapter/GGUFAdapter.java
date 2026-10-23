@@ -1,14 +1,14 @@
 package tech.kayys.aqli.adapter;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;
 import tech.kayys.aqli.ir.validate.*;
 import java.util.*;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 public final class GGUFAdapter implements WeightAdapter {
     @Override

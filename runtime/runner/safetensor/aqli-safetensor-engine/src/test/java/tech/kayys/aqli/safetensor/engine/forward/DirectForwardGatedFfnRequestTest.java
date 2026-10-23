@@ -7,11 +7,11 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.ForwardWorkspace;
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.lang.reflect.Proxy;
 import java.util.List;

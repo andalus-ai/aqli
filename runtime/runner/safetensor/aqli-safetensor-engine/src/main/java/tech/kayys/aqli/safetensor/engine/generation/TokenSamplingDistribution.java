@@ -5,8 +5,8 @@
  */
 package tech.kayys.aqli.safetensor.engine.generation;
 
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.util.Random;
 

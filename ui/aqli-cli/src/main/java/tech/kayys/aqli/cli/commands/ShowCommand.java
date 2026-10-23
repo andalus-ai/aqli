@@ -19,16 +19,16 @@ import tech.kayys.aqli.cli.util.ModelFamilyResolutionReportFields.DirectArchitec
 import tech.kayys.aqli.cli.util.ModelFamilyResolutionReports;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.model.ModelResolver;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelLoader;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyResolution;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyRuntimeCompatibility;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyRuntimeManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilySupportReport;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
-import tech.kayys.alkhawarizm.spi.model.ModelTokenizerDescriptor;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelLoader;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyResolution;
+import tech.kayys.aljabr.spi.model.ModelFamilyRuntimeCompatibility;
+import tech.kayys.aljabr.spi.model.ModelFamilyRuntimeManifest;
+import tech.kayys.aljabr.spi.model.ModelFamilySupportReport;
+import tech.kayys.aljabr.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelTokenizerDescriptor;
 import tech.kayys.aqli.spi.context.RequestContext;
 
 import java.nio.file.Files;

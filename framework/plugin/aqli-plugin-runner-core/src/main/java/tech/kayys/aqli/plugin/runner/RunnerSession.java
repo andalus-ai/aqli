@@ -16,7 +16,7 @@ package tech.kayys.aqli.plugin.runner;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.KVCacheState;

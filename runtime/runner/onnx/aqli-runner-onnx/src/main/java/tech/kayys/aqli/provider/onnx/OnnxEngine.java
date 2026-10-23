@@ -17,12 +17,12 @@ import tech.kayys.aqli.spi.exception.ProviderException;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.spi.model.ModalityType;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ArtifactLocation;
-import tech.kayys.alkhawarizm.spi.model.ModelFormatDetector;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModalityType;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ArtifactLocation;
+import tech.kayys.aljabr.spi.model.ModelFormatDetector;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -194,7 +194,7 @@ public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceE
                 effectivePath = resolveOnnxBaseDir(modelPath);
             }
             LOG.infof("Initializing ONNX runner %s with path: %s", activeRunner.name(), effectivePath);
-            tech.kayys.alkhawarizm.spi.model.ModelManifest manifest = tech.kayys.alkhawarizm.spi.model.ModelManifest.builder()
+            tech.kayys.aljabr.spi.model.ModelManifest manifest = tech.kayys.aljabr.spi.model.ModelManifest.builder()
                     .modelId(request.getModel())
                     .name(request.getModel())
                     .version("latest")
@@ -202,7 +202,7 @@ public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceE
                     .apiKey("none")
                     .requestId(request.getRequestId())
                     .artifacts(Map.of(ModelFormat.ONNX,
-                            new tech.kayys.alkhawarizm.spi.model.ArtifactLocation(effectivePath.toUri().toString(), null,
+                            new tech.kayys.aljabr.spi.model.ArtifactLocation(effectivePath.toUri().toString(), null,
                                     null, null)))
                     .build();
 
@@ -1066,7 +1066,7 @@ public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceE
      * Delegates to shared utility in {@link ModelFormatDetector}.
      */
     private boolean isStableDiffusion(Path modelPath) {
-        return tech.kayys.alkhawarizm.spi.model.ModelFormatDetector.isStableDiffusion(modelPath);
+        return tech.kayys.aljabr.spi.model.ModelFormatDetector.isStableDiffusion(modelPath);
     }
 
     /**
@@ -1274,7 +1274,7 @@ public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceE
                 null);
     }
 
-    private ModalityType convertModality(tech.kayys.alkhawarizm.spi.model.ModalityType modality) {
+    private ModalityType convertModality(tech.kayys.aljabr.spi.model.ModalityType modality) {
         if (modality == null)
             return null;
         try {

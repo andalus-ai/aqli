@@ -12,9 +12,9 @@ import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.spi.model.ModalityType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModalityType;
 import tech.kayys.aqli.spi.observability.AdapterMetricsRecorder;
 import tech.kayys.aqli.spi.observability.AdapterMetricSchema;
 import tech.kayys.aqli.spi.observability.NoopAdapterMetricsRecorder;
@@ -381,11 +381,11 @@ public class LiteRTEngine implements LocalInferenceEngine {
         return score;
     }
 
-    public tech.kayys.alkhawarizm.spi.model.HealthStatus health() {
+    public tech.kayys.aljabr.spi.model.HealthStatus health() {
         if (!initialized) {
-            return tech.kayys.alkhawarizm.spi.model.HealthStatus.healthy("LiteRT Provider Operating Normally");
+            return tech.kayys.aljabr.spi.model.HealthStatus.healthy("LiteRT Provider Operating Normally");
         }
-        return tech.kayys.alkhawarizm.spi.model.HealthStatus.healthy("LiteRT Provider Operating Normally");
+        return tech.kayys.aljabr.spi.model.HealthStatus.healthy("LiteRT Provider Operating Normally");
     }
 
     @Override

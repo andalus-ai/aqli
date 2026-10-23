@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

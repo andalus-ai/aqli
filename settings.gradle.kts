@@ -1,14 +1,10 @@
 rootProject.name = "aqli-engine"
 
-// Include alkhawarizm and tafkir as composite builds if their directories exist locally (during local multi-project development)
-val alkhawarizmDir = file("../alkhawarizm")
-if (alkhawarizmDir.exists() && (alkhawarizmDir.resolve("build.gradle.kts").isFile || alkhawarizmDir.resolve("build.gradle").isFile || alkhawarizmDir.resolve("settings.gradle.kts").isFile || alkhawarizmDir.resolve("settings.gradle").isFile)) {
-    includeBuild("../alkhawarizm")
-}
-
-val tafkirDir = file("../tafkir")
-if (tafkirDir.exists() && (tafkirDir.resolve("build.gradle.kts").isFile || tafkirDir.resolve("build.gradle").isFile || tafkirDir.resolve("settings.gradle.kts").isFile || tafkirDir.resolve("settings.gradle").isFile)) {
-    includeBuild("../tafkir")
+// Include aljabr as composite build if directory exists locally (during local multi-project development)
+val aljabrDir = listOf(file("../aljabr"), file("../../Aljabr/aljabr"))
+    .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
+if (aljabrDir != null) {
+    includeBuild(aljabrDir)
 }
 fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
     val projectDir = candidatePaths
@@ -55,10 +51,10 @@ includeOptionalProject("observability:aqli-observability", "framework/observabil
 // Dynamically include model projects if they exist (avoid hard failure when some model dirs are missing)
 val staticallyIncludedModelProjects = setOf<String>()
 
-// Include statically listed ones only if their directories exist (also check alkhawarizm/models)
+// Include statically listed ones only if their directories exist (also check aljabr/models)
 staticallyIncludedModelProjects.forEach { name ->
-    val alkhawarizmAlt = "../alkhawarizm/models/alkhawarizm-model-${name.removePrefix("aqli-model-")}"
-    includeOptionalProject("models:$name", "models/$name", "../alkhawarizm/models/$name", alkhawarizmAlt)
+    val aljabrAlt = "../aljabr/models/aljabr-model-${name.removePrefix("aqli-model-")}"
+    includeOptionalProject("models:$name", "models/$name", "../aljabr/models/$name", aljabrAlt)
 }
 
 // Auto-include any additional model projects present under any 'models' directories in the repository

@@ -46,8 +46,8 @@ package tech.kayys.aqli.safetensor.engine.generation;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
-import tech.kayys.aqli.tokenizer.spi.DecodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
+import tech.kayys.aljabr.spi.tokenizer.DecodeOptions;
 
 import org.jboss.logging.Logger;
 

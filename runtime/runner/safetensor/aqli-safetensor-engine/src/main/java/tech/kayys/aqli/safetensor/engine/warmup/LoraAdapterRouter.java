@@ -1,6 +1,6 @@
 package tech.kayys.aqli.safetensor.engine.warmup;
 
-import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
 import java.util.Optional;
 import java.nio.file.Path;
 

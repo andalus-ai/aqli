@@ -1,7 +1,7 @@
 package tech.kayys.aqli.sdk.internal;
 
 import tech.kayys.aqli.sdk.api.AqliClient;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;

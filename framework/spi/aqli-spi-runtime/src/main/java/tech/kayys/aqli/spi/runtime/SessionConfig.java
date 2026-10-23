@@ -3,7 +3,7 @@
  */
 package tech.kayys.aqli.spi.runtime;
 
-import tech.kayys.alkhawarizm.spi.model.ModelDescriptor;
+import tech.kayys.aljabr.spi.model.ModelDescriptor;
 
 import java.util.Map;
 import java.util.Objects;

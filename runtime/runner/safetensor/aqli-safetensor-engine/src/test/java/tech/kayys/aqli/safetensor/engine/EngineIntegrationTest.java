@@ -16,8 +16,8 @@ import tech.kayys.aqli.safetensor.audio.SpeechT5Engine;
 import tech.kayys.aqli.safetensor.audio.model.AudioConfig;
 import tech.kayys.aqli.safetensor.audio.processing.AudioDecoderRegistry;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantConfig;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.quantization.QuantConfig;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 
 import static org.junit.jupiter.api.Assertions.*;
 

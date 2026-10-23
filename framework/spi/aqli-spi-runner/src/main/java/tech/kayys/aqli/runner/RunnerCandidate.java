@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runner;
 
-import tech.kayys.alkhawarizm.spi.model.RunnerMetadata;
+import tech.kayys.aljabr.spi.model.RunnerMetadata;
 
 /**
  * Candidate runner for selection with score

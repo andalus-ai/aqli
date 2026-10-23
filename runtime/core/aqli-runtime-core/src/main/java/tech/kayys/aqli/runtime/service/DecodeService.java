@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runtime.service;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.runtime.kv.*;
 
 /**

@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.forward;
 
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
 
 record DirectForwardMetalFfnActivationPlan(FFNActivationType activationType) {
 

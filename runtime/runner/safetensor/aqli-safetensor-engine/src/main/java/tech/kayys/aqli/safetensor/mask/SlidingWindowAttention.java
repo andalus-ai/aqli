@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.mask;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 import java.util.Arrays;
 
 /**

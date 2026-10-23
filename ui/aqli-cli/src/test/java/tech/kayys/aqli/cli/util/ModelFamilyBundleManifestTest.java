@@ -1,14 +1,14 @@
 package tech.kayys.aqli.cli.util;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyContractValidator;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyContractViolation;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyResolution;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyRuntimeCompatibility;
+import tech.kayys.aljabr.spi.model.ModelFamilyContractValidator;
+import tech.kayys.aljabr.spi.model.ModelFamilyContractViolation;
+import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyResolution;
+import tech.kayys.aljabr.spi.model.ModelFamilyRuntimeCompatibility;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

@@ -1,11 +1,11 @@
 package tech.kayys.aqli.runtime.kv;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.memory.CpuBuffer;
-import tech.kayys.alkhawarizm.core.tensor.*;
-import tech.kayys.alkhawarizm.core.backend.ComputeBackend;
+import tech.kayys.aljabr.core.memory.CpuBuffer;
+import tech.kayys.aljabr.core.tensor.*;
+import tech.kayys.aljabr.core.backend.ComputeBackend;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;

@@ -9,7 +9,7 @@
   [![Native Image](https://img.shields.io/badge/GraalVM-Native%20Image-orange.svg)](https://www.graalvm.org/)
 </div>
 
-**Aqli** is a high-performance, low-level inference engine and serving layer for AI models. It is the unified evolution of the former `alkhawarizm` (tensor/model runtime) and `tafkir` (quantization) projects, now consolidated as a single standalone project.
+**Aqli** is a high-performance, low-level inference engine and serving layer for AI models. It is the unified evolution of the former `aljabr` (tensor/model runtime) and `tafkir` (quantization) projects, now consolidated as a single standalone project.
 
 Aqli acts as the foundation for the [Wayang](../wayang/) orchestration layer. While Wayang handles agents and orchestration, Aqli handles the raw inference machinery: model loading, tensor operations, quantization, GGUF/SafeTensor execution, and hardware-accelerated backends (CPU, Metal, CUDA).
 
@@ -30,7 +30,7 @@ Aqli acts as the foundation for the [Wayang](../wayang/) orchestration layer. Wh
 │  └──────────┘  └──────────┘  └───────────────────┘ │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
-│  │         alkhawarizm (tensor core)            │  │
+│  │         aljabr (tensor core)            │  │
 │  │  CPU · Metal (Apple Silicon) · CUDA          │  │
 │  └──────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────┘

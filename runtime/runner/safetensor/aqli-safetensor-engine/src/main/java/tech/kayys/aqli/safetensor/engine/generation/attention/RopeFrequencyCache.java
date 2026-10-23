@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 /**
  * Optimized cache for RoPE (Rotary Positional Embedding) frequencies.

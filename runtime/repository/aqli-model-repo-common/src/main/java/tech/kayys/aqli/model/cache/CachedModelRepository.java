@@ -4,19 +4,19 @@ import io.quarkus.cache.CacheResult;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import tech.kayys.alkhawarizm.core.model.ModelFormat;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.Pageable;
-import tech.kayys.alkhawarizm.spi.model.ModelArtifact;
-import tech.kayys.alkhawarizm.spi.model.ModelDescriptor;
-import tech.kayys.alkhawarizm.spi.model.ModelRef;
+import tech.kayys.aljabr.core.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.Pageable;
+import tech.kayys.aljabr.spi.model.ModelArtifact;
+import tech.kayys.aljabr.spi.model.ModelDescriptor;
+import tech.kayys.aljabr.spi.model.ModelRef;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import tech.kayys.alkhawarizm.spi.model.ModelRepository;
+import tech.kayys.aljabr.spi.model.ModelRepository;
 
 /**
  * Cached wrapper around model repositories.
@@ -27,16 +27,16 @@ import io.quarkus.cache.CacheInvalidateAll;
 public class CachedModelRepository {
 
     @Inject
-    jakarta.enterprise.inject.Instance<tech.kayys.alkhawarizm.spi.model.ModelRepository> repositories;
+    jakarta.enterprise.inject.Instance<tech.kayys.aljabr.spi.model.ModelRepository> repositories;
 
     /**
      * Get repositories in prioritized order: Local > HuggingFace > Others (Kaggle,
      * etc.)
      */
-    private List<tech.kayys.alkhawarizm.spi.model.ModelRepository> getPrioritizedRepositories() {
-        List<tech.kayys.alkhawarizm.spi.model.ModelRepository> local = new ArrayList<>();
-        List<tech.kayys.alkhawarizm.spi.model.ModelRepository> hf = new ArrayList<>();
-        List<tech.kayys.alkhawarizm.spi.model.ModelRepository> others = new ArrayList<>();
+    private List<tech.kayys.aljabr.spi.model.ModelRepository> getPrioritizedRepositories() {
+        List<tech.kayys.aljabr.spi.model.ModelRepository> local = new ArrayList<>();
+        List<tech.kayys.aljabr.spi.model.ModelRepository> hf = new ArrayList<>();
+        List<tech.kayys.aljabr.spi.model.ModelRepository> others = new ArrayList<>();
 
         for (var repo : repositories) {
             String className = repo.getClass().getSimpleName();
@@ -49,7 +49,7 @@ public class CachedModelRepository {
             }
         }
 
-        List<tech.kayys.alkhawarizm.spi.model.ModelRepository> prioritized = new ArrayList<>();
+        List<tech.kayys.aljabr.spi.model.ModelRepository> prioritized = new ArrayList<>();
         prioritized.addAll(local);
         prioritized.addAll(hf);
         prioritized.addAll(others);

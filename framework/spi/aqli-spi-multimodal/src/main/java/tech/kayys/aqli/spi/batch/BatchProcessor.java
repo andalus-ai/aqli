@@ -2,8 +2,8 @@ package tech.kayys.aqli.spi.batch;
 
 import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.spi.model.MultimodalRequest;
-import tech.kayys.alkhawarizm.spi.model.MultimodalResponse;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
 import tech.kayys.aqli.spi.processor.MultimodalProcessor;
 
 import java.time.Duration;

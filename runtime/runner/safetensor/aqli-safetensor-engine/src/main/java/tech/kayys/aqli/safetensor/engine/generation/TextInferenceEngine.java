@@ -10,10 +10,10 @@ import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSession;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionManager;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionSessionReservation;
 import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionCoordinator;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorFeature;
+import tech.kayys.aljabr.safetensor.spi.SafetensorFeature;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 /**
  * CDI bean that exposes text generation as a {@link SafetensorFeature}.

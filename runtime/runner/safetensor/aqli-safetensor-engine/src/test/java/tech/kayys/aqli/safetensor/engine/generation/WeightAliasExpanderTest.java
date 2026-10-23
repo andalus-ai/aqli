@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import java.util.HashMap;
 import java.util.Map;

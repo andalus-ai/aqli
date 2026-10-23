@@ -3,7 +3,7 @@ package tech.kayys.aqli.model.repo.kaggle;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import tech.kayys.alkhawarizm.spi.model.ModelRepository;
+import tech.kayys.aljabr.spi.model.ModelRepository;
 
 /**
  * CDI producer for the Kaggle repository.

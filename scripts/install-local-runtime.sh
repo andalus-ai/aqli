@@ -11,7 +11,7 @@ GRADLEW="${PROJECT_ROOT}/gradlew"
 CLI_MODULE="ui/aqli-cli"
 SDK_MODULE="sdk/aqli-sdk-local"
 SAFETENSOR_ENGINE_MODULE="runner/safetensor/aqli-safetensor-engine"
-METAL_MODULE="../alkhawarizm/backend/metal/alkhawarizm-backend-metal"
+METAL_MODULE="../aljabr/backend/metal/aljabr-backend-metal"
 BIN_DIR="${AQLI_BIN_DIR:-${HOME}/.local/bin}"
 LIB_DIR="${AQLI_LIB_DIR:-${HOME}/.aqli/libs}"
 RUNTIME_DIR="${AQLI_RUNTIME_DIR:-${HOME}/.aqli/runtime}"
@@ -1785,6 +1785,22 @@ fi
 export DYLD_LIBRARY_PATH="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama\${DYLD_LIBRARY_PATH:+:\$DYLD_LIBRARY_PATH}"
 export DYLD_FALLBACK_LIBRARY_PATH="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama\${DYLD_FALLBACK_LIBRARY_PATH:+:\$DYLD_FALLBACK_LIBRARY_PATH}"
 
+aqli_filter_java_stderr() {
+    local stderr_file="\${1:-}"
+    [ -n "\$stderr_file" ] && [ -f "\$stderr_file" ] || return 0
+    grep -v -e "WARNING: Using incubator modules" -e "^Picked up JAVA_TOOL_OPTIONS:" "\$stderr_file" >&2 || true
+}
+
+aqli_run_java_filtered() {
+    local stderr_file status
+    stderr_file="\$(mktemp "\${TMPDIR:-/tmp}/aqli-java-stderr.XXXXXX")" || return 1
+    java "\$@" 2>"\$stderr_file"
+    status=\$?
+    aqli_filter_java_stderr "\$stderr_file"
+    rm -f "\$stderr_file"
+    return "\$status"
+}
+
 aqli_gguf_fast_command() {
     case "\${1:-}" in
         run|prewarm|warmup|__gguf-daemon-stop|__gguf-daemon-prewarm) return 0 ;;
@@ -2139,7 +2155,7 @@ aqli_stop_daemons_by_process_scan() {
     local class_name="\${1:-}"
     local line pid command
     command -v ps >/dev/null 2>&1 || return 0
-    while IFS= read -r line; do
+    ps -axo pid=,command= 2>/dev/null | while IFS= read -r line; do
         line="\${line#"\${line%%[![:space:]]*}"}"
         pid="\${line%%[[:space:]]*}"
         command="\${line#"\$pid"}"
@@ -2150,7 +2166,7 @@ aqli_stop_daemons_by_process_scan() {
         if aqli_is_daemon_command "\$command" "\$class_name"; then
             aqli_terminate_daemon_pid "\$pid"
         fi
-    done < <(ps -axo pid=,command= 2>/dev/null || true)
+    done
 }
 
 aqli_stop_fast_daemons_for_safetensor() {
@@ -2299,10 +2315,9 @@ aqli_prewarm_auto_mode() {
 aqli_prewarm_auto() {
     local mode plan status ref prompt max_tokens backend overall
     mode="\$(aqli_prewarm_auto_mode "\$@")" || return 1
-    plan="\$(java \\
+    plan="\$(aqli_run_java_filtered \\
         \${AQLI_JAVA_OPTS:-} \\
-        -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.PrewarmAutoPlan "\$mode" \\
-        2> >(grep -v -e "WARNING: Using incubator modules" -e "^Picked up JAVA_TOOL_OPTIONS:" >&2))"
+        -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.PrewarmAutoPlan "\$mode")"
     status=\$?
     if [ "\$status" -ne 0 ] || [ -z "\$plan" ]; then
         echo "No local runnable GGUF/LiteRT-LM models were found for prewarm auto mode '\$mode'." >&2
@@ -2351,7 +2366,7 @@ aqli_stop_fast_daemons_for_safetensor "\$@"
 # CLI path" sentinel. Other non-zero statuses are real command failures and
 # must not be hidden by silently launching another engine.
 if [ "\${AQLI_GGUF_FAST_RUN:-true}" != "false" ] && aqli_gguf_fast_command "\${1:-}" && ! aqli_safetensor_requested "\$@" && ! aqli_litert_requested "\$@"; then
-    java \\
+    aqli_run_java_filtered \\
         -Xmx"\${AQLI_JAVA_HEAP}" \\
         -XX:MaxDirectMemorySize="\${AQLI_MAX_DIRECT_MEMORY}" \\
         --enable-preview \\
@@ -2364,7 +2379,7 @@ if [ "\${AQLI_GGUF_FAST_RUN:-true}" != "false" ] && aqli_gguf_fast_command "\${1
         -Daqli.gguf.fast_run.hard_exit_after_run="\${AQLI_GGUF_FAST_HARD_EXIT_AFTER_RUN}" \\
         -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
         -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
-        -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.GgufFastRun "\$@" 2> >(grep -v -e "WARNING: Using incubator modules" -e "^Picked up JAVA_TOOL_OPTIONS:" >&2)
+        -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.GgufFastRun "\$@"
     FAST_STATUS=\$?
     if [ "\$FAST_STATUS" -eq 0 ]; then
         exit 0
@@ -2378,7 +2393,7 @@ if [ "\${AQLI_GGUF_FAST_RUN:-true}" != "false" ] && aqli_gguf_fast_command "\${1
 fi
 
 if [ "\${AQLI_LITERT_FAST_RUN:-true}" != "false" ] && aqli_litert_fast_command "\${1:-}" && ! aqli_safetensor_requested "\$@" && ! aqli_gguf_requested "\$@"; then
-    java \\
+    aqli_run_java_filtered \\
         -Xmx"\${AQLI_JAVA_HEAP}" \\
         -XX:MaxDirectMemorySize="\${AQLI_MAX_DIRECT_MEMORY}" \\
         --enable-preview \\
@@ -2391,7 +2406,7 @@ if [ "\${AQLI_LITERT_FAST_RUN:-true}" != "false" ] && aqli_litert_fast_command "
         -Daqli.litert.fast_run.debug="\${AQLI_LITERT_FAST_RUN_DEBUG:-false}" \\
         -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
         -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
-        -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.LiteRtLmFastRun "\$@" 2> >(grep -v -e "WARNING: Using incubator modules" -e "^Picked up JAVA_TOOL_OPTIONS:" >&2)
+        -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.LiteRtLmFastRun "\$@"
     FAST_STATUS=\$?
     if [ "\$FAST_STATUS" -eq 0 ]; then
         exit 0
@@ -2405,7 +2420,7 @@ if [ "\${AQLI_LITERT_FAST_RUN:-true}" != "false" ] && aqli_litert_fast_command "
 fi
 
 # Launch — enabling FFM and Vector API for pure Java converter
-exec java \\
+aqli_run_java_filtered \\
     -Xmx"\${AQLI_JAVA_HEAP}" \\
     -XX:MaxDirectMemorySize="\${AQLI_MAX_DIRECT_MEMORY}" \\
     --enable-preview \\
@@ -2418,7 +2433,8 @@ exec java \\
     -Daqli.litert.fast_run.debug="\${AQLI_LITERT_FAST_RUN_DEBUG:-false}" \\
     -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
     -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
-    -jar "$JAR_PATH" "\$@" 2> >(grep -v -e "WARNING: Using incubator modules" -e "^Picked up JAVA_TOOL_OPTIONS:" >&2)
+    -jar "$JAR_PATH" "\$@"
+exit \$?
 EOF
 fi
 

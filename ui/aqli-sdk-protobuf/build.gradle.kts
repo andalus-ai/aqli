@@ -24,8 +24,8 @@ dependencies {
     implementation(project(":repository:aqli-model-database"))
     implementation(project(":sdk:aqli-sdk-api"))
     implementation(project(":sdk:aqli-sdk-core"))
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT")
     implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
     
     testImplementation(platform("org.junit:junit-bom:5.10.0"))

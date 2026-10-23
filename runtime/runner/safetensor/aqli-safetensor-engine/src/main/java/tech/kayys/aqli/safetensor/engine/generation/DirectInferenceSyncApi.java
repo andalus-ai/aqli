@@ -9,8 +9,8 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
 import java.util.function.Supplier;

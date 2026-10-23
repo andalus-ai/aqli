@@ -7,7 +7,7 @@ package tech.kayys.aqli.safetensor.engine.planning;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.spi.Message;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.util.List;
 

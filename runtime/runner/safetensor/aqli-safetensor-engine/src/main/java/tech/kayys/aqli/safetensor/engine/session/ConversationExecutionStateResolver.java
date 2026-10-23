@@ -4,7 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import io.quarkus.arc.Arc;
 import tech.kayys.aqli.safetensor.engine.backend.PreparedTextModel;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 /**
  * Bridges legacy conversation/KV session state into the new execution planner.

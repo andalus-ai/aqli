@@ -14,25 +14,25 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorLoaderFacade;
-import tech.kayys.alkhawarizm.safetensor.quantization.bridge.AccelWeightBridge;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
+import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
 import tech.kayys.aqli.safetensor.engine.warmup.ModelWarmupService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 import java.lang.foreign.Arena;
 import java.nio.file.Path;
 import java.util.function.Consumer;
@@ -165,11 +165,11 @@ public class DirectInferenceEngine implements SafetensorEngine {
     }
 
     public String loadModel(Path modelPath, Path adapterPath, String quantStrategy) {
-        tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine.QuantStrategy resolvedQuantStrategy = 
-                tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine.QuantStrategy.NONE;
+        tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy resolvedQuantStrategy = 
+                tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy.NONE;
         if (quantStrategy != null && !quantStrategy.isBlank()) {
             try {
-                resolvedQuantStrategy = tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine.QuantStrategy.valueOf(quantStrategy.toUpperCase());
+                resolvedQuantStrategy = tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy.valueOf(quantStrategy.toUpperCase());
             } catch (Exception e) {
                 // Ignore, fallback to NONE
             }

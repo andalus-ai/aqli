@@ -1,7 +1,7 @@
 package tech.kayys.aqli.safetensor.runner.sd;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import java.util.ArrayList;
 import java.util.List;
 

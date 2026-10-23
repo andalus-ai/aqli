@@ -6,15 +6,15 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorLoaderFacade;
-import tech.kayys.alkhawarizm.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
-import tech.kayys.alkhawarizm.safetensor.quantization.bridge.AccelWeightBridge;
-import tech.kayys.aqli.safetensor.utils.SafetensorWriter;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
+import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
+import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.safetensor.utils.SafetensorWriter;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

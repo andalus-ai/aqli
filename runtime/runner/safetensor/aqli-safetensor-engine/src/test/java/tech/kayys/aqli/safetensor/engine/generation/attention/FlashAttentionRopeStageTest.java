@@ -6,10 +6,10 @@
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelAttentionTraitsPolicy;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelAttentionTraitsPolicy;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.lang.reflect.Proxy;
 import java.util.List;

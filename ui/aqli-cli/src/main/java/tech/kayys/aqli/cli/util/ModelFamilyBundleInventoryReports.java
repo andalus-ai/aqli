@@ -11,9 +11,9 @@ import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.cli.util.ModelFamilyBundleInventoryReportFields.Family;
 import tech.kayys.aqli.cli.util.ModelFamilyBundleInventoryReportFields.RuntimeManifest;
 import tech.kayys.aqli.cli.util.ModelFamilyBundleInventoryReportFields.RuntimeRequirement;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyRuntimeManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilySupportReport;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyUnifiedRuntimeRequirement;
+import tech.kayys.aljabr.spi.model.ModelFamilyRuntimeManifest;
+import tech.kayys.aljabr.spi.model.ModelFamilySupportReport;
+import tech.kayys.aljabr.spi.model.ModelFamilyUnifiedRuntimeRequirement;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

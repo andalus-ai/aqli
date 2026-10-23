@@ -2,7 +2,7 @@ package tech.kayys.aqli.inference.libtorch.optim;
 
 import tech.kayys.aqli.inference.libtorch.binding.LibTorchBinding;
 import tech.kayys.aqli.inference.libtorch.core.TorchTensor;
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;

@@ -10,13 +10,13 @@
  */
 package tech.kayys.aqli.sdk.api;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantConfig;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantResult;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantStats;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizerRegistry;
-import tech.kayys.alkhawarizm.safetensor.quantization.quantizer.Quantizer;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.quantization.QuantConfig;
+import tech.kayys.aljabr.safetensor.quantization.QuantResult;
+import tech.kayys.aljabr.safetensor.quantization.QuantStats;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.quantization.QuantizerRegistry;
+import tech.kayys.aljabr.safetensor.quantization.quantizer.Quantizer;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;

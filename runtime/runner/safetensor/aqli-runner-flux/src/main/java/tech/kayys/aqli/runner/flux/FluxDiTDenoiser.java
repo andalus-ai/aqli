@@ -1,8 +1,8 @@
 package tech.kayys.aqli.runner.flux;
 
-import tech.kayys.alkhawarizm.models.flux.FluxVariant;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.models.flux.FluxVariant;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import java.util.Map;
 

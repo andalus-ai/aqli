@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelManifest;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 

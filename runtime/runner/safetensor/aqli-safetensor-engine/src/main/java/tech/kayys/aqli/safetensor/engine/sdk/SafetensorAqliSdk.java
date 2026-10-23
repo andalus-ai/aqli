@@ -11,7 +11,7 @@ import tech.kayys.aqli.spi.inference.AsyncJobStatus;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import io.smallrye.mutiny.Multi;
 import java.time.Duration;
 import java.util.List;

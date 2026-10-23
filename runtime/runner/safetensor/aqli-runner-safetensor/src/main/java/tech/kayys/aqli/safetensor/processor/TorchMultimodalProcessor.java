@@ -4,7 +4,7 @@ import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.spi.model.*;
+import tech.kayys.aljabr.spi.model.*;
 import tech.kayys.aqli.spi.processor.MultimodalProcessor;
 
 import java.util.Map;

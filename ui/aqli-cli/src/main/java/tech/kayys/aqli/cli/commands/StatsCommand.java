@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry.ModelStats;
+import tech.kayys.aljabr.spi.model.ModelRegistry.ModelStats;
 
 import java.util.Map;
 import java.util.Optional;

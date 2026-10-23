@@ -18,8 +18,8 @@ repositories {
 }
 
 dependencies {
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-nn:0.1.0")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0")
+    implementation("tech.kayys.aljabr:aljabr-nn:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":sdk:aqli-sdk-api"))
     implementation(project(":runner:litert:aqli-runner-litert"))
     implementation(project(":spi:aqli-spi-inference"))

@@ -20,7 +20,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.core.config.HardwareConfig;
-import tech.kayys.alkhawarizm.spi.spec.HardwareCapabilities;
+import tech.kayys.aljabr.spi.spec.HardwareCapabilities;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 

@@ -1,11 +1,11 @@
 package tech.kayys.aqli.safetensor.engine.fusion;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.alkhawarizm.safetensor.spi.EncodedInput;
-import tech.kayys.alkhawarizm.safetensor.spi.FusionEngine;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModalityType;
+import tech.kayys.aljabr.safetensor.spi.EncodedInput;
+import tech.kayys.aljabr.safetensor.spi.FusionEngine;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModalityType;
 
 import java.util.ArrayList;
 import java.util.List;

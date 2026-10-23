@@ -2,7 +2,7 @@ package tech.kayys.aqli.spi.inference;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import tech.kayys.alkhawarizm.spi.model.ModalityType;
+import tech.kayys.aljabr.spi.model.ModalityType;
 
 import java.time.Instant;
 

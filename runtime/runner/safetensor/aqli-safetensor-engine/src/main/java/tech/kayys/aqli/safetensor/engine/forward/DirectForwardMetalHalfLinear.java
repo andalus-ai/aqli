@@ -10,10 +10,10 @@ import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.r
 
 import java.lang.foreign.MemorySegment;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 final class DirectForwardMetalHalfLinear {
     private DirectForwardMetalHalfLinear() {

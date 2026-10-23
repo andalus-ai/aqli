@@ -2,11 +2,11 @@ package tech.kayys.aqli.safetensor.engine.backend;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.safetensor.engine.planning.PreparedPrompt;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
 import java.util.Optional;

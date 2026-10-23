@@ -1,6 +1,6 @@
 package tech.kayys.aqli.spi.execution;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 
 /**
  * Compatibility wrapper for InferenceException in execution package.

@@ -17,12 +17,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine.LoadedModel;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
 
 /**
  * Performs a synthetic forward pass after model load to pre-compile

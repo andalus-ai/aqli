@@ -7,10 +7,10 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.fusedGeglu;
 
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelOps;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelOps;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
 
 final class DirectForwardGatedActivation {
     private DirectForwardGatedActivation() {

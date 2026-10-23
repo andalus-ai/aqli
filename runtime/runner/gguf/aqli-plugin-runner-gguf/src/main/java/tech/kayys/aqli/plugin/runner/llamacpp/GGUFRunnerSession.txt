@@ -19,7 +19,7 @@ import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.plugin.runner.RunnerPlugin;
 import tech.kayys.aqli.plugin.runner.RunnerSession;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;

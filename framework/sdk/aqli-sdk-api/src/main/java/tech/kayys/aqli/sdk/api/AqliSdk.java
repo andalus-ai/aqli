@@ -4,10 +4,10 @@ import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
 import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.alkhawarizm.spi.model.ModalityType;
-import tech.kayys.alkhawarizm.spi.model.MultimodalCapability;
-import tech.kayys.alkhawarizm.spi.model.MultimodalRequest;
-import tech.kayys.alkhawarizm.spi.model.MultimodalResponse;
+import tech.kayys.aljabr.spi.model.ModalityType;
+import tech.kayys.aljabr.spi.model.MultimodalCapability;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
 
 import java.util.List;
 import java.util.Set;

@@ -14,7 +14,7 @@
 
 package tech.kayys.aqli.spi.exception;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 
 /**
  * Base exception for model-related errors.

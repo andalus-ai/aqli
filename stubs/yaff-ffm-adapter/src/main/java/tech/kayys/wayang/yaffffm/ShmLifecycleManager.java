@@ -56,8 +56,8 @@ public class ShmLifecycleManager {
         Method delM = null;
         Method flushM = null;
         try {
-            String dbPath = System.getProperty("wayang.alkhawarizm.dbpath", "./data/alkhawarizm");
-            Class<?> factoryCls = Class.forName("tech.kayys.alkhawarizm.core.memory.MemoryStoreFactory");
+            String dbPath = System.getProperty("wayang.aljabr.dbpath", "./data/aljabr");
+            Class<?> factoryCls = Class.forName("tech.kayys.aljabr.core.memory.MemoryStoreFactory");
             Method open = factoryCls.getMethod("openRocksDb", String.class);
             tmpStore = open.invoke(null, dbPath);
             Class<?> storeCls = tmpStore.getClass();

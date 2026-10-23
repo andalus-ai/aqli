@@ -6,8 +6,8 @@
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.metal.binding.MetalFlashAttentionBinding;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.metal.binding.MetalFlashAttentionBinding;
 
 final class FlashAttentionMetalBindings {
     private final MetalBinding metalBinding;

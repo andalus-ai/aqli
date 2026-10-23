@@ -4,7 +4,7 @@ import org.jboss.logging.Logger;
 import tech.kayys.aqli.runner.ModelRunner;
 import tech.kayys.aqli.runner.RunnerStats;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.alkhawarizm.spi.model.ResourceMetrics;
+import tech.kayys.aljabr.spi.model.ResourceMetrics;
 
 import java.util.concurrent.atomic.AtomicLong;
 

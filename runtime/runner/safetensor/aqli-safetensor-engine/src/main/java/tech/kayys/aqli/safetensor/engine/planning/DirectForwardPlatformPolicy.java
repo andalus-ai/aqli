@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.planning;
 
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 final class DirectForwardPlatformPolicy {
     static final String FORCE_CPU_FORWARD_PROPERTY = "aqli.safetensor.force_cpu_forward";

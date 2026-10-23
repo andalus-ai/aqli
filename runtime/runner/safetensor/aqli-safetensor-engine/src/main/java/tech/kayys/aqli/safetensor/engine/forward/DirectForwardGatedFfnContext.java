@@ -6,9 +6,9 @@
 package tech.kayys.aqli.safetensor.engine.forward;
 
 import tech.kayys.aqli.safetensor.engine.generation.kv.ForwardWorkspace;
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 record DirectForwardGatedFfnContext(
         DirectForwardLinearContext linearContext,

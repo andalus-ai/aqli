@@ -1,6 +1,6 @@
 package tech.kayys.aqli.safetensor.engine.planning;
 
-import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
 import java.nio.file.Path;
 
 public class InferenceModelPathResolver {

@@ -11,7 +11,7 @@ import org.jboss.logging.Logger;
 import tech.kayys.aqli.factory.AqliSdkFactory;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.exception.SdkException;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
@@ -116,17 +116,17 @@ public class SdkProvider {
         }
 
         @Override
-        public java.util.List<tech.kayys.alkhawarizm.spi.model.ModelInfo> listModels() {
+        public java.util.List<tech.kayys.aljabr.spi.model.ModelInfo> listModels() {
             return java.util.List.of();
         }
 
         @Override
-        public java.util.List<tech.kayys.alkhawarizm.spi.model.ModelInfo> listModels(int offset, int limit) {
+        public java.util.List<tech.kayys.aljabr.spi.model.ModelInfo> listModels(int offset, int limit) {
             return java.util.List.of();
         }
 
         @Override
-        public Optional<tech.kayys.alkhawarizm.spi.model.ModelInfo> getModelInfo(String modelId) {
+        public Optional<tech.kayys.aljabr.spi.model.ModelInfo> getModelInfo(String modelId) {
             return Optional.empty();
         }
 

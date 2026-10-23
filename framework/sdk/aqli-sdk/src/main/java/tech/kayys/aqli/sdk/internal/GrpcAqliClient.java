@@ -1,7 +1,7 @@
 package tech.kayys.aqli.sdk.internal;
 
 import tech.kayys.aqli.sdk.api.AqliClient;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.grpc.InferenceServiceGrpc;
 import tech.kayys.aqli.grpc.GenerateRequest;
 import tech.kayys.aqli.grpc.GenerateResponse;

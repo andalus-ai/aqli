@@ -60,7 +60,7 @@ final class OnnxStreamingTextChunks {
         sink.accept(new StreamingInferenceChunk(
                 requestId,
                 nextIndex,
-                tech.kayys.alkhawarizm.spi.model.ModalityType.TEXT,
+                tech.kayys.aljabr.spi.model.ModalityType.TEXT,
                 "",
                 null,
                 true,

@@ -7,8 +7,8 @@ package tech.kayys.aqli.safetensor.engine.route;
 import tech.kayys.aqli.sdk.route.*;
 
 import tech.kayys.aqli.sdk.route.RoutePreflightDiagnosticFields.ProblemDetail;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyQuantizedLoaderProfile;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelFamilyQuantizedLoaderProfile;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

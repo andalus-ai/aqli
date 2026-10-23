@@ -8,8 +8,8 @@ import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelRegistry.ModelUploadRequest;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelRegistry.ModelUploadRequest;
 
 @Dependent
 @Unremovable

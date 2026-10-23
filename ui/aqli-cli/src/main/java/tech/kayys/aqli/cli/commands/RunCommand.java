@@ -19,7 +19,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
-import tech.kayys.alkhawarizm.spi.download.DownloadProgressListener;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
@@ -29,14 +29,14 @@ import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
 import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelLoader;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelLoader;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
@@ -147,6 +147,9 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--raw" }, description = "Raw response from inference calculation before json mapping")
     public boolean raw;
+
+    @Option(names = { "--debug-prompt" }, description = "Print raw formatted prompt before dispatch, and raw vs decoded output")
+    public boolean debugPrompt;
 
     @Option(names = { "--modelFile" }, description = "Path to a local model file (.gguf, .tflite, .task, .litertlm)")
     public String modelFile;
@@ -1331,7 +1334,7 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("runner", effectiveRunnerRouteReport.normalizedRunner());
             }
             // Propagate --java / --llamacpp / --engine into request metadata so that
-            // GgufBackendSelection (Alkhawarizm) can route to the correct GGUF backend
+            // GgufBackendSelection (Aljabr) can route to the correct GGUF backend
             // in the full CDI path (not just the standalone GgufFastRun path).
             String ggufEngineHint = requestedGgufEngine();
             if (ggufEngineHint != null && !ggufEngineHint.isBlank()) {
@@ -1349,6 +1352,7 @@ public class RunCommand implements Runnable {
             if (width != null) requestBuilder.parameter("width", width);
             if (height != null) requestBuilder.parameter("height", height);
             requestBuilder.parameter("raw", raw);
+            requestBuilder.parameter("debug_prompt", debugPrompt);
             if (!normalizedInputImages.isEmpty()) {
                 requestBuilder.parameter("image_path", normalizedInputImages.get(0));
                 requestBuilder.parameter("input_image", normalizedInputImages.get(0));
@@ -1526,7 +1530,7 @@ public class RunCommand implements Runnable {
                                     metricsRef.set(chunk.metadata());
                                 }
 
-                                if (chunk.modality() == tech.kayys.alkhawarizm.spi.model.ModalityType.IMAGE) {
+                                if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.IMAGE) {
                                     if (chunk.imageDeltaBase64() != null) {
                                         try {
                                             byte[] decoded = java.util.Base64.getDecoder().decode(chunk.imageDeltaBase64());
@@ -1536,7 +1540,7 @@ public class RunCommand implements Runnable {
                                     return;
                                 }
 
-                                if (chunk.modality() == tech.kayys.alkhawarizm.spi.model.ModalityType.AUDIO) {
+                                if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.AUDIO) {
                                     handleAudioChunk(chunk, audioOutput, liveAudioSink);
                                     return;
                                 }
@@ -1579,7 +1583,7 @@ public class RunCommand implements Runnable {
                                                         if (chunk.metadata() != null && !chunk.metadata().isEmpty()) {
                                                             metricsRef.set(chunk.metadata());
                                                         }
-                                                        if (chunk.modality() == tech.kayys.alkhawarizm.spi.model.ModalityType.IMAGE) {
+                                                        if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.IMAGE) {
                                                             if (chunk.imageDeltaBase64() != null) {
                                                                 try {
                                                                     byte[] decoded = java.util.Base64.getDecoder().decode(chunk.imageDeltaBase64());
@@ -1588,7 +1592,7 @@ public class RunCommand implements Runnable {
                                                             }
                                                             return;
                                                         }
-                                                        if (chunk.modality() == tech.kayys.alkhawarizm.spi.model.ModalityType.AUDIO) {
+                                                        if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.AUDIO) {
                                                             handleAudioChunk(chunk, audioOutput, liveAudioSink);
                                                             return;
                                                         }
@@ -5621,11 +5625,21 @@ public class RunCommand implements Runnable {
         
         directInferenceEngine().loadModel(modelPath, null, quantizeStrategy);
         System.err.println("Directly generating...");
-        InferenceResponse response = directInferenceEngine().generate(preparedPrompt, modelPath, config)
+        tech.kayys.aljabr.spi.inference.InferenceResponse response = directInferenceEngine().generate(preparedPrompt, modelPath, config)
                 .await()
                 .atMost(Duration.ofMinutes(5));
         System.err.println("Generated response: '" + response.getContent() + "'");
-        return DirectSafetensorTextPolicy.sanitizeResponse(response, profile);
+        var sanitized = DirectSafetensorTextPolicy.sanitizeResponse(response, profile);
+        return InferenceResponse.builder()
+                .requestId(sanitized.getRequestId())
+                .content(sanitized.getContent())
+                .model(sanitized.getModel())
+                .tokensUsed(sanitized.getTokensUsed())
+                .inputTokens(sanitized.getInputTokens())
+                .outputTokens(sanitized.getOutputTokens())
+                .durationMs(sanitized.getDurationMs())
+                .metadata(sanitized.getMetadata())
+                .build();
     }
 
     private Path resolveSafetensorCheckpointPath(String localPath) {
@@ -6092,6 +6106,9 @@ public class RunCommand implements Runnable {
         }
         if (raw) {
             args.add("--raw");
+        }
+        if (debugPrompt) {
+            args.add("--debug-prompt");
         }
         if (modelFile != null && !modelFile.isBlank()) {
             args.add("--modelFile");
@@ -6622,7 +6639,18 @@ public class RunCommand implements Runnable {
         printQuantCacheInfo(metadata);
         printKvCacheQuantizationInfo(metadata);
         System.out.println();
-        System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufFastRun.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
+        if (debugPrompt) {
+            System.out.println("[Raw Output (From LLM Before Decode/Strip)]:");
+            System.out.println("--------------------------------------------------");
+            System.out.println(response.getContent());
+            System.out.println("--------------------------------------------------");
+            System.out.println("[Decoded/Sanitized Output]:");
+            System.out.println("--------------------------------------------------");
+            System.out.println(ChatUIRenderer.GREEN + GgufFastRun.stripThinkingChannels(response.getContent()) + ChatUIRenderer.RESET);
+            System.out.println("--------------------------------------------------");
+        } else {
+            System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufFastRun.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
+        }
         if (response.getSessionId() != null && !response.getSessionId().isBlank()) {
             System.out.println(ChatUIRenderer.DIM + "Session: " + response.getSessionId() + ChatUIRenderer.RESET);
         }

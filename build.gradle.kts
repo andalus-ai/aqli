@@ -142,7 +142,7 @@ subprojects {
 
     configurations.configureEach {
         resolutionStrategy.dependencySubstitution {
-            substitute(module("tech.kayys.aljabr:aljabr-tensor")).using(module("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.1"))
+            substitute(module("tech.kayys.aljabr:aljabr-tensor")).using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.aljabr:tafkir-ml-core")).using(module("tech.kayys.tafkir:tafkir-ml-core:0.1.0-SNAPSHOT"))
         }
         resolutionStrategy.eachDependency {

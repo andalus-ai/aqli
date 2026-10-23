@@ -1,7 +1,7 @@
 package tech.kayys.aqli.exception;
 
 //import tech.kayys.aqli.engine.exception.InferenceException;
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
 
 /**

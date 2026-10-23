@@ -3,7 +3,7 @@ package tech.kayys.aqli.provider.litert;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 
 /**
  * Utility for converting between platform tensors and native tensor formats.

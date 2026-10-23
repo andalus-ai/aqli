@@ -20,7 +20,7 @@ repositories {
 dependencies {
     api(project(":spi:aqli-spi"))
     api(project(":spi:aqli-spi-inference"))
-    api("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    api("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation("org.jboss.logging:jboss-logging:3.6.0.Final")
     implementation("io.smallrye.reactive:mutiny:2.5.5")
 }

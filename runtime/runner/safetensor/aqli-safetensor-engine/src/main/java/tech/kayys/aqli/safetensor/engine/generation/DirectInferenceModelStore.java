@@ -10,8 +10,8 @@ import static tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfil
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
 import tech.kayys.aqli.safetensor.engine.warmup.ModelWarmupService;
-import tech.kayys.alkhawarizm.safetensor.quantization.QuantizationEngine;
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 import java.nio.file.Path;
 import java.util.Collection;

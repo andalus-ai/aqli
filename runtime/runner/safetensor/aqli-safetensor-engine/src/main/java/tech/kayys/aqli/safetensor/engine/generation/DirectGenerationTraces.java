@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
 import java.util.Map;

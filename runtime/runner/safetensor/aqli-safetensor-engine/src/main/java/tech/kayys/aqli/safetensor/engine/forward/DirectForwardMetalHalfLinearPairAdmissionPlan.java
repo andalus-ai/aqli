@@ -7,7 +7,7 @@ package tech.kayys.aqli.safetensor.engine.forward;
 
 import static tech.kayys.aqli.safetensor.engine.forward.DirectForwardTensorOps.isMultiRowLinearInput;
 
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 record DirectForwardMetalHalfLinearPairAdmissionPlan(
         boolean admitted,

@@ -50,14 +50,14 @@ package tech.kayys.aqli.safetensor.engine.tooling;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager.KVCacheSession;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.util.*;
 

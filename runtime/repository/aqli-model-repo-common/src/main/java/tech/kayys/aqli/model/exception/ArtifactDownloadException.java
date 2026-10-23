@@ -1,6 +1,6 @@
 package tech.kayys.aqli.model.exception;
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 
 /**
  * Exception thrown when model artifact download fails.

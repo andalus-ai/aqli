@@ -5,7 +5,7 @@
  */
 package tech.kayys.aqli.safetensor.engine.forward;
 
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelConfig;
 
 final class DirectForwardMetalHalfMatvecPolicy {
     private static final DirectForwardMetalHalfMatvecRoutingPolicy POLICY =

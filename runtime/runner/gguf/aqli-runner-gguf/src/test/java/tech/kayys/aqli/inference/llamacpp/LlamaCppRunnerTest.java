@@ -1,6 +1,6 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.alkhawarizm.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -10,8 +10,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.alkhawarizm.spi.model.ModelManifest;
-import tech.kayys.alkhawarizm.spi.model.ModelFormat;
+import tech.kayys.aljabr.spi.model.ModelManifest;
+import tech.kayys.aljabr.spi.model.ModelFormat;
 
 import java.util.Collections;
 import java.util.List;
@@ -56,7 +56,7 @@ class LlamaCppRunnerTest {
         @Test
         @DisplayName("Runner initialization should check model existence")
         void testInitializationMissingModel() {
-                tech.kayys.alkhawarizm.spi.model.ArtifactLocation location = new tech.kayys.alkhawarizm.spi.model.ArtifactLocation(
+                tech.kayys.aljabr.spi.model.ArtifactLocation location = new tech.kayys.aljabr.spi.model.ArtifactLocation(
                                 "/path/to/missing/model.gguf",
                                 null,
                                 null,
@@ -218,7 +218,7 @@ class LlamaCppRunnerTest {
         }
 
         private static ModelManifest createManifest() {
-                tech.kayys.alkhawarizm.spi.model.ArtifactLocation location = new tech.kayys.alkhawarizm.spi.model.ArtifactLocation(
+                tech.kayys.aljabr.spi.model.ArtifactLocation location = new tech.kayys.aljabr.spi.model.ArtifactLocation(
                                 "test.gguf", null, null, null);
                 return ModelManifest.builder()
                                 .modelId("test-model")

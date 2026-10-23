@@ -1,7 +1,7 @@
 package tech.kayys.aqli.adapter;
 
 
-import tech.kayys.alkhawarizm.core.tensor.*;
+import tech.kayys.aljabr.core.tensor.*;
 
 import tech.kayys.aqli.ir.*;
 import tech.kayys.aqli.ir.schema.*;

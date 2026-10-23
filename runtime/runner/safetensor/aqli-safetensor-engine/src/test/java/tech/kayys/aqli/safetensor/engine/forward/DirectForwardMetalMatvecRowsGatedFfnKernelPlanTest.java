@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
-import tech.kayys.alkhawarizm.spi.model.FFNActivationType;
+import tech.kayys.aljabr.spi.model.FFNActivationType;
 
 class DirectForwardMetalMatvecRowsGatedFfnKernelPlanTest {
 

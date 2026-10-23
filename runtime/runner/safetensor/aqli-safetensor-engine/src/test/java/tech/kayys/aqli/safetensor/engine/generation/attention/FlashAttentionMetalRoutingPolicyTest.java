@@ -7,10 +7,10 @@ package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
-import tech.kayys.alkhawarizm.spi.model.ModelAttentionTraitsPolicy;
-import tech.kayys.alkhawarizm.spi.model.ModelConfig;
-import tech.kayys.alkhawarizm.spi.model.ModelRuntimeTraits;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
+import tech.kayys.aljabr.spi.model.ModelAttentionTraitsPolicy;
+import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;

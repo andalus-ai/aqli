@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.forward;
 
 import org.jboss.logging.Logger;
-import tech.kayys.alkhawarizm.metal.binding.MetalBinding;
+import tech.kayys.aljabr.metal.binding.MetalBinding;
 
 record DirectForwardRuntimeContext(
         Logger log,

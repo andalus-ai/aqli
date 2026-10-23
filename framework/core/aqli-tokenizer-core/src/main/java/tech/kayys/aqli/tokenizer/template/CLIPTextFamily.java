@@ -1,7 +1,7 @@
 package tech.kayys.aqli.models;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import tech.kayys.alkhawarizm.spi.model.ModelArchitecture;
+import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import java.util.List;
 
 /**

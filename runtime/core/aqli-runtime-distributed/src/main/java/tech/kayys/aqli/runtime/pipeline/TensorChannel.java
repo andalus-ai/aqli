@@ -1,6 +1,6 @@
 package tech.kayys.aqli.runtime.pipeline;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import java.util.concurrent.*;
 
 public final class TensorChannel {

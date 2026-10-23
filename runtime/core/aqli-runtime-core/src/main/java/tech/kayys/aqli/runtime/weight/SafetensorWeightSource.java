@@ -1,11 +1,11 @@
 package tech.kayys.aqli.runtime.weight;
 
 
-import tech.kayys.alkhawarizm.error.ErrorCode;
+import tech.kayys.aljabr.error.ErrorCode;
 import tech.kayys.aqli.spi.exception.InferenceException;
-import tech.kayys.alkhawarizm.core.tensor.*;
-import tech.kayys.alkhawarizm.core.memory.CpuBuffer;
-import tech.kayys.alkhawarizm.core.backend.ComputeBackend;
+import tech.kayys.aljabr.core.tensor.*;
+import tech.kayys.aljabr.core.memory.CpuBuffer;
+import tech.kayys.aljabr.core.backend.ComputeBackend;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;

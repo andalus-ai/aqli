@@ -97,13 +97,13 @@ run_check \
     | grep -E 'runner:|repository:|optimization:|adapter:|runtime:'"
 
 # =============================================================================
-# Check 2 — No Aqli source file declares an Alkhawarizm package
+# Check 2 — No Aqli source file declares an Aljabr package
 # =============================================================================
 # Package declarations must not bleed across family namespaces.
-header "Check 2: No Aqli source declares an Alkhawarizm package"
+header "Check 2: No Aqli source declares an Aljabr package"
 run_check \
-  "Alkhawarizm package leakage into Aqli source" \
-  grep -rn '^package tech\.kayys\.alkhawarizm' --include='*.java' framework/ runtime/
+  "Aljabr package leakage into Aqli source" \
+  grep -rn '^package tech\.kayys\.aljabr' --include='*.java' framework/ runtime/
 
 # =============================================================================
 # Check 3 — No stale core:aqli-model-repo-* references

@@ -11,8 +11,8 @@ dependencies {
     implementation(project(":runner:gguf:aqli-runner-gguf"))
     implementation(project(":plugin:aqli-plugin-runner-core"))
     
-    // Add alkhawarizm model spi for MultimodalRequest
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-spi-model:0.1.0-SNAPSHOT")
+    // Add aljabr model spi for MultimodalRequest
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     
     // Add other typical dependencies
     implementation("org.jboss.logging:jboss-logging")

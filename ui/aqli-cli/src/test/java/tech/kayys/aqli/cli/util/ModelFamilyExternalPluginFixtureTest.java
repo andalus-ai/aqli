@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyResolution;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
+import tech.kayys.aljabr.spi.model.ModelFamilyResolution;
 
 import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
@@ -28,7 +28,7 @@ class ModelFamilyExternalPluginFixtureTest {
     private static final String CLEAN_FAMILY_ID = "external_tokenizer_fixture";
     private static final String BAD_FAMILY_ID = "bad external model";
     private static final String SERVICE_DESCRIPTOR =
-            "META-INF/services/tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin";
+            "META-INF/services/tech.kayys.aljabr.spi.model.ModelFamilyPlugin";
 
     @TempDir
     Path tempDir;
@@ -178,10 +178,10 @@ class ModelFamilyExternalPluginFixtureTest {
 
                 import java.util.List;
                 import java.util.Map;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
-                import tech.kayys.alkhawarizm.spi.model.ModelTokenizerDescriptor;
+                import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+                import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+                import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+                import tech.kayys.aljabr.spi.model.ModelTokenizerDescriptor;
 
                 public final class ExternalTokenizerModelFamilyPlugin implements ModelFamilyPlugin {
                     @Override
@@ -211,9 +211,9 @@ class ModelFamilyExternalPluginFixtureTest {
 
                 import java.util.List;
                 import java.util.Map;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyCapability;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyDescriptor;
-                import tech.kayys.alkhawarizm.spi.model.ModelFamilyPlugin;
+                import tech.kayys.aljabr.spi.model.ModelFamilyCapability;
+                import tech.kayys.aljabr.spi.model.ModelFamilyDescriptor;
+                import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
 
                 public final class BadExternalModelFamilyPlugin implements ModelFamilyPlugin {
                     @Override

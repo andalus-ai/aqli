@@ -1,6 +1,6 @@
 package tech.kayys.aqli.safetensor.engine.backend;
 
-import tech.kayys.alkhawarizm.safetensor.spi.SafetensorEngine;
+import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 import java.nio.file.Path;
 import java.util.Objects;

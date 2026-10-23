@@ -17,7 +17,7 @@ dependencies {
     implementation(platform("io.quarkus.platform:quarkus-bom:$quarkusVersion"))
     implementation("io.quarkus:quarkus-arc")
     implementation("io.smallrye.config:smallrye-config:3.10.1")
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     // Optional intra-build project dependencies — only add if those projects are present
     val spiAqli = findProject(":spi:aqli-spi")
     if (spiAqli != null) {
@@ -37,8 +37,8 @@ dependencies {
     } else {
         println("   [Warning] spi:aqli-spi-model not present; skipping project dependency")
     }
-    // Depend on published alkhawarizm core aggregator for shared math/tensor/tokenizer foundations
-    implementation("tech.kayys.alkhawarizm:alkhawarizm-core:0.1.0-SNAPSHOT")
+    // Depend on published aljabr core aggregator for shared math/tensor/tokenizer foundations
+    implementation("tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT")
     
     implementation("io.smallrye.reactive:mutiny:2.5.5")
     implementation("jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1")

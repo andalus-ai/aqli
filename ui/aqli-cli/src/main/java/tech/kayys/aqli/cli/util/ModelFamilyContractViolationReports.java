@@ -12,7 +12,7 @@ import tech.kayys.aqli.cli.util.ModelFamilyContractViolationReportFields.Report;
 import tech.kayys.aqli.cli.util.ModelFamilyContractViolationReportFields.Schema;
 import tech.kayys.aqli.cli.util.ModelFamilyContractViolationReportFields.Validation;
 import tech.kayys.aqli.cli.util.ModelFamilyContractViolationReportFields.Violation;
-import tech.kayys.alkhawarizm.spi.model.ModelFamilyContractViolation;
+import tech.kayys.aljabr.spi.model.ModelFamilyContractViolation;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

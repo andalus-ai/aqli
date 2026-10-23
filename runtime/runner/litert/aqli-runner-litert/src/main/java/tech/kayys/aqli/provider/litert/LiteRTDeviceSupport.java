@@ -1,6 +1,6 @@
 package tech.kayys.aqli.provider.litert;
 
-import tech.kayys.alkhawarizm.core.tensor.DeviceType;
+import tech.kayys.aljabr.core.tensor.DeviceType;
 
 import java.util.LinkedHashSet;
 import java.util.Locale;

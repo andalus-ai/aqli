@@ -1,6 +1,6 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.alkhawarizm.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 
 import io.quarkus.test.junit.QuarkusTest;

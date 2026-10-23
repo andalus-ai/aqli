@@ -20,7 +20,7 @@ import org.jboss.logging.Logger;
 
 import tech.kayys.aqli.plugin.runner.RunnerPlugin;
 import tech.kayys.aqli.plugin.runner.RunnerSession;
-import tech.kayys.alkhawarizm.spi.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.tafkir.quantizer.gptq.GPTQLoader;
 import tech.kayys.tafkir.quantizer.gptq.GPTQConfig;
 import tech.kayys.tafkir.quantizer.gptq.GPTQQuantizerService;

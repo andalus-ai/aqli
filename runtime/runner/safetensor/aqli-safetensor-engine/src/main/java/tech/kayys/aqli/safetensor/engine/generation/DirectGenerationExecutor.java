@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 
 import java.util.Set;
 import java.util.function.Supplier;
