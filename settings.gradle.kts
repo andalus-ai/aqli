@@ -1,10 +1,19 @@
 rootProject.name = "aqli-engine"
 
-// Include aljabr as composite build if directory exists locally (during local multi-project development)
-val aljabrDir = listOf(file("../aljabr"), file("../../Aljabr/aljabr"))
+// Include Aljabr as a composite build in CI (checked out to ./aljabr) and
+// during local multi-project development (sibling checkout paths).
+val aljabrDir = listOf(file("aljabr"), file("../aljabr"), file("../../Aljabr/aljabr"))
     .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
 if (aljabrDir != null) {
     includeBuild(aljabrDir)
+}
+
+// CI checks Tafkir out to ./tafkir; local development commonly uses ../tafkir.
+// The composite is optional so Aqli's core configuration remains usable without it.
+val tafkirDir = listOf(file("tafkir"), file("../tafkir"))
+    .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
+if (tafkirDir != null) {
+    includeBuild(tafkirDir)
 }
 // Keep logical grouping projects stable when optional modules come from
 // different roots (for example, built-in plugins and sibling Wayang modules).
