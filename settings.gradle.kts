@@ -5,7 +5,27 @@ rootProject.name = "aqli-engine"
 val aljabrDir = listOf(file("aljabr"), file("../aljabr"), file("../../Aljabr/aljabr"))
     .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
 if (aljabrDir != null) {
-    includeBuild(aljabrDir)
+    includeBuild(aljabrDir) {
+        dependencySubstitution {
+            // Aqli consumes this Aljabr module directly; declare the source mapping
+            // explicitly so it works even if the included project's group differs
+            // from the published coordinate during migration.
+            substitute(module("tech.kayys.aljabr:aljabr-safetensor-quantization"))
+                .using(project(":core:aljabr-safetensor-quantization"))
+        }
+    }
+}
+
+// Suling is a runtime integration. Resolve its checked-out source in CI and sibling
+// development workspaces instead of looking for an unpublished Maven artifact.
+val sulingDir = listOf(file("suling"), file("../suling"))
+    .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
+if (sulingDir != null) {
+    includeBuild(sulingDir) {
+        dependencySubstitution {
+            substitute(module("tech.kayys:suling")).using(project(":"))
+        }
+    }
 }
 
 // Keep logical grouping projects stable when optional modules come from
