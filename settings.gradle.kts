@@ -233,7 +233,10 @@ includeOptionalProject("runner:safetensor:aqli-runner-flux", "runtime/runner/saf
 // includeOptionalProject("runner:safetensor:aqli-safetensor-api", "runtime/runner/safetensor/aqli-safetensor-api")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-core", "runtime/runner/safetensor/aqli-safetensor-core")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-loader", "runtime/runner/safetensor/aqli-safetensor-loader")
-// includeOptionalProject("runner:safetensor:aqli-safetensor-quantization", "runtime/runner/safetensor/aqli-safetensor-quantization")
+// Quantization is opt-in because Aljabr includes this Tafkir-backed adapter only when configured accordingly.
+if (providers.gradleProperty("withQuantization").orNull == "true") {
+    includeOptionalProject("runner:safetensor:aqli-safetensor-quantization", "runtime/runner/safetensor/aqli-safetensor-quantization")
+}
 // includeOptionalProject("runner:safetensor:aqli-safetensor-spi", "runtime/runner/safetensor/aqli-safetensor-spi")
 // includeOptionalProject("runner:tensorrt:aqli-runner-tensorrt", "runtime/runner/tensorrt/aqli-runner-tensorrt")
 // includeOptionalProject("runner:tensorrt:aqli-plugin-runner-tensorrt", "runtime/runner/tensorrt/aqli-plugin-tensorrt")
