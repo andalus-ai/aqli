@@ -182,7 +182,6 @@ subprojects {
                 .using(module("tech.kayys.aljabr:aljabr-spi-plugin:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-gguf-llamacpp"))
                 .using(module("tech.kayys.aljabr:aljabr-gguf-llamacpp:0.1.0-SNAPSHOT"))
-            substitute(module("tech.kayys.aljabr:tafkir-ml-core")).using(module("tech.kayys.tafkir:tafkir-ml-core:0.1.0-SNAPSHOT"))
         }
         resolutionStrategy.eachDependency {
             if (requested.group == "io.quarkus" && requested.version.isNullOrBlank()) {
