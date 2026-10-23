@@ -5,8 +5,8 @@
  *
  * QuantizationService.java
  * ────────────────────────
- * High-level quantization service integrating all quantizer modules
- * with the safetensor infrastructure and SDK.
+ * Optional quantization integration for the Aqli SDK.
+ * This class is packaged separately so default inference builds do not require Tafkir-backed quantizers.
  */
 package tech.kayys.aqli.sdk.api;
 
