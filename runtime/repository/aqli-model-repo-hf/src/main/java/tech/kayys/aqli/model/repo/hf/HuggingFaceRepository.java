@@ -103,7 +103,7 @@ public final class HuggingFaceRepository implements ModelRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return Uni.createFrom().item(() -> {
+        return Uni.createFrom().<ModelManifest>item(() -> {
             try {
                 String repoId = normalizeRepoId(modelId);
                 String revision = config != null ? config.revision() : DEFAULT_REVISION;
@@ -126,6 +126,7 @@ public final class HuggingFaceRepository implements ModelRepository {
                         AqliManifest manifest = new AqliManifest();
                         manifest.setId(manifestName); // Use name as ID for HF consistency
                         manifest.setModelId(repoId);
+                        manifest.setRevision(revision);
                         manifest.setName(manifestName);
                         manifest.setFormat(format.name());
                         manifest.setSource("huggingface");
@@ -217,6 +218,7 @@ public final class HuggingFaceRepository implements ModelRepository {
                 AqliManifest manifest = new AqliManifest();
                 manifest.setId(manifestName);
                 manifest.setModelId(repoId);
+                manifest.setRevision(revision);
                 manifest.setName(manifestName);
                 manifest.setFormat(format.name());
                 manifest.setSource("huggingface");
