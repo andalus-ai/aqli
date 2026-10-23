@@ -142,15 +142,10 @@ subprojects {
 
     configurations.configureEach {
         resolutionStrategy.dependencySubstitution {
-<<<<<<< HEAD
-            substitute(module("tech.kayys.aljabr:aljabr-tensor")).using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
-            // Legacy coordinate substitutions (kept for compatibility)
-=======
             // Preserve canonical Aljabr coordinates and route legacy Alkhawarizm
             // coordinates to the renamed artifacts during the migration.
             substitute(module("tech.kayys.aljabr:aljabr-tensor"))
                 .using(module("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT"))
->>>>>>> 2c522310919cb002dfd3410315a239f636cb9558
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-spi-model"))
                 .using(module("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-tensor"))
@@ -187,10 +182,7 @@ subprojects {
                 .using(module("tech.kayys.aljabr:aljabr-spi-plugin:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-gguf-llamacpp"))
                 .using(module("tech.kayys.aljabr:aljabr-gguf-llamacpp:0.1.0-SNAPSHOT"))
-<<<<<<< HEAD
-            substitute(module("tech.kayys.aljabr:tafkir-ml-core")).using(module("tech.kayys.tafkir:tafkir-ml-core:0.1.0-SNAPSHOT"))
-=======
->>>>>>> 2c522310919cb002dfd3410315a239f636cb9558
+
         }
         resolutionStrategy.eachDependency {
             if (requested.group == "io.quarkus" && requested.version.isNullOrBlank()) {
