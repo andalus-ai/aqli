@@ -146,13 +146,9 @@ public interface AqliSdk {
         return tech.kayys.aqli.plugin.kernel.KernelPlatformDetector.detect();
     }
 
-    /**
-     * Get the quantization service for model optimization.
-     */
-    default tech.kayys.aqli.sdk.api.QuantizationService getQuantizationService() throws SdkException {
-        throw new UnsupportedOperationException("Quantization service not supported by this SDK implementation");
-    }
-
+    // Quantization is an optional integration and is deliberately not exposed
+    // through this core SDK contract. Consumers that enable the optional
+    // quantization module can use its QuantizationService directly.
 
     // ==================== Model Operations ====================
 
