@@ -319,4 +319,58 @@ class PagedKVCacheManagerTest {
         assertThat(manager.getFreeBlockCount()).isEqualTo(100);
         assertThat(manager.getActiveRequestCount()).isEqualTo(0);
     }
+
+    @Test
+    @DisplayName("Concurrent duplicate request IDs cannot leak blocks")
+    void concurrentDuplicateRequestIdIsAtomic() throws Exception {
+        int threads = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threads);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger duplicates = new AtomicInteger();
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                ready.countDown();
+                try {
+                    start.await();
+                    manager.allocateForPrefill("same-request", 4);
+                    successes.incrementAndGet();
+                } catch (IllegalStateException expected) {
+                    duplicates.incrementAndGet();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
+        executor.shutdownNow();
+
+        assertThat(successes.get()).isEqualTo(1);
+        assertThat(duplicates.get()).isEqualTo(1);
+        assertThat(manager.getActiveRequestCount()).isEqualTo(1);
+        assertThat(manager.getAllocatedBlockCount()).isEqualTo(1);
+        assertThat(manager.getFreeBlockCount()).isEqualTo(7);
+    }
+
+    @Test
+    @DisplayName("Block table is a stable snapshot when decode grows allocation")
+    void blockTableIsStableSnapshot() {
+        manager.allocateForPrefill("req-snapshot", 4);
+        List<Integer> snapshot = manager.getBlockTable("req-snapshot");
+
+        manager.appendToken("req-snapshot");
+
+        assertThat(snapshot).hasSize(1);
+        assertThat(manager.getBlockTable("req-snapshot")).hasSize(2);
+        assertThatThrownBy(() -> snapshot.add(99))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
 }
