@@ -2,7 +2,6 @@ package tech.kayys.aqli.kvcache;
 
 import java.lang.foreign.MemorySegment;
 import java.util.*;
-import java.util.HashMap;
 
 /**
  * Paged KV-Cache Manager — the heart of PagedAttention.
@@ -20,9 +19,10 @@ import java.util.HashMap;
  *   <li>Instant reclamation — blocks return to pool immediately on request completion</li>
  * </ul>
  * <p>
- * Thread-safe: uses concurrent data structures for the free pool and request mappings.
- * The block table (mapping of request ID → physical block IDs) is passed to the
- * native PagedAttention kernel via {@link PhysicalBlockPool#packBlockTable(int[])}.
+ * State transitions are synchronized so allocation, request registration, and release
+ * remain atomic. The free-block deque is array-backed, making size and end operations
+ * constant-time. The block table (mapping of request ID → physical block IDs) is passed
+ * to the native PagedAttention kernel via {@link PhysicalBlockPool#packBlockTable(int[])}.
  *
  * @see PhysicalBlockPool
  * @see KVCacheConfig
