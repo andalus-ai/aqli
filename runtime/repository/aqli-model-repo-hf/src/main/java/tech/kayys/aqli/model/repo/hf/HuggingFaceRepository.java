@@ -205,7 +205,17 @@ public final class HuggingFaceRepository implements ModelRepository {
     public Uni<ModelManifest> pull(String modelId, tech.kayys.aljabr.spi.model.PullOptions options) {
         return Uni.createFrom().item(() -> {
             try {
+                if (modelId == null || modelId.isBlank()) {
+                    throw new IllegalArgumentException("Hugging Face model ID must not be blank");
+                }
+                if (options == null) {
+                    throw new IllegalArgumentException("Pull options must not be null");
+                }
+
                 String repoId = normalizeRepoId(modelId);
+                if (repoId.isBlank() || repoId.startsWith("/") || repoId.endsWith("/")) {
+                    throw new IllegalArgumentException("Invalid Hugging Face model ID: " + modelId);
+                }
                 String revision = options.getRevision() != null ? options.getRevision()
                         : (config != null ? config.revision() : DEFAULT_REVISION);
                 String manifestName = AqliManifest.computeName(repoId, revision);
@@ -213,6 +223,11 @@ public final class HuggingFaceRepository implements ModelRepository {
                 Path targetFolder = ManifestStore.resolveBlobDir(repoId, manifestName);
 
                 Path downloaded = downloadBestArtifact(repoId, targetFolder, options);
+                if (downloaded == null) {
+                    throw new IllegalStateException(
+                            "No supported model artifact found for Hugging Face repository " + repoId
+                                    + " at revision " + revision);
+                }
                 ModelFormat format = detectFormat(downloaded);
 
                 AqliManifest manifest = new AqliManifest();
