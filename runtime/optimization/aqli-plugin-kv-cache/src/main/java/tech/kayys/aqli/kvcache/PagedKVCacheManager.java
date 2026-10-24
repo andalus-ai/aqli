@@ -2,9 +2,7 @@ package tech.kayys.aqli.kvcache;
 
 import java.lang.foreign.MemorySegment;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.HashMap;
 
 /**
  * Paged KV-Cache Manager — the heart of PagedAttention.
@@ -35,17 +33,17 @@ public class PagedKVCacheManager implements AutoCloseable {
     private final KVCacheConfig config;
 
     /** Pool of free block IDs */
-    private final Deque<Integer> freeBlocks = new ConcurrentLinkedDeque<>();
+    private final Deque<Integer> freeBlocks = new ArrayDeque<>();
 
     /** Mapping: requestId → ordered list of allocated block IDs */
-    private final Map<String, List<Integer>> requestBlocks = new ConcurrentHashMap<>();
+    private final Map<String, List<Integer>> requestBlocks = new HashMap<>();
 
     /** Mapping: requestId → number of tokens currently stored */
-    private final Map<String, Integer> requestTokenCounts = new ConcurrentHashMap<>();
+    private final Map<String, Integer> requestTokenCounts = new HashMap<>();
 
     // -- Metrics --
-    private final AtomicLong totalAllocations = new AtomicLong();
-    private final AtomicLong totalDeallocations = new AtomicLong();
+    private long totalAllocations;
+    private long totalDeallocations;
 
     /**
      * Create a new PagedKVCacheManager with the given configuration.
@@ -76,7 +74,7 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @throws IllegalArgumentException  if numTokens ≤ 0
      * @throws IllegalStateException     if requestId is already allocated
      */
-    public List<Integer> allocateForPrefill(String requestId, int numTokens) {
+    public synchronized List<Integer> allocateForPrefill(String requestId, int numTokens) {
         if (numTokens <= 0) {
             throw new IllegalArgumentException("numTokens must be > 0, got: " + numTokens);
         }
@@ -90,7 +88,7 @@ public class PagedKVCacheManager implements AutoCloseable {
         List<Integer> allocated = allocateBlocks(blocksNeeded);
         requestBlocks.put(requestId, new ArrayList<>(allocated));
         requestTokenCounts.put(requestId, numTokens);
-        totalAllocations.addAndGet(blocksNeeded);
+        totalAllocations += blocksNeeded;
 
         return Collections.unmodifiableList(allocated);
     }
@@ -104,7 +102,7 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @throws KVCacheExhaustedException if no free blocks available
      * @throws IllegalArgumentException  if requestId is not found
      */
-    public int extendForDecode(String requestId) {
+    public synchronized int extendForDecode(String requestId) {
         List<Integer> blocks = requestBlocks.get(requestId);
         if (blocks == null) {
             throw new IllegalArgumentException("Unknown request: " + requestId);
@@ -132,7 +130,7 @@ public class PagedKVCacheManager implements AutoCloseable {
 
         blocks.add(newBlock);
         requestTokenCounts.put(requestId, currentTokens + 1);
-        totalAllocations.incrementAndGet();
+        totalAllocations++;
 
         return newBlock;
     }
@@ -144,7 +142,7 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @param requestId the request identifier
      * @return true if a new block was allocated
      */
-    public boolean appendToken(String requestId) {
+    public synchronized boolean appendToken(String requestId) {
         List<Integer> blocks = requestBlocks.get(requestId);
         if (blocks == null) {
             throw new IllegalArgumentException("Unknown request: " + requestId);
@@ -173,7 +171,7 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @param requestId the request identifier
      * @return the number of blocks freed
      */
-    public int freeRequest(String requestId) {
+    public synchronized int freeRequest(String requestId) {
         List<Integer> blocks = requestBlocks.remove(requestId);
         requestTokenCounts.remove(requestId);
 
@@ -186,7 +184,7 @@ public class PagedKVCacheManager implements AutoCloseable {
             freeBlocks.addLast(blockId);
         }
 
-        totalDeallocations.addAndGet(blocks.size());
+        totalDeallocations += blocks.size();
         return blocks.size();
     }
 
@@ -199,12 +197,12 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @param requestId the request identifier
      * @return unmodifiable list of block IDs in order
      */
-    public List<Integer> getBlockTable(String requestId) {
+    public synchronized List<Integer> getBlockTable(String requestId) {
         List<Integer> blocks = requestBlocks.get(requestId);
         if (blocks == null) {
             throw new IllegalArgumentException("Unknown request: " + requestId);
         }
-        return Collections.unmodifiableList(blocks);
+        return List.copyOf(blocks);
     }
 
     /**
@@ -214,7 +212,7 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @param requestId the request identifier
      * @return MemorySegment containing block IDs as native ints
      */
-    public MemorySegment getBlockTableNative(String requestId) {
+    public synchronized MemorySegment getBlockTableNative(String requestId) {
         List<Integer> blocks = getBlockTable(requestId);
         return blockPool.packBlockTable(
                 blocks.stream().mapToInt(Integer::intValue).toArray()
@@ -226,21 +224,21 @@ public class PagedKVCacheManager implements AutoCloseable {
     /**
      * Get the number of free blocks remaining.
      */
-    public int getFreeBlockCount() {
+    public synchronized int getFreeBlockCount() {
         return freeBlocks.size();
     }
 
     /**
      * Get the number of allocated (in-use) blocks.
      */
-    public int getAllocatedBlockCount() {
+    public synchronized int getAllocatedBlockCount() {
         return config.getTotalBlocks() - freeBlocks.size();
     }
 
     /**
      * Get the total number of active requests.
      */
-    public int getActiveRequestCount() {
+    public synchronized int getActiveRequestCount() {
         return requestBlocks.size();
     }
 
@@ -250,21 +248,21 @@ public class PagedKVCacheManager implements AutoCloseable {
      * @param requestId the request identifier
      * @return token count, or -1 if request is not found
      */
-    public int getTokenCount(String requestId) {
+    public synchronized int getTokenCount(String requestId) {
         return requestTokenCounts.getOrDefault(requestId, -1);
     }
 
     /**
      * Get pool utilization as a percentage (0.0 to 1.0).
      */
-    public double getUtilization() {
+    public synchronized double getUtilization() {
         return (double) getAllocatedBlockCount() / config.getTotalBlocks();
     }
 
     /**
      * Check if the pool has capacity for at least the given number of blocks.
      */
-    public boolean hasCapacity(int blocksNeeded) {
+    public synchronized boolean hasCapacity(int blocksNeeded) {
         return freeBlocks.size() >= blocksNeeded;
     }
 
@@ -286,22 +284,22 @@ public class PagedKVCacheManager implements AutoCloseable {
     /**
      * Get a snapshot of current cache statistics.
      */
-    public CacheStats getStats() {
+    public synchronized CacheStats getStats() {
         return new CacheStats(
                 config.getTotalBlocks(),
                 getFreeBlockCount(),
                 getAllocatedBlockCount(),
                 getActiveRequestCount(),
                 getUtilization(),
-                totalAllocations.get(),
-                totalDeallocations.get()
+                totalAllocations,
+                totalDeallocations
         );
     }
 
     // ---- Internal ----
 
     public int blocksRequired(int numTokens) {
-        return (int) Math.ceil((double) numTokens / config.getBlockSize());
+        return 1 + (numTokens - 1) / config.getBlockSize();
     }
 
     private List<Integer> allocateBlocks(int count) {
@@ -337,7 +335,7 @@ public class PagedKVCacheManager implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         // Free all remaining allocations
         requestBlocks.clear();
         requestTokenCounts.clear();
@@ -346,7 +344,7 @@ public class PagedKVCacheManager implements AutoCloseable {
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return "PagedKVCacheManager{" +
                 "free=" + getFreeBlockCount() +
                 ", allocated=" + getAllocatedBlockCount() +
