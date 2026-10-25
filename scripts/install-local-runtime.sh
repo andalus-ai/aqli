@@ -214,7 +214,7 @@ while [[ "$#" -gt 0 ]]; do
             echo "                  Verify the already-installed CLI and exit without building"
             echo "  --no-verify-fast Ignore AQLI_INSTALL_VERIFY_FAST_PATHS for this install"
             echo "  AQLI_ALLOW_METAL_BUILD_FAILURE=true"
-            echo "                  Allow macOS install to continue if libaqli_metal.dylib fails"
+            echo "                  Allow macOS install to continue if libaljabr_metal.dylib fails"
             echo "  -h, --help       Show this help message"
             exit 0 
             ;;
@@ -1165,7 +1165,7 @@ if [ "$NATIVE_MODE" = false ] && [ "$(uname -s)" = "Darwin" ]; then
     else
         echo -e "${BLUE}>>> Building and installing Metal native bridge...${NC}"
         if make -C "${METAL_MAKE_DIR}" install INSTALL_DIR="${LIB_DIR}"; then
-            echo -e "${GREEN}✓ Installed libaqli_metal.dylib to ${LIB_DIR}/${NC}"
+            echo -e "${GREEN}✓ Installed libaljabr_metal.dylib to ${LIB_DIR}/${NC}"
         elif allow_metal_build_failure; then
             echo -e "${YELLOW}⚠ Metal native bridge build/install failed; continuing because AQLI_ALLOW_METAL_BUILD_FAILURE=true.${NC}"
         else
@@ -2377,7 +2377,8 @@ if [ "\${AQLI_GGUF_FAST_RUN:-true}" != "false" ] && aqli_gguf_fast_command "\${1
         -Daqli.gguf.fast_run.daemon_launcher="\${AQLI_GGUF_FAST_DAEMON_LAUNCHER}" \\
         -Daqli.gguf.fast_run.debug="\${AQLI_GGUF_FAST_RUN_DEBUG:-false}" \\
         -Daqli.gguf.fast_run.hard_exit_after_run="\${AQLI_GGUF_FAST_HARD_EXIT_AFTER_RUN}" \\
-        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
+        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \
+        -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
         -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
         -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.GgufFastRun "\$@"
     FAST_STATUS=\$?
@@ -2404,7 +2405,8 @@ if [ "\${AQLI_LITERT_FAST_RUN:-true}" != "false" ] && aqli_litert_fast_command "
         -Daqli.litert.fast_run.daemon_launcher="\${AQLI_LITERT_FAST_DAEMON_LAUNCHER}" \\
         -Daqli.litert.fast_run.dynamic_engine_tokens="\${AQLI_LITERT_FAST_DYNAMIC_ENGINE_TOKENS}" \\
         -Daqli.litert.fast_run.debug="\${AQLI_LITERT_FAST_RUN_DEBUG:-false}" \\
-        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
+        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \
+        -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
         -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
         -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.LiteRtLmFastRun "\$@"
     FAST_STATUS=\$?
@@ -2431,7 +2433,8 @@ aqli_run_java_filtered \\
     -Daqli.litert.fast_run.daemon_launcher="\${AQLI_LITERT_FAST_DAEMON_LAUNCHER}" \\
     -Daqli.litert.fast_run.dynamic_engine_tokens="\${AQLI_LITERT_FAST_DYNAMIC_ENGINE_TOKENS}" \\
     -Daqli.litert.fast_run.debug="\${AQLI_LITERT_FAST_RUN_DEBUG:-false}" \\
-    -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
+    -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \
+        -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
     -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
     -jar "$JAR_PATH" "\$@"
 exit \$?
