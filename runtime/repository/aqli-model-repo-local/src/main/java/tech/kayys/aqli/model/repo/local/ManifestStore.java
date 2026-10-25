@@ -34,6 +34,111 @@ public class ManifestStore {
         this.mapper = new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
+    public synchronized List<AqliManifest> listAll() {
+        if (!Files.isDirectory(manifestDir)) {
+            return List.of();
+        }
+        try (Stream<Path> paths = Files.list(manifestDir)) {
+            return paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .map(this::readQuietly)
+                    .filter(Optional::isPresent)
+                    .map(Optional::orElseThrow)
+                    .toList();
+        } catch (IOException e) {
+            return List.of();
+        }
+    }
+
+    public synchronized Optional<AqliManifest> findById(String id) {
+        if (id == null || id.isBlank()) return Optional.empty();
+        Path file = manifestDir.resolve(safeFileName(id) + ".json");
+        if (Files.isRegularFile(file)) {
+            return readQuietly(file);
+        }
+        return listAll().stream().filter(m -> id.equalsIgnoreCase(m.getId())).findFirst();
+    }
+
+    public synchronized Optional<AqliManifest> findByName(String name) {
+        if (name == null || name.isBlank()) return Optional.empty();
+        return listAll().stream().filter(m -> name.equalsIgnoreCase(m.getName()) || name.equalsIgnoreCase(m.getModelId())).findFirst();
+    }
+
+    public synchronized Optional<AqliManifest> findByShortId(String shortId) {
+        if (shortId == null || shortId.isBlank()) return Optional.empty();
+        return listAll().stream().filter(m -> m.getId() != null && m.getId().toLowerCase().startsWith(shortId.toLowerCase())).findFirst();
+    }
+
+    public synchronized void delete(String id) {
+        if (id == null || id.isBlank()) return;
+        try {
+            Path file = manifestDir.resolve(safeFileName(id) + ".json");
+            Files.deleteIfExists(file);
+        } catch (IOException ignored) {}
+    }
+
+    public void migrateIfNeeded() {
+        // no-op migration hook
+    }
+
+    public synchronized void registerLocal(String repoId, Path targetPath) {
+        if (repoId == null || targetPath == null) return;
+        String manifestName = AqliManifest.computeName(repoId, "main");
+        AqliManifest manifest = new AqliManifest();
+        manifest.setId(manifestName);
+        manifest.setModelId(repoId);
+        manifest.setName(manifestName);
+        manifest.setFormat(detectFormat(targetPath));
+        manifest.setBlobPath(targetPath.toAbsolutePath().toString());
+        try {
+            manifest.setFiles(listBlobFiles(targetPath));
+        } catch (IOException e) {
+            manifest.setFiles(List.of(targetPath.getFileName().toString()));
+        }
+        manifest.setCreatedAt(java.time.Instant.now());
+        try {
+            manifest.setSizeBytes(Files.size(targetPath));
+        } catch (Exception e) {
+            manifest.setSizeBytes(0);
+        }
+        manifest.setArchitecture(detectArchitecture(manifest));
+        save(manifest);
+    }
+
+    public static String detectFormat(Path dirPath) {
+        if (dirPath == null || !Files.exists(dirPath)) {
+            return "unknown";
+        }
+        try {
+            List<String> files = listBlobFiles(dirPath);
+            for (String f : files) {
+                String lower = f.toLowerCase();
+                if (lower.endsWith(".gguf")) return "gguf";
+                if (lower.endsWith(".safetensors")) return "safetensors";
+                if (lower.endsWith(".onnx")) return "onnx";
+                if (lower.endsWith(".tflite") || lower.endsWith(".litert")) return "litert";
+            }
+        } catch (Exception ignored) {}
+        return "unknown";
+    }
+
+    public static String detectArchitecture(AqliManifest manifest) {
+        if (manifest == null) return "unknown";
+        String id = (manifest.getModelId() != null ? manifest.getModelId() : "").toLowerCase();
+        String name = (manifest.getName() != null ? manifest.getName() : "").toLowerCase();
+        List<String> files = manifest.getFiles() != null ? manifest.getFiles() : List.of();
+        
+        String combined = id + " " + name + " " + String.join(" ", files).toLowerCase();
+        if (combined.contains("gemma-4") || combined.contains("gemma4")) return "gemma4";
+        if (combined.contains("gemma")) return "gemma";
+        if (combined.contains("llama")) return "llama";
+        if (combined.contains("qwen")) return "qwen";
+        if (combined.contains("mistral")) return "mistral";
+        if (combined.contains("phi")) return "phi";
+        return "unknown";
+    }
+
     public synchronized Optional<AqliManifest> findByModelId(String modelId, String revision) {
         if (modelId == null || modelId.isBlank()) {
             return Optional.empty();
@@ -82,11 +187,15 @@ public class ManifestStore {
         }
     }
 
+    public static Path getModelsRoot() {
+        return Path.of(System.getProperty("user.home"), ".aqli", "models").toAbsolutePath().normalize();
+    }
+
     public static Path resolveBlobDir(String modelId, String manifestName) {
         if (modelId == null || modelId.isBlank() || manifestName == null || manifestName.isBlank()) {
             throw new IllegalArgumentException("Model ID and manifest name are required");
         }
-        Path root = Path.of(System.getProperty("user.home"), ".aqli", "models").toAbsolutePath().normalize();
+        Path root = getModelsRoot();
         Path modelPath = root;
         for (String segment : modelId.replace('\\', '/').split("/")) {
             if (!segment.isBlank() && !segment.equals(".") && !segment.equals("..")) {

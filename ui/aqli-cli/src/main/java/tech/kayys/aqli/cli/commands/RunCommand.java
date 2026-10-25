@@ -590,13 +590,16 @@ public class RunCommand implements Runnable {
             boolean requestedProviderExplicit = providerExplicit;
             String requestedProviderId = providerId;
             String requestedFormat = format;
+            // --llamacpp on a safetensor checkpoint reuses the existing convert-to-GGUF route
+            // (sdk.prepareModel converts, then llama.cpp runs the GGUF).
+            boolean forceGgufForRoute = forceGguf || (explicitLlamaCppEngine() && requestsSafetensorModel());
             RunnerRoutePolicy.Selection runnerSelection = RunnerRoutePolicy.select(
                     runner,
                     providerId,
                     format,
                     providerExplicit,
                     preferAlternateRuntime,
-                    forceGguf);
+                    forceGgufForRoute);
             if (!runnerSelection.valid()) {
                 System.err.println("Error: " + runnerSelection.error());
                 requestProcessExit(1);
@@ -1064,7 +1067,7 @@ public class RunCommand implements Runnable {
                 String routeExecutionProviderId = routeExecutionProviderId(providerId, finalLocalPath);
                 RunnerRouteReport effectiveRouteReport =
                         runnerRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                if (direct) {
+                if (effectiveDirect(finalLocalPath)) {
                     routeExecutionProviderId = "safetensor";
                     effectiveRouteReport = effectiveRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
                 }
@@ -1197,7 +1200,7 @@ public class RunCommand implements Runnable {
                     runnerRouteReport.withEffectiveRoute(executionProviderId, format);
             forcedExecutionRouteMetadata = effectiveRunnerRouteReport.toMetadata();
 
-            if (direct) {
+            if (effectiveDirect(finalLocalPath)) {
                 providerId = "safetensor";
                 
                 executionProviderId = "safetensor";
@@ -1493,6 +1496,14 @@ public class RunCommand implements Runnable {
                 }
             }
 
+            if (explicitJavaEngine() && isSafetensorModelPath(finalLocalPath)
+                    && !shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
+                System.err.println("Error: --java requested the pure-Java safetensor engine, but it cannot run this request: "
+                        + directSafetensorDeclineReason(finalLocalPath)
+                        + ". Not falling back to libtorch or GGUF; drop --java to allow other routes.");
+                requestProcessExit(1);
+                return;
+            }
             if (shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
                 DirectSafetensorRunProfile directProfile =
                         directSafetensorRunProfile(executionProviderId, finalLocalPath);
@@ -6083,7 +6094,7 @@ public class RunCommand implements Runnable {
         }
         return isGgufProviderAlias(providerId)
                 || isGgufPluginAlias(pluginId)
-                || hasExplicitGgufEngine()
+                || (hasExplicitGgufEngine() && (!requestsSafetensorModel() || explicitLlamaCppEngine()))
                 || forceGguf
                 || isGgufFormat(format)
                 || looksLikeGgufPath(modelFile)
@@ -6230,6 +6241,94 @@ public class RunCommand implements Runnable {
 
     private static boolean isEmpty(List<?> values) {
         return values == null || values.isEmpty();
+    }
+
+    /**
+     * Maps the shared {@code --java} / {@code --llamacpp} / {@code --engine} switches onto the two
+     * safetensor routes: {@code direct} (pure-Java DirectInferenceEngine, no libtorch) or
+     * {@code gguf} (convert to GGUF via the existing forceGguf route, run on llama.cpp).
+     * Returns {@code null} for auto/benchmark/unknown so default routing applies.
+     */
+    static String safetensorBackendFor(String engineHint) {
+        if (engineHint == null) {
+            return null;
+        }
+        return switch (engineHint.trim().toLowerCase(Locale.ROOT)) {
+            case "java", "java-native", "native", "direct" -> "direct";
+            case "llamacpp", "llama.cpp", "llama-cpp", "gguf" -> "gguf";
+            default -> null;
+        };
+    }
+
+    private boolean explicitJavaEngine() {
+        return "direct".equals(safetensorBackendFor(requestedGgufEngine()));
+    }
+
+    private boolean explicitLlamaCppEngine() {
+        return "gguf".equals(safetensorBackendFor(requestedGgufEngine()));
+    }
+
+    /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
+    private boolean effectiveDirect(String localPath) {
+        return direct || (explicitJavaEngine() && isSafetensorModelPath(localPath));
+    }
+
+    /** Why {@link DirectSafetensorRoutePolicy#shouldUseDirectRun} would decline, for an explicit --java. */
+    private String directSafetensorDeclineReason(String localPath) {
+        if (directInferenceEngine() == null) {
+            return "the DirectInferenceEngine bean is not available in this runtime";
+        }
+        if (prompt == null || prompt.isBlank()) {
+            return "the direct engine currently needs --prompt";
+        }
+        if (sessionId != null && !sessionId.isBlank()) {
+            return "--session is not supported by the direct engine";
+        }
+        if (grammar != null && !grammar.isBlank()) {
+            return "--grammar is not supported by the direct engine";
+        }
+        Path checkpoint = resolveSafetensorCheckpointPath(localPath);
+        if (checkpoint != null && DirectSafetensorRunProfile.load(checkpoint).nativeBf16Matvec()) {
+            return "this checkpoint uses the guarded native-BF16 profile, which is not enabled for direct CLI runs";
+        }
+        return "the direct run policy declined this checkpoint";
+    }
+
+    private boolean isSafetensorModelPath(String localPath) {
+        Path p = resolveSafetensorCheckpointPath(localPath);
+        return p != null && isSafetensorCheckpointDir(p.toString());
+    }
+
+    /**
+     * Cheap, pre-resolution check for "the user pointed at a safetensors model", used so an
+     * explicit {@code --java}/{@code --llamacpp} is not mistaken for a GGUF-only request.
+     * An indexed reference counts only if no GGUF entry exists for it (e.g. {@code hf:org/x-GGUF}
+     * stays on the GGUF path).
+     */
+    private boolean requestsSafetensorModel() {
+        if (format != null && format.toLowerCase(Locale.ROOT).contains("safetensor")) {
+            return true;
+        }
+        if (modelDir != null && !modelDir.isBlank()) {
+            return true;
+        }
+        for (String ref : new String[] { modelFile, modelPath, modelId }) {
+            if (ref == null || ref.isBlank()) {
+                continue;
+            }
+            if (ref.toLowerCase(Locale.ROOT).endsWith(".safetensors") || isSafetensorCheckpointDir(ref)) {
+                return true;
+            }
+        }
+        if (modelId != null && !modelId.isBlank() && !looksLikeGgufPath(modelId)) {
+            try {
+                return findSafetensorIndexEntry(modelId).isPresent()
+                        && LocalModelIndex.find(modelId, "gguf").isEmpty();
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private String requestedGgufEngine() {

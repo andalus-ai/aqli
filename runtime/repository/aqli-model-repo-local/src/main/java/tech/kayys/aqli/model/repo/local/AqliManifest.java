@@ -58,4 +58,31 @@ public class AqliManifest {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public long getSizeBytes() { return sizeBytes; }
     public void setSizeBytes(long sizeBytes) { this.sizeBytes = sizeBytes; }
+    private String architecture;
+    private String repository;
+    private boolean pipeline;
+    private String branch = "main";
+    private String taskType = "text";
+    private java.util.Map<String, String> metadata = new java.util.LinkedHashMap<>();
+    private String group;
+    private boolean enabled = true;
+
+    public String getArchitecture() { return architecture; }
+    public void setArchitecture(String architecture) { this.architecture = architecture; }
+    public String getRepository() { return repository; }
+    public void setRepository(String repository) { this.repository = repository; }
+    public String getShortId() { return id != null && id.length() >= 8 ? id.substring(0, 8) : id; }
+
+    public boolean isPipeline() { return pipeline; }
+    public void setPipeline(boolean pipeline) { this.pipeline = pipeline; }
+    public String getBranch() { return branch; }
+    public void setBranch(String branch) { this.branch = branch; }
+    public String getTaskType() { return taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; }
+    public java.util.Map<String, String> getMetadata() { return metadata; }
+    public void setMetadata(java.util.Map<String, String> metadata) { this.metadata = metadata == null ? new java.util.LinkedHashMap<>() : new java.util.LinkedHashMap<>(metadata); }
+    public String getGroup() { return group; }
+    public void setGroup(String group) { this.group = group; }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }
