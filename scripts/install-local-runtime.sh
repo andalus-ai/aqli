@@ -2377,7 +2377,7 @@ if [ "\${AQLI_GGUF_FAST_RUN:-true}" != "false" ] && aqli_gguf_fast_command "\${1
         -Daqli.gguf.fast_run.daemon_launcher="\${AQLI_GGUF_FAST_DAEMON_LAUNCHER}" \\
         -Daqli.gguf.fast_run.debug="\${AQLI_GGUF_FAST_RUN_DEBUG:-false}" \\
         -Daqli.gguf.fast_run.hard_exit_after_run="\${AQLI_GGUF_FAST_HARD_EXIT_AFTER_RUN}" \\
-        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \
+        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
         -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
         -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
         -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.GgufFastRun "\$@"
@@ -2405,7 +2405,7 @@ if [ "\${AQLI_LITERT_FAST_RUN:-true}" != "false" ] && aqli_litert_fast_command "
         -Daqli.litert.fast_run.daemon_launcher="\${AQLI_LITERT_FAST_DAEMON_LAUNCHER}" \\
         -Daqli.litert.fast_run.dynamic_engine_tokens="\${AQLI_LITERT_FAST_DYNAMIC_ENGINE_TOKENS}" \\
         -Daqli.litert.fast_run.debug="\${AQLI_LITERT_FAST_RUN_DEBUG:-false}" \\
-        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \
+        -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
         -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
         -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
         -cp "$JAR_PATH" tech.kayys.aqli.cli.commands.LiteRtLmFastRun "\$@"
@@ -2433,8 +2433,8 @@ aqli_run_java_filtered \\
     -Daqli.litert.fast_run.daemon_launcher="\${AQLI_LITERT_FAST_DAEMON_LAUNCHER}" \\
     -Daqli.litert.fast_run.dynamic_engine_tokens="\${AQLI_LITERT_FAST_DYNAMIC_ENGINE_TOKENS}" \\
     -Daqli.litert.fast_run.debug="\${AQLI_LITERT_FAST_RUN_DEBUG:-false}" \\
-    -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \
-        -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
+    -Daqli.metal.dylib="\$HOME/.aqli/libs/libaqli_metal.dylib" \\
+    -Daljabr.metal.dylib="\$HOME/.aqli/libs/libaljabr_metal.dylib" \\
     -Djava.library.path="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama:\$HOME/.aqli/libs/onnxruntime:\$HOME/.aqli/libs/libtorch" \\
     -jar "$JAR_PATH" "\$@"
 exit \$?
