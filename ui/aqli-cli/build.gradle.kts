@@ -80,8 +80,8 @@ dependencies {
     implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.11.0")
     implementation(project(":runner:safetensor:aqli-safetensor-engine"))
     implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
+    // Tafkir-backed quantization is opt-in; do not pull its Aljabr adapter into CLI runtime.
     implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.aljabr:aljabr-safetensor-quantization:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-backend-metal:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-model-gemma4:0.1.0-SNAPSHOT")
