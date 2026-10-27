@@ -115,20 +115,11 @@ discoveredModelDirs.sortedBy { it.name }.forEach { modelProject ->
     includeOptionalProject(logicalPath, modelProject.absolutePath)
 }
 
-// Optional optimization plugins
-// includeOptionalProject("optimization:aqli-plugin-elastic-ep", "runtime/optimization/aqli-plugin-elastic-ep")
-// includeOptionalProject("optimization:aqli-plugin-evicpress", "runtime/optimization/aqli-plugin-evicpress")
-// includeOptionalProject("optimization:aqli-plugin-fa3", "runtime/optimization/aqli-plugin-fa3")
-// includeOptionalProject("optimization:aqli-plugin-fa4", "runtime/optimization/aqli-plugin-fa4")
-// includeOptionalProject("optimization:aqli-plugin-hybrid-attn", "runtime/optimization/aqli-plugin-hybrid-attn")
+// Optimization modules: only KV-cache is currently included in the default build.
+// The remaining directories are experimental/unintegrated; enable each only after its
+// dependency graph, tests, and inference-path integration are verified. See
+// runtime/optimization/README.md and runtime/optimization/ARCHITECTURE.md.
 includeOptionalProject("optimization:aqli-plugin-kv-cache", "runtime/optimization/aqli-plugin-kv-cache")
-// includeOptionalProject("optimization:aqli-plugin-paged-attention", "runtime/optimization/aqli-plugin-paged-attention")
-// includeOptionalProject("optimization:aqli-plugin-perfmode", "runtime/optimization/aqli-plugin-perfmode")
-// includeOptionalProject("optimization:aqli-plugin-prefill-decode", "runtime/optimization/aqli-plugin-prefill-decode")
-// includeOptionalProject("optimization:aqli-plugin-prompt-cache", "runtime/optimization/aqli-plugin-prompt-cache")
-// includeOptionalProject("optimization:aqli-plugin-qlora", "runtime/optimization/aqli-plugin-qlora")
-// includeOptionalProject("optimization:aqli-plugin-wait-scheduler", "runtime/optimization/aqli-plugin-wait-scheduler")
-// includeOptionalProject("optimization:aqli-plugin-weight-offload", "runtime/optimization/aqli-plugin-weight-offload")
 
 // Optional plugins
 includeOptionalProject("plugins:aqli-plugin-content-safety", "runtime/plugins/aqli-plugin-content-safety")
