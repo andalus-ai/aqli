@@ -75,7 +75,7 @@ public class ModelCommand implements Runnable {
             }
             try {
                 manifestStore.save(manifest);
-            } catch (java.io.IOException e) {
+            } catch (Exception e) {
                 System.err.println("\u001B[31mFailed to save manifest: " + e.getMessage() + "\u001B[0m");
                 return;
             }
@@ -111,7 +111,7 @@ public class ModelCommand implements Runnable {
             manifest.setEnabled(enabled);
             try {
                 manifestStore.save(manifest);
-            } catch (java.io.IOException e) {
+            } catch (Exception e) {
                 System.err.println("\u001B[31mFailed to save manifest: " + e.getMessage() + "\u001B[0m");
                 return;
             }

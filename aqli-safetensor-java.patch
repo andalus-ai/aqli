@@ -1,0 +1,709 @@
+diff --git a/runtime/runner/safetensor/aqli-safetensor-engine/src/main/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackend.java b/runtime/runner/safetensor/aqli-safetensor-engine/src/main/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackend.java
+index f09102a..fab0d1b 100644
+--- a/runtime/runner/safetensor/aqli-safetensor-engine/src/main/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackend.java
++++ b/runtime/runner/safetensor/aqli-safetensor-engine/src/main/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackend.java
+@@ -1,22 +1,388 @@
++/*
++ * Aqli Inference Engine - SafeTensor Module
++ * Copyright (c) 2026 Kayys.tech
++ * SPDX-License-Identifier: Apache-2.0
++ */
+ package tech.kayys.aqli.safetensor.engine.warmup;
+ 
+-import tech.kayys.aljabr.spi.inference.LocalInferenceEngine;
+-import tech.kayys.aljabr.spi.inference.InferenceResponse;
+-import tech.kayys.aljabr.spi.inference.InferenceRequest;
+-import tech.kayys.aljabr.spi.model.HealthStatus;
+-import io.smallrye.mutiny.Uni;
+-import io.smallrye.mutiny.Multi;
+-import tech.kayys.aljabr.spi.inference.StreamingInferenceChunk;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Locale;
++import java.util.Map;
++import java.util.concurrent.atomic.AtomicBoolean;
++import java.util.concurrent.atomic.AtomicInteger;
+ 
++import org.jboss.logging.Logger;
++
++import io.smallrye.mutiny.Multi;
++import io.smallrye.mutiny.Uni;
++import io.smallrye.mutiny.infrastructure.Infrastructure;
+ import jakarta.enterprise.context.ApplicationScoped;
++import jakarta.enterprise.inject.Instance;
++import jakarta.inject.Inject;
++import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
++import tech.kayys.aljabr.spi.Message;
++import tech.kayys.aljabr.spi.inference.InferenceRequest;
++import tech.kayys.aljabr.spi.inference.InferenceResponse;
++import tech.kayys.aljabr.spi.inference.LocalInferenceEngine;
++import tech.kayys.aljabr.spi.inference.StreamingInferenceChunk;
++import tech.kayys.aljabr.spi.model.HealthStatus;
++import tech.kayys.aljabr.spi.tokenizer.ChatTemplateFormatter;
++import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
++import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRunProfile;
++import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy;
+ 
++/**
++ * Pure-Java safetensors backend: runs a HuggingFace checkpoint directory (or a single
++ * {@code .safetensors} file inside one) on {@link DirectInferenceEngine}. No libtorch, no GGUF
++ * conversion, no llama.cpp.
++ *
++ * <p>The model architecture is not decided here. {@code DirectInferenceEngine} resolves it through
++ * the model-family plugin registry from the checkpoint's own {@code config.json}, so this class
++ * stays architecture-neutral. It mirrors the CLI's direct-run driver
++ * ({@code RunCommand#runDirectSafetensorCompletion}) so a request through this backend and
++ * {@code aqli run --java} behave the same.
++ *
++ * <p>Request mapping:
++ * <ul>
++ *   <li>checkpoint: {@code model_path} / {@code modelPath} parameter or metadata entry, else
++ *       {@link InferenceRequest#getModel()} when it is a checkpoint directory or
++ *       {@code .safetensors} file;</li>
++ *   <li>sampling: {@code temperature}, {@code topK}, {@code topP}, {@code repeatPenalty},
++ *       {@code maxTokens} from the request, {@code seed} from parameters;</li>
++ *   <li>optional parameters: {@code quantize} (weight quantisation strategy) and
++ *       {@code quantize_kv} / {@code kv_cache_quant} ({@code int8}, {@code int4},
++ *       {@code turbo});</li>
++ *   <li>prompt: a single system+user turn (or {@code getPrompt()}) goes through
++ *       {@link DirectSafetensorTextPolicy#preparePrompt}, exactly like the CLI; longer
++ *       conversations are formatted with the model family's chat template.</li>
++ * </ul>
++ *
++ * <p>Checkpoints on the guarded native-BF16 profile (Gemma 4 unified) are generated in one shot and
++ * returned sanitised, because the channel-marker clean-up is a whole-text operation and cannot be
++ * applied to individual streamed deltas.
++ */
+ @ApplicationScoped
+ public class DirectSafetensorBackend implements LocalInferenceEngine {
+-    public void initialize() {}
+-    public void shutdown() {}
+-    public String name() { return "DirectSafetensorBackend"; }
+-    public HealthStatus health() { return HealthStatus.healthy("OK"); }
+-    public Uni<InferenceResponse> infer(InferenceRequest request) { return null; }
+-    public io.smallrye.mutiny.Multi<tech.kayys.aqli.spi.inference.StreamingInferenceChunk> inferStream(InferenceRequest request) { return null; }
+-    public Multi<StreamingInferenceChunk> stream(InferenceRequest request) { return null; }
++
++    private static final Logger LOG = Logger.getLogger(DirectSafetensorBackend.class);
++
++    private static final int DEFAULT_MAX_TOKENS = 256;
++
++    @Inject
++    Instance<DirectInferenceEngine> engines;
++
++    // ------------------------------------------------------------------ lifecycle / health
++
++    @Override
++    public void initialize() {
++        // The engine is resolved lazily; nothing to warm up here.
++    }
++
++    @Override
++    public void shutdown() {
++        // Model residency is owned by DirectInferenceEngine.
++    }
++
++    public String name() {
++        return "DirectSafetensorBackend";
++    }
++
++    @Override
++    public boolean isHealthy() {
++        return engines != null && engines.isResolvable();
++    }
++
++    @Override
++    public HealthStatus health() {
++        return isHealthy()
++                ? HealthStatus.healthy("Pure-Java direct safetensors engine available")
++                : HealthStatus.unhealthy("DirectInferenceEngine bean is not available");
++    }
++
++    // ------------------------------------------------------------------ inference
++
++    @Override
++    public Uni<InferenceResponse> infer(InferenceRequest request) {
++        final Plan plan;
++        final DirectInferenceEngine engine;
++        try {
++            plan = plan(request);
++            engine = engine();
++        } catch (RuntimeException e) {
++            return Uni.createFrom().failure(e);
++        }
++        return loaded(engine, plan)
++                .chain(p -> engine.generate(p.prompt(), p.modelPath(), p.config()))
++                .map(response -> finish(response, plan, request));
++    }
++
++    @Override
++    public Multi<StreamingInferenceChunk> stream(InferenceRequest request) {
++        final Plan plan;
++        final DirectInferenceEngine engine;
++        try {
++            plan = plan(request);
++            engine = engine();
++        } catch (RuntimeException e) {
++            return Multi.createFrom().failure(e);
++        }
++        final String requestId = requestId(request);
++
++        if (plan.profile().nativeBf16Matvec()) {
++            // Whole-text sanitising cannot run per delta: generate, clean, emit once.
++            return loaded(engine, plan)
++                    .chain(p -> engine.generate(p.prompt(), p.modelPath(), p.config()))
++                    .map(response -> finish(response, plan, request))
++                    .onItem().transformToMulti(response -> Multi.createFrom().items(
++                            StreamingInferenceChunk.textDelta(requestId, 0, nz(response.getContent())),
++                            StreamingInferenceChunk.finalChunk(requestId, 1, "")));
++        }
++
++        final AtomicInteger index = new AtomicInteger();
++        final AtomicBoolean finished = new AtomicBoolean();
++        return loaded(engine, plan)
++                .onItem().transformToMulti(p -> engine.generateStream(p.prompt(), p.modelPath(), p.config()))
++                .map(response -> {
++                    if (response.getFinishReason() != null) {
++                        // Final element: the deltas already carried the text, do not repeat it.
++                        finished.set(true);
++                        return StreamingInferenceChunk.finalChunk(requestId, index.getAndIncrement(), "");
++                    }
++                    return StreamingInferenceChunk.textDelta(requestId, index.getAndIncrement(),
++                            nz(response.getContent()));
++                })
++                .onCompletion().switchTo(() -> finished.get()
++                        ? Multi.createFrom().<StreamingInferenceChunk>empty()
++                        : Multi.createFrom().item(
++                                StreamingInferenceChunk.finalChunk(requestId, index.getAndIncrement(), "")));
++    }
++
++    /** Same stream, expressed in the aqli SPI chunk type (kept for callers written against it). */
++    public Multi<tech.kayys.aqli.spi.inference.StreamingInferenceChunk> inferStream(InferenceRequest request) {
++        return stream(request).map(DirectSafetensorBackend::toAqliChunk);
++    }
++
++    // ------------------------------------------------------------------ request planning
++
++    /** Everything derived from a request before the engine is touched. */
++    record Plan(Path modelPath,
++            DirectSafetensorRunProfile profile,
++            GenerationConfig config,
++            String prompt,
++            String quantizeStrategy) {
++    }
++
++    Plan plan(InferenceRequest request) {
++        if (request == null) {
++            throw new IllegalArgumentException("request must not be null");
++        }
++        Path modelPath = resolveRequestCheckpoint(request);
++        DirectSafetensorRunProfile profile = DirectSafetensorRunProfile.load(modelPath);
++
++        double temperature = request.getTemperature();
++        int topK = request.getTopK();
++        double topP = request.getTopP();
++        int maxTokens = request.getMaxTokens() > 0 ? request.getMaxTokens() : DEFAULT_MAX_TOKENS;
++        double requestedPenalty = request.getRepeatPenalty() > 0 ? request.getRepeatPenalty() : 1.0d;
++
++        Object seedParam = param(request, "seed");
++        long seed = seedParam instanceof Number n ? n.longValue() : -1L;
++
++        GenerationConfig config = GenerationConfig.builder()
++                .maxNewTokens(maxTokens)
++                .strategy(samplingStrategy(temperature, topK, topP))
++                .temperature((float) temperature)
++                .topK(topK)
++                .topP((float) topP)
++                .repetitionPenalty(DirectSafetensorTextPolicy.normalizeRepeatPenalty(profile, requestedPenalty))
++                .kvCacheQuant(parseKvQuant(asString(param(request, "quantize_kv", "kv_cache_quant"))))
++                .seed(seed)
++                .build();
++
++        String quantize = asString(param(request, "quantize"));
++        return new Plan(modelPath, profile, config, buildPrompt(request, profile), quantize);
++    }
++
++    /** Checkpoint directory from an explicit path parameter, else from the request's model field. */
++    private static Path resolveRequestCheckpoint(InferenceRequest request) {
++        String explicit = asString(param(request, "model_path", "modelPath"));
++        Path resolved = resolveCheckpointPath(explicit != null ? explicit : request.getModel());
++        if (resolved == null) {
++            throw new IllegalArgumentException(
++                    "Direct safetensors backend needs a checkpoint directory or .safetensors file "
++                            + "(request model='" + request.getModel()
++                            + "'; pass it as the model or as the 'model_path' parameter)");
++        }
++        return resolved;
++    }
++
++    /**
++     * A directory is used as is; a {@code .safetensors} file resolves to its parent directory
++     * (config.json and tokenizer.json live there). Anything else is not a checkpoint.
++     */
++    static Path resolveCheckpointPath(String localPath) {
++        if (localPath == null || localPath.isBlank()) {
++            return null;
++        }
++        try {
++            Path path = Path.of(localPath).toAbsolutePath().normalize();
++            if (Files.isDirectory(path)) {
++                return path;
++            }
++            if (!Files.isRegularFile(path)
++                    || !path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".safetensors")) {
++                return null;
++            }
++            Path parent = path.getParent();
++            return parent != null && Files.isDirectory(parent) ? parent : null;
++        } catch (RuntimeException e) {
++            return null;
++        }
++    }
++
++    /** Same decision table as the CLI's {@code resolveDirectSamplingStrategy}. */
++    static GenerationConfig.SamplingStrategy samplingStrategy(double temperature, int topK, double topP) {
++        if (temperature < 1.0e-4d || topK == 1) {
++            return GenerationConfig.SamplingStrategy.GREEDY;
++        }
++        boolean hasTopK = topK > 0;
++        boolean hasTopP = topP > 0.0d && topP < 1.0d;
++        if (hasTopK && hasTopP) {
++            return GenerationConfig.SamplingStrategy.TOP_K_TOP_P;
++        }
++        if (hasTopP) {
++            return GenerationConfig.SamplingStrategy.TOP_P;
++        }
++        if (hasTopK) {
++            return GenerationConfig.SamplingStrategy.TOP_K;
++        }
++        return GenerationConfig.SamplingStrategy.GREEDY;
++    }
++
++    static GenerationConfig.KvCacheQuantization parseKvQuant(String value) {
++        if ("int8".equalsIgnoreCase(value)) {
++            return GenerationConfig.KvCacheQuantization.INT8;
++        }
++        if ("int4".equalsIgnoreCase(value) || "turbo".equalsIgnoreCase(value)) {
++            return GenerationConfig.KvCacheQuantization.INT4;
++        }
++        return GenerationConfig.KvCacheQuantization.NONE;
++    }
++
++    /**
++     * One system+user turn (or a bare prompt) is prepared exactly like the CLI does. Longer
++     * conversations use the family chat template; a model family without one is reported rather
++     * than guessed at.
++     */
++    static String buildPrompt(InferenceRequest request, DirectSafetensorRunProfile profile) {
++        List<Message> messages = request.getMessages() == null ? List.of() : request.getMessages();
++        if (messages.isEmpty()) {
++            String prompt = request.getPrompt();
++            if (prompt == null || prompt.isBlank()) {
++                throw new IllegalArgumentException("Request has neither messages nor a prompt");
++            }
++            return DirectSafetensorTextPolicy.preparePrompt(profile, null, prompt);
++        }
++
++        String system = null;
++        List<Message> turns = new ArrayList<>();
++        for (Message m : messages) {
++            if (m.getRole() == Message.Role.SYSTEM && system == null) {
++                system = m.getContent();
++            } else {
++                turns.add(m);
++            }
++        }
++        boolean singleUserTurn = turns.size() == 1 && turns.get(0).getRole() == Message.Role.USER;
++        if (singleUserTurn) {
++            return DirectSafetensorTextPolicy.preparePrompt(profile, system, turns.get(0).getContent());
++        }
++        if (turns.isEmpty()) {
++            throw new IllegalArgumentException("Request has a system message but no user message");
++        }
++
++        String modelType = profile.modelType();
++        boolean templated = !profile.nativeBf16Matvec() && modelType != null && !modelType.isBlank()
++                && (profile.requiresChatTemplateFormatting() || ChatTemplateFormatter.supportsModelType(modelType));
++        if (!templated) {
++            throw new IllegalArgumentException(
++                    "Multi-turn conversation needs a chat template for model type '" + modelType
++                            + "', which is not available for this checkpoint; send a single prompt instead");
++        }
++        return ChatTemplateFormatter.format(messages, modelType);
++    }
++
++    // ------------------------------------------------------------------ helpers
++
++    private DirectInferenceEngine engine() {
++        if (engines == null || !engines.isResolvable()) {
++            throw new IllegalStateException(
++                    "DirectInferenceEngine is not available; the pure-Java safetensors engine cannot run");
++        }
++        return engines.get();
++    }
++
++    /** Loads (or reuses) the checkpoint off the caller thread; model load is blocking and heavy. */
++    private Uni<Plan> loaded(DirectInferenceEngine engine, Plan plan) {
++        return Uni.createFrom().item(() -> {
++            LOG.debugf("Direct safetensors: loading %s", plan.modelPath());
++            engine.loadModel(plan.modelPath(), null, plan.quantizeStrategy());
++            return plan;
++        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
++    }
++
++    private static InferenceResponse finish(InferenceResponse response, Plan plan, InferenceRequest request) {
++        InferenceResponse sanitized = DirectSafetensorTextPolicy.sanitizeResponse(response, plan.profile());
++        String id = request.getRequestId();
++        return id == null || id.isBlank() ? sanitized : sanitized.toBuilder().requestId(id).build();
++    }
++
++    private static tech.kayys.aqli.spi.inference.StreamingInferenceChunk toAqliChunk(StreamingInferenceChunk c) {
++        String delta = nz(c.delta());
++        if (!c.finished()) {
++            return tech.kayys.aqli.spi.inference.StreamingInferenceChunk.textDelta(c.requestId(), c.index(), delta);
++        }
++        return "error".equals(c.finishReason())
++                ? tech.kayys.aqli.spi.inference.StreamingInferenceChunk.errorChunk(c.requestId(), c.index(), delta)
++                : tech.kayys.aqli.spi.inference.StreamingInferenceChunk.finalChunk(c.requestId(), c.index(), delta);
++    }
++
++    private static String requestId(InferenceRequest request) {
++        String id = request.getRequestId();
++        return id == null || id.isBlank() ? "direct-" + System.nanoTime() : id;
++    }
++
++    /** First non-null value among the given keys, looking at parameters before metadata. */
++    private static Object param(InferenceRequest request, String... keys) {
++        Object fromParameters = lookup(request.getParameters(), keys);
++        return fromParameters != null ? fromParameters : lookup(request.getMetadata(), keys);
++    }
++
++    private static Object lookup(Map<String, Object> source, String... keys) {
++        if (source == null) {
++            return null;
++        }
++        for (String key : keys) {
++            Object value = source.get(key);
++            if (value != null) {
++                return value;
++            }
++        }
++        return null;
++    }
++
++    private static String asString(Object o) {
++        if (o == null) {
++            return null;
++        }
++        String s = String.valueOf(o).trim();
++        return s.isEmpty() ? null : s;
++    }
++
++    private static String nz(String s) {
++        return s == null ? "" : s;
++    }
+ }
+diff --git a/runtime/runner/safetensor/aqli-safetensor-engine/src/test/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackendTest.java b/runtime/runner/safetensor/aqli-safetensor-engine/src/test/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackendTest.java
+new file mode 100644
+index 0000000..a5f6c96
+--- /dev/null
++++ b/runtime/runner/safetensor/aqli-safetensor-engine/src/test/java/tech/kayys/aqli/safetensor/engine/warmup/DirectSafetensorBackendTest.java
+@@ -0,0 +1,99 @@
++/*
++ * Aqli Inference Engine - SafeTensor Module
++ * Copyright (c) 2026 Kayys.tech
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package tech.kayys.aqli.safetensor.engine.warmup;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import java.nio.file.Files;
++import java.nio.file.Path;
++
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.io.TempDir;
++
++import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
++import tech.kayys.aljabr.spi.inference.InferenceRequest;
++
++/** Request-mapping logic of the pure-Java safetensors backend; none of it needs a loaded model. */
++class DirectSafetensorBackendTest {
++
++    @TempDir
++    Path tmp;
++
++    @Test
++    void samplingStrategyFollowsTheCliDecisionTable() {
++        assertEquals(GenerationConfig.SamplingStrategy.GREEDY, DirectSafetensorBackend.samplingStrategy(0.0, 40, 0.9));
++        assertEquals(GenerationConfig.SamplingStrategy.GREEDY, DirectSafetensorBackend.samplingStrategy(0.8, 1, 0.9));
++        assertEquals(GenerationConfig.SamplingStrategy.TOP_K_TOP_P, DirectSafetensorBackend.samplingStrategy(0.8, 40, 0.9));
++        assertEquals(GenerationConfig.SamplingStrategy.TOP_P, DirectSafetensorBackend.samplingStrategy(0.8, 0, 0.9));
++        assertEquals(GenerationConfig.SamplingStrategy.TOP_K, DirectSafetensorBackend.samplingStrategy(0.8, 40, 1.0));
++        assertEquals(GenerationConfig.SamplingStrategy.GREEDY, DirectSafetensorBackend.samplingStrategy(0.8, 0, 1.0));
++    }
++
++    @Test
++    void kvQuantParsingAcceptsTheCliSpellings() {
++        assertEquals(GenerationConfig.KvCacheQuantization.INT8, DirectSafetensorBackend.parseKvQuant("INT8"));
++        assertEquals(GenerationConfig.KvCacheQuantization.INT4, DirectSafetensorBackend.parseKvQuant("int4"));
++        assertEquals(GenerationConfig.KvCacheQuantization.INT4, DirectSafetensorBackend.parseKvQuant("turbo"));
++        assertEquals(GenerationConfig.KvCacheQuantization.NONE, DirectSafetensorBackend.parseKvQuant(null));
++        assertEquals(GenerationConfig.KvCacheQuantization.NONE, DirectSafetensorBackend.parseKvQuant("fp16"));
++    }
++
++    @Test
++    void checkpointDirectoryIsUsedAsIs() throws Exception {
++        Path dir = Files.createDirectory(tmp.resolve("model"));
++        assertEquals(dir.toAbsolutePath().normalize(), DirectSafetensorBackend.resolveCheckpointPath(dir.toString()));
++    }
++
++    @Test
++    void safetensorsFileResolvesToItsDirectory() throws Exception {
++        Path dir = Files.createDirectory(tmp.resolve("model"));
++        Path weights = Files.writeString(dir.resolve("model.safetensors"), "x");
++        assertEquals(dir.toAbsolutePath().normalize(), DirectSafetensorBackend.resolveCheckpointPath(weights.toString()));
++    }
++
++    @Test
++    void nonCheckpointPathsAreRejected() throws Exception {
++        Path other = Files.writeString(tmp.resolve("notes.txt"), "x");
++        assertNull(DirectSafetensorBackend.resolveCheckpointPath(other.toString()));
++        assertNull(DirectSafetensorBackend.resolveCheckpointPath(tmp.resolve("missing").toString()));
++        assertNull(DirectSafetensorBackend.resolveCheckpointPath("   "));
++        assertNull(DirectSafetensorBackend.resolveCheckpointPath(null));
++        // a model reference such as hf:org/name is not a local checkpoint
++        assertNull(DirectSafetensorBackend.resolveCheckpointPath("hf:org/model"));
++    }
++
++    @Test
++    void inferFailsCleanlyWhenRequestIsNotACheckpoint() {
++        DirectSafetensorBackend backend = new DirectSafetensorBackend();
++        InferenceRequest request = InferenceRequest.builder()
++                .model(tmp.resolve("missing").toString())
++                .prompt("hello")
++                .build();
++        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
++                () -> backend.infer(request).await().indefinitely());
++        assertTrue(e.getMessage().contains("model_path"), e.getMessage());
++    }
++
++    @Test
++    void streamFailsCleanlyWhenRequestIsNotACheckpoint() {
++        DirectSafetensorBackend backend = new DirectSafetensorBackend();
++        InferenceRequest request = InferenceRequest.builder()
++                .model("hf:org/model")
++                .prompt("hello")
++                .build();
++        assertThrows(IllegalArgumentException.class,
++                () -> backend.stream(request).collect().asList().await().indefinitely());
++    }
++
++    @Test
++    void reportsUnhealthyWithoutAnEngine() {
++        assertFalse(new DirectSafetensorBackend().isHealthy());
++    }
++}
+diff --git a/ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/RunCommand.java b/ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/RunCommand.java
+index d164f6b..8c2fc29 100644
+--- a/ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/RunCommand.java
++++ b/ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/RunCommand.java
+@@ -590,13 +590,16 @@ public class RunCommand implements Runnable {
+             boolean requestedProviderExplicit = providerExplicit;
+             String requestedProviderId = providerId;
+             String requestedFormat = format;
++            // --llamacpp on a safetensor checkpoint reuses the existing convert-to-GGUF route
++            // (sdk.prepareModel converts, then llama.cpp runs the GGUF).
++            boolean forceGgufForRoute = forceGguf || (explicitLlamaCppEngine() && requestsSafetensorModel());
+             RunnerRoutePolicy.Selection runnerSelection = RunnerRoutePolicy.select(
+                     runner,
+                     providerId,
+                     format,
+                     providerExplicit,
+                     preferAlternateRuntime,
+-                    forceGguf);
++                    forceGgufForRoute);
+             if (!runnerSelection.valid()) {
+                 System.err.println("Error: " + runnerSelection.error());
+                 requestProcessExit(1);
+@@ -1064,7 +1067,7 @@ public class RunCommand implements Runnable {
+                 String routeExecutionProviderId = routeExecutionProviderId(providerId, finalLocalPath);
+                 RunnerRouteReport effectiveRouteReport =
+                         runnerRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
+-                if (direct) {
++                if (effectiveDirect(finalLocalPath)) {
+                     routeExecutionProviderId = "safetensor";
+                     effectiveRouteReport = effectiveRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
+                 }
+@@ -1197,7 +1200,7 @@ public class RunCommand implements Runnable {
+                     runnerRouteReport.withEffectiveRoute(executionProviderId, format);
+             forcedExecutionRouteMetadata = effectiveRunnerRouteReport.toMetadata();
+ 
+-            if (direct) {
++            if (effectiveDirect(finalLocalPath)) {
+                 providerId = "safetensor";
+                 
+                 executionProviderId = "safetensor";
+@@ -1493,6 +1496,14 @@ public class RunCommand implements Runnable {
+                 }
+             }
+ 
++            if (explicitJavaEngine() && isSafetensorModelPath(finalLocalPath)
++                    && !shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
++                System.err.println("Error: --java requested the pure-Java safetensor engine, but it cannot run this request: "
++                        + directSafetensorDeclineReason(finalLocalPath)
++                        + ". Not falling back to libtorch or GGUF; drop --java to allow other routes.");
++                requestProcessExit(1);
++                return;
++            }
+             if (shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
+                 DirectSafetensorRunProfile directProfile =
+                         directSafetensorRunProfile(executionProviderId, finalLocalPath);
+@@ -6083,7 +6094,7 @@ public class RunCommand implements Runnable {
+         }
+         return isGgufProviderAlias(providerId)
+                 || isGgufPluginAlias(pluginId)
+-                || hasExplicitGgufEngine()
++                || (hasExplicitGgufEngine() && (!requestsSafetensorModel() || explicitLlamaCppEngine()))
+                 || forceGguf
+                 || isGgufFormat(format)
+                 || looksLikeGgufPath(modelFile)
+@@ -6232,6 +6243,94 @@ public class RunCommand implements Runnable {
+         return values == null || values.isEmpty();
+     }
+ 
++    /**
++     * Maps the shared {@code --java} / {@code --llamacpp} / {@code --engine} switches onto the two
++     * safetensor routes: {@code direct} (pure-Java DirectInferenceEngine, no libtorch) or
++     * {@code gguf} (convert to GGUF via the existing forceGguf route, run on llama.cpp).
++     * Returns {@code null} for auto/benchmark/unknown so default routing applies.
++     */
++    static String safetensorBackendFor(String engineHint) {
++        if (engineHint == null) {
++            return null;
++        }
++        return switch (engineHint.trim().toLowerCase(Locale.ROOT)) {
++            case "java", "java-native", "native", "direct" -> "direct";
++            case "llamacpp", "llama.cpp", "llama-cpp", "gguf" -> "gguf";
++            default -> null;
++        };
++    }
++
++    private boolean explicitJavaEngine() {
++        return "direct".equals(safetensorBackendFor(requestedGgufEngine()));
++    }
++
++    private boolean explicitLlamaCppEngine() {
++        return "gguf".equals(safetensorBackendFor(requestedGgufEngine()));
++    }
++
++    /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
++    private boolean effectiveDirect(String localPath) {
++        return direct || (explicitJavaEngine() && isSafetensorModelPath(localPath));
++    }
++
++    /** Why {@link DirectSafetensorRoutePolicy#shouldUseDirectRun} would decline, for an explicit --java. */
++    private String directSafetensorDeclineReason(String localPath) {
++        if (directInferenceEngine() == null) {
++            return "the DirectInferenceEngine bean is not available in this runtime";
++        }
++        if (prompt == null || prompt.isBlank()) {
++            return "the direct engine currently needs --prompt";
++        }
++        if (sessionId != null && !sessionId.isBlank()) {
++            return "--session is not supported by the direct engine";
++        }
++        if (grammar != null && !grammar.isBlank()) {
++            return "--grammar is not supported by the direct engine";
++        }
++        Path checkpoint = resolveSafetensorCheckpointPath(localPath);
++        if (checkpoint != null && DirectSafetensorRunProfile.load(checkpoint).nativeBf16Matvec()) {
++            return "this checkpoint uses the guarded native-BF16 profile, which is not enabled for direct CLI runs";
++        }
++        return "the direct run policy declined this checkpoint";
++    }
++
++    private boolean isSafetensorModelPath(String localPath) {
++        Path p = resolveSafetensorCheckpointPath(localPath);
++        return p != null && isSafetensorCheckpointDir(p.toString());
++    }
++
++    /**
++     * Cheap, pre-resolution check for "the user pointed at a safetensors model", used so an
++     * explicit {@code --java}/{@code --llamacpp} is not mistaken for a GGUF-only request.
++     * An indexed reference counts only if no GGUF entry exists for it (e.g. {@code hf:org/x-GGUF}
++     * stays on the GGUF path).
++     */
++    private boolean requestsSafetensorModel() {
++        if (format != null && format.toLowerCase(Locale.ROOT).contains("safetensor")) {
++            return true;
++        }
++        if (modelDir != null && !modelDir.isBlank()) {
++            return true;
++        }
++        for (String ref : new String[] { modelFile, modelPath, modelId }) {
++            if (ref == null || ref.isBlank()) {
++                continue;
++            }
++            if (ref.toLowerCase(Locale.ROOT).endsWith(".safetensors") || isSafetensorCheckpointDir(ref)) {
++                return true;
++            }
++        }
++        if (modelId != null && !modelId.isBlank() && !looksLikeGgufPath(modelId)) {
++            try {
++                return findSafetensorIndexEntry(modelId).isPresent()
++                        && LocalModelIndex.find(modelId, "gguf").isEmpty();
++            } catch (Exception ignored) {
++                return false;
++            }
++        }
++        return false;
++    }
++
+     private String requestedGgufEngine() {
+         if (benchmarkGguf) {
+             return "benchmark";
+diff --git a/ui/aqli-cli/src/test/java/tech/kayys/aqli/cli/commands/RunCommandSafetensorEngineHintTest.java b/ui/aqli-cli/src/test/java/tech/kayys/aqli/cli/commands/RunCommandSafetensorEngineHintTest.java
+new file mode 100644
+index 0000000..0b420b0
+--- /dev/null
++++ b/ui/aqli-cli/src/test/java/tech/kayys/aqli/cli/commands/RunCommandSafetensorEngineHintTest.java
+@@ -0,0 +1,32 @@
++package tech.kayys.aqli.cli.commands;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertNull;
++
++import org.junit.jupiter.api.Test;
++
++/** --java / --llamacpp must map onto the SafeTensor engine's backend ids (direct / gguf). */
++class RunCommandSafetensorEngineHintTest {
++
++    @Test
++    void javaAliasesSelectDirectBackend() {
++        assertEquals("direct", RunCommand.safetensorBackendFor("java"));
++        assertEquals("direct", RunCommand.safetensorBackendFor(" Java-Native "));
++        assertEquals("direct", RunCommand.safetensorBackendFor("direct"));
++    }
++
++    @Test
++    void llamaCppAliasesSelectGgufBackend() {
++        assertEquals("gguf", RunCommand.safetensorBackendFor("llamacpp"));
++        assertEquals("gguf", RunCommand.safetensorBackendFor("llama.cpp"));
++        assertEquals("gguf", RunCommand.safetensorBackendFor("gguf"));
++    }
++
++    @Test
++    void autoBenchmarkAndUnknownKeepConfiguredBackend() {
++        assertNull(RunCommand.safetensorBackendFor(null));
++        assertNull(RunCommand.safetensorBackendFor("auto"));
++        assertNull(RunCommand.safetensorBackendFor("benchmark"));
++        assertNull(RunCommand.safetensorBackendFor("nonsense"));
++    }
++}
