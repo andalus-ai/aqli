@@ -58,3 +58,16 @@ module README and keep Gradle inclusion consistent with it.
 - At least one integration test proves that the runtime invokes the implementation.
 - Native/GPU paths have a clear capability check and safe, tested fallback.
 - Performance claims are backed by a reproducible benchmark rather than estimates.
+
+
+## Known structural debt found during the initial audit
+
+- `aqli-plugin-fa3` contains its own `OptimizationPlugin`, `OptimizationContext`, and
+  `OptimizationConfig` types in `tech.kayys.aqli.plugin.optimization`, while the canonical
+  `framework/plugin/aqli-plugin-optimization-core` defines overlapping types in the same
+  package. The FA3 implementation currently targets the legacy API shape, so deleting those
+  copies immediately would break that dormant module. Keep FA3 excluded until it is migrated
+  to the canonical SPI (or an explicit adapter is designed), then remove the duplicate types.
+- The optimization-core README still documents Maven paths and an example manager API that
+  should not be assumed to reflect the current Gradle build. Keep documentation aligned with
+  actual source signatures and build project paths.
