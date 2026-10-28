@@ -47,7 +47,7 @@ final class DirectInferenceComponentGraph {
             Supplier<SafetensorLoaderFacade> safetensorLoader,
             Supplier<AccelWeightBridge> weightBridge,
             Supplier<ObjectMapper> objectMapper,
-            Supplier<QuantizationEngine> quantizationEngine,
+            Supplier<InferenceQuantizer> quantizationEngine,
             Supplier<ModelFamilyPluginRegistry> architectureRegistry,
             Supplier<DirectForwardPass> forwardPass,
             Supplier<TokenSampler> tokenSampler,
