@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import tech.kayys.aqli.cli.audit.QuantAuditRenderer;
 import tech.kayys.aqli.sdk.audit.QuantAuditTrail;
 
 /**
