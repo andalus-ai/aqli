@@ -139,6 +139,7 @@ class GgufFastRunPromptTest {
         String output = bytes.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("[Fast GGUF, Duration:"));
         assertTrue(output.contains("Speed:"));
+        assertTrue(output.contains("Speed: 20.00 t/s (generate call)"), output);
         assertTrue(output.contains("Performance Metrics:"));
         assertTrue(output.contains("  open time      ="));
         assertTrue(output.contains("  generate call  ="));
