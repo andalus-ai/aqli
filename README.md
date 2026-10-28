@@ -351,6 +351,14 @@ Families/Aqli/aqli/
 - [Error Codes](docs/error-codes.md)
 - [Install Profiles](docs/install-profiles.md)
 
+### Architecture and consolidation
+
+- [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) — Aljabr/AQLI/Tafkir responsibilities, dependency direction, format boundaries and lifecycle rules.
+- [Sequence Flows](docs/architecture/SEQUENCE_FLOWS.md) — request, model loading, decode, cancellation, shutdown and failure paths.
+- [Module Ownership Matrix](docs/architecture/MODULE_OWNERSHIP_MATRIX.md) — canonical ownership, migration candidates and validation checklist.
+- [Consolidation Roadmap](docs/architecture/ALJABR_AQLI_CONSOLIDATION_ROADMAP.md) — phased migration and acceptance gates.
+- [Ownership Audit](docs/architecture/ALJABR_AQLI_OWNERSHIP_AUDIT.md) — initial overlap inventory and reverse-boundary audit.
+
 ## License
 
 MIT © Kayys.tech
