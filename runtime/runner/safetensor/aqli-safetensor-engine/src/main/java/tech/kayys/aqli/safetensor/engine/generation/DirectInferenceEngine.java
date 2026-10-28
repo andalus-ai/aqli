@@ -118,7 +118,7 @@ public class DirectInferenceEngine implements SafetensorEngine {
                     this::safetensorLoader,
                     this::weightBridge,
                     this::resolvedObjectMapper,
-                    this::getQuantizationEngine,
+                    this::getInferenceQuantizer,
                     this::architectureRegistry,
                     this::forwardPass,
                     this::tokenSampler,
@@ -145,7 +145,7 @@ public class DirectInferenceEngine implements SafetensorEngine {
     public static class LoadedModel extends DirectLoadedModel {
         public LoadedModel(Path path, Map<String, AccelTensor> weights,
                 Tokenizer tokenizer, String key,
-                boolean quantized, QuantizationEngine.QuantStrategy quantStrategy,
+                boolean quantized, InferenceQuantizer.QuantStrategy quantStrategy,
                 String quantCacheState, Path quantCachePath,
                 ModelConfig config, ModelArchitecture architecture, ModelRuntimeTraits runtimeTraits,
                 Arena weightArena) {
@@ -160,15 +160,15 @@ public class DirectInferenceEngine implements SafetensorEngine {
 
     @Override
     public String loadModel(Path modelPath) {
-        return loadModel(modelPath, null, QuantizationEngine.QuantStrategy.NONE);
+        return loadModel(modelPath, null, InferenceQuantizer.QuantStrategy.NONE);
     }
 
     public String loadModel(Path modelPath, Path adapterPath, String quantStrategy) {
         InferenceQuantizer.QuantStrategy resolvedQuantStrategy = 
-                tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy.NONE;
+                InferenceQuantizer.QuantStrategy.NONE;
         if (quantStrategy != null && !quantStrategy.isBlank()) {
             try {
-                resolvedQuantStrategy = tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy.valueOf(quantStrategy.toUpperCase());
+                resolvedQuantStrategy = InferenceQuantizer.QuantStrategy.valueOf(quantStrategy.toUpperCase());
             } catch (Exception e) {
                 // Ignore, fallback to NONE
             }
@@ -177,7 +177,7 @@ public class DirectInferenceEngine implements SafetensorEngine {
     }
 
     public String loadModel(Path modelPath, Path adapterPath,
-            QuantizationEngine.QuantStrategy quantStrategy) {
+            InferenceQuantizer.QuantStrategy quantStrategy) {
         return components().modelStore().load(modelPath, quantStrategy);
     }
 
@@ -296,9 +296,9 @@ public class DirectInferenceEngine implements SafetensorEngine {
         return components().modelStore().snapshot();
     }
 
-    public QuantizationEngine getQuantizationEngine() {
+    public InferenceQuantizer getInferenceQuantizer() {
         quantizationEngine = DirectInferenceDependencies.resolve(
-                quantizationEngine, QuantizationEngine.class, "QuantizationEngine");
+                quantizationEngine, InferenceQuantizer.class, "InferenceQuantizer");
         return quantizationEngine;
     }
 
