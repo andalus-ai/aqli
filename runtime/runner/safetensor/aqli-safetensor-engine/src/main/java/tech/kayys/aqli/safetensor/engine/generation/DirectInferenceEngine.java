@@ -17,7 +17,7 @@ import org.jboss.logging.Logger;
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
-import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
 import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
