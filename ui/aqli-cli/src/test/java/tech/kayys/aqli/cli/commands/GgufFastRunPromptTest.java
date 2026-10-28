@@ -143,7 +143,7 @@ class GgufFastRunPromptTest {
         assertTrue(output.contains("  open time      ="));
         assertTrue(output.contains("  generate call  ="));
         assertTrue(output.contains("  end-to-end rate="));
-        assertTrue(output.contains("10 tokens"));
+        assertTrue(output.contains("10 output tokens"));
         assertTrue(output.contains("  token latency  ="));
     }
 
