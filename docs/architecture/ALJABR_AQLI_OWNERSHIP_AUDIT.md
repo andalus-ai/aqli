@@ -20,7 +20,31 @@ The source-tree snapshot contained approximately:
 - Aljabr: 1,019 Java main-source files.
 - 227 Java class basenames appeared in both trees. This is a **candidate-overlap count**, not a claim that all 227 are duplicates; every candidate must be classified by package, behavior, dependency direction, and tests.
 
-### High-confidence consolidation candidates
+### Execution-engine ownership finding (source inspection)
+
+The current source tree has at least two classes named `ExecutionEngine` in AQLI's runtime-core module:
+
+- `runtime/core/aqli-runtime-core/src/main/java/tech/kayys/aqli/runtime/ExecutionEngine.java` accepts an AQLI `ExecutionPlan`, resolves AQLI `OpRegistry` entries, and invokes `OpKernel` implementations while storing values as Aljabr `Tensor` objects.
+- `runtime/core/aqli-runtime-core/src/main/java/tech/kayys/aqli/runtime/execution/ExecutionEngine.java` accepts `ExecutablePlan`/`PlannedStep`, delegates kernel calls to AQLI's `KernelExecutor`, and still imports the legacy `tech.kayys.alkhawarizm.core.tensor.Tensor` package. Its imports also contain duplicate plan types.
+
+This is a **confirmed ownership and maintenance risk**, but not yet proof that both classes are live or behaviorally interchangeable. The second class may be stale; call sites, module compilation, and tests must establish that before removal. Do not delete either class solely because the basenames match.
+
+### Target split
+
+- **Aljabr:** canonical reusable tensor operations, graph/operator execution contracts, kernel/backend dispatch and model-execution primitives that can be used outside a serving process.
+- **AQLI:** request/session lifecycle, cancellation and pause policy, scheduling/admission, serving telemetry, and thin integration from AQLI request/plan structures to Aljabr's public execution API.
+- **AQLI IR/planning:** retain only components that represent serving/runtime planning concerns or are not yet covered by a stable Aljabr API. Any retained AQLI operator/kernel registry must have an explicit boundary and migration rationale.
+
+### Required migration gates
+
+1. Search all call sites and dependency edges for both execution-engine classes, `KernelExecutor`, AQLI `OpRegistry`, and AQLI `OpKernel`.
+2. Compare plan semantics, output ownership, tensor release/lifetime, error behavior, cancellation and device routing. Do not change resource ownership implicitly.
+3. Define or reuse a public Aljabr execution SPI before redirecting callers; avoid exposing AQLI classes from Aljabr.
+4. Add contract tests for missing inputs, missing kernels, output-count mismatch, cancellation/interruption, device mismatch, and tensor cleanup.
+5. Migrate one caller path at a time. Remove the legacy class only after no references remain and CI proves the replacement.
+6. Add an architecture check that rejects Aljabr dependencies on AQLI and flags new AQLI implementations of generic tensor/compute primitives for review.
+
+## High-confidence consolidation candidates
 
 | Concern | AQLI location | Existing Aljabr location | Target |
 |---|---|---|---|
