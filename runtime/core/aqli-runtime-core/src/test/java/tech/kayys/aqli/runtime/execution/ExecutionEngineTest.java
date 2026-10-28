@@ -40,6 +40,31 @@ class ExecutionEngineTest {
     }
 
     @Test
+    void executesPlanUsingCanonicalAljabrTensorContract() {
+        Tensor input = tensor();
+        Tensor output = tensor();
+        AtomicInteger calls = new AtomicInteger();
+        Tensor[][] observedInputs = new Tensor[1][];
+
+        ExecutionEngine engine = new ExecutionEngine((kernelId, device, inputs, attrs) -> {
+            calls.incrementAndGet();
+            observedInputs[0] = inputs;
+            assertEquals("test-kernel", kernelId);
+            assertEquals(DeviceType.CPU, device);
+            return new Tensor[]{output};
+        });
+
+        Map<String, Tensor> result = engine.run(
+                plan(operation("input", "output")),
+                Map.of("input", input),
+                session());
+
+        assertEquals(1, calls.get());
+        assertSame(input, observedInputs[0][0]);
+        assertSame(output, result.get("output"));
+    }
+
+    @Test
     void rejectsKernelOutputCountMismatch() {
         ExecutionEngine engine = new ExecutionEngine((kernelId, device, inputs, attrs) -> new Tensor[0]);
         ExecutablePlan plan = plan(operation("input", "output"));

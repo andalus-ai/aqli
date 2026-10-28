@@ -69,8 +69,6 @@ dependencies {
     implementation(project(":repository:aqli-model-repo-hf"))
     implementation(project(":repository:aqli-model-repo-kaggle"))
     implementation(project(":repository:aqli-model-repo-local"))
-
-    implementation(project(":plugins:log-parser"))
     implementation(project(":runner:litert:aqli-runner-litert"))
     implementation(project(":runner:onnx:aqli-runner-onnx"))
     implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")

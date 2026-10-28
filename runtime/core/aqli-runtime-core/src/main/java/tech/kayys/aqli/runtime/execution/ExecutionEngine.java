@@ -1,12 +1,13 @@
 package tech.kayys.aqli.runtime.execution;
 
-import tech.kayys.alkhawarizm.core.tensor.Tensor;
+import tech.kayys.aljabr.core.tensor.Tensor;
 import tech.kayys.aqli.runtime.plan.PlannedStep;
 import tech.kayys.aqli.runtime.plan.ExecutablePlan;
 import tech.kayys.aqli.runtime.control.ExecutionSession;
-import tech.kayys.aqli.runtime.plan.ExecutablePlan;
-import tech.kayys.aqli.runtime.plan.PlannedStep;
 import tech.kayys.aqli.runtime.optimizer.KernelExecutor;
+import tech.kayys.aqli.ir.GOp;
+import tech.kayys.aqli.ir.GValueId;
+import tech.kayys.aqli.ir.GValueRef;
 
 import java.util.ArrayList;
 import java.util.HashMap;

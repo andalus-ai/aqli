@@ -74,10 +74,8 @@ dependencies {
     implementation("jakarta.ws.rs:jakarta.ws.rs-api:3.1.0")
 
     implementation(project(":core:aqli-core"))
-    implementation(project(":core:aqli-core"))
     implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":tokenizer:aqli-tokenizer-core"))
-    implementation(project(":sdk:aqli-sdk-core"))
     implementation(project(":spi:aqli-spi"))
     implementation("tech.kayys:suling:0.1.0")
 

@@ -62,6 +62,17 @@ Dependency direction: applications → AQLI when serving is needed → Aljabr �
 
 **Done when:** no second native execution implementation remains without a documented reason; correctness and performance checks pass.
 
+### Phase 2B — Generic execution-engine consolidation
+
+- Audit both AQLI runtime-core `ExecutionEngine` classes and all call sites before changing code.
+- Keep Aljabr as the canonical owner of reusable tensor/operator/kernel execution contracts; keep AQLI responsible for serving-session controls, cancellation, admission/scheduling and observability.
+- Resolve the legacy `tech.kayys.alkhawarizm.core.tensor.Tensor` import in the older execution path by proving whether the class is still used, then migrate or remove it only with compile and behavior evidence.
+- Establish an Aljabr public execution SPI if the existing public APIs do not cover the required execution semantics. Do not make Aljabr depend on AQLI IR or runtime classes.
+- Add contract tests for missing inputs/kernels, output cardinality, device routing, cancellation/interruption, tensor ownership and cleanup.
+- Add a dependency/architecture guard to prevent Aljabr → AQLI dependencies and flag new duplicate AQLI tensor/compute implementations.
+
+**Done when:** AQLI has one clearly justified serving-plan integration path, generic computation delegates to Aljabr, no stale engine class remains referenced, and required CI plus numerical/lifecycle tests pass. A class-name overlap alone is not sufficient evidence to delete code.
+
 ### Phase 3 — Safetensors format/loading
 - Use Aljabr's parser, validation and loader as the canonical format implementation.
 - Replace AQLI's duplicate header parsing and tensor-file loading.
@@ -167,3 +178,47 @@ Dependency direction: applications → AQLI when serving is needed → Aljabr �
 - The intended pure-Java/FFM inference path does not accidentally require LibTorch or Tafkir.
 - Both repositories have passing required CI, reproducible builds and release compatibility.
 - End-to-end correctness and performance are measured and preserved through each migration.
+
+
+## Architecture reference set
+
+Use these documents together; each answers a different question:
+
+- [System architecture and boundaries](SYSTEM_ARCHITECTURE.md) — product roles, dependency direction, model-format boundaries, resource ownership and compatibility.
+- [Sequence flows](SEQUENCE_FLOWS.md) — request handling, model loading, generation, streaming/cancellation, shutdown, failure and cross-repository validation.
+- [Module ownership matrix](MODULE_OWNERSHIP_MATRIX.md) — canonical owner by capability, known audit candidates, allowed dependency rules and per-migration checklist.
+- [Ownership audit](ALJABR_AQLI_OWNERSHIP_AUDIT.md) — initial tree inventory and reverse-boundary leaks.
+
+The diagrams are target-state contracts. If code currently behaves differently, record the gap and its status; do not present target behavior as implemented behavior.
+
+## Recommended implementation sequence and gates
+
+This sequence is intentionally dependency-aware. A later phase should not hide an unresolved failure from an earlier phase.
+
+1. **Stabilize the baseline.** Capture the current main commit, Gradle project graph, JDK/toolchain, workflow results and module compile/test commands for both repositories. Confirm clean-checkout builds and document known failures.
+2. **Make Aljabr public dependencies consumable.** Verify coordinates, publication, module metadata and Java 25 compatibility from a clean AQLI consumer. Test both composite and published-artifact resolution.
+3. **Finish generated GGUF FFM ownership.** Confirm AQLI has no duplicate generated package, adapt remaining call sites to Aljabr public API, and fix compile/native-smoke CI before proceeding.
+4. **Consolidate GGUF execution.** Inventory loader/context/sampler/batch/token/state paths; define the stable Aljabr API; migrate one path at a time; compare output, state lifecycle, cancellation and performance.
+5. **Consolidate Safetensors format loading.** Use Aljabr parser/loader/bridge APIs; preserve AQLI execution until parity is demonstrated; keep optional quantization behind an AQLI-owned port and prove the default NONE path does not require its provider.
+6. **Consolidate tokenizer and prompt contracts.** Establish Aljabr tokenizer APIs and golden fixtures; assign template formatting and special-token ownership explicitly; remove duplicate algorithms only after behavior parity.
+7. **Consolidate tensor, IR, model execution and KV state.** Separate reusable storage/layout/ops from AQLI cache policy and generation scheduling. Validate ownership, lifetime and concurrency.
+8. **Remove reverse-boundary leaks.** Audit Aljabr HTTP resources, server configuration and RAG orchestration. Move serving concerns only after consumer inventory and compatibility planning.
+9. **Enforce architecture in CI.** Add checks for forbidden dependency direction, generated binding duplication, mandatory Tafkir leakage, accidental Aljabr-to-AQLI dependencies and optional modules on default classpaths.
+10. **Stabilize runtime operations.** Test deadlines, cancellation, backpressure, concurrent requests, model reload, multi-model isolation, failure recovery and graceful shutdown.
+11. **Publish versioned APIs and examples.** Validate public API docs, package coordinates, install scripts, clean-checkout quick starts and migration notes.
+12. **Re-baseline performance.** Measure load time, time-to-first-token, prefill throughput, decode tokens/sec, peak memory, queue latency and end-to-end latency on the same models/hardware/configuration.
+
+### Required gate before each merge
+
+- [ ] Ownership and dependency direction are correct.
+- [ ] No unreviewed public API break or package relocation.
+- [ ] Focused tests include a positive case and relevant negative/lifecycle case.
+- [ ] Required repository CI passes; failed jobs are understood and fixed.
+- [ ] Published-artifact dependency resolution is checked when a public module boundary changes.
+- [ ] Performance-sensitive paths have comparable before/after evidence.
+- [ ] Docs describe what exists today and distinguish it from planned capability.
+- [ ] The change is bounded and has a clear rollback path.
+
+### Current evidence policy
+
+The roadmap and ownership audit are planning artifacts, not build evidence. Track CI and PR status from the current run/commit rather than carrying forward an old green or red result. In particular, a generated-binding migration is not verified until both AQLI compile paths and the relevant native checks pass; a Safetensors API migration is not verified until the engine compiles and its tests pass.
