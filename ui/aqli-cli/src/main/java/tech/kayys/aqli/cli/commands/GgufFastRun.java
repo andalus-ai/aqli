@@ -1049,21 +1049,28 @@ public final class GgufFastRun {
                     if (m.containsKey("tokenize")) reg.record("aqli.llm.native.tokenize", Double.parseDouble(m.get("tokenize")), attrs.build());
                     if (m.containsKey("prefill")) {
                         double prefillMs = nativeMillis(m, "prefill");
+                        int promptTokens = parseCount(m.get("promptTokens"));
                         reg.record("aqli.llm.native.prefill", prefillMs, attrs.build());
+                        reg.record("aqli.llm.prefill.duration", prefillMs, attrs.build());
                         reg.record("aqli.llm.prefill.speed",
-                                tokenRatePerSecond(parseCount(m.get("promptTokens")), prefillMs), attrs.build());
+                                tokenRatePerSecond(promptTokens, prefillMs), attrs.build());
                     }
                     if (m.containsKey("decode")) {
                         double decodeMs = nativeMillis(m, "decode");
+                        int decodedTokens = parseCount(m.get("decodedTokens"));
                         reg.record("aqli.llm.native.decode", decodeMs, attrs.build());
+                        reg.record("aqli.llm.decode.duration", decodeMs, attrs.build());
                         reg.record("aqli.llm.decode.speed",
-                                tokenRatePerSecond(parseCount(m.get("decodedTokens")), decodeMs), attrs.build());
+                                tokenRatePerSecond(decodedTokens, decodeMs), attrs.build());
+                        reg.record("aqli.llm.decode.token_latency",
+                                decodedTokens > 0 ? decodeMs / decodedTokens : 0.0d, attrs.build());
                     }
                 }
 
                 Attributes finalAttrs = attrs.build();
                 reg.record("aqli.llm.generation.duration", durationMs, finalAttrs);
                 reg.record("aqli.llm.generation.speed", totalSpeed, finalAttrs);
+                reg.record("aqli.llm.generation.end_to_end_speed", generationSpeed, finalAttrs);
                 reg.record("aqli.llm.generation.token_latency", tokenLatencyMs, finalAttrs);
                 reg.record("aqli.llm.model.open_time", openOrGenerateMillis(openNanos), finalAttrs);
             }
