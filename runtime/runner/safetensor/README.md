@@ -51,4 +51,4 @@ The engine should consume Aljabr's public Safetensors and tensor APIs, including
 - Optional quantization support is unavailable unless its adapter and required backend dependencies are installed and wired.
 - The legacy Maven layout and module examples in older documentation are not authoritative for this Gradle repository.
 
-See the [repository README](../../README.md) and [architecture documentation](../../docs/architecture/) for repository-wide guidance.
+See the [repository README](../../../README.md) and [architecture documentation](../../../docs/architecture/) for repository-wide guidance.
