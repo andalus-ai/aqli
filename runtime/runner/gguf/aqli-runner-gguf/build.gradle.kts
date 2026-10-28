@@ -14,7 +14,7 @@ dependencies {
     // added for ManifestStore
     implementation(project(":repository:aqli-model-repo-local"))
     
-    // Aljabr tokenizer + GGUF llamacpp backend (FFM bindings + engine)
+    // Aljabr owns generated llama.cpp/ggml FFM bindings and the reusable GGUF backend.
     implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-gguf-llamacpp:0.1.0-SNAPSHOT")
