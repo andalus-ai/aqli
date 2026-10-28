@@ -15,7 +15,6 @@ import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aqli.safetensor.engine.warmup.ModelWarmupService;
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
 
 import java.util.Objects;
@@ -30,7 +29,7 @@ final class DirectInferenceComponentGraph {
     private final Supplier<SafetensorLoaderFacade> safetensorLoader;
     private final Supplier<AccelWeightBridge> weightBridge;
     private final Supplier<ObjectMapper> objectMapper;
-    private final Supplier<QuantizationEngine> quantizationEngine;
+    private final Supplier<InferenceQuantizer> quantizationEngine;
     private final Supplier<ModelFamilyPluginRegistry> architectureRegistry;
     private final Supplier<DirectForwardPass> forwardPass;
     private final Supplier<TokenSampler> tokenSampler;
