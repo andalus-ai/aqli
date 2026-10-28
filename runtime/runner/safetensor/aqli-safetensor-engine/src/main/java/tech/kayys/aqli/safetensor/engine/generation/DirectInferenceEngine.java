@@ -56,7 +56,7 @@ public class DirectInferenceEngine implements SafetensorEngine {
     @Inject
     AccelWeightBridge bridge;
 
-    @Inject
+    // Optional port: resolved only when a non-NONE quantization strategy is requested.
     InferenceQuantizer quantizationEngine;
 
     @Inject
