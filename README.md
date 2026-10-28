@@ -236,7 +236,13 @@ aqli run --model <id> \
 ## Example Usage
 
 ```bash
+aqli run --model hf:unsloth/gemma-4-12b-it-GGUF --no-banner --prompt --java "who are you" --max-tokens 50
+```
+
+
+```bash
 aqli run --model hf:unsloth/gemma-4-12b-it-GGUF --no-banner --prompt "what is indonesia" 
+
 Resolved local model index entry: /Users/bhangun/.aqli/models/blobs/unsloth/gemma-4-12b-it-GGUF/unsloth__gemma-4-12b-it-GGUF/gemma-4-12b-it-Q4_K_M.gguf
 Model: /Users/bhangun/.aqli/models/blobs/unsloth/gemma-4-12b-it-GGUF/unsloth__gemma-4-12b-it-GGUF/gemma-4-12b-it-Q4_K_M.gguf
 Provider: gguf, format=gguf

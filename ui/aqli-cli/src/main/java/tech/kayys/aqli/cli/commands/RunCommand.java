@@ -590,16 +590,13 @@ public class RunCommand implements Runnable {
             boolean requestedProviderExplicit = providerExplicit;
             String requestedProviderId = providerId;
             String requestedFormat = format;
-            // --llamacpp on a safetensor checkpoint reuses the existing convert-to-GGUF route
-            // (sdk.prepareModel converts, then llama.cpp runs the GGUF).
-            boolean forceGgufForRoute = forceGguf || (explicitLlamaCppEngine() && requestsSafetensorModel());
             RunnerRoutePolicy.Selection runnerSelection = RunnerRoutePolicy.select(
                     runner,
                     providerId,
                     format,
                     providerExplicit,
                     preferAlternateRuntime,
-                    forceGgufForRoute);
+                    forceGguf);
             if (!runnerSelection.valid()) {
                 System.err.println("Error: " + runnerSelection.error());
                 requestProcessExit(1);
@@ -628,6 +625,11 @@ public class RunCommand implements Runnable {
             ensureBuiltinProviderRegistration();
 
             if (!routeReportJson && tryCachedGemma4MobileQatLiteRtFastPath(requestedProviderExplicit, requestedProviderId)) {
+                return;
+            }
+
+            if (!routeReportJson && explicitLlamaCppEngine() && !prepareLlamaCppFromLocalSafetensor()) {
+                requestProcessExit(1);
                 return;
             }
 
@@ -6292,6 +6294,68 @@ public class RunCommand implements Runnable {
             return "this checkpoint uses the guarded native-BF16 profile, which is not enabled for direct CLI runs";
         }
         return "the direct run policy declined this checkpoint";
+    }
+
+    /**
+     * {@code --llamacpp} on a local safetensors checkpoint: llama.cpp cannot read safetensors, so
+     * convert once (cached) and continue exactly as {@code --modelFile <that.gguf> --llamacpp}.
+     *
+     * @return {@code false} only when a conversion was needed and failed (message already printed)
+     */
+    private boolean prepareLlamaCppFromLocalSafetensor() {
+        Path checkpoint = localSafetensorCheckpointForConversion();
+        if (checkpoint == null) {
+            return true;
+        }
+        try {
+            String requestedType = ggufQuant != null && !ggufQuant.isBlank() ? ggufQuant : ggufOutType;
+            LocalSafetensorGgufConverter.Config config = LocalSafetensorGgufConverter.resolveConfig(
+                    System.getenv(), System.getProperties(), Path.of(System.getProperty("user.home")));
+            LocalSafetensorGgufConverter.Result result = LocalSafetensorGgufConverter.convert(
+                    checkpoint, requestedType, config, line -> {
+                        if (!quietRouteResolutionOutput()) {
+                            System.err.println(line);
+                        }
+                    });
+            modelFile = result.gguf().toString();
+            modelId = modelFile;
+            modelDir = null;
+            modelPath = null;
+            format = "gguf";
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("Error: GGUF conversion for --llamacpp was interrupted");
+            return false;
+        } catch (Exception e) {
+            System.err.println("Error: --llamacpp needs a GGUF, and converting this safetensors checkpoint failed: "
+                    + e.getMessage());
+            return false;
+        }
+    }
+
+    /** The local safetensors checkpoint the user pointed at, or {@code null} if it is not one. */
+    private Path localSafetensorCheckpointForConversion() {
+        for (String ref : new String[] { modelDir, modelFile, modelPath, modelId }) {
+            Path p = resolveSafetensorCheckpointPath(ref);
+            if (p != null && isSafetensorCheckpointDir(p.toString())) {
+                return p;
+            }
+        }
+        if (modelId != null && !modelId.isBlank() && !looksLikeGgufPath(modelId)) {
+            try {
+                Optional<LocalModelIndex.Entry> indexed = findSafetensorIndexEntry(modelId);
+                if (indexed.isPresent() && LocalModelIndex.find(modelId, "gguf").isEmpty()) {
+                    Path p = resolveSafetensorCheckpointPath(indexed.get().path);
+                    if (p != null && isSafetensorCheckpointDir(p.toString())) {
+                        return p;
+                    }
+                }
+            } catch (Exception ignored) {
+                // fall through: not an indexed safetensors model
+            }
+        }
+        return null;
     }
 
     private boolean isSafetensorModelPath(String localPath) {
