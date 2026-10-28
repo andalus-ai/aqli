@@ -16,7 +16,7 @@ import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aqli.safetensor.engine.warmup.ModelWarmupService;
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
 import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
-import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
 
 import java.util.Objects;
 import java.util.function.Supplier;
