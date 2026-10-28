@@ -88,6 +88,8 @@ dependencies {
     implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
+    // Integration boundary joining Safetensors loader sessions to Aljabr tensors.
+    implementation("tech.kayys.aljabr:aljabr-safetensor-bridge:0.1.0-SNAPSHOT")
     // Keep Tafkir-backed quantization out of the default inference engine classpath.
     // The optional SDK integration lives in :runner:safetensor:aqli-safetensor-quantization.
 

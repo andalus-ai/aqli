@@ -11,7 +11,6 @@ import java.util.Set;
 
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import tech.kayys.aljabr.spi.model.ModelConfig;
@@ -23,7 +22,7 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
     private final Tokenizer tokenizer;
     private final String key;
     private final boolean quantized;
-    private final QuantizationEngine.QuantStrategy quantStrategy;
+    private final InferenceQuantizer.QuantStrategy quantStrategy;
     private final String quantCacheState;
     private final Path quantCachePath;
     private final ModelConfig config;
@@ -36,7 +35,7 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
 
     public DirectLoadedModel(Path path, Map<String, AccelTensor> weights,
             Tokenizer tokenizer, String key,
-            boolean quantized, QuantizationEngine.QuantStrategy quantStrategy,
+            boolean quantized, InferenceQuantizer.QuantStrategy quantStrategy,
             String quantCacheState, Path quantCachePath,
             ModelConfig config, ModelArchitecture architecture, ModelRuntimeTraits runtimeTraits,
             Arena weightArena) {
@@ -108,7 +107,7 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
         return baseTokenSamplingMasks;
     }
 
-    public QuantizationEngine.QuantStrategy getQuantStrategy() {
+    public InferenceQuantizer.QuantStrategy getQuantStrategy() {
         return quantStrategy;
     }
 
