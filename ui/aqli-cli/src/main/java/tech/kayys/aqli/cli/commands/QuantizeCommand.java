@@ -1,398 +1,72 @@
 package tech.kayys.aqli.cli.commands;
-import tech.kayys.aqli.sdk.route.*;
-import tech.kayys.aqli.safetensor.engine.route.*;
 
 import io.quarkus.arc.Unremovable;
 import jakarta.enterprise.context.Dependent;
-import jakarta.inject.Inject;
+import java.io.IOException;
+import java.nio.file.Path;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.ParentCommand;
-import tech.kayys.aqli.cli.AqliCommand;
-import tech.kayys.aqli.sdk.util.AqliHome;
-import tech.kayys.aqli.sdk.audit.QuantAuditRecord;
 import tech.kayys.aqli.sdk.audit.QuantAuditTrail;
-import tech.kayys.aqli.cli.audit.QuantAuditRenderer;
-import tech.kayys.aqli.cli.chat.ChatUIRenderer;
-import tech.kayys.aqli.plugin.kernel.KernelPlatform;
-import tech.kayys.aqli.plugin.kernel.KernelPlatformDetector;
-import tech.kayys.aqli.sdk.core.AqliSdk;
-
-import java.io.IOException;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
-import tech.kayys.aqli.sdk.model.PullProgress;
 
 /**
- * Aqli CLI command for offline model quantization.
- * <p>
- * Usage:
- * <pre>
- * aqli quantize --model Qwen/Qwen2.5-0.5B-Instruct --strategy bnb --bits 4
- * aqli quantize --model ./my-model-f32/ --strategy turbo --output ./my-model-turbo/
- * aqli quantize --model ./my-model-f32/ --strategy awq --bits 4 --group-size 128
- * </pre>
- * <p>
- * When {@code --output} is not specified, the quantized model is registered
- * as a new entry in the aqli model manifest ({@code ~/.aqli/models/}).
- * When {@code --output} is specified, the model is created as an external
- * (unmanaged) model at the given path.
+ * Offline model quantization entry point.
+ *
+ * <p>Quantization must only report success after a real quantization engine has
+ * transformed the tensors and the output has been validated. The previous
+ * implementation copied source weight files unchanged and wrote metadata that
+ * claimed they were quantized. That output was misleading and could be
+ * registered as a usable quantized model, so the command now fails closed until
+ * a real engine adapter is connected.
  */
 @Dependent
 @Unremovable
-@Command(name = "quantize", description = "Quantize a model for optimized inference")
-public class QuantizeCommand implements Runnable {
+@Command(name = "quantize", description = "Quantize a model (requires a supported quantization engine)")
+public class QuantizeCommand implements java.util.concurrent.Callable<Integer> {
 
-    @ParentCommand
-    AqliCommand parentCommand;
-
-    @Inject
-    AqliSdk sdk;
-    @Inject
-    ChatUIRenderer uiRenderer;
-
-    @Option(names = { "-m",
-            "--model" }, description = "Model ID (HuggingFace) or local model path/directory", required = true)
+    @Option(names = {"-m", "--model"},
+            description = "Model ID or local model path/directory")
     String modelId;
 
-    @Option(names = {
-            "--strategy" }, description = "Quantization strategy: bnb, turbo, awq, gptq, autoround", defaultValue = "bnb")
+    @Option(names = {"--strategy"},
+            description = "Requested strategy (bnb, turbo, awq, gptq, autoround)",
+            defaultValue = "bnb")
     String strategy;
 
-    @Option(names = { "--bits" }, description = "Bit width (2, 3, 4, 8)", defaultValue = "4")
+    @Option(names = {"--bits"}, description = "Requested bit width (2, 3, 4, 8)", defaultValue = "4")
     int bits;
 
-    @Option(names = { "--group-size" }, description = "Group size for block quantization", defaultValue = "128")
+    @Option(names = {"--group-size"}, description = "Requested group size", defaultValue = "128")
     int groupSize;
 
-    @Option(names = { "-o",
-            "--output" }, description = "Output directory (external model). If omitted, registers in aqli manifest.")
+    @Option(names = {"-o", "--output"}, description = "Output directory")
     String outputDir;
 
-    @Option(names = { "--no-profile" }, description = "Skip printing the audit trail summary", defaultValue = "false")
+    @Option(names = {"--no-profile"}, description = "Do not print the audit trail summary")
     boolean noProfile;
 
-    @Option(names = {
-            "--audit-file" }, description = "Custom path for audit JSON output (default: ~/.aqli/audit/)")
+    @Option(names = {"--audit-file"}, description = "Custom path for audit JSON output")
     String auditFile;
 
-    @Option(names = { "--export-csv" }, description = "Export all audit records to a CSV file at the given path")
+    @Option(names = {"--export-csv"}, description = "Export existing quantization audit records to CSV")
     String exportCsv;
 
     @Override
-    public void run() {
-        try {
-            if (parentCommand != null)
-                parentCommand.applyRuntimeOverrides();
-
-            // ── Handle CSV export mode ────────────────────────────────────
-            if (exportCsv != null && !exportCsv.isBlank()) {
-                exportAuditCsv();
-                return;
-            }
-
-            uiRenderer.printBanner();
-
-            // ── 1. Detect platform ────────────────────────────────────────
-            KernelPlatform platform = KernelPlatformDetector.detect();
-            String accelerator = platform.getDisplayName();
-            boolean simd = !platform.isCpu();
-
-            System.out.println(ChatUIRenderer.CYAN + "Platform: " + accelerator + ChatUIRenderer.RESET);
-            if (!simd) {
-                System.out.println(
-                        ChatUIRenderer.YELLOW + "⚠️  Running on CPU (SIMD Vector API still active)" + ChatUIRenderer.RESET);
-            }
-            System.out.println();
-
-            // ── 2. Resolve model ──────────────────────────────────────────
-            Path modelPath = resolveModelPath();
-            if (modelPath == null)
-                return;
-
-            System.out.println(ChatUIRenderer.BOLD + "Model: " + ChatUIRenderer.RESET +
-                    ChatUIRenderer.CYAN + modelId + ChatUIRenderer.RESET);
-            System.out.println(ChatUIRenderer.BOLD + "Strategy: " + ChatUIRenderer.RESET +
-                    ChatUIRenderer.YELLOW + strategy.toUpperCase() + " " + bits + "-bit" + ChatUIRenderer.RESET);
-            System.out.println(ChatUIRenderer.BOLD + "Group size: " + ChatUIRenderer.RESET + groupSize);
-            System.out.println(ChatUIRenderer.DIM + "─".repeat(50) + ChatUIRenderer.RESET);
-
-            // ── 3. Calculate source size ──────────────────────────────────
-            long originalSize = calculateDirectorySize(modelPath);
-
-            // ── 4. Determine output path ─────────────────────────────────
-            boolean registerInManifest = (outputDir == null || outputDir.isBlank());
-            Path quantizedPath;
-            if (registerInManifest) {
-                // Register inside aqli model store
-                String modelName = modelPath.getFileName().toString();
-                String quantSuffix = strategy + "-" + bits + "bit";
-                quantizedPath = AqliHome.path("models", "safetensors", modelName + "-" + quantSuffix);
-            } else {
-                quantizedPath = Path.of(outputDir);
-            }
-            Files.createDirectories(quantizedPath);
-
-            System.out.println(ChatUIRenderer.BOLD + "Output: " + ChatUIRenderer.RESET +
-                    shortenPath(quantizedPath.toString()));
-            System.out.println();
-
-            // ── 5. Run quantization ──────────────────────────────────────
-            Instant startTime = Instant.now();
-            AtomicInteger tensorCount = new AtomicInteger(0);
-            AtomicLong paramCount = new AtomicLong(0);
-
-            System.out.print(ChatUIRenderer.CYAN + "Quantizing..." + ChatUIRenderer.RESET);
-
-            // Walk the source model directory and process weight files
-            List<Path> weightFiles = findWeightFiles(modelPath);
-            int totalFiles = weightFiles.size();
-
-            for (int i = 0; i < totalFiles; i++) {
-                Path weightFile = weightFiles.get(i);
-                String fileName = weightFile.getFileName().toString();
-
-                // Progress bar
-                int pct = (int) ((i + 1) * 100.0 / totalFiles);
-                System.out.printf("\r%sQuantizing: %s %s %d%%%s  ",
-                        ChatUIRenderer.CYAN,
-                        fileName.length() > 30 ? fileName.substring(0, 27) + "..." : fileName,
-                        progressBar(pct, 20),
-                        pct,
-                        ChatUIRenderer.RESET);
-                System.out.flush();
-
-                // Copy weight file to output (the actual quantization engine
-                // hooks in at the provider level, but we prepare the directory
-                // structure and metadata here)
-                Path destFile = quantizedPath.resolve(modelPath.relativize(weightFile));
-                Files.createDirectories(destFile.getParent());
-                Files.copy(weightFile, destFile, StandardCopyOption.REPLACE_EXISTING);
-
-                tensorCount.incrementAndGet();
-                paramCount.addAndGet(Files.size(weightFile) / 4); // Rough: 4 bytes per FP32 param
-            }
-
-            // Copy non-weight files (config, tokenizer, etc.)
-            copyConfigFiles(modelPath, quantizedPath);
-
-            // Write quantization metadata
-            writeQuantMetadata(quantizedPath, strategy, bits, groupSize);
-
-            Instant endTime = Instant.now();
-            Duration duration = Duration.between(startTime, endTime);
-            long quantizedSize = calculateDirectorySize(quantizedPath);
-
-            System.out.println("\r" + ChatUIRenderer.GREEN + "✓ Quantization complete!" +
-                    " ".repeat(40) + ChatUIRenderer.RESET);
-
-            // ── 6. Register in manifest ──────────────────────────────────
-            if (registerInManifest) {
-                registerQuantizedModel(quantizedPath, strategy, bits, groupSize);
-                System.out.println(ChatUIRenderer.GREEN + "✓ Registered in aqli model manifest" + ChatUIRenderer.RESET);
-            } else {
-                System.out.println(ChatUIRenderer.DIM + "External model (not registered in manifest)" + ChatUIRenderer.RESET);
-            }
-
-            // ── 7. Build and persist audit record ────────────────────────
-            QuantAuditRecord record = QuantAuditRecord.builder()
-                    .modelId(modelId)
-                    .outputPath(quantizedPath.toAbsolutePath().toString())
-                    .strategy(strategy)
-                    .bits(bits)
-                    .groupSize(groupSize)
-                    .accelerator(accelerator)
-                    .simdEnabled(true) // Vector API is always available on JDK 25
-                    .originalSizeBytes(originalSize)
-                    .quantizedSizeBytes(quantizedSize)
-                    .tensorCount(tensorCount.get())
-                    .parameterCount(paramCount.get())
-                    .quantizationDuration(duration)
-                    .mode("offline")
-                    .registeredInManifest(registerInManifest)
-                    .build();
-
-            Path auditPath;
-            if (auditFile != null && !auditFile.isBlank()) {
-                auditPath = QuantAuditTrail.persist(record, Path.of(auditFile));
-            } else {
-                auditPath = QuantAuditTrail.persist(record);
-            }
-
-            // ── 8. Print audit summary ───────────────────────────────────
-            if (!noProfile) {
-                QuantAuditRenderer.printAuditTable(record, auditPath.toString());
-            }
-
-        } catch (Exception e) {
-            System.err.println("\n" + ChatUIRenderer.RED + "Error: " + e.getMessage() + ChatUIRenderer.RESET);
-            if (parentCommand != null && parentCommand.verbose) {
-                e.printStackTrace();
+    public Integer call() {
+        if (exportCsv != null && !exportCsv.isBlank()) {
+            try {
+                QuantAuditTrail.exportCsv(Path.of(exportCsv));
+                System.out.println("Exported quantization audit trail to: " + Path.of(exportCsv).toAbsolutePath());
+                return 0;
+            } catch (IOException | RuntimeException e) {
+                System.err.println("Failed to export quantization audit trail: " + e.getMessage());
+                return 1;
             }
         }
-    }
 
-    // ── Model resolution ─────────────────────────────────────────────
-
-    private Path resolveModelPath() {
-        // Check if modelId is a local path
-        Path local = Path.of(modelId);
-        if (Files.isDirectory(local)) {
-            return local;
-        }
-        if (Files.isRegularFile(local)) {
-            return local.getParent();
-        }
-
-        // Try to resolve from aqli model store
-        Optional<LocalModelIndex.Entry> entry = LocalModelIndex.find(modelId);
-        if (entry.isPresent() && entry.get().path != null) {
-            Path entryPath = Path.of(entry.get().path);
-            if (Files.isDirectory(entryPath))
-                return entryPath;
-            if (Files.isRegularFile(entryPath))
-                return entryPath.getParent();
-        }
-
-        // Try SDK preparation
-        try {
-            System.out.println("Resolving model from repository...");
-            var resolution = sdk.prepareModel(modelId, "safetensors", null, false, null, (Consumer<PullProgress>) progress -> {
-                System.out.printf("\r%s%s %s %d%%%s",
-                        ChatUIRenderer.CYAN,
-                        progress.getStatus(),
-                        progress.getProgressBar(20),
-                        progress.getPercentComplete(),
-                        ChatUIRenderer.RESET);
-            });
-            System.out.println();
-
-            if (resolution.getLocalPath() != null) {
-                Path resolved = Path.of(resolution.getLocalPath());
-                if (Files.isDirectory(resolved))
-                    return resolved;
-                if (Files.isRegularFile(resolved))
-                    return resolved.getParent();
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to resolve model: " + e.getMessage());
-        }
-
-        System.err.println(ChatUIRenderer.RED + "Error: Model not found: " + modelId + ChatUIRenderer.RESET);
-        return null;
-    }
-
-    // ── File utilities ───────────────────────────────────────────────
-
-    private static List<Path> findWeightFiles(Path dir) throws IOException {
-        List<Path> files = new ArrayList<>();
-        if (!Files.isDirectory(dir))
-            return files;
-        try (var walk = Files.walk(dir)) {
-            walk.filter(Files::isRegularFile)
-                    .filter(p -> {
-                        String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
-                        return name.endsWith(".safetensors") || name.endsWith(".safetensor")
-                                || name.endsWith(".bin") || name.endsWith(".pt") || name.endsWith(".pth");
-                    })
-                    .sorted()
-                    .forEach(files::add);
-        }
-        return files;
-    }
-
-    private static void copyConfigFiles(Path src, Path dest) throws IOException {
-        if (!Files.isDirectory(src))
-            return;
-        try (var walk = Files.walk(src)) {
-            walk.filter(Files::isRegularFile)
-                    .filter(p -> {
-                        String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
-                        return name.endsWith(".json") || name.endsWith(".txt") || name.endsWith(".model")
-                                || name.equals("tokenizer.model") || name.equals("tokenizer_config.json")
-                                || name.equals("config.json") || name.equals("generation_config.json")
-                                || name.equals("special_tokens_map.json");
-                    })
-                    .forEach(p -> {
-                        try {
-                            Path target = dest.resolve(src.relativize(p));
-                            Files.createDirectories(target.getParent());
-                            Files.copy(p, target, StandardCopyOption.REPLACE_EXISTING);
-                        } catch (IOException ignored) {
-                        }
-                    });
-        }
-    }
-
-    private static void writeQuantMetadata(Path dir, String strategy, int bits, int groupSize) throws IOException {
-        // Write a aqli-specific quantization metadata file
-        String json = """
-                {
-                  "aqli_quant": {
-                    "strategy": "%s",
-                    "bits": %d,
-                    "group_size": %d,
-                    "quantized_at": "%s",
-                    "engine": "aqli-safetensor-quantization",
-                    "simd": true,
-                    "format": "safetensors"
-                  }
-                }
-                """.formatted(strategy, bits, groupSize, Instant.now().toString());
-        Files.writeString(dir.resolve("aqli_quant.json"), json);
-    }
-
-    private static long calculateDirectorySize(Path dir) {
-        if (!Files.isDirectory(dir))
-            return 0;
-        AtomicLong size = new AtomicLong(0);
-        try {
-            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    size.addAndGet(attrs.size());
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException ignored) {
-        }
-        return size.get();
-    }
-
-    private void registerQuantizedModel(Path quantizedPath, String strategy, int bits, int groupSize) {
-        // Add a quant entry to the local model index
-        // The next `aqli list` will pick this up via disk scan
-        // We also write quant metadata into the index entry for `aqli show`
-        LocalModelIndex.refreshFromDisk();
-    }
-
-    private void exportAuditCsv() {
-        try {
-            Path csvPath = Path.of(exportCsv);
-            QuantAuditTrail.exportCsv(csvPath);
-            System.out.println(ChatUIRenderer.GREEN + "✓ Exported audit trail to: " +
-                    csvPath.toAbsolutePath() + ChatUIRenderer.RESET);
-        } catch (IOException e) {
-            System.err.println(ChatUIRenderer.RED + "Failed to export CSV: " + e.getMessage() + ChatUIRenderer.RESET);
-        }
-    }
-
-    private static String progressBar(int pct, int width) {
-        int filled = pct * width / 100;
-        return "█".repeat(filled) + "░".repeat(Math.max(0, width - filled));
-    }
-
-    private static String shortenPath(String path) {
-        String home = System.getProperty("user.home");
-        if (home != null && path.startsWith(home)) {
-            return "~" + path.substring(home.length());
-        }
-        return path;
+        System.err.println("Quantization is currently unavailable: AQLI has no connected engine for strategy '"
+                + strategy + "'. No model files were copied, modified, or registered.");
+        System.err.println("Use a supported quantization tool externally, or retry after a real Aljabr/AQLI "
+                + "quantization adapter is available.");
+        return 2;
     }
 }
