@@ -24,7 +24,6 @@ import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
-import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
 import tech.kayys.aqli.safetensor.engine.warmup.ModelWarmupService;
