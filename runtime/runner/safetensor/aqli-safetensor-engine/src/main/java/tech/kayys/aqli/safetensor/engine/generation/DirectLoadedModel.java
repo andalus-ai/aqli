@@ -35,7 +35,7 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
 
     public DirectLoadedModel(Path path, Map<String, AccelTensor> weights,
             Tokenizer tokenizer, String key,
-            boolean quantized, QuantizationEngine.QuantStrategy quantStrategy,
+            boolean quantized, InferenceQuantizer.QuantStrategy quantStrategy,
             String quantCacheState, Path quantCachePath,
             ModelConfig config, ModelArchitecture architecture, ModelRuntimeTraits runtimeTraits,
             Arena weightArena) {
@@ -107,7 +107,7 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
         return baseTokenSamplingMasks;
     }
 
-    public QuantizationEngine.QuantStrategy getQuantStrategy() {
+    public InferenceQuantizer.QuantStrategy getQuantStrategy() {
         return quantStrategy;
     }
 
