@@ -31,6 +31,12 @@
 | Offline quantization/adaptation | Optional Aljabr/Tafkir integration, exposed through a stable port | AQLI may request a strategy through an optional contract | Missing optional provider does not break NONE/default inference |
 | Agent orchestration, tools, RAG workflow, enterprise workflow | Andalus/Wayang/application layer | AQLI client integration | Contract tests without reverse dependency |
 
+## Execution-engine audit status
+
+The current source tree contains two AQLI runtime-core `ExecutionEngine` classes: one uses AQLI `ExecutionPlan`/`OpRegistry` with Aljabr `Tensor`; another uses `ExecutablePlan`/`PlannedStep` and AQLI `KernelExecutor`, while importing the legacy `tech.kayys.alkhawarizm.core.tensor.Tensor` package. This is a source-level finding, not yet proof that both implementations are live. Audit call sites and compile/test wiring before deleting or merging either.
+
+The target is one Aljabr-owned reusable execution/kernel contract, with AQLI retaining serving-time scheduling, cancellation, request/session control and adapters. AQLI-specific planning types may remain only when their responsibility is explicitly runtime-specific. See the detailed migration gates in `ALJABR_AQLI_OWNERSHIP_AUDIT.md`.
+
 ## 2. Known audit candidates
 
 These paths are starting points for review, not automatic deletion instructions.
