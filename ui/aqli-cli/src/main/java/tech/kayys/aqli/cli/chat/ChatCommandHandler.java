@@ -22,9 +22,6 @@ public class ChatCommandHandler {
     ExtensionsCommand extensionsCommand;
     @Inject
     AqliSdk sdk;
-    @Inject
-    tech.kayys.aqli.log.service.LogParsingService logParsingService;
-
     @org.eclipse.microprofile.config.inject.ConfigProperty(name = "quarkus.log.file.path")
     String logFilePath;
 
@@ -172,39 +169,45 @@ public class ChatCommandHandler {
     }
 
     private void printLogs() {
+        java.nio.file.Path path = java.nio.file.Path.of(logFilePath);
         try {
-            java.nio.file.Path path = java.nio.file.Path.of(logFilePath);
-            if (java.nio.file.Files.exists(path)) {
-                System.out.println(ChatUIRenderer.DIM + "--- Processing logs from: " + logFilePath + " ---" + ChatUIRenderer.RESET);
-                
-                // Use the service to parse the file - taking last 100 entries
-                java.util.List<tech.kayys.aqli.log.SimplifiedLog> logs = logParsingService.parseLogFile(path, true, false)
-                        .await().indefinitely();
-                
-                int start = Math.max(0, logs.size() - 50);
-                java.util.List<tech.kayys.aqli.log.SimplifiedLog> recent = logs.subList(start, logs.size());
+            if (java.nio.file.Files.isRegularFile(path)) {
+                System.out.println(ChatUIRenderer.DIM + "--- Recent logs from: " + logFilePath + " ---" + ChatUIRenderer.RESET);
 
-                if (!recent.isEmpty()) {
-                    for (tech.kayys.aqli.log.SimplifiedLog logEntry : recent) {
-                        System.out.println(logEntry.toString());
-                    }
-                    System.out.println(ChatUIRenderer.DIM + "--------------------------" + ChatUIRenderer.RESET);
-                } else {
-                    System.out.println(ChatUIRenderer.YELLOW + "No readable JSON logs found yet. Perform some actions first." + ChatUIRenderer.RESET);
+                // Keep only the last 50 lines without loading a potentially large log file into memory.
+                java.util.ArrayDeque<String> recent = new java.util.ArrayDeque<>(50);
+                try (java.util.stream.Stream<String> lines = java.nio.file.Files.lines(path)) {
+                    lines.forEach(line -> {
+                        if (recent.size() == 50) {
+                            recent.removeFirst();
+                        }
+                        recent.addLast(line);
+                    });
                 }
-            } else {
-                System.out.println(ChatUIRenderer.YELLOW + "Log file not found at: " + logFilePath + ChatUIRenderer.RESET);
+
+                if (recent.isEmpty()) {
+                    System.out.println(ChatUIRenderer.YELLOW + "No log entries found yet. Perform some actions first." + ChatUIRenderer.RESET);
+                } else {
+                    recent.forEach(System.out::println);
+                    System.out.println(ChatUIRenderer.DIM + "--------------------------" + ChatUIRenderer.RESET);
+                }
+                return;
+            }
+
+            System.out.println(ChatUIRenderer.YELLOW + "Log file not found at: " + logFilePath + ChatUIRenderer.RESET);
+        } catch (Exception e) {
+            System.err.println(ChatUIRenderer.YELLOW + "Failed to read log file: " + e.getMessage() + ChatUIRenderer.RESET);
+        }
+
+        // The SDK fallback is useful when file logging is disabled or the file is unavailable.
+        try {
+            java.util.List<String> rawLines = sdk.getRecentLogs(50);
+            if (rawLines != null && !rawLines.isEmpty()) {
+                System.out.println(ChatUIRenderer.DIM + "--- Recent SDK logs ---" + ChatUIRenderer.RESET);
+                rawLines.forEach(System.out::println);
             }
         } catch (Exception e) {
-             System.err.println(ChatUIRenderer.YELLOW + "Failed to retrieve logs: " + e.getMessage() + ChatUIRenderer.RESET);
-             // Fallback to raw logs if parsing fails completely
-             try {
-                 java.util.List<String> rawLines = sdk.getRecentLogs(20);
-                 if (!rawLines.isEmpty()) {
-                     System.out.println(ChatUIRenderer.DIM + "--- Raw Log Fallback ---" + ChatUIRenderer.RESET);
-                     rawLines.forEach(System.out::println);
-                 }
-             } catch (Exception ignored) {}
+            System.err.println(ChatUIRenderer.YELLOW + "Failed to retrieve SDK logs: " + e.getMessage() + ChatUIRenderer.RESET);
         }
     }
 
