@@ -8,7 +8,7 @@ import tech.kayys.aqli.safetensor.engine.planning.PreparedPrompt;
 import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionStateResolver;
 import tech.kayys.aqli.safetensor.engine.session.ConversationSessionManager;
 import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aqli.safetensor.engine.generation.InferenceQuantizer;
 import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
@@ -49,7 +49,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
     }
 
     @Override
-    public PreparedTextModel prepareModel(Path modelPath, Path adapterPath, QuantizationEngine.QuantStrategy quantStrategy) {
+    public PreparedTextModel prepareModel(Path modelPath, Path adapterPath, InferenceQuantizer.QuantStrategy quantStrategy) {
         engine.loadModel(modelPath, adapterPath, quantStrategy);
         return new PreparedTextModel(id(), modelPath, engine.getLoadedModel(modelPath), capabilities());
     }

@@ -9,7 +9,7 @@ import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
 import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
 import tech.kayys.aljabr.safetensor.loader.SafetensorTensor;
-import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
 
 import java.io.IOException;
 import java.nio.file.Files;

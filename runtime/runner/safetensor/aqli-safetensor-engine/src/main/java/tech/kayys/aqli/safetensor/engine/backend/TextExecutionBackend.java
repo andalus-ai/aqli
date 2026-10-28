@@ -4,7 +4,7 @@ import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.safetensor.engine.planning.PreparedPrompt;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aqli.safetensor.engine.generation.InferenceQuantizer;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
@@ -46,7 +46,7 @@ public interface TextExecutionBackend {
     /**
      * Load or prepare a model for execution on this backend.
      */
-    PreparedTextModel prepareModel(Path modelPath, Path adapterPath, QuantizationEngine.QuantStrategy quantStrategy);
+    PreparedTextModel prepareModel(Path modelPath, Path adapterPath, InferenceQuantizer.QuantStrategy quantStrategy);
 
     /**
      * Prepare a concrete text generation request for this backend.

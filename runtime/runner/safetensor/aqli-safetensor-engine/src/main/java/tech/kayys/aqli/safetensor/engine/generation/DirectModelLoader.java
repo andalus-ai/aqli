@@ -14,8 +14,7 @@ import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
 import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
-import tech.kayys.aljabr.safetensor.quantization.bridge.AccelWeightBridge;
+import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
 import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelConfig;
@@ -40,13 +39,13 @@ final class DirectModelLoader {
     private final Supplier<SafetensorLoaderFacade> safetensorLoader;
     private final Supplier<AccelWeightBridge> weightBridge;
     private final Supplier<ObjectMapper> objectMapper;
-    private final Supplier<QuantizationEngine> quantizationEngine;
+    private final Supplier<InferenceQuantizer> quantizationEngine;
     private final Supplier<ModelFamilyPluginRegistry> architectureRegistry;
 
     DirectModelLoader(Supplier<SafetensorLoaderFacade> safetensorLoader,
             Supplier<AccelWeightBridge> weightBridge,
             Supplier<ObjectMapper> objectMapper,
-            Supplier<QuantizationEngine> quantizationEngine,
+            Supplier<InferenceQuantizer> quantizationEngine,
             Supplier<ModelFamilyPluginRegistry> architectureRegistry) {
         this.safetensorLoader = Objects.requireNonNull(safetensorLoader, "safetensorLoader");
         this.weightBridge = Objects.requireNonNull(weightBridge, "weightBridge");
@@ -55,8 +54,8 @@ final class DirectModelLoader {
         this.architectureRegistry = Objects.requireNonNull(architectureRegistry, "architectureRegistry");
     }
 
-    DirectInferenceEngine.LoadedModel load(Path modelPath, QuantizationEngine.QuantStrategy quantStrategy) {
-        QuantizationEngine.QuantStrategy effectiveQuantStrategy = normalizeQuantStrategy(quantStrategy);
+    DirectInferenceEngine.LoadedModel load(Path modelPath, InferenceQuantizer.QuantStrategy quantStrategy) {
+        InferenceQuantizer.QuantStrategy effectiveQuantStrategy = normalizeQuantStrategy(quantStrategy);
 
         Arena weightArena = Arena.ofAuto();
         ModelConfig config = loadConfig(modelPath);
@@ -72,25 +71,25 @@ final class DirectModelLoader {
         String key = modelKey(modelPath, effectiveQuantStrategy);
 
         return new DirectInferenceEngine.LoadedModel(modelPath, weights, tokenizer, key,
-                effectiveQuantStrategy != QuantizationEngine.QuantStrategy.NONE, effectiveQuantStrategy,
+                effectiveQuantStrategy != InferenceQuantizer.QuantStrategy.NONE, effectiveQuantStrategy,
                 weightLoadResult.quantCacheState(), weightLoadResult.quantCachePath(),
                 config, architecture, runtimeTraits, weightArena);
     }
 
-    static QuantizationEngine.QuantStrategy normalizeQuantStrategy(QuantizationEngine.QuantStrategy quantStrategy) {
-        return quantStrategy == null ? QuantizationEngine.QuantStrategy.NONE : quantStrategy;
+    static InferenceQuantizer.QuantStrategy normalizeQuantStrategy(InferenceQuantizer.QuantStrategy quantStrategy) {
+        return quantStrategy == null ? InferenceQuantizer.QuantStrategy.NONE : quantStrategy;
     }
 
-    static String modelKey(Path modelPath, QuantizationEngine.QuantStrategy quantStrategy) {
-        QuantizationEngine.QuantStrategy effectiveQuantStrategy = normalizeQuantStrategy(quantStrategy);
+    static String modelKey(Path modelPath, InferenceQuantizer.QuantStrategy quantStrategy) {
+        InferenceQuantizer.QuantStrategy effectiveQuantStrategy = normalizeQuantStrategy(quantStrategy);
         String baseName = modelPath.getFileName().toString();
-        if (effectiveQuantStrategy == QuantizationEngine.QuantStrategy.NONE) {
+        if (effectiveQuantStrategy == InferenceQuantizer.QuantStrategy.NONE) {
             return baseName;
         }
         return baseName + "#" + effectiveQuantStrategy.name().toLowerCase();
     }
 
-    private WeightLoadResult loadWeights(Path modelPath, QuantizationEngine.QuantStrategy quantStrategy,
+    private WeightLoadResult loadWeights(Path modelPath, InferenceQuantizer.QuantStrategy quantStrategy,
             ModelConfig config, ModelRuntimeTraits runtimeTraits) {
         LOG.debugf("DirectInferenceEngine: opening weights from [%s]", modelPath);
         System.err.printf("[Aqli] Phase 1/4: Opening safetensor shards from %s...%n", modelPath.getFileName());
@@ -108,13 +107,13 @@ final class DirectModelLoader {
 
         String quantCacheState = "off";
         Path quantCachePath = null;
-        if (quantStrategy == QuantizationEngine.QuantStrategy.NONE) {
+        if (quantStrategy == InferenceQuantizer.QuantStrategy.NONE) {
             System.err.printf("[Aqli] Phase 3/4: Applying Metal F16 weight cache (%.1fs)...%n", (System.currentTimeMillis() - t0) / 1000.0);
             weights = new MetalF16WeightCache(safetensorLoader.get(), weightBridge.get())
                     .maybeUse(modelPath, weights, config, runtimeTraits);
         } else {
             System.err.printf("[Aqli] Phase 3/4: Quantizing weights with strategy=%s (%.1fs)...%n", quantStrategy, (System.currentTimeMillis() - t0) / 1000.0);
-            QuantizationEngine.InferenceQuantizationResult quantizationResult = quantizationEngine.get()
+            InferenceQuantizer.Result quantizationResult = quantizationEngine.get()
                     .quantizeWeightsForInferenceDetailed(modelPath, weights, quantStrategy);
             weights = quantizationResult.weights();
             quantCacheState = quantizationResult.cacheState();

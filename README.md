@@ -9,9 +9,9 @@
   [![Native Image](https://img.shields.io/badge/GraalVM-Native%20Image-orange.svg)](https://www.graalvm.org/)
 </div>
 
-**Aqli** is a high-performance, low-level inference engine and serving layer for AI models. It is the unified evolution of the former `aljabr` (tensor/model runtime) and `tafkir` (quantization) projects, now consolidated as a single standalone project.
+**Aqli** is a high-performance inference runtime and serving layer for AI models. It is a separate product from **Aljabr** (tensor and backend foundations) and **Tafkir** (training and model adaptation); these projects are complementary, not consolidated into one runtime.
 
-Aqli acts as the foundation for the [Wayang](../wayang/) orchestration layer. While Wayang handles agents and orchestration, Aqli handles the raw inference machinery: model loading, tensor operations, quantization, GGUF/SafeTensor execution, and hardware-accelerated backends (CPU, Metal, CUDA).
+Aqli acts as the inference foundation for the [Wayang](../wayang/) orchestration layer. Aqli owns model loading and execution, request scheduling, generation, KV-cache lifecycle, and serving across supported formats such as GGUF and SafeTensors. Aljabr provides reusable tensor operations, device and memory primitives, kernels, and quantized-tensor execution. Tafkir owns training-oriented workflows and model adaptation. Offline weight quantization is an optional workflow, not a requirement of Aqli's default inference runtime. The `aqli quantize` CLI command must not be treated as a production quantizer until it is wired to a real quantization engine.
 
 ## Architecture
 
