@@ -18,7 +18,6 @@ import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
 import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 import tech.kayys.aljabr.spi.model.ModelConfig;
@@ -58,7 +57,7 @@ public class DirectInferenceEngine implements SafetensorEngine {
     AccelWeightBridge bridge;
 
     @Inject
-    QuantizationEngine quantizationEngine;
+    InferenceQuantizer quantizationEngine;
 
     @Inject
     ObjectMapper objectMapper;
@@ -165,7 +164,7 @@ public class DirectInferenceEngine implements SafetensorEngine {
     }
 
     public String loadModel(Path modelPath, Path adapterPath, String quantStrategy) {
-        tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy resolvedQuantStrategy = 
+        InferenceQuantizer.QuantStrategy resolvedQuantStrategy = 
                 tech.kayys.aljabr.safetensor.quantization.QuantizationEngine.QuantStrategy.NONE;
         if (quantStrategy != null && !quantStrategy.isBlank()) {
             try {
