@@ -1246,10 +1246,13 @@ public final class GgufFastRun {
 
     static String executionRouteLine(String backendName, String runnerName) {
         String backend = backendName == null || backendName.isBlank() ? "unknown" : backendName;
-        return "Execution route: gguf (backend=" + backend + ") [" + executionRouteTag(runnerName) + "]";
+        return "Execution route: gguf (backend=" + backend + ") [" + executionRouteTag(backend, runnerName) + "]";
     }
 
-    private static String executionRouteTag(String runnerName) {
+    private static String executionRouteTag(String backendName, String runnerName) {
+        if ("java-native".equalsIgnoreCase(backendName) || "java".equalsIgnoreCase(backendName)) {
+            return "java_native_gguf_fast_path";
+        }
         String normalized = runnerName == null ? "" : runnerName.trim().toLowerCase(Locale.ROOT);
         if (normalized.contains("daemon")) {
             return "llama_cpp_gguf_daemon";
