@@ -22,14 +22,14 @@ import java.util.function.Function;
 final class DirectModelLifecycle<T extends SafetensorEngine.LoadedModel> {
     private final DirectLoadedModelRegistry<T> loadedModels = new DirectLoadedModelRegistry<>();
     private final BiFunction<Path, InferenceQuantizer.QuantStrategy, T> modelLoader;
-    private final Function<T, QuantizationEngine.QuantStrategy> quantStrategy;
+    private final Function<T, InferenceQuantizer.QuantStrategy> quantStrategy;
     private final Consumer<T> modelWarmup;
     private final Consumer<T> modelReleaser;
     private final Logger log;
 
     DirectModelLifecycle(
-            BiFunction<Path, QuantizationEngine.QuantStrategy, T> modelLoader,
-            Function<T, QuantizationEngine.QuantStrategy> quantStrategy,
+            BiFunction<Path, InferenceQuantizer.QuantStrategy, T> modelLoader,
+            Function<T, InferenceQuantizer.QuantStrategy> quantStrategy,
             Consumer<T> modelWarmup,
             Consumer<T> modelReleaser,
             Logger log) {
@@ -42,8 +42,8 @@ final class DirectModelLifecycle<T extends SafetensorEngine.LoadedModel> {
         this.log = log == null ? Logger.getLogger(DirectModelLifecycle.class) : log;
     }
 
-    String load(Path modelPath, QuantizationEngine.QuantStrategy requestedQuantStrategy) {
-        QuantizationEngine.QuantStrategy effectiveQuantStrategy =
+    String load(Path modelPath, InferenceQuantizer.QuantStrategy requestedQuantStrategy) {
+        InferenceQuantizer.QuantStrategy effectiveQuantStrategy =
                 DirectModelLoader.normalizeQuantStrategy(requestedQuantStrategy);
         Path resolved = loadedModels.resolve(modelPath);
 
@@ -90,7 +90,7 @@ final class DirectModelLifecycle<T extends SafetensorEngine.LoadedModel> {
     T require(Path modelPath, boolean verbose, String debugPrefix) {
         return DirectLoadedModelAcquirer.require(
                 () -> find(modelPath),
-                () -> load(modelPath, QuantizationEngine.QuantStrategy.NONE),
+                () -> load(modelPath, InferenceQuantizer.QuantStrategy.NONE),
                 DirectInferenceProfiler::recordModelLoadNanos,
                 verbose,
                 debugPrefix);
@@ -112,11 +112,11 @@ final class DirectModelLifecycle<T extends SafetensorEngine.LoadedModel> {
         return loadedModels.snapshot();
     }
 
-    private boolean usesQuantStrategy(T model, QuantizationEngine.QuantStrategy expected) {
+    private boolean usesQuantStrategy(T model, InferenceQuantizer.QuantStrategy expected) {
         return model != null && normalizedQuantStrategy(model) == expected;
     }
 
-    private QuantizationEngine.QuantStrategy normalizedQuantStrategy(T model) {
+    private InferenceQuantizer.QuantStrategy normalizedQuantStrategy(T model) {
         return DirectModelLoader.normalizeQuantStrategy(quantStrategy.apply(model));
     }
 }
