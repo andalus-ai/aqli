@@ -399,7 +399,7 @@ public class LlamaCppBinding {
             MemorySegment path = local.allocateFrom(sessionPath.toString());
             MemorySegment tokenSeg = local.allocate(ValueLayout.JAVA_INT, count);
             for (int i = 0; i < count; i++) tokenSeg.setAtIndex(ValueLayout.JAVA_INT, i, tokens[i]);
-            return tech.kayys.aqli.llama.llama_h.llama_state_save_file(context, path, tokenSeg, count);
+            return tech.kayys.aljabr.llama.llama_h.llama_state_save_file(context, path, tokenSeg, count);
         } catch (Throwable e) { throw new RuntimeException("Failed to save session: " + sessionPath, e); }
     }
 
@@ -409,7 +409,7 @@ public class LlamaCppBinding {
             MemorySegment path = local.allocateFrom(sessionPath.toString());
             MemorySegment tokenSeg = local.allocate(ValueLayout.JAVA_INT, maxTokens);
             MemorySegment countOut = local.allocate(ValueLayout.JAVA_LONG, 1);
-            boolean ok = tech.kayys.aqli.llama.llama_h.llama_state_load_file(
+            boolean ok = tech.kayys.aljabr.llama.llama_h.llama_state_load_file(
                     context, path, tokenSeg, maxTokens, countOut);
             if (!ok) return new int[0];
             int size = (int) Math.min(countOut.get(ValueLayout.JAVA_LONG, 0), maxTokens);
