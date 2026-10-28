@@ -14,7 +14,6 @@ import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
 import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
 import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import tech.kayys.aljabr.spi.model.ModelConfig;
@@ -40,7 +39,7 @@ final class DirectModelLoader {
     private final Supplier<SafetensorLoaderFacade> safetensorLoader;
     private final Supplier<AccelWeightBridge> weightBridge;
     private final Supplier<ObjectMapper> objectMapper;
-    private final Supplier<QuantizationEngine> quantizationEngine;
+    private final Supplier<InferenceQuantizer> quantizationEngine;
     private final Supplier<ModelFamilyPluginRegistry> architectureRegistry;
 
     DirectModelLoader(Supplier<SafetensorLoaderFacade> safetensorLoader,
