@@ -6,7 +6,6 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.jboss.logging.Logger;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 import java.nio.file.Path;
@@ -22,7 +21,7 @@ import java.util.function.Function;
  */
 final class DirectModelLifecycle<T extends SafetensorEngine.LoadedModel> {
     private final DirectLoadedModelRegistry<T> loadedModels = new DirectLoadedModelRegistry<>();
-    private final BiFunction<Path, QuantizationEngine.QuantStrategy, T> modelLoader;
+    private final BiFunction<Path, InferenceQuantizer.QuantStrategy, T> modelLoader;
     private final Function<T, QuantizationEngine.QuantStrategy> quantStrategy;
     private final Consumer<T> modelWarmup;
     private final Consumer<T> modelReleaser;
