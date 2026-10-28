@@ -65,3 +65,15 @@ The large Safetensors engine needs a class-by-class audit. It contains model for
 - Verify public API compatibility and lifecycle semantics, then run focused module tests, full relevant Gradle tasks, and repository CI.
 - Check both the composite-build path and the published-artifact path so that local development does not hide dependency-resolution failures.
 - Keep each PR bounded. A failed CI run is a migration finding to resolve, not a reason to reintroduce duplicate implementation code.
+
+
+## Architecture reference documents
+
+This audit is the initial overlap inventory; use the companion documents for the target-state details and migration gates:
+
+- [System architecture](SYSTEM_ARCHITECTURE.md)
+- [Sequence flows](SEQUENCE_FLOWS.md)
+- [Module ownership matrix](MODULE_OWNERSHIP_MATRIX.md)
+- [Consolidation roadmap](ALJABR_AQLI_CONSOLIDATION_ROADMAP.md)
+
+The inventory counts and paths above are a snapshot, not a live repository index. Re-run searches against the current default branches before each migration. The generated-binding removal in PR #25 and the later Safetensors changes must be treated as in progress until the current code, CI and published-artifact resolution prove the phase complete.
