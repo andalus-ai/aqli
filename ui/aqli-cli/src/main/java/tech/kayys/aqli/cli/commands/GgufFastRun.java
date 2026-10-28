@@ -59,6 +59,22 @@ public final class GgufFastRun {
     private static final int OUTPUT_BUFFER_RETRY_LIMIT = 2;
     private static final ThreadLocal<Boolean> REQUEST_TIMING = new ThreadLocal<>();
 
+    static {
+        try {
+            java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+            if (rootLogger != null) {
+                rootLogger.setLevel(java.util.logging.Level.WARNING);
+                for (java.util.logging.Handler h : rootLogger.getHandlers()) {
+                    h.setLevel(java.util.logging.Level.WARNING);
+                }
+            }
+            java.util.logging.Logger.getLogger("io.opentelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("tech.kayys.aljabr").setLevel(java.util.logging.Level.WARNING);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private GgufFastRun() {
     }
 
@@ -67,6 +83,13 @@ public final class GgufFastRun {
     }
 
     public static void main(String[] args) {
+        for (String a : args) {
+            if ("-v".equals(a) || "--verbose".equals(a)) {
+                System.setProperty("aqli.verbose", "true");
+                System.setProperty("aljabr.metal.verbose", "true");
+                break;
+            }
+        }
         if (args.length > 0 && "__daemon".equals(args[0])) {
             hardExitProcess(runDaemon());
             return;
@@ -2869,6 +2892,7 @@ public final class GgufFastRun {
         private boolean noInfo = false;
         private boolean raw = false;
         private boolean debugPrompt = false;
+        private boolean verbose = false;
         private boolean supported = true;
 
         private boolean supported() {
@@ -2952,6 +2976,11 @@ public final class GgufFastRun {
                     case "--llamacpp", "--llama-cpp" -> parsed.engine = "llamacpp";
                     case "--benchmark", "--bench" -> parsed.engine = "benchmark";
                     case "--no-banner", "--suppress-banner" -> parsed.banner = false;
+                    case "-v", "--verbose" -> {
+                        parsed.verbose = true;
+                        System.setProperty("aqli.verbose", "true");
+                        System.setProperty("aljabr.metal.verbose", "true");
+                    }
                     case "--no-info" -> parsed.noInfo = true;
                     case "--raw" -> parsed.raw = true;
                     case "--debug-prompt" -> parsed.debugPrompt = true;

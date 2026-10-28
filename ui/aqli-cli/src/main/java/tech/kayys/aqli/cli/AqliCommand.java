@@ -84,8 +84,22 @@ public class AqliCommand implements Runnable {
         System.setProperty("quarkus.log.category.\"tech.kayys.aqli\".level", "WARN");
         System.setProperty("quarkus.log.category.\"tech.kayys.aqli.sdk\".level", "WARN");
         System.setProperty("quarkus.log.category.\"io.quarkus\".level", "WARN");
+        System.setProperty("quarkus.log.category.\"io.opentelemetry\".level", "WARN");
+        System.setProperty("quarkus.log.category.\"tech.kayys.aljabr\".level", "WARN");
         System.setProperty("quarkus.log.category.\"io.quarkus.config\".level", "ERROR");
         System.setProperty("quarkus.log.category.\"io.quarkus.runtime.logging.LoggingSetupRecorder\".level", "ERROR");
+        try {
+            java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+            if (rootLogger != null) {
+                rootLogger.setLevel(java.util.logging.Level.WARNING);
+                for (java.util.logging.Handler h : rootLogger.getHandlers()) {
+                    h.setLevel(java.util.logging.Level.WARNING);
+                }
+            }
+            java.util.logging.Logger.getLogger("io.opentelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("tech.kayys.aljabr").setLevel(java.util.logging.Level.WARNING);
+        } catch (Throwable ignored) {
+        }
     }
 
     private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(AqliCommand.class);
