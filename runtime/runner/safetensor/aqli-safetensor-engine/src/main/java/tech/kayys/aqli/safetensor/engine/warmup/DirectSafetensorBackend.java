@@ -329,7 +329,7 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
     private Uni<Plan> loaded(DirectInferenceEngine engine, Plan plan) {
         return Uni.createFrom().item(() -> {
             LOG.debugf("Direct safetensors: loading %s", plan.modelPath());
-            engine.loadModel(plan.modelPath(), null, plan.quantizeStrategy());
+            engine.loadModel(plan.modelPath(), (Path) null, plan.quantizeStrategy());
             return plan;
         }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
