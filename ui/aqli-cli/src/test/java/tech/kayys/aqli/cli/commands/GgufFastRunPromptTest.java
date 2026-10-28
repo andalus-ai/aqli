@@ -139,11 +139,12 @@ class GgufFastRunPromptTest {
         String output = bytes.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("[Fast GGUF, Duration:"));
         assertTrue(output.contains("Speed:"));
+        assertTrue(output.contains("Speed: 20.00 t/s (generate call)"), output);
         assertTrue(output.contains("Performance Metrics:"));
         assertTrue(output.contains("  open time      ="));
         assertTrue(output.contains("  generate call  ="));
-        assertTrue(output.contains("  generation     ="));
-        assertTrue(output.contains("10 tokens"));
+        assertTrue(output.contains("  end-to-end rate="));
+        assertTrue(output.contains("10 output tokens"));
         assertTrue(output.contains("  token latency  ="));
     }
 
@@ -179,9 +180,12 @@ class GgufFastRunPromptTest {
         assertTrue(output.contains("gpuLayers=-1"));
         assertTrue(output.contains("context init ="));
         assertTrue(output.contains("  native tokenize="));
+        assertTrue(output.contains("  prompt prefill ="));
+        assertTrue(output.contains("  generation     ="));
+        assertTrue(output.contains("  decode latency ="));
         assertTrue(output.contains("(hit)"));
-        assertTrue(output.contains("(9 tokens)"));
-        assertTrue(output.contains("(10 sampled, 9 decoded)"));
+        assertTrue(output.contains("(9 tokens @ 750.00 t/s)"), output);
+        assertTrue(output.contains("(10 sampled, 9 decoded @ 264.71 t/s)"), output);
         assertTrue(output.contains("  native sampler = reused"));
         assertTrue(output.contains("  native session = warm (exact)"));
         assertTrue(output.contains("  native cache   = below-threshold, 0.00 ms (eager-short, repeat)")

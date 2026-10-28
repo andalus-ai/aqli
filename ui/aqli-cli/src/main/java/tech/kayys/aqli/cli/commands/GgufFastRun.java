@@ -1015,12 +1015,13 @@ public final class GgufFastRun {
         double generationSpeed = generateSeconds > 0.0d && outputTokens > 0 ? outputTokens / generateSeconds : 0.0d;
         double tokenLatencyMs = outputTokens > 0 ? generateMs / outputTokens : 0.0d;
 
-        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s]%n", label, durationSeconds, totalSpeed);
+        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s (generate call)]%n", label, durationSeconds, generationSpeed);
         out.println("Performance Metrics:");
         out.printf("  open time      = %9.2f ms%n", openOrGenerateMillis(openNanos));
         out.printf("  generate call  = %9.2f ms%n", generateMs);
-        out.printf("  generation     = %9.2f t/s (%d tokens)%n", generationSpeed, Math.max(0, outputTokens));
-        out.printf("  token latency  = %9.2f ms/token%n", tokenLatencyMs);
+        out.printf("  end-to-end rate= %9.2f t/s (%d output tokens / generate-call time)%n",
+                generationSpeed, Math.max(0, outputTokens));
+        out.printf("  token latency  = %9.2f ms/token (end-to-end)%n", tokenLatencyMs);
         printNativeMetrics(out, nativeMetrics);
         out.println();
 
@@ -1046,13 +1047,30 @@ public final class GgufFastRun {
                     if (m.containsKey("modelLoad")) reg.record("aqli.llm.native.load", Double.parseDouble(m.get("modelLoad")), attrs.build());
                     if (m.containsKey("contextInit")) reg.record("aqli.llm.native.context_init", Double.parseDouble(m.get("contextInit")), attrs.build());
                     if (m.containsKey("tokenize")) reg.record("aqli.llm.native.tokenize", Double.parseDouble(m.get("tokenize")), attrs.build());
-                    if (m.containsKey("prefill")) reg.record("aqli.llm.native.prefill", Double.parseDouble(m.get("prefill")), attrs.build());
-                    if (m.containsKey("decode")) reg.record("aqli.llm.native.decode", Double.parseDouble(m.get("decode")), attrs.build());
+                    if (m.containsKey("prefill")) {
+                        double prefillMs = nativeMillis(m, "prefill");
+                        int promptTokens = parseCount(m.get("promptTokens"));
+                        reg.record("aqli.llm.native.prefill", prefillMs, attrs.build());
+                        reg.record("aqli.llm.prefill.duration", prefillMs, attrs.build());
+                        reg.record("aqli.llm.prefill.speed",
+                                tokenRatePerSecond(promptTokens, prefillMs), attrs.build());
+                    }
+                    if (m.containsKey("decode")) {
+                        double decodeMs = nativeMillis(m, "decode");
+                        int decodedTokens = parseCount(m.get("decodedTokens"));
+                        reg.record("aqli.llm.native.decode", decodeMs, attrs.build());
+                        reg.record("aqli.llm.decode.duration", decodeMs, attrs.build());
+                        reg.record("aqli.llm.decode.speed",
+                                tokenRatePerSecond(decodedTokens, decodeMs), attrs.build());
+                        reg.record("aqli.llm.decode.token_latency",
+                                decodedTokens > 0 ? decodeMs / decodedTokens : 0.0d, attrs.build());
+                    }
                 }
 
                 Attributes finalAttrs = attrs.build();
                 reg.record("aqli.llm.generation.duration", durationMs, finalAttrs);
                 reg.record("aqli.llm.generation.speed", totalSpeed, finalAttrs);
+                reg.record("aqli.llm.generation.end_to_end_speed", generationSpeed, finalAttrs);
                 reg.record("aqli.llm.generation.token_latency", tokenLatencyMs, finalAttrs);
                 reg.record("aqli.llm.model.open_time", openOrGenerateMillis(openNanos), finalAttrs);
             }
@@ -1083,13 +1101,20 @@ public final class GgufFastRun {
         out.printf("  native tokenize= %9.2f ms (%s)%n",
                 nativeMillis(metrics, "tokenize"),
                 metrics.getOrDefault("tokenizeCache", "unknown"));
-        out.printf("  native prompt  = %9.2f ms (%s tokens)%n",
-                nativeMillis(metrics, "prefill"),
-                metrics.getOrDefault("promptTokens", "0"));
-        out.printf("  native decode  = %9.2f ms (%s sampled, %s decoded)%n",
-                nativeMillis(metrics, "decode"),
+        double prefillMs = nativeMillis(metrics, "prefill");
+        int promptTokens = parseCount(metrics.get("promptTokens"));
+        double prefillSpeed = tokenRatePerSecond(promptTokens, prefillMs);
+        out.printf("  prompt prefill = %9.2f ms (%d tokens @ %.2f t/s)%n",
+                prefillMs, promptTokens, prefillSpeed);
+        double decodeMs = nativeMillis(metrics, "decode");
+        int decodedTokens = parseCount(metrics.get("decodedTokens"));
+        double decodeSpeed = tokenRatePerSecond(decodedTokens, decodeMs);
+        double decodeLatencyMs = decodedTokens > 0 ? decodeMs / decodedTokens : 0.0d;
+        out.printf("  generation     = %9.2f ms (%s sampled, %d decoded @ %.2f t/s)%n",
+                decodeMs,
                 metrics.getOrDefault("generatedTokens", "0"),
-                metrics.getOrDefault("decodedTokens", "0"));
+                decodedTokens, decodeSpeed);
+        out.printf("  decode latency = %9.2f ms/decoded token%n", decodeLatencyMs);
         String sampler = metrics.get("sampler");
         if (sampler != null && !sampler.isBlank()) {
             out.printf("  native sampler = %s, %.2f ms%n",
@@ -1168,6 +1193,23 @@ public final class GgufFastRun {
             }
         }
         return parsed;
+    }
+
+    private static int parseCount(String value) {
+        if (value == null || value.isBlank()) {
+            return 0;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(value.trim()));
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private static double tokenRatePerSecond(int tokens, double elapsedMillis) {
+        return tokens > 0 && Double.isFinite(elapsedMillis) && elapsedMillis > 0.0d
+                ? tokens * 1000.0d / elapsedMillis
+                : 0.0d;
     }
 
     private static double nativeMillis(Map<String, String> metrics, String key) {
