@@ -62,6 +62,17 @@ Dependency direction: applications → AQLI when serving is needed → Aljabr �
 
 **Done when:** no second native execution implementation remains without a documented reason; correctness and performance checks pass.
 
+### Phase 2B — Generic execution-engine consolidation
+
+- Audit both AQLI runtime-core `ExecutionEngine` classes and all call sites before changing code.
+- Keep Aljabr as the canonical owner of reusable tensor/operator/kernel execution contracts; keep AQLI responsible for serving-session controls, cancellation, admission/scheduling and observability.
+- Resolve the legacy `tech.kayys.alkhawarizm.core.tensor.Tensor` import in the older execution path by proving whether the class is still used, then migrate or remove it only with compile and behavior evidence.
+- Establish an Aljabr public execution SPI if the existing public APIs do not cover the required execution semantics. Do not make Aljabr depend on AQLI IR or runtime classes.
+- Add contract tests for missing inputs/kernels, output cardinality, device routing, cancellation/interruption, tensor ownership and cleanup.
+- Add a dependency/architecture guard to prevent Aljabr → AQLI dependencies and flag new duplicate AQLI tensor/compute implementations.
+
+**Done when:** AQLI has one clearly justified serving-plan integration path, generic computation delegates to Aljabr, no stale engine class remains referenced, and required CI plus numerical/lifecycle tests pass. A class-name overlap alone is not sufficient evidence to delete code.
+
 ### Phase 3 — Safetensors format/loading
 - Use Aljabr's parser, validation and loader as the canonical format implementation.
 - Replace AQLI's duplicate header parsing and tensor-file loading.
