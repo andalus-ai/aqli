@@ -15,8 +15,6 @@ import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aljabr.safetensor.loader.SafetensorLoaderFacade;
 import tech.kayys.aljabr.safetensor.loader.SafetensorShardLoader.SafetensorShardSession;
 import tech.kayys.aljabr.safetensor.bridge.AccelWeightBridge;
-import tech.kayys.aljabr.spi.model.ModelArchitecture;
-import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 import tech.kayys.aljabr.spi.tokenizer.TokenizerFactory;
