@@ -1015,7 +1015,7 @@ public final class GgufFastRun {
         double generationSpeed = generateSeconds > 0.0d && outputTokens > 0 ? outputTokens / generateSeconds : 0.0d;
         double tokenLatencyMs = outputTokens > 0 ? generateMs / outputTokens : 0.0d;
 
-        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s]%n", label, durationSeconds, totalSpeed);
+        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s (generate call)]%n", label, durationSeconds, generationSpeed);
         out.println("Performance Metrics:");
         out.printf("  open time      = %9.2f ms%n", openOrGenerateMillis(openNanos));
         out.printf("  generate call  = %9.2f ms%n", generateMs);
