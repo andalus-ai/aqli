@@ -10,7 +10,7 @@ import static tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfil
 import org.jboss.logging.Logger;
 import tech.kayys.aqli.safetensor.engine.forward.DirectForwardPass;
 import tech.kayys.aqli.safetensor.engine.warmup.ModelWarmupService;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
+import tech.kayys.aqli.safetensor.engine.generation.InferenceQuantizer;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 
 import java.nio.file.Path;
@@ -37,7 +37,7 @@ final class DirectInferenceModelStore {
         this.log = log;
     }
 
-    String load(Path modelPath, QuantizationEngine.QuantStrategy quantStrategy) {
+    String load(Path modelPath, InferenceQuantizer.QuantStrategy quantStrategy) {
         return modelLifecycle().load(modelPath, quantStrategy);
     }
 
