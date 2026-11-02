@@ -8,7 +8,7 @@ package tech.kayys.aqli.safetensor.engine.planning;
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.safetensor.audio.model.AudioConfig;
 import tech.kayys.aqli.safetensor.engine.backend.TextExecutionBackendCapabilities;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.provider.ProviderRequest;
 

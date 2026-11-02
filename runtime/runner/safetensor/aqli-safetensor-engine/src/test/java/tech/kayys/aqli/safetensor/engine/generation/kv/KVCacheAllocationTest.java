@@ -23,7 +23,7 @@ class KVCacheAllocationTest {
         config.overrideNumKeyValueHeads(1);
         config.overrideHeadDim(64);
         
-        session.allocate(config, tech.kayys.aqli.safetensor.generation.GenerationConfig.defaults());
+        session.allocate(config, tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults());
         
         // Initially 1 block allocated per layer (tokens 0-15)
         assertEquals(1, session.getBlockTable(0).size());
@@ -55,9 +55,9 @@ class KVCacheAllocationTest {
         config.overrideNumKeyValueHeads(1);
         config.overrideHeadDim(64);
 
-        tech.kayys.aqli.safetensor.generation.GenerationConfig cfg =
-                tech.kayys.aqli.safetensor.generation.GenerationConfig.builder()
-                        .kvCacheQuant(tech.kayys.aqli.safetensor.generation.GenerationConfig.KvCacheQuantization.INT4)
+        tech.kayys.aljabr.safetensor.generation.GenerationConfig cfg =
+                tech.kayys.aljabr.safetensor.generation.GenerationConfig.builder()
+                        .kvCacheQuant(tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT4)
                         .build();
 
         session.allocate(config, cfg);
