@@ -569,12 +569,13 @@ public final class GgufFastRun {
                 long generateNanos;
                 long afterGenerateNanos;
                 String text;
+                tech.kayys.aljabr.spi.inference.InferenceResponse response = null;
 
                 try (tech.kayys.aljabr.gguf.api.GgufBackend backend = provider.create(modelPath, Map.of("backend", "java"))) {
                     openNanos = System.nanoTime() - openStartNanos;
 
                     long generateStartNanos = System.nanoTime();
-                    tech.kayys.aljabr.spi.inference.InferenceResponse response = backend.execute(inferenceRequest);
+                    response = backend.execute(inferenceRequest);
                     afterGenerateNanos = System.nanoTime();
                     generateNanos = afterGenerateNanos - generateStartNanos;
 
@@ -601,10 +602,18 @@ public final class GgufFastRun {
                 }
 
                 if (!fastRunQuiet() && !args.noInfo) {
-                    // Approximate output tokens for stats.
-                    int outputTokens = text.isBlank() ? 0 : (int) (text.trim().split("\\s+").length * 1.3);
+                    int outputTokens = response != null && response.getOutputTokens() > 0
+                            ? response.getOutputTokens()
+                            : (text.isBlank() ? 0 : (int) (text.trim().split("\\s+").length * 1.3));
+                    Optional<String> nativeMetrics = Optional.empty();
+                    if (response != null && response.getMetadata() != null) {
+                        Object nm = response.getMetadata().get("nativeMetrics");
+                        if (nm != null) {
+                            nativeMetrics = Optional.of(nm.toString());
+                        }
+                    }
                     printFastRunStats(out, "Java-native GGUF", outputTokens,
-                            startNanos, openNanos, generateNanos, afterGenerateNanos);
+                            startNanos, openNanos, generateNanos, afterGenerateNanos, nativeMetrics);
                 }
                 return 0;
             } catch (Throwable e) {
