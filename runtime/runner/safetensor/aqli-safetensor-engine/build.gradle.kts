@@ -24,7 +24,8 @@ sourceSets {
             exclude("tech/kayys/aqli/safetensor/mask/**")
             // Legacy inference adapter — depends on removed aqli-spi-provider surfaces
             // (ProviderCapabilities, ProviderHealth, ProviderRequest, LibTorchProvider,
-            // GGUFConverter).  The modern entry point is SafetensorAqliSdk in engine.sdk.
+            // GGUFConverter). No replacement SDK implementation lives in this format module;
+            // Safetensors execution is integrated through the canonical Aqli runtime/provider path.
             exclude("tech/kayys/aqli/safetensor/inference/**")
         }
     }
