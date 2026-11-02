@@ -550,16 +550,20 @@ public final class GgufFastRun {
 
                 // Build the InferenceRequest carrying prompt + sampling params.
                 String modelName = modelPath.getFileName().toString();
-                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest =
-                        tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
-                                .model(modelName)
-                                .prompt(formattedPrompt)
-                                .message(tech.kayys.aljabr.spi.Message.user(args.prompt))
-                                .maxTokens(args.maxTokens)
-                                .temperature(args.temperature)
-                                .topP(args.topP)
-                                .topK(args.topK)
-                                .build();
+                var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
+                        .model(modelName)
+                        .prompt(formattedPrompt)
+                        .message(tech.kayys.aljabr.spi.Message.user(args.prompt))
+                        .maxTokens(args.maxTokens)
+                        .temperature(args.temperature)
+                        .topP(args.topP)
+                        .topK(args.topK);
+                if (!Double.isNaN(args.repeatPenalty)) {
+                    reqBuilder.repeatPenalty(args.repeatPenalty);
+                } else if (args.temperature <= 0.0) {
+                    reqBuilder.repeatPenalty(1.0);
+                }
+                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest = reqBuilder.build();
 
                 tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
                         new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
@@ -2936,6 +2940,7 @@ public final class GgufFastRun {
         private double temperature = 0.2d;
         private double topP = 0.9d;
         private int topK = 40;
+        private double repeatPenalty = Double.NaN;
         private String provider;
         private String backend = stringConfig("aqli.gguf.fast_run.backend", "metal");
         private String engine = firstNonBlank(
@@ -3058,6 +3063,11 @@ public final class GgufFastRun {
                     case "--top-k" -> {
                         Value next = valueOrNext(value, args, i);
                         parsed.topK = parseInt(next.value(), parsed.topK);
+                        i = next.index();
+                    }
+                    case "--repeat-penalty", "--repeat_penalty", "--repetition-penalty" -> {
+                        Value next = valueOrNext(value, args, i);
+                        parsed.repeatPenalty = parseDouble(next.value(), parsed.repeatPenalty);
                         i = next.index();
                     }
                     default -> {
