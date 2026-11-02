@@ -1,413 +1,46 @@
-# Aqli SafeTensor Engine - Integration Status
+# Aqli SafeTensors Engine
 
-## Overview
+The `aqli-safetensor-engine` module contains Aqli's SafeTensors-oriented inference execution path.
 
-The `aqli-safetensor-engine` module is fully integrated with all new audio and quantization modules. This document verifies the engine is working correctly with all dependencies.
+It is an Aqli runtime component, not a general-purpose tensor or model-loading framework. It delegates SafeTensors file access and tensor integration to Aljabr, while Aqli owns inference execution and runtime lifecycle.
 
-## ✅ Module Dependencies
+## Responsibilities
 
-### Direct Dependencies
+The current `DirectInferenceEngine` implementation is an application-scoped Aljabr `SafetensorEngine` integration. Its dependencies show the following execution collaborators:
 
-```xml
-<dependencies>
-    <!-- Core -->
-    <dependency>
-        <groupId>tech.kayys.aqli</groupId>
-        <artifactId>aqli-safetensor-core</artifactId>
-        <version>${project.version}</version>
-    </dependency>
-    
-    <!-- Tokenizer -->
-    <dependency>
-        <groupId>tech.kayys.aqli</groupId>
-        <artifactId>aqli-safetensor-tokenizer</artifactId>
-        <version>${project.version}</version>
-    </dependency>
-    
-    <!-- Loader -->
-    <dependency>
-        <groupId>tech.kayys.aqli</groupId>
-        <artifactId>aqli-safetensor-loader</artifactId>
-        <version>${project.version}</version>
-    </dependency>
-    
-    <!-- ✅ Quantization Module -->
-    <dependency>
-        <groupId>tech.kayys.aqli</groupId>
-        <artifactId>aqli-safetensor-quantization</artifactId>
-        <version>${project.version}</version>
-    </dependency>
-    
-    <!-- ✅ Audio Module -->
-    <dependency>
-        <groupId>tech.kayys.aqli</groupId>
-        <artifactId>aqli-safetensor-audio</artifactId>
-        <version>${project.version}</version>
-    </dependency>
-    
-    <!-- LibTorch Runner -->
-    <dependency>
-        <groupId>tech.kayys.aqli</groupId>
-        <artifactId>aqli-runner-libtorch</artifactId>
-        <version>${project.version}</version>
-    </dependency>
-</dependencies>
-```
+- Aljabr `SafetensorLoaderFacade` for loading SafeTensors data.
+- Aljabr `AccelWeightBridge` for bridging loaded weights into `AccelTensor`.
+- Aqli `DirectForwardPass` and `TokenSampler` for inference execution.
+- Aqli `KVCacheManager` for generation cache management.
+- Aqli `ModelWarmupService` for model warmup.
+- Aljabr model SPI and model-family plugin APIs for model metadata and architecture integration.
 
-### Transitive Dependencies
+The module also declares the Aljabr Metal backend as a dependency. Hardware-specific behavior must be validated separately from ordinary JVM tests.
 
-Through `aqli-safetensor-audio`:
-- JLayer (MP3 decoding)
-- jFLAC (FLAC decoding)
-- jOrbis (OGG/Vorbis decoding)
+## Architecture boundary
 
-Through `aqli-safetensor-quantization`:
-- Quarkus REST
-- Mutiny (reactive streams)
-- Jackson (JSON)
+- **Aljabr:** SafeTensors APIs, loading, tensor representation, compute backends, and model-level primitives.
+- **Aqli:** inference execution, generation, sampling, KV-cache lifecycle, warmup, and runtime integration.
+- **Tafkir:** optional training, fine-tuning, calibration, and adaptation; it is not a mandatory dependency of this engine's default dependency declarations.
 
-## 🧪 Integration Tests
+The engine must not provide a second application-wide `AqliSdk` implementation. SDK composition belongs to the canonical Aqli runtime. Format-specific code should integrate through the current inference and model SPIs.
 
-### Test Coverage
+## Build and test
 
-**EngineIntegrationTest.java** verifies:
-
-1. ✅ **Engine Instantiation**
-   - DirectInferenceEngine
-   - QuantizationEngine
-   - ImprovedWhisperEngine
-   - ImprovedSpeechT5Engine
-   - AudioDecoderRegistry
-
-2. ✅ **Quantization Strategies**
-   - INT4 (GPTQ)
-   - INT8
-   - FP8
-
-3. ✅ **Audio Decoders**
-   - WAV (built-in)
-   - MP3 (JLayer)
-   - FLAC (jFLAC)
-   - OGG/Vorbis (jOrbis)
-
-4. ✅ **Configuration Builders**
-   - AudioConfig builder
-   - QuantConfig builder
-
-5. ✅ **TTS Voices**
-   - 8 preset voices available
-
-6. ✅ **Format Aliases**
-   - MP3/MPEG/MPGA
-   - FLAC/FLA
-   - OGG/Vorbis/OGA
-
-### Running Tests
+From the Aqli repository root:
 
 ```bash
-# Run integration tests
-mvn test -pl inference-aqli/extension/runner/safetensor/aqli-safetensor-engine \
-  -Dtest=EngineIntegrationTest
-
-# Run all engine tests
-mvn test -pl inference-aqli/extension/runner/safetensor/aqli-safetensor-engine
+./gradlew :runner:safetensor:aqli-safetensor-engine:compileJava
+./gradlew :runner:safetensor:aqli-safetensor-engine:test
 ```
 
-## 🔧 Engine Integration Points
+The test source set currently excludes legacy tests that reference removed APIs or have stale policy expectations. Those exclusions are tracked as migration work; they must not be interpreted as passing coverage. Restore tests incrementally after migrating them to the current inference SPI and verifying their assertions against current runtime behavior.
 
-### 1. DirectInferenceEngine + Quantization
+## Current migration notes
 
-```java
-@Inject
-DirectInferenceEngine engine;
-@Inject
-QuantizationEngine quantizationEngine;
+- The legacy `safetensor/inference` source package remains excluded because it depends on removed provider APIs.
+- The former `SafetensorAqliSdk` no-op implementation has been removed; it must not be documented or reintroduced as the engine entry point.
+- The empty `InferenceRequestPlanner.plan(InferenceRequest)` stub and the excluded planning tests require a separate usage and migration audit before deciding whether to implement or remove them.
+- Audio and quantization modules are not declared as direct dependencies of this engine. Optional quantization integration is kept separate.
 
-public void loadQuantizedModel() {
-    // Load quantized model directly
-    String key = engine.loadQuantizedModel(
-        Paths.get("/models/llama3-8b-int4"),
-        QuantizationEngine.QuantStrategy.INT4
-    );
-}
-```
-
-### 2. DirectInferenceEngine + Audio
-
-```java
-@Inject
-DirectInferenceEngine engine;
-@Inject
-ImprovedWhisperEngine whisperEngine;
-
-public void transcribeAndInfer() {
-    // Transcribe audio
-    AudioResult transcription = whisperEngine.transcribe(
-        audioPath, modelPath, config
-    ).await().indefinitely();
-    
-    // Use transcription for further inference
-    String prompt = transcription.getText();
-    // ... run inference with prompt
-}
-```
-
-### 3. ModelHotSwap + Quantization
-
-```java
-@Inject
-ModelHotSwapManager hotSwapManager;
-@Inject
-QuantizationEngine quantizationEngine;
-
-public void hotSwapToQuantized() {
-    // Quantize model
-    QuantResult result = quantizationEngine.quantize(
-        inputPath, outputPath, 
-        QuantizationEngine.QuantStrategy.INT4,
-        QuantConfig.int4Gptq()
-    );
-    
-    // Hot-swap to quantized version
-    hotSwapManager.beginSwap("model-alias", oldPath, outputPath, null);
-}
-```
-
-### 4. Audio + Quantization Pipeline
-
-```java
-@Inject
-ImprovedWhisperEngine whisperEngine;
-@Inject
-QuantizationEngine quantizationEngine;
-
-public void processWorkflow() {
-    // 1. Transcribe audio (uses audio module)
-    AudioResult audio = whisperEngine.transcribe(
-        Paths.get("meeting.mp3"), // Pure Java MP3 decoding
-        whisperPath, config
-    ).await().indefinitely();
-    
-    // 2. Quantize model for faster inference
-    QuantResult quant = quantizationEngine.quantize(
-        modelPath, quantizedPath,
-        QuantizationEngine.QuantStrategy.INT8,
-        QuantConfig.int8()
-    );
-    
-    // 3. Load quantized model
-    engine.loadQuantizedModel(quantizedPath, 
-        QuantizationEngine.QuantStrategy.INT8);
-}
-```
-
-## 📊 Module Status
-
-| Module | Status | Integration | Tests |
-|--------|--------|-------------|-------|
-| **aqli-safetensor-core** | ✅ Active | Direct | ✅ Pass |
-| **aqli-safetensor-loader** | ✅ Active | Direct | ✅ Pass |
-| **aqli-safetensor-tokenizer** | ✅ Active | Direct | ✅ Pass |
-| **aqli-safetensor-quantization** | ✅ Active | Direct | ✅ Pass |
-| **aqli-safetensor-audio** | ✅ Active | Direct | ✅ Pass |
-| **aqli-runner-libtorch** | ✅ Active | Direct | ✅ Pass |
-
-## 🏗️ Architecture Integration
-
-```
-┌─────────────────────────────────────────────────────────┐
-│           aqli-safetensor-engine                       │
-└─────────────────────────────────────────────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-        ▼                 ▼                 ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  Direct      │  │   Model      │  │   Graceful   │
-│  Inference   │  │   Warmup     │  │   Shutdown   │
-│  Engine      │  │   Service    │  │   Handler    │
-└──────────────┘  └──────────────┘  └──────────────┘
-        │                 │                 │
-        └─────────────────┼─────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-        ▼                 ▼                 ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  aqli-     │  │   aqli-    │  │   aqli-    │
-│  safetensor- │  │   safetensor-│  │   ext-runner-│
-│  quantization│  │   audio      │  │   libtorch   │
-└──────────────┘  └──────────────┘  └──────────────┘
-        │                 │
-        │         ┌───────┴───────┐
-        │         │               │
-        │         ▼               ▼
-        │   ┌──────────┐  ┌──────────┐
-        │   │ Whisper  │  │ SpeechT5 │
-        │   │ Engine   │  │ Engine   │
-        │   └──────────┘  └──────────┘
-        │
-        ▼
-┌──────────────┐
-│  GPTQ/INT8/  │
-│  FP8 Engine  │
-└──────────────┘
-```
-
-## 🚀 Usage Examples
-
-### Complete Workflow Example
-
-```java
-import jakarta.inject.Inject;
-import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.audio.ImprovedWhisperEngine;
-import tech.kayys.aqli.safetensor.audio.ImprovedSpeechT5Engine;
-import tech.kayys.aqli.safetensor.quantization.QuantizationEngine;
-
-@ApplicationScoped
-public class AIPipeline {
-
-    @Inject
-    DirectInferenceEngine inferenceEngine;
-    
-    @Inject
-    ImprovedWhisperEngine whisperEngine;
-    
-    @Inject
-    ImprovedSpeechT5Engine ttsEngine;
-    
-    @Inject
-    QuantizationEngine quantizationEngine;
-    
-    public void runPipeline() {
-        // 1. Transcribe audio (MP3/FLAC/OGG supported - no ffmpeg!)
-        AudioResult transcription = whisperEngine.transcribe(
-            Paths.get("input.mp3"),
-            Paths.get("/models/whisper-large-v3"),
-            AudioConfig.forTranscription()
-        ).await().indefinitely();
-        
-        System.out.println("Transcribed: " + transcription.getText());
-        
-        // 2. Quantize model for faster inference
-        QuantResult quantResult = quantizationEngine.quantize(
-            Paths.get("/models/llama3-8b"),
-            Paths.get("/models/llama3-8b-int4"),
-            QuantizationEngine.QuantStrategy.INT4,
-            QuantConfig.int4Gptq()
-        );
-        
-        System.out.println("Quantized: " + 
-            quantResult.getStats().getCompressionRatio() + "x compression");
-        
-        // 3. Load quantized model
-        String modelKey = inferenceEngine.loadQuantizedModel(
-            Paths.get("/models/llama3-8b-int4"),
-            QuantizationEngine.QuantStrategy.INT4
-        );
-        
-        // 4. Generate response
-        // ... inference code ...
-        
-        // 5. Synthesize response to speech
-        byte[] audio = ttsEngine.synthesize(
-            "Here is your response",
-            "alloy",
-            Paths.get("/models/speecht5-tts"),
-            AudioConfig.forTTS("alloy")
-        ).await().indefinitely();
-        
-        // Save or stream audio
-        Files.write(Paths.get("response.wav"), audio);
-    }
-}
-```
-
-## ✅ Verification Checklist
-
-### Build Verification
-
-- [x] POM dependencies added
-- [x] Audio module dependency added
-- [x] Quantization module dependency present
-- [x] All dependencies resolve correctly
-
-### Code Verification
-
-- [x] DirectInferenceEngine compiles
-- [x] ImprovedWhisperEngine compiles
-- [x] ImprovedSpeechT5Engine compiles
-- [x] QuantizationEngine compiles
-- [x] AudioDecoderRegistry accessible
-
-### Integration Verification
-
-- [x] Engine can load quantized models
-- [x] Audio decoders work without ffmpeg
-- [x] TTS voices are available
-- [x] Quantization strategies available
-- [x] All modules can be used together
-
-### Test Verification
-
-- [x] EngineIntegrationTest created
-- [x] Tests cover all modules
-- [x] Tests verify integration points
-- [x] Tests pass successfully
-
-## 📈 Performance Metrics
-
-### Module Load Times
-
-| Module | Load Time | Memory |
-|--------|-----------|--------|
-| Core Engine | ~100ms | ~50MB |
-| Quantization | ~50ms | ~20MB |
-| Audio | ~80ms | ~30MB |
-| Audio Decoders | ~30ms | ~10MB |
-| **Total** | **~260ms** | **~110MB** |
-
-### Inference Performance
-
-| Task | Model | Latency | Throughput |
-|------|-------|---------|------------|
-| Transcription | Whisper base | 0.25x RTF | 4x real-time |
-| TTS | SpeechT5 | ~100ms | ~50x real-time |
-| Quantized LLM | INT4 7B | 1.5x FP16 | 2-3x faster |
-
-## 🔮 Future Enhancements
-
-### Planned
-
-1. **Unified Pipeline API** - Single interface for audio→text→inference→speech
-2. **Streaming Quantization** - Quantize while loading
-3. **Batch Audio Processing** - Process multiple audio files
-4. **Model Caching** - Cache quantized models
-5. **Performance Monitoring** - Track inference metrics
-
-### Under Consideration
-
-1. **GPU Acceleration** - CUDA/Metal for audio decoding
-2. **Distributed Inference** - Multi-node inference
-3. **Model Compression** - Additional compression techniques
-4. **Real-time Streaming** - End-to-end streaming pipeline
-
-## 📚 Related Documentation
-
-- [Audio Processing Guide](/docs/audio-processing)
-- [Quantization Guide](/docs/quantization)
-- [Engine API Reference](/docs/core-api)
-- [Pure Java Audio Decoders](PURE_JAVA_AUDIO_DECODERS.md)
-
-## 🎉 Summary
-
-The **aqli-safetensor-engine** module is **fully operational** with:
-
-- ✅ All dependencies properly configured
-- ✅ Audio module integrated (no ffmpeg required!)
-- ✅ Quantization module integrated
-- ✅ Integration tests passing
-- ✅ Ready for production use
-
-**Total integration:** 6 modules, ~10,000 lines of code, 100% Java
+This README describes the current Gradle/source configuration and should be updated alongside future integration changes.
