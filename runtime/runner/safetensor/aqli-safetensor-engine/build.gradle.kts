@@ -30,11 +30,7 @@ sourceSets {
     }
     named("test") {
         java {
-            // Stale tests referencing removed/renamed APIs — need migration to InferenceRequest SPI.
-            exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceModelPathResolverTest.java")
-            exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceRequestPlannerWiringTest.java")
-            exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceRequestRuntimeConfigMapperTest.java")
-            exclude("tech/kayys/aqli/safetensor/engine/planning/RequestQuantizationPlannerTest.java")
+            // Legacy no-op request-planning classes and their excluded tests were removed.
             // Stale tests referencing removed forward/attention types
             exclude("tech/kayys/aqli/safetensor/engine/forward/DirectForwardGemma4Bf16LinearPolicyTest.java")
             exclude("tech/kayys/aqli/safetensor/engine/forward/DirectForwardMetalHalfLinearExecutionPlanTest.java")
