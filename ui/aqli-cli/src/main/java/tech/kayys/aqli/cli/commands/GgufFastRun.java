@@ -125,7 +125,7 @@ public final class GgufFastRun {
                 return FALLBACK_TO_FULL_CLI;
             }
             EngineMode engine = parsed.engineMode();
-            if (daemonEnabled() && engine != EngineMode.JAVA && engine != EngineMode.BENCHMARK) {
+            if (daemonEnabled() && engine != EngineMode.BENCHMARK) {
                 OptionalInt daemonStatus = requestDaemon(args);
                 if (daemonStatus.isPresent()) {
                     return daemonStatus.getAsInt();
@@ -156,8 +156,8 @@ public final class GgufFastRun {
                 return COMMAND_ERROR;
             }
             EngineMode engine = parsed.engineMode();
-            if (engine == EngineMode.JAVA || engine == EngineMode.BENCHMARK) {
-                System.err.println("GGUF daemon prewarm requires the llama.cpp fast path.");
+            if (engine == EngineMode.BENCHMARK) {
+                System.err.println("GGUF daemon prewarm does not support benchmark mode.");
                 return COMMAND_ERROR;
             }
             if (resolveGgufModel(parsed).isEmpty()) {
@@ -565,25 +565,34 @@ public final class GgufFastRun {
                 }
                 tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest = reqBuilder.build();
 
-                tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
-                        new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
-
                 long openStartNanos = System.nanoTime();
-                long openNanos;
+                tech.kayys.aljabr.gguf.api.GgufBackend backend = null;
+                boolean shouldClose = false;
+                if (sessionCache != null) {
+                    backend = sessionCache.acquireJavaBackend(modelPath);
+                } else {
+                    tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
+                            new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+                    backend = provider.create(modelPath, Map.of("backend", "java"));
+                    shouldClose = true;
+                }
+                long openNanos = System.nanoTime() - openStartNanos;
                 long generateNanos;
                 long afterGenerateNanos;
                 String text;
                 tech.kayys.aljabr.spi.inference.InferenceResponse response = null;
 
-                try (tech.kayys.aljabr.gguf.api.GgufBackend backend = provider.create(modelPath, Map.of("backend", "java"))) {
-                    openNanos = System.nanoTime() - openStartNanos;
-
+                try {
                     long generateStartNanos = System.nanoTime();
                     response = backend.execute(inferenceRequest);
                     afterGenerateNanos = System.nanoTime();
                     generateNanos = afterGenerateNanos - generateStartNanos;
 
                     text = response != null && response.getContent() != null ? response.getContent() : "";
+                } finally {
+                    if (shouldClose && backend != null) {
+                        backend.close();
+                    }
                 }
 
                 if (args.debugPrompt) {
@@ -717,6 +726,40 @@ public final class GgufFastRun {
                     sessionCache,
                     runnerName);
         }
+    }
+
+    private static int prewarmWithJava(
+            Path modelPath,
+            FastArgs args,
+            PrintStream out,
+            PrintStream err,
+            GgufSessionCache sessionCache) throws Throwable {
+        long startNanos = System.nanoTime();
+        long openStartNanos = System.nanoTime();
+        tech.kayys.aljabr.gguf.api.GgufBackend backend = sessionCache != null
+                ? sessionCache.acquireJavaBackend(modelPath)
+                : new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider().create(modelPath, Map.of("backend", "java"));
+        long openNanos = System.nanoTime() - openStartNanos;
+        String rawPrompt = (args.prompt != null && !args.prompt.isBlank()) ? args.prompt : "Hello";
+        String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
+        var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
+                .model(modelPath.getFileName().toString())
+                .prompt(formattedPrompt)
+                .message(tech.kayys.aljabr.spi.Message.user(rawPrompt))
+                .maxTokens(prewarmTokenCount())
+                .temperature(0.0);
+        long genStartNanos = System.nanoTime();
+        backend.execute(reqBuilder.build());
+        long generateNanos = System.nanoTime() - genStartNanos;
+        long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
+        out.printf("Prewarmed Java-native GGUF daemon for %s (tokens=%d).%n",
+                modelPath.getFileName(), prewarmTokenCount());
+        out.printf("[GGUF daemon prewarm, Duration: %.2fs]%n", durationMs / 1000.0d);
+        if (fastRunTiming()) {
+            err.printf("Java GGUF timing: open=%.3fms, generateCall=%.3fms%n",
+                    openNanos / 1_000_000.0d, generateNanos / 1_000_000.0d);
+        }
+        return 0;
     }
 
     private static int prewarmWithLlamaCpp(
@@ -1799,6 +1842,22 @@ public final class GgufFastRun {
 
     private static final class GgufSessionCache implements AutoCloseable {
         private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
+        private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f, true);
+
+        private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath) throws Exception {
+            Path key = modelPath.toAbsolutePath().normalize();
+            tech.kayys.aljabr.gguf.api.GgufBackend existing = javaBackends.get(key);
+            if (existing != null) {
+                daemonLog("java backend cache hit: " + key.getFileName());
+                return existing;
+            }
+            daemonLog("java backend cache miss: " + key.getFileName());
+            tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
+                    new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+            tech.kayys.aljabr.gguf.api.GgufBackend opened = provider.create(key, Map.of("backend", "java"));
+            javaBackends.put(key, opened);
+            return opened;
+        }
 
         private SessionLease acquire(
                 Path modelPath,
@@ -1923,6 +1982,13 @@ public final class GgufFastRun {
                 session.close();
             }
             sessions.clear();
+            for (tech.kayys.aljabr.gguf.api.GgufBackend backend : javaBackends.values()) {
+                try {
+                    backend.close();
+                } catch (Exception ignored) {
+                }
+            }
+            javaBackends.clear();
         }
     }
 
@@ -2548,7 +2614,12 @@ public final class GgufFastRun {
                     if (modelPath.isEmpty()) {
                         status = FALLBACK_TO_FULL_CLI;
                     } else if (prewarmRequest) {
-                        status = prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
+                        EngineMode engine = parsed.engineMode();
+                        if (engine == EngineMode.JAVA) {
+                            status = prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache);
+                        } else {
+                            status = prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
+                        }
                     } else {
                         status = generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
                     }
