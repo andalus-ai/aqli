@@ -1,6 +1,6 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aqli.inference.llamacpp.GGUFChatTemplateService;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aljabr.spi.model.ModelManifest;
-import tech.kayys.aljabr.spi.model.ModelFormat;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 import java.util.Collections;
 import java.util.List;

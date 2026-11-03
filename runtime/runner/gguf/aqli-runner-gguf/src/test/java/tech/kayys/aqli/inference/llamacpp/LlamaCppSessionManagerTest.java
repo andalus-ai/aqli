@@ -1,6 +1,6 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aqli.inference.llamacpp.GGUFChatTemplateService;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -249,25 +249,11 @@ class LlamaCppSessionManagerTest {
     }
 
     @Test
+    @org.junit.jupiter.api.Disabled("Adaptive pressure feedback loop removed in favor of static pool timeout")
     @DisplayName("Adaptive idle timeout should tighten under sustained pressure and recover after decay")
     void testAdaptiveIdleTimeoutFeedbackLoop() {
-        Duration baseline = sessionManager.resolveAdaptiveIdleTimeoutForTest(config);
-
-        for (int i = 0; i < 8; i++) {
-            sessionManager.recordAdaptiveTelemetryForTest(true, 0);
-        }
-
-        Duration tightened = sessionManager.resolveAdaptiveIdleTimeoutForTest(config);
-        assertThat(tightened).isLessThan(baseline);
-        assertThat(sessionManager.adaptivePressureScoreForTest()).isGreaterThan(0.60d);
-
-        for (int i = 0; i < 12; i++) {
-            sessionManager.recordAdaptiveTelemetryForTest(false, 0);
-        }
-
-        Duration recovered = sessionManager.resolveAdaptiveIdleTimeoutForTest(config);
-        assertThat(recovered).isGreaterThan(tightened);
-        assertThat(sessionManager.adaptivePressureScoreForTest()).isLessThan(0.35d);
+        Duration baseline = config.sessionPoolIdleTimeout();
+        assertThat(baseline).isNotNull();
     }
 
 }

@@ -1,12 +1,12 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aqli.inference.llamacpp.GGUFChatTemplateService;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aljabr.spi.model.ModelManifest;
-import tech.kayys.aljabr.spi.model.ModelFormat;
+import tech.kayys.aljabr.core.model.ModelFormat;
 import tech.kayys.aljabr.spi.model.ArtifactLocation;
 
 import java.lang.foreign.Arena;

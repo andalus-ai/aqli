@@ -6,7 +6,7 @@ import org.mockito.Mockito;
 
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.observability.NoopAdapterMetricsRecorder;
-import tech.kayys.aqli.spi.provider.ProviderRequest;
+import tech.kayys.aqli.spi.inference.InferenceRequest;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -150,12 +150,12 @@ class LoraAdapterManagerTest {
         assertThat(manager.resolve(requestFor(adapter), "tenant-allowed")).isPresent();
     }
 
-    private ProviderRequest requestFor(Path adapterPath) {
+    private InferenceRequest requestFor(Path adapterPath) {
         return requestFor(adapterPath, null);
     }
 
-    private ProviderRequest requestFor(Path adapterPath, String adapterId) {
-        ProviderRequest.Builder builder = ProviderRequest.builder()
+    private InferenceRequest requestFor(Path adapterPath, String adapterId) {
+        InferenceRequest.Builder builder = InferenceRequest.builder()
                 .model("qwen")
                 .message(Message.user("hello"))
                 .parameter("adapter_type", "lora")
