@@ -3,8 +3,8 @@ package tech.kayys.aqli.inference.llamacpp;
 import tech.kayys.aqli.inference.llamacpp.GGUFChatTemplateService;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -24,10 +24,10 @@ import static org.mockito.Mockito.*;
 /**
  * Unit tests for LlamaCppSessionManager
  */
-@QuarkusTest
+@ExtendWith(MockitoExtension.class)
 class LlamaCppSessionManagerTest {
 
-    @Inject
+    @Mock
     LlamaCppProviderConfig config;
 
     @Mock
@@ -44,6 +44,8 @@ class LlamaCppSessionManagerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        lenient().when(config.sessionPoolMaxSize()).thenReturn(4);
+        lenient().when(config.sessionPoolIdleTimeout()).thenReturn(Duration.ofMinutes(5));
 
         sessionManager = new LlamaCppSessionManager(binding, templateService, manifestStore);
 

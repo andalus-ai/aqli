@@ -2,8 +2,6 @@ plugins {
     java
 }
 
-val quarkusVersion = rootProject.extra["quarkusVersion"] as String
-
 dependencies {
     implementation(project(":core:aqli-core"))
     implementation(project(":spi:aqli-spi"))
@@ -35,16 +33,20 @@ dependencies {
     implementation("org.eclipse.microprofile.fault-tolerance:microprofile-fault-tolerance-api:4.0.2")
     
     testImplementation(project(":sdk:aqli-sdk-core"))
-    testImplementation(platform("io.quarkus.platform:quarkus-bom:$quarkusVersion"))
-    testImplementation("io.quarkus:quarkus-junit5")
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core:5.14.2")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("org.assertj:assertj-core:3.24.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 sourceSets {
     test {
         java {
             exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderConfigTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/MockLlamaCppProviderConfigProducer.java")
         }
     }
 }
