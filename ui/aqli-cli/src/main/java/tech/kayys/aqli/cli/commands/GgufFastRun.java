@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
+import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
 
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
 
