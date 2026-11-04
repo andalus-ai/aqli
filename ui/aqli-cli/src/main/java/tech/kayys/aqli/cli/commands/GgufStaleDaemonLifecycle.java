@@ -1,6 +1,5 @@
 package tech.kayys.aqli.cli.commands;
 
-import java.time.Duration;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
@@ -28,22 +27,22 @@ final class GgufStaleDaemonLifecycle {
         this.removeLaunchctlDaemon = removeLaunchctlDaemon;
     }
 
-    OptionalInt resolvePort(Optional<GgufDaemonInfoStore.DaemonInfo> stored, String runtimeKey, boolean strictKey) {
+    OptionalInt resolvePort(Optional<GgufDaemonInfoStore.DaemonInfo> stored, String runtimeKey, boolean strictKey, boolean forceKill, long waitMillis) {
         if (stored.isEmpty()) {
             return OptionalInt.empty();
         }
         GgufDaemonInfoStore.DaemonInfo info = stored.get();
         if (!processes.isAlive(info.pid()) || (strictKey && !runtimeKey.equals(info.key()))) {
-            discard(info);
+            discard(info, forceKill, waitMillis);
             return OptionalInt.empty();
         }
         return OptionalInt.of(info.port());
     }
 
-    void discard(GgufDaemonInfoStore.DaemonInfo info) {
+    void discard(GgufDaemonInfoStore.DaemonInfo info, boolean forceKill, long waitMillis) {
         infoStore.delete();
         try {
-            processes.terminate(info.pid(), forceKill(), killWaitMillis());
+            processes.terminate(info.pid(), forceKill, Math.max(100L, waitMillis));
         } catch (Exception ignored) {
             // Stale daemon cleanup has historically been best-effort.
         } finally {
@@ -92,33 +91,4 @@ final class GgufStaleDaemonLifecycle {
         };
     }
 
-    private static boolean forceKill() {
-        return booleanConfig("aqli.gguf.fast_run.stale_daemon_force_kill", true);
-    }
-
-    private static long killWaitMillis() {
-        return Math.max(100L, longConfig("aqli.gguf.fast_run.stale_daemon_kill_wait_ms", 2000L));
-    }
-
-    private static boolean booleanConfig(String key, boolean fallback) {
-        String value = System.getProperty(key);
-        if (value == null || value.isBlank()) {
-            String env = key.toUpperCase(java.util.Locale.ROOT).replace('.', '_');
-            value = System.getenv(env);
-        }
-        return value == null || value.isBlank() ? fallback : Boolean.parseBoolean(value.trim());
-    }
-
-    private static long longConfig(String key, long fallback) {
-        String value = System.getProperty(key);
-        if (value == null || value.isBlank()) {
-            String env = key.toUpperCase(java.util.Locale.ROOT).replace('.', '_');
-            value = System.getenv(env);
-        }
-        try {
-            return value == null || value.isBlank() ? fallback : Long.parseLong(value.trim());
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
 }
