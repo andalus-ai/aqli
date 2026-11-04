@@ -1,6 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
+import tech.kayys.aqli.inference.gguf.GgufDaemonFramedOutputStream;
 
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeFrame;
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeStatusFrame;
@@ -13,7 +14,6 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.common.AttributeKey;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -2487,8 +2487,8 @@ public final class GgufFastRun {
             String[] rawArgs = request.arguments();
             boolean requestTiming = request.requestTiming();
 
-            PrintStream out = new PrintStream(new FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
-            PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
+            PrintStream out = new PrintStream(new GgufDaemonFramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
+            PrintStream err = new PrintStream(new GgufDaemonFramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
             int status;
             REQUEST_TIMING.set(requestTiming);
             try {
@@ -2816,34 +2816,6 @@ public final class GgufFastRun {
     }
 
     private record DaemonInfo(int port, long pid, String key) {
-    }
-
-    private static final class FramedOutputStream extends OutputStream {
-        private final DataOutputStream target;
-        private final int channel;
-        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-
-        private FramedOutputStream(DataOutputStream target, int channel) {
-            this.target = target;
-            this.channel = channel;
-        }
-
-        @Override
-        public void write(int b) {
-            buffer.write(b);
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len) {
-            buffer.write(b, off, len);
-        }
-
-        @Override
-        public void flush() throws IOException {
-            byte[] payload = buffer.toByteArray();
-            buffer.reset();
-            writeFrame(target, channel, payload);
-        }
     }
 
     static final class FastArgs {
