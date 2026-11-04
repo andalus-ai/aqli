@@ -3,6 +3,8 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
+import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
+
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
