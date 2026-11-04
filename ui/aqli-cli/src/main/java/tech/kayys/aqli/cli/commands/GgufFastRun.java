@@ -1,4 +1,9 @@
 package tech.kayys.aqli.cli.commands;
+
+import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.readString;
+import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeFrame;
+import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeStatusFrame;
+import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -2434,26 +2439,17 @@ public final class GgufFastRun {
                     GgufSessionCache sessionCache = new GgufSessionCache()) {
                 port = server.getLocalPort();
                 writeDaemonPort(port);
-                long idleNanos = TimeUnit.SECONDS.toNanos(
-                        longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L));
-                long lastRequestNanos = System.nanoTime();
-                server.setSoTimeout(1000);
+                long idleSeconds = longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
                 daemonLog("daemon started: pid=" + ProcessHandle.current().pid()
                         + ", port=" + port
-                        + ", idleSeconds=" + TimeUnit.NANOSECONDS.toSeconds(idleNanos));
-                boolean stop = false;
-                while (!stop) {
-                    try (Socket socket = server.accept()) {
-                        lastRequestNanos = System.nanoTime();
-                        stop = handleDaemonClient(socket, sessionCache);
-                    } catch (SocketTimeoutException ignored) {
-                        if (System.nanoTime() - lastRequestNanos > idleNanos) {
-                            daemonLog("daemon idle timeout");
-                            break;
-                        }
-                    }
-                }
-                daemonLog("daemon stopping");
+                        + ", idleSeconds=" + idleSeconds);
+                GgufDaemonServerLoop.serve(
+                        server,
+                        idleSeconds,
+                        TimeUnit.SECONDS,
+                        socket -> handleDaemonClient(socket, sessionCache),
+                        () -> daemonLog("daemon idle timeout"),
+                        () -> daemonLog("daemon stopping"));
                 if (daemonHardExit()) {
                     hardExitDaemon(0, port);
                 }
@@ -2822,44 +2818,6 @@ public final class GgufFastRun {
 
     private static long timeoutMillis() {
         return TimeUnit.SECONDS.toMillis(longConfig("aqli.gguf.fast_run.timeout_seconds", 180L));
-    }
-
-    private static void writeStatusFrame(DataOutputStream out, int status) throws IOException {
-        synchronized (out) {
-            out.write(0);
-            out.writeInt(status);
-            out.flush();
-        }
-    }
-
-    private static void writeFrame(DataOutputStream out, int channel, byte[] payload) throws IOException {
-        if (payload.length == 0) {
-            return;
-        }
-        synchronized (out) {
-            out.write(channel);
-            out.writeInt(payload.length);
-            out.write(payload);
-            out.flush();
-        }
-    }
-
-    private static void writeString(DataOutputStream out, String value) throws IOException {
-        byte[] bytes = (value == null ? "" : value).getBytes(StandardCharsets.UTF_8);
-        out.writeInt(bytes.length);
-        out.write(bytes);
-    }
-
-    private static String readString(DataInputStream in) throws IOException {
-        int length = in.readInt();
-        if (length < 0 || length > 1_048_576) {
-            throw new IOException("Invalid GGUF daemon string length: " + length);
-        }
-        byte[] bytes = in.readNBytes(length);
-        if (bytes.length != length) {
-            throw new IOException("Unexpected end of GGUF daemon string");
-        }
-        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     private record DaemonInfo(int port, long pid, String key) {
