@@ -32,5 +32,7 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-api:1.34.1")
     implementation("org.eclipse.microprofile.fault-tolerance:microprofile-fault-tolerance-api:4.0.2")
     
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation(project(":sdk:aqli-sdk-core"))
 }
