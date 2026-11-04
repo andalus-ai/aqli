@@ -34,4 +34,10 @@ sourceSets {
             exclude("tech/kayys/aqli/model/registry/ModelRegistryService.java")
         }
     }
+    test {
+        java {
+            // Legacy test for pre-split local model repository; modern tests live in aqli-model-repo-local
+            exclude("tech/kayys/aqli/model/core/LocalModelRepositoryTest.java")
+        }
+    }
 }
