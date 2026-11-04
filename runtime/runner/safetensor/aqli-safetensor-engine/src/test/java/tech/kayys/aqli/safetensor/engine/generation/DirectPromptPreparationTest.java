@@ -7,9 +7,9 @@ package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.aljabr.spi.model.ModelConfig;
-import tech.kayys.aqli.tokenizer.spi.DecodeOptions;
-import tech.kayys.aqli.tokenizer.spi.EncodeOptions;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.tokenizer.DecodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.EncodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;

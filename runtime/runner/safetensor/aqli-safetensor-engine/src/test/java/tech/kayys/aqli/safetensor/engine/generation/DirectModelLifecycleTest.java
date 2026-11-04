@@ -8,10 +8,9 @@ package tech.kayys.aqli.safetensor.engine.generation;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 import tech.kayys.aljabr.spi.model.ModelConfig;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -41,7 +40,7 @@ class DirectModelLifecycleTest {
 
         String firstKey = lifecycle.load(modelPath, null);
         String secondKey = lifecycle.load(Path.of("/tmp/aqli/../aqli/model"),
-                QuantizationEngine.QuantStrategy.NONE);
+                InferenceQuantizer.QuantStrategy.NONE);
 
         assertEquals(firstKey, secondKey);
         assertEquals(1, loads.get());
@@ -58,8 +57,8 @@ class DirectModelLifecycleTest {
         DirectModelLifecycle<FakeLoadedModel> lifecycle = lifecycle(loads, warmups, released);
         Path modelPath = Path.of("/tmp/aqli/model");
 
-        String baseKey = lifecycle.load(modelPath, QuantizationEngine.QuantStrategy.NONE);
-        String quantizedKey = lifecycle.load(modelPath, QuantizationEngine.QuantStrategy.INT4);
+        String baseKey = lifecycle.load(modelPath, InferenceQuantizer.QuantStrategy.NONE);
+        String quantizedKey = lifecycle.load(modelPath, InferenceQuantizer.QuantStrategy.INT4);
 
         assertEquals("model", baseKey);
         assertEquals("model#int4", quantizedKey);
@@ -118,7 +117,7 @@ class DirectModelLifecycleTest {
     private record FakeLoadedModel(
             Path path,
             String key,
-            QuantizationEngine.QuantStrategy quantStrategy) implements SafetensorEngine.LoadedModel {
+            InferenceQuantizer.QuantStrategy quantStrategy) implements SafetensorEngine.LoadedModel {
         @Override
         public Map<String, ?> weights() {
             return Map.of();
@@ -131,7 +130,7 @@ class DirectModelLifecycleTest {
 
         @Override
         public boolean isQuantized() {
-            return quantStrategy != QuantizationEngine.QuantStrategy.NONE;
+            return quantStrategy != InferenceQuantizer.QuantStrategy.NONE;
         }
 
         @Override

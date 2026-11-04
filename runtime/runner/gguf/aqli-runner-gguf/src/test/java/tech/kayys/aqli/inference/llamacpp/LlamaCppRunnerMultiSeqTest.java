@@ -1,12 +1,12 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aqli.inference.llamacpp.GGUFChatTemplateService;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aljabr.spi.model.ModelManifest;
-import tech.kayys.aljabr.spi.model.ModelFormat;
+import tech.kayys.aljabr.core.model.ModelFormat;
 import tech.kayys.aljabr.spi.model.ArtifactLocation;
 
 import java.lang.foreign.Arena;
@@ -58,11 +58,17 @@ class LlamaCppRunnerMultiSeqTest {
         when(binding.isEndOfGeneration(any(), anyInt())).thenReturn(false);
 
         LlamaCppRunner runner = new LlamaCppRunner(binding, config, templateService);
-        setField(runner, "context", MemorySegment.NULL);
-        setField(runner, "model", MemorySegment.NULL);
+        ModelManifest manifest = createManifest();
+        setField(runner, "initialized", true);
+        setField(runner, "context", MemorySegment.ofAddress(0x1000L));
+        setField(runner, "model", MemorySegment.ofAddress(0x2000L));
         setField(runner, "vocabSize", 4);
         setField(runner, "eosToken", -1);
-        setField(runner, "manifest", createManifest());
+        setField(runner, "runtimeBatchSize", 8);
+        setField(runner, "manifest", manifest);
+        setField(runner, "kvCacheManager", new LlamaCppKVCacheManager(binding, config, manifest));
+        setField(runner, "tokenSampler", new LlamaCppTokenSampler(binding, 4));
+        setField(runner, "metricsRecorder", new LlamaCppMetricsRecorder());
 
         InferenceRequest reqOne = InferenceRequest.builder()
                 .model("test-model")
@@ -120,11 +126,17 @@ class LlamaCppRunnerMultiSeqTest {
         when(binding.isEndOfGeneration(any(), anyInt())).thenReturn(false);
 
         LlamaCppRunner runner = new LlamaCppRunner(binding, config, templateService);
-        setField(runner, "context", MemorySegment.NULL);
-        setField(runner, "model", MemorySegment.NULL);
+        ModelManifest manifest = createManifest();
+        setField(runner, "initialized", true);
+        setField(runner, "context", MemorySegment.ofAddress(0x1000L));
+        setField(runner, "model", MemorySegment.ofAddress(0x2000L));
         setField(runner, "vocabSize", 4);
         setField(runner, "eosToken", -1);
-        setField(runner, "manifest", createManifest());
+        setField(runner, "runtimeBatchSize", 8);
+        setField(runner, "manifest", manifest);
+        setField(runner, "kvCacheManager", new LlamaCppKVCacheManager(binding, config, manifest));
+        setField(runner, "tokenSampler", new LlamaCppTokenSampler(binding, 4));
+        setField(runner, "metricsRecorder", new LlamaCppMetricsRecorder());
 
         InferenceRequest reqOne = InferenceRequest.builder()
                 .model("test-model")
@@ -178,11 +190,17 @@ class LlamaCppRunnerMultiSeqTest {
         when(binding.isEndOfGeneration(any(), anyInt())).thenReturn(false);
 
         LlamaCppRunner runner = new LlamaCppRunner(binding, config, templateService);
-        setField(runner, "context", MemorySegment.NULL);
-        setField(runner, "model", MemorySegment.NULL);
+        ModelManifest manifest = createManifest();
+        setField(runner, "initialized", true);
+        setField(runner, "context", MemorySegment.ofAddress(0x1000L));
+        setField(runner, "model", MemorySegment.ofAddress(0x2000L));
         setField(runner, "vocabSize", 4);
         setField(runner, "eosToken", -1);
-        setField(runner, "manifest", createManifest());
+        setField(runner, "runtimeBatchSize", 8);
+        setField(runner, "manifest", manifest);
+        setField(runner, "kvCacheManager", new LlamaCppKVCacheManager(binding, config, manifest));
+        setField(runner, "tokenSampler", new LlamaCppTokenSampler(binding, 4));
+        setField(runner, "metricsRecorder", new LlamaCppMetricsRecorder());
 
         InferenceRequest reqOne = InferenceRequest.builder()
                 .model("test-model")

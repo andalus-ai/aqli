@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

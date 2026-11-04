@@ -51,6 +51,9 @@ public class LoraAdapterManager {
         if (loraPathObj == null) {
             loraPathObj = request.getParameters().get("adapter.path");
         }
+        if (loraPathObj == null) {
+            loraPathObj = request.getParameters().get("adapter_path");
+        }
         if (loraPathObj == null || String.valueOf(loraPathObj).isBlank()) {
             return Optional.empty();
         }
@@ -60,11 +63,17 @@ public class LoraAdapterManager {
         if (rawScale == null) {
             rawScale = request.getParameters().get("adapter.scale");
         }
+        if (rawScale == null) {
+            rawScale = request.getParameters().get("adapter_scale");
+        }
         double scale = rawScale instanceof Number n ? n.doubleValue() : config.loraDefaultScale();
         
         Object rawId = request.getParameters().get("lora_id");
         if (rawId == null) {
             rawId = request.getParameters().get("adapter.id");
+        }
+        if (rawId == null) {
+            rawId = request.getParameters().get("adapter_id");
         }
         String adapterId = rawId != null ? String.valueOf(rawId) : rawPath;
 

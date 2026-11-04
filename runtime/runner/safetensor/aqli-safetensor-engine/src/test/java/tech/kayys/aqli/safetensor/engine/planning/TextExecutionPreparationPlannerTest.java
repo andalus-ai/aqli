@@ -12,7 +12,7 @@ import tech.kayys.aqli.safetensor.engine.session.ConversationExecutionState;
 import tech.kayys.aljabr.safetensor.spi.SafetensorEngine;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.nio.file.Path;
 import java.util.Map;

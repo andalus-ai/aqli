@@ -6,7 +6,6 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.aljabr.safetensor.quantization.QuantizationEngine;
 
 import java.nio.file.Path;
 
@@ -16,16 +15,16 @@ class DirectModelLoaderTest {
 
     @Test
     void normalizesNullQuantizationStrategyToNone() {
-        assertEquals(QuantizationEngine.QuantStrategy.NONE, DirectModelLoader.normalizeQuantStrategy(null));
-        assertEquals(QuantizationEngine.QuantStrategy.INT4,
-                DirectModelLoader.normalizeQuantStrategy(QuantizationEngine.QuantStrategy.INT4));
+        assertEquals(InferenceQuantizer.QuantStrategy.NONE, DirectModelLoader.normalizeQuantStrategy(null));
+        assertEquals(InferenceQuantizer.QuantStrategy.INT4,
+                DirectModelLoader.normalizeQuantStrategy(InferenceQuantizer.QuantStrategy.INT4));
     }
 
     @Test
     void buildsStableUnquantizedModelKey() {
         assertEquals("Phi-4-mini-instruct",
                 DirectModelLoader.modelKey(Path.of("/models/microsoft/Phi-4-mini-instruct"),
-                        QuantizationEngine.QuantStrategy.NONE));
+                        InferenceQuantizer.QuantStrategy.NONE));
         assertEquals("Phi-4-mini-instruct",
                 DirectModelLoader.modelKey(Path.of("/models/microsoft/Phi-4-mini-instruct"), null));
     }
@@ -34,6 +33,6 @@ class DirectModelLoaderTest {
     void buildsQuantizedModelKeyWithStrategySuffix() {
         assertEquals("Phi-4-mini-instruct#int4",
                 DirectModelLoader.modelKey(Path.of("/models/microsoft/Phi-4-mini-instruct"),
-                        QuantizationEngine.QuantStrategy.INT4));
+                        InferenceQuantizer.QuantStrategy.INT4));
     }
 }

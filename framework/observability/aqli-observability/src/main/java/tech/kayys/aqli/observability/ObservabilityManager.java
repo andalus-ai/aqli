@@ -47,6 +47,14 @@ public class ObservabilityManager implements AutoCloseable {
     private static final String COMPONENT_NAME = "aqli-core";
     private static final Attributes EMPTY_ATTRIBUTES = Attributes.empty();
 
+    static {
+        try {
+            Logger.getLogger("io.opentelemetry").setLevel(Level.WARNING);
+            Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(Level.WARNING);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private final OpenTelemetry openTelemetry;
     private final Meter meter;
     private final Tracer tracer;

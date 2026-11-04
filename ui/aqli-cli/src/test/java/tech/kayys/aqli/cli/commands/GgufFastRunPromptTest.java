@@ -89,6 +89,9 @@ class GgufFastRunPromptTest {
         assertEquals(
                 "Execution route: gguf (backend=CPU) [llama_cpp_gguf_fast_path]",
                 GgufFastRun.executionRouteLine("CPU", "fast path"));
+        assertEquals(
+                "Execution route: gguf (backend=java-native) [java_native_gguf_fast_path]",
+                GgufFastRun.executionRouteLine("java-native", "fast path"));
     }
 
     @Test
