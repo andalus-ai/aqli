@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonFramedOutputStream;
+import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeFrame;
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeStatusFrame;
@@ -2473,55 +2474,47 @@ public final class GgufFastRun {
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
             GgufDaemonRequestDecoder.Request request = GgufDaemonRequestDecoder.read(
                     in, DAEMON_MAGIC, DAEMON_PREWARM_MAGIC, DAEMON_STOP_MAGIC);
-            if (request.kind() == GgufDaemonRequestDecoder.Kind.STOP) {
-                writeStatusFrame(framed, 0);
-                daemonLog("daemon stop requested");
-                return true;
-            }
-            if (request.kind() == GgufDaemonRequestDecoder.Kind.UNKNOWN) {
-                writeStatusFrame(framed, FALLBACK_TO_FULL_CLI);
-                return false;
-            }
-            boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
-            String[] rawArgs = request.arguments();
-            boolean requestTiming = request.requestTiming();
-
-            PrintStream out = new PrintStream(new GgufDaemonFramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
-            PrintStream err = new PrintStream(new GgufDaemonFramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
-            int status;
-            REQUEST_TIMING.set(requestTiming);
-            try {
-                FastArgs parsed = FastArgs.parse(rawArgs);
-                if (!parsed.supported()) {
-                    status = FALLBACK_TO_FULL_CLI;
-                } else {
-                    Optional<Path> modelPath = resolveGgufModel(parsed);
-                    if (modelPath.isEmpty()) {
-                        status = FALLBACK_TO_FULL_CLI;
-                    } else if (prewarmRequest) {
-                        status = prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
-                    } else {
-                        status = generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
-                    }
-                }
-            } catch (Throwable throwable) {
-                err.println("GGUF daemon request failed: " + briefMessage(throwable));
-                if (fastRunDebug()) {
-                    throwable.printStackTrace(err);
-                }
-                status = COMMAND_ERROR;
-            } finally {
-                REQUEST_TIMING.remove();
-            }
-            out.flush();
-            err.flush();
-            writeStatusFrame(framed, status);
-            return false;
+            return GgufDaemonRequestDispatcher.dispatch(
+                    request,
+                    framed,
+                    FALLBACK_TO_FULL_CLI,
+                    () -> daemonLog("daemon stop requested"),
+                    (decoded, out, err) -> executeDaemonRequest(decoded, out, err, sessionCache));
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon client failed: " + briefMessage(e));
             }
             return false;
+        }
+    }
+
+    private static int executeDaemonRequest(
+            GgufDaemonRequestDecoder.Request request,
+            PrintStream out,
+            PrintStream err,
+            GgufSessionCache sessionCache) {
+        boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
+        REQUEST_TIMING.set(request.requestTiming());
+        try {
+            FastArgs parsed = FastArgs.parse(request.arguments());
+            if (!parsed.supported()) {
+                return FALLBACK_TO_FULL_CLI;
+            }
+            Optional<Path> modelPath = resolveGgufModel(parsed);
+            if (modelPath.isEmpty()) {
+                return FALLBACK_TO_FULL_CLI;
+            }
+            return prewarmRequest
+                    ? prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache)
+                    : generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
+        } catch (Throwable throwable) {
+            err.println("GGUF daemon request failed: " + briefMessage(throwable));
+            if (fastRunDebug()) {
+                throwable.printStackTrace(err);
+            }
+            return COMMAND_ERROR;
+        } finally {
+            REQUEST_TIMING.remove();
         }
     }
 
