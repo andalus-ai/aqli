@@ -116,9 +116,9 @@ public class ModelsResource {
     public Response getModelCapabilities(@PathParam("id") String id) {
         AqliSdk sdk = sdkProvider.getSdk();
         try {
-            Optional<ModelInfo> info = sdk.getModelInfo(id);
+            Optional<ModelInfo> info = sdk != null ? sdk.getModelInfo(id) : Optional.empty();
             java.util.List<Object> providers = safeProviders(sdk);
-            return Response.ok(new java.util.HashMap<>()).build();
+            return Response.ok(ModelCapabilityMapper.toCapabilityMatrix(id, info, providers, Optional.empty())).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(java.util.Map.of("error", e.getMessage())).build();

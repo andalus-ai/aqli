@@ -7,9 +7,9 @@ package tech.kayys.aqli.safetensor.engine.sdk;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import tech.kayys.aqli.spi.Message;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aljabr.spi.Message;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
 import java.nio.file.Files;
@@ -95,7 +95,7 @@ class LegacyDirectTextPolicyTest {
                 null,
                 "custom",
                 ModelRuntimeTraits.builder()
-                        .gemma3Text()
+                        .geluGatedFfn()
                         .build());
 
         assertThrows(IllegalStateException.class,

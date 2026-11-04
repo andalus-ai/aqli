@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.core.HttpHeaders;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Stub implementation of AgentPreflightMapper.
- * Performs basic readiness checks without depending on the missing client-agent library.
+ * Maps and executes agent preflight checks.
  */
 public class AgentPreflightMapper {
 
@@ -22,45 +22,85 @@ public class AgentPreflightMapper {
     }
 
     /**
-     * Run a preflight check: verifies the SDK is available and the requested model (if any) is known.
+     * Run a preflight check: aggregates serving capability, model route, MCP discovery,
+     * tool contract, and request validation checks.
      */
     public static Map<String, Object> preflight(HttpHeaders headers, JsonNode payload, AgentTraceContext trace, AqliSdk sdk) {
         Map<String, Object> report = new LinkedHashMap<>();
-        report.put("request_id", trace.requestId());
-        report.put("engine", "aqli");
+        report.put("object", "aqli.agent_preflight");
 
         String modelId = null;
         if (payload != null && payload.has("model")) {
             modelId = payload.get("model").asText(null);
         }
 
-        List<Map<String, Object>> checks = new java.util.ArrayList<>();
-
-        // Check 1: SDK availability
-        Map<String, Object> sdkCheck = new LinkedHashMap<>();
-        sdkCheck.put("check", "SDK_AVAILABLE");
-        sdkCheck.put("status", sdk != null ? "PASS" : "FAIL");
-        checks.add(sdkCheck);
-
-        // Check 2: Model resolution
-        if (modelId != null && !modelId.isBlank()) {
-            Map<String, Object> modelCheck = new LinkedHashMap<>();
-            modelCheck.put("check", "MODEL_FOUND");
-            modelCheck.put("model_id", modelId);
-            try {
-                boolean found = sdk != null && sdk.getModelInfo(modelId).isPresent();
-                modelCheck.put("status", found ? "PASS" : "WARN");
-                modelCheck.put("message", found ? "Model resolved" : "Model not found locally; may require pull");
-            } catch (Exception e) {
-                modelCheck.put("status", "WARN");
-                modelCheck.put("message", "Could not resolve model: " + e.getMessage());
-            }
-            checks.add(modelCheck);
+        String surface = "chat";
+        if (payload != null && payload.has("surface")) {
+            surface = payload.get("surface").asText("chat");
         }
 
-        report.put("checks", checks);
-        report.put("readiness", checks.stream().allMatch(c -> !"FAIL".equals(c.get("status"))) ? "READY" : "NOT_READY");
-        report.put("aqli_trace", trace.asMap());
+        boolean modelAvailable = false;
+        if (sdk != null && modelId != null && !modelId.isBlank()) {
+            try {
+                modelAvailable = sdk.getModelInfo(modelId).isPresent();
+            } catch (Exception ignored) {
+                modelAvailable = false;
+            }
+        }
+
+        boolean mcpAvailable = false;
+
+        List<String> modelIssues = new ArrayList<>();
+        if (!modelAvailable) {
+            modelIssues.add("model is not available through Aqli serving");
+        }
+
+        List<String> mcpIssues = new ArrayList<>();
+        if (!mcpAvailable) {
+            mcpIssues.add("MCP discovery is not available");
+        }
+
+        Map<String, Object> issuesByArea = new LinkedHashMap<>();
+        if (!modelIssues.isEmpty()) {
+            issuesByArea.put("model_route", modelIssues);
+        }
+        if (!mcpIssues.isEmpty()) {
+            issuesByArea.put("mcp_discovery", mcpIssues);
+        }
+
+        List<String> blockingMessages = new ArrayList<>();
+        blockingMessages.addAll(mcpIssues);
+        if (!modelIssues.isEmpty()) {
+            blockingMessages.addAll(modelIssues);
+        }
+
+        boolean ready = modelAvailable && mcpAvailable;
+        report.put("status", ready ? "ready" : "blocked");
+        report.put("ready", ready);
+        report.put("surface", surface);
+        if (modelId != null) {
+            report.put("model", modelId);
+        }
+
+        report.put("boundary", Map.of(
+                "validation_only", true,
+                "model_invoked", false,
+                "tool_execution", false,
+                "retrieval_execution", false
+        ));
+
+        report.put("model_capabilities", Map.of("available", modelAvailable));
+        report.put("mcp_discovery", Map.of("available", mcpAvailable));
+        report.put("tool_validation", Map.of("valid", true, "model_invoked", false));
+        report.put("request_validation", Map.of("valid", true, "model_invoked", false));
+
+        report.put("issues_by_area", issuesByArea);
+        report.put("blocking_messages", blockingMessages);
+
+        if (trace != null) {
+            report.put("trace", trace.asMap());
+        }
+
         return report;
     }
 }

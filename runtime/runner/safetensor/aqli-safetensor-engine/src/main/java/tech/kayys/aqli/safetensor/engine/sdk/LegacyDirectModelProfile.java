@@ -7,9 +7,7 @@ package tech.kayys.aqli.safetensor.engine.sdk;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jboss.logging.Logger;
-import tech.kayys.aqli.models.core.ChatTemplateFormatter;
 import tech.kayys.aqli.safetensor.engine.runtime.ModelRuntimeTraitsResolver;
-import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 
@@ -63,7 +61,8 @@ record LegacyDirectModelProfile(
     }
 
     boolean hasKnownPromptTemplate() {
-        if (runtimeTraits.nativeBf16Matvec() || runtimeTraits.geluGatedFfn() || runtimeTraits.skipDefaultSystemPromptInjection()) {
+        if (runtimeTraits.nativeBf16Matvec() || runtimeTraits.geluGatedFfn()
+                || runtimeTraits.skipDefaultSystemPromptInjection() || runtimeTraits.qwenText()) {
             return true;
         }
         if (modelType == null || modelType.isBlank()) {

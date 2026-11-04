@@ -1,5 +1,7 @@
 package tech.kayys.aqli.model.repo.local;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.List;
  * <p>This is an Aqli-owned cache record; it is deliberately independent of
  * training/quantization modules.</p>
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AqliManifest {
     private String id;
     private String modelId;
@@ -71,6 +74,7 @@ public class AqliManifest {
     public void setArchitecture(String architecture) { this.architecture = architecture; }
     public String getRepository() { return repository; }
     public void setRepository(String repository) { this.repository = repository; }
+    @JsonIgnore
     public String getShortId() { return id != null && id.length() >= 8 ? id.substring(0, 8) : id; }
 
     public boolean isPipeline() { return pipeline; }

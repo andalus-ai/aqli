@@ -6,7 +6,7 @@
 package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 
 import java.util.Random;
 

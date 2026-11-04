@@ -2,7 +2,7 @@ package tech.kayys.aqli.server.api.v1;
 
 
 import tech.kayys.aljabr.error.ErrorCode;
-import tech.kayys.aqli.spi.exception.InferenceException;import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import tech.kayys.aqli.spi.Message;
@@ -731,7 +731,7 @@ final class AgenticApiMapper {
 
     private static List<String> embeddingInputs(JsonNode node) {
         if (node == null || node.isMissingNode() || node.isNull()) {
-            throw new InferenceException(ErrorCode.VALIDATION_INVALID_FORMAT, "input or inputs is required");
+            throw new IllegalArgumentException("input or inputs is required");
         }
         if (node.isArray()) {
             List<String> inputs = new ArrayList<>();
@@ -911,7 +911,7 @@ final class AgenticApiMapper {
     private static String requiredText(JsonNode node, String field) {
         String value = text(node, field, null);
         if (isBlank(value)) {
-            throw new InferenceException(ErrorCode.VALIDATION_INVALID_FORMAT, field + " is required");
+            throw new IllegalArgumentException(field + " is required");
         }
         return value;
     }

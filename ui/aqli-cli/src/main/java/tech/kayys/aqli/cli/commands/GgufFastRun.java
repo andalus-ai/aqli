@@ -1,11 +1,11 @@
 package tech.kayys.aqli.cli.commands;
 
+import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
-import tech.kayys.aqli.inference.gguf.GgufDaemonFramedOutputStream;
+import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeFrame;
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeStatusFrame;
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
+
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -24,7 +24,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
@@ -35,7 +34,6 @@ import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -64,6 +62,22 @@ public final class GgufFastRun {
     private static final int OUTPUT_BUFFER_RETRY_LIMIT = 2;
     private static final ThreadLocal<Boolean> REQUEST_TIMING = new ThreadLocal<>();
 
+    static {
+        try {
+            java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+            if (rootLogger != null) {
+                rootLogger.setLevel(java.util.logging.Level.WARNING);
+                for (java.util.logging.Handler h : rootLogger.getHandlers()) {
+                    h.setLevel(java.util.logging.Level.WARNING);
+                }
+            }
+            java.util.logging.Logger.getLogger("io.opentelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("tech.kayys.aljabr").setLevel(java.util.logging.Level.WARNING);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private GgufFastRun() {
     }
 
@@ -72,6 +86,13 @@ public final class GgufFastRun {
     }
 
     public static void main(String[] args) {
+        for (String a : args) {
+            if ("-v".equals(a) || "--verbose".equals(a)) {
+                System.setProperty("aqli.verbose", "true");
+                System.setProperty("aljabr.metal.verbose", "true");
+                break;
+            }
+        }
         if (args.length > 0 && "__daemon".equals(args[0])) {
             hardExitProcess(runDaemon());
             return;
@@ -107,7 +128,7 @@ public final class GgufFastRun {
                 return FALLBACK_TO_FULL_CLI;
             }
             EngineMode engine = parsed.engineMode();
-            if (daemonEnabled() && engine != EngineMode.JAVA && engine != EngineMode.BENCHMARK) {
+            if (daemonEnabled() && engine != EngineMode.BENCHMARK) {
                 OptionalInt daemonStatus = requestDaemon(args);
                 if (daemonStatus.isPresent()) {
                     return daemonStatus.getAsInt();
@@ -138,8 +159,8 @@ public final class GgufFastRun {
                 return COMMAND_ERROR;
             }
             EngineMode engine = parsed.engineMode();
-            if (engine == EngineMode.JAVA || engine == EngineMode.BENCHMARK) {
-                System.err.println("GGUF daemon prewarm requires the llama.cpp fast path.");
+            if (engine == EngineMode.BENCHMARK) {
+                System.err.println("GGUF daemon prewarm does not support benchmark mode.");
                 return COMMAND_ERROR;
             }
             if (resolveGgufModel(parsed).isEmpty()) {
@@ -532,35 +553,49 @@ public final class GgufFastRun {
 
                 // Build the InferenceRequest carrying prompt + sampling params.
                 String modelName = modelPath.getFileName().toString();
-                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest =
-                        tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
-                                .model(modelName)
-                                .prompt(formattedPrompt)
-                                .message(tech.kayys.aljabr.spi.Message.user(args.prompt))
-                                .maxTokens(args.maxTokens)
-                                .temperature(args.temperature)
-                                .topP(args.topP)
-                                .topK(args.topK)
-                                .build();
-
-                tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
-                        new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+                var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
+                        .model(modelName)
+                        .prompt(formattedPrompt)
+                        .message(tech.kayys.aljabr.spi.Message.user(args.prompt))
+                        .maxTokens(args.maxTokens)
+                        .temperature(args.temperature)
+                        .topP(args.topP)
+                        .topK(args.topK);
+                if (!Double.isNaN(args.repeatPenalty)) {
+                    reqBuilder.repeatPenalty(args.repeatPenalty);
+                } else if (args.temperature <= 0.0) {
+                    reqBuilder.repeatPenalty(1.0);
+                }
+                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest = reqBuilder.build();
 
                 long openStartNanos = System.nanoTime();
-                long openNanos;
+                tech.kayys.aljabr.gguf.api.GgufBackend backend = null;
+                boolean shouldClose = false;
+                if (sessionCache != null) {
+                    backend = sessionCache.acquireJavaBackend(modelPath);
+                } else {
+                    tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
+                            new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+                    backend = provider.create(modelPath, Map.of("backend", "java"));
+                    shouldClose = true;
+                }
+                long openNanos = System.nanoTime() - openStartNanos;
                 long generateNanos;
                 long afterGenerateNanos;
                 String text;
+                tech.kayys.aljabr.spi.inference.InferenceResponse response = null;
 
-                try (tech.kayys.aljabr.gguf.api.GgufBackend backend = provider.create(modelPath, Map.of("backend", "java"))) {
-                    openNanos = System.nanoTime() - openStartNanos;
-
+                try {
                     long generateStartNanos = System.nanoTime();
-                    tech.kayys.aljabr.spi.inference.InferenceResponse response = backend.execute(inferenceRequest);
+                    response = backend.execute(inferenceRequest);
                     afterGenerateNanos = System.nanoTime();
                     generateNanos = afterGenerateNanos - generateStartNanos;
 
                     text = response != null && response.getContent() != null ? response.getContent() : "";
+                } finally {
+                    if (shouldClose && backend != null) {
+                        backend.close();
+                    }
                 }
 
                 if (args.debugPrompt) {
@@ -583,10 +618,18 @@ public final class GgufFastRun {
                 }
 
                 if (!fastRunQuiet() && !args.noInfo) {
-                    // Approximate output tokens for stats.
-                    int outputTokens = text.isBlank() ? 0 : (int) (text.trim().split("\\s+").length * 1.3);
+                    int outputTokens = response != null && response.getOutputTokens() > 0
+                            ? response.getOutputTokens()
+                            : (text.isBlank() ? 0 : (int) (text.trim().split("\\s+").length * 1.3));
+                    Optional<String> nativeMetrics = Optional.empty();
+                    if (response != null && response.getMetadata() != null) {
+                        Object nm = response.getMetadata().get("nativeMetrics");
+                        if (nm != null) {
+                            nativeMetrics = Optional.of(nm.toString());
+                        }
+                    }
                     printFastRunStats(out, "Java-native GGUF", outputTokens,
-                            startNanos, openNanos, generateNanos, afterGenerateNanos);
+                            startNanos, openNanos, generateNanos, afterGenerateNanos, nativeMetrics);
                 }
                 return 0;
             } catch (Throwable e) {
@@ -686,6 +729,40 @@ public final class GgufFastRun {
                     sessionCache,
                     runnerName);
         }
+    }
+
+    private static int prewarmWithJava(
+            Path modelPath,
+            FastArgs args,
+            PrintStream out,
+            PrintStream err,
+            GgufSessionCache sessionCache) throws Throwable {
+        long startNanos = System.nanoTime();
+        long openStartNanos = System.nanoTime();
+        tech.kayys.aljabr.gguf.api.GgufBackend backend = sessionCache != null
+                ? sessionCache.acquireJavaBackend(modelPath)
+                : new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider().create(modelPath, Map.of("backend", "java"));
+        long openNanos = System.nanoTime() - openStartNanos;
+        String rawPrompt = (args.prompt != null && !args.prompt.isBlank()) ? args.prompt : "Hello";
+        String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
+        var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
+                .model(modelPath.getFileName().toString())
+                .prompt(formattedPrompt)
+                .message(tech.kayys.aljabr.spi.Message.user(rawPrompt))
+                .maxTokens(prewarmTokenCount())
+                .temperature(0.0);
+        long genStartNanos = System.nanoTime();
+        backend.execute(reqBuilder.build());
+        long generateNanos = System.nanoTime() - genStartNanos;
+        long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
+        out.printf("Prewarmed Java-native GGUF daemon for %s (tokens=%d).%n",
+                modelPath.getFileName(), prewarmTokenCount());
+        out.printf("[GGUF daemon prewarm, Duration: %.2fs]%n", durationMs / 1000.0d);
+        if (fastRunTiming()) {
+            err.printf("Java GGUF timing: open=%.3fms, generateCall=%.3fms%n",
+                    openNanos / 1_000_000.0d, generateNanos / 1_000_000.0d);
+        }
+        return 0;
     }
 
     private static int prewarmWithLlamaCpp(
@@ -1270,10 +1347,13 @@ public final class GgufFastRun {
 
     static String executionRouteLine(String backendName, String runnerName) {
         String backend = backendName == null || backendName.isBlank() ? "unknown" : backendName;
-        return "Execution route: gguf (backend=" + backend + ") [" + executionRouteTag(runnerName) + "]";
+        return "Execution route: gguf (backend=" + backend + ") [" + executionRouteTag(backend, runnerName) + "]";
     }
 
-    private static String executionRouteTag(String runnerName) {
+    private static String executionRouteTag(String backendName, String runnerName) {
+        if ("java-native".equalsIgnoreCase(backendName) || "java".equalsIgnoreCase(backendName)) {
+            return "java_native_gguf_fast_path";
+        }
         String normalized = runnerName == null ? "" : runnerName.trim().toLowerCase(Locale.ROOT);
         if (normalized.contains("daemon")) {
             return "llama_cpp_gguf_daemon";
@@ -1765,6 +1845,22 @@ public final class GgufFastRun {
 
     private static final class GgufSessionCache implements AutoCloseable {
         private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
+        private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f, true);
+
+        private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath) throws Exception {
+            Path key = modelPath.toAbsolutePath().normalize();
+            tech.kayys.aljabr.gguf.api.GgufBackend existing = javaBackends.get(key);
+            if (existing != null) {
+                daemonLog("java backend cache hit: " + key.getFileName());
+                return existing;
+            }
+            daemonLog("java backend cache miss: " + key.getFileName());
+            tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
+                    new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+            tech.kayys.aljabr.gguf.api.GgufBackend opened = provider.create(key, Map.of("backend", "java"));
+            javaBackends.put(key, opened);
+            return opened;
+        }
 
         private SessionLease acquire(
                 Path modelPath,
@@ -1889,6 +1985,13 @@ public final class GgufFastRun {
                 session.close();
             }
             sessions.clear();
+            for (tech.kayys.aljabr.gguf.api.GgufBackend backend : javaBackends.values()) {
+                try {
+                    backend.close();
+                } catch (Exception ignored) {
+                }
+            }
+            javaBackends.clear();
         }
     }
 
@@ -2298,7 +2401,6 @@ public final class GgufFastRun {
     private static boolean startDaemon() {
         deleteDaemonPortFile();
         try {
-            Files.createDirectories(daemonRunDir());
             Files.createDirectories(daemonLogFile().getParent());
             List<String> command = new ArrayList<>();
             command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
@@ -2471,23 +2573,30 @@ public final class GgufFastRun {
             socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeoutMillis()));
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
-            GgufDaemonRequestDecoder.Request request = GgufDaemonRequestDecoder.read(
-                    in, DAEMON_MAGIC, DAEMON_PREWARM_MAGIC, DAEMON_STOP_MAGIC);
-            if (request.kind() == GgufDaemonRequestDecoder.Kind.STOP) {
+<<<<<<< HEAD
+            String magic = readString(in);
+            if (DAEMON_STOP_MAGIC.equals(magic)) {
                 writeStatusFrame(framed, 0);
                 daemonLog("daemon stop requested");
                 return true;
             }
-            if (request.kind() == GgufDaemonRequestDecoder.Kind.UNKNOWN) {
+            boolean prewarmRequest = DAEMON_PREWARM_MAGIC.equals(magic);
+            if (!DAEMON_MAGIC.equals(magic) && !prewarmRequest) {
                 writeStatusFrame(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
-            boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
-            String[] rawArgs = request.arguments();
-            boolean requestTiming = request.requestTiming();
+            int argCount = in.readInt();
+            if (argCount < 0 || argCount > 512) {
+                throw new IOException("Invalid GGUF daemon arg count: " + argCount);
+            }
+            String[] rawArgs = new String[argCount];
+            for (int i = 0; i < argCount; i++) {
+                rawArgs[i] = readString(in);
+            }
+            boolean requestTiming = in.readBoolean();
 
-            PrintStream out = new PrintStream(new GgufDaemonFramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
-            PrintStream err = new PrintStream(new GgufDaemonFramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
+            PrintStream out = new PrintStream(new FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
+            PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
             int status;
             REQUEST_TIMING.set(requestTiming);
             try {
@@ -2499,7 +2608,12 @@ public final class GgufFastRun {
                     if (modelPath.isEmpty()) {
                         status = FALLBACK_TO_FULL_CLI;
                     } else if (prewarmRequest) {
-                        status = prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
+                        EngineMode engine = parsed.engineMode();
+                        if (engine == EngineMode.JAVA) {
+                            status = prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache);
+                        } else {
+                            status = prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
+                        }
                     } else {
                         status = generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
                     }
@@ -2517,11 +2631,51 @@ public final class GgufFastRun {
             err.flush();
             writeStatusFrame(framed, status);
             return false;
+=======
+            GgufDaemonRequestDecoder.Request request = GgufDaemonRequestDecoder.read(
+                    in, DAEMON_MAGIC, DAEMON_PREWARM_MAGIC, DAEMON_STOP_MAGIC);
+            return GgufDaemonRequestDispatcher.dispatch(
+                    request,
+                    framed,
+                    FALLBACK_TO_FULL_CLI,
+                    () -> daemonLog("daemon stop requested"),
+                    (decoded, out, err) -> executeDaemonRequest(decoded, out, err, sessionCache));
+>>>>>>> 92a0034d0af0da0705ab8ce822f1edf1138eeca0
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon client failed: " + briefMessage(e));
             }
             return false;
+        }
+    }
+
+    private static int executeDaemonRequest(
+            GgufDaemonRequestDecoder.Request request,
+            PrintStream out,
+            PrintStream err,
+            GgufSessionCache sessionCache) {
+        boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
+        REQUEST_TIMING.set(request.requestTiming());
+        try {
+            FastArgs parsed = FastArgs.parse(request.arguments());
+            if (!parsed.supported()) {
+                return FALLBACK_TO_FULL_CLI;
+            }
+            Optional<Path> modelPath = resolveGgufModel(parsed);
+            if (modelPath.isEmpty()) {
+                return FALLBACK_TO_FULL_CLI;
+            }
+            return prewarmRequest
+                    ? prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache)
+                    : generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
+        } catch (Throwable throwable) {
+            err.println("GGUF daemon request failed: " + briefMessage(throwable));
+            if (fastRunDebug()) {
+                throwable.printStackTrace(err);
+            }
+            return COMMAND_ERROR;
+        } finally {
+            REQUEST_TIMING.remove();
         }
     }
 
@@ -2575,7 +2729,7 @@ public final class GgufFastRun {
     }
 
     private static OptionalInt readDaemonPort() {
-        Optional<DaemonInfo> info = readDaemonInfo();
+        Optional<GgufDaemonInfoStore.DaemonInfo> info = readDaemonInfo();
         if (info.isEmpty()) {
             return OptionalInt.empty();
         }
@@ -2590,36 +2744,16 @@ public final class GgufFastRun {
         return OptionalInt.of(info.get().port());
     }
 
-    private static Optional<DaemonInfo> readDaemonInfo() {
-        try {
-            Path portFile = daemonPortFile();
-            if (!Files.isRegularFile(portFile)) {
-                return Optional.empty();
-            }
-            List<String> lines = Files.readAllLines(portFile, StandardCharsets.UTF_8);
-            if (lines.size() < 3) {
-                return Optional.empty();
-            }
-            int port = Integer.parseInt(lines.get(0).trim());
-            long pid = Long.parseLong(lines.get(1).trim());
-            String key = lines.get(2);
-            return port > 0 && port <= 65535
-                    ? Optional.of(new DaemonInfo(port, pid, key))
-                    : Optional.empty();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
+    private static Optional<GgufDaemonInfoStore.DaemonInfo> readDaemonInfo() {
+        return daemonInfoStore().read();
     }
 
     private static void writeDaemonPort(int port) throws IOException {
-        Files.writeString(daemonPortFile(),
-                port + System.lineSeparator()
-                        + ProcessHandle.current().pid() + System.lineSeparator()
-                        + daemonKey() + System.lineSeparator(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE);
+        daemonInfoStore().write(port, ProcessHandle.current().pid(), daemonKey());
+    }
+
+    private static GgufDaemonInfoStore daemonInfoStore() {
+        return new GgufDaemonInfoStore(daemonPortFile());
     }
 
     private static String daemonKey() {
@@ -2670,7 +2804,7 @@ public final class GgufFastRun {
         }
     }
 
-    private static void discardStaleDaemon(DaemonInfo info) {
+    private static void discardStaleDaemon(GgufDaemonInfoStore.DaemonInfo info) {
         deleteDaemonPortFile();
         try {
             terminateStaleDaemonProcess(info.pid());
@@ -2774,10 +2908,7 @@ public final class GgufFastRun {
     }
 
     private static void deleteDaemonPortFile() {
-        try {
-            Files.deleteIfExists(daemonPortFile());
-        } catch (Exception ignored) {
-        }
+        daemonInfoStore().delete();
     }
 
     private static void deleteDaemonPortFileIfPort(int port) {
@@ -2814,9 +2945,6 @@ public final class GgufFastRun {
         return TimeUnit.SECONDS.toMillis(longConfig("aqli.gguf.fast_run.timeout_seconds", 180L));
     }
 
-    private record DaemonInfo(int port, long pid, String key) {
-    }
-
     static final class FastArgs {
         private String model;
         private String modelFile;
@@ -2825,6 +2953,7 @@ public final class GgufFastRun {
         private double temperature = 0.2d;
         private double topP = 0.9d;
         private int topK = 40;
+        private double repeatPenalty = Double.NaN;
         private String provider;
         private String backend = stringConfig("aqli.gguf.fast_run.backend", "metal");
         private String engine = firstNonBlank(
@@ -2835,6 +2964,7 @@ public final class GgufFastRun {
         private boolean noInfo = false;
         private boolean raw = false;
         private boolean debugPrompt = false;
+        private boolean verbose = false;
         private boolean supported = true;
 
         private boolean supported() {
@@ -2918,6 +3048,11 @@ public final class GgufFastRun {
                     case "--llamacpp", "--llama-cpp" -> parsed.engine = "llamacpp";
                     case "--benchmark", "--bench" -> parsed.engine = "benchmark";
                     case "--no-banner", "--suppress-banner" -> parsed.banner = false;
+                    case "-v", "--verbose" -> {
+                        parsed.verbose = true;
+                        System.setProperty("aqli.verbose", "true");
+                        System.setProperty("aljabr.metal.verbose", "true");
+                    }
                     case "--no-info" -> parsed.noInfo = true;
                     case "--raw" -> parsed.raw = true;
                     case "--debug-prompt" -> parsed.debugPrompt = true;
@@ -2941,6 +3076,11 @@ public final class GgufFastRun {
                     case "--top-k" -> {
                         Value next = valueOrNext(value, args, i);
                         parsed.topK = parseInt(next.value(), parsed.topK);
+                        i = next.index();
+                    }
+                    case "--repeat-penalty", "--repeat_penalty", "--repetition-penalty" -> {
+                        Value next = valueOrNext(value, args, i);
+                        parsed.repeatPenalty = parseDouble(next.value(), parsed.repeatPenalty);
                         i = next.index();
                     }
                     default -> {

@@ -1788,7 +1788,11 @@ export DYLD_FALLBACK_LIBRARY_PATH="\$HOME/.aqli/libs:\$HOME/.aqli/libs/llama\${D
 aqli_filter_java_stderr() {
     local stderr_file="\${1:-}"
     [ -n "\$stderr_file" ] && [ -f "\$stderr_file" ] || return 0
-    grep -v -e "WARNING: Using incubator modules" -e "^Picked up JAVA_TOOL_OPTIONS:" "\$stderr_file" >&2 || true
+    grep -v -e "WARNING: Using incubator modules" \
+            -e "^Picked up JAVA_TOOL_OPTIONS:" \
+            -e "AutoConfiguredOpenTelemetrySdk found on classpath" \
+            -e "io.opentelemetry.api.GlobalOpenTelemetry" \
+            "\$stderr_file" >&2 || true
 }
 
 aqli_run_java_filtered() {
