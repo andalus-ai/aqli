@@ -2439,26 +2439,17 @@ public final class GgufFastRun {
                     GgufSessionCache sessionCache = new GgufSessionCache()) {
                 port = server.getLocalPort();
                 writeDaemonPort(port);
-                long idleNanos = TimeUnit.SECONDS.toNanos(
-                        longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L));
-                long lastRequestNanos = System.nanoTime();
-                server.setSoTimeout(1000);
+                long idleSeconds = longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
                 daemonLog("daemon started: pid=" + ProcessHandle.current().pid()
                         + ", port=" + port
-                        + ", idleSeconds=" + TimeUnit.NANOSECONDS.toSeconds(idleNanos));
-                boolean stop = false;
-                while (!stop) {
-                    try (Socket socket = server.accept()) {
-                        lastRequestNanos = System.nanoTime();
-                        stop = handleDaemonClient(socket, sessionCache);
-                    } catch (SocketTimeoutException ignored) {
-                        if (System.nanoTime() - lastRequestNanos > idleNanos) {
-                            daemonLog("daemon idle timeout");
-                            break;
-                        }
-                    }
-                }
-                daemonLog("daemon stopping");
+                        + ", idleSeconds=" + idleSeconds);
+                GgufDaemonServerLoop.serve(
+                        server,
+                        idleSeconds,
+                        TimeUnit.SECONDS,
+                        socket -> handleDaemonClient(socket, sessionCache),
+                        () -> daemonLog("daemon idle timeout"),
+                        () -> daemonLog("daemon stopping"));
                 if (daemonHardExit()) {
                     hardExitDaemon(0, port);
                 }
