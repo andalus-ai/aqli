@@ -1,7 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
-import tech.kayys.aqli.inference.gguf.GgufDaemonFramedOutputStream;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeFrame;
