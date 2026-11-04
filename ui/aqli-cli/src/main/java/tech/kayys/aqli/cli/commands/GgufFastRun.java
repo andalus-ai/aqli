@@ -1,5 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 
+import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
