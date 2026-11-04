@@ -34,7 +34,6 @@ import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -2297,7 +2296,6 @@ public final class GgufFastRun {
     private static boolean startDaemon() {
         deleteDaemonPortFile();
         try {
-            Files.createDirectories(daemonRunDir());
             Files.createDirectories(daemonLogFile().getParent());
             List<String> command = new ArrayList<>();
             command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
@@ -2566,7 +2564,7 @@ public final class GgufFastRun {
     }
 
     private static OptionalInt readDaemonPort() {
-        Optional<DaemonInfo> info = readDaemonInfo();
+        Optional<GgufDaemonInfoStore.DaemonInfo> info = readDaemonInfo();
         if (info.isEmpty()) {
             return OptionalInt.empty();
         }
@@ -2581,36 +2579,16 @@ public final class GgufFastRun {
         return OptionalInt.of(info.get().port());
     }
 
-    private static Optional<DaemonInfo> readDaemonInfo() {
-        try {
-            Path portFile = daemonPortFile();
-            if (!Files.isRegularFile(portFile)) {
-                return Optional.empty();
-            }
-            List<String> lines = Files.readAllLines(portFile, StandardCharsets.UTF_8);
-            if (lines.size() < 3) {
-                return Optional.empty();
-            }
-            int port = Integer.parseInt(lines.get(0).trim());
-            long pid = Long.parseLong(lines.get(1).trim());
-            String key = lines.get(2);
-            return port > 0 && port <= 65535
-                    ? Optional.of(new DaemonInfo(port, pid, key))
-                    : Optional.empty();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
+    private static Optional<GgufDaemonInfoStore.DaemonInfo> readDaemonInfo() {
+        return daemonInfoStore().read();
     }
 
     private static void writeDaemonPort(int port) throws IOException {
-        Files.writeString(daemonPortFile(),
-                port + System.lineSeparator()
-                        + ProcessHandle.current().pid() + System.lineSeparator()
-                        + daemonKey() + System.lineSeparator(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE);
+        daemonInfoStore().write(port, ProcessHandle.current().pid(), daemonKey());
+    }
+
+    private static GgufDaemonInfoStore daemonInfoStore() {
+        return new GgufDaemonInfoStore(daemonPortFile());
     }
 
     private static String daemonKey() {
@@ -2661,7 +2639,7 @@ public final class GgufFastRun {
         }
     }
 
-    private static void discardStaleDaemon(DaemonInfo info) {
+    private static void discardStaleDaemon(GgufDaemonInfoStore.DaemonInfo info) {
         deleteDaemonPortFile();
         try {
             terminateStaleDaemonProcess(info.pid());
@@ -2765,10 +2743,7 @@ public final class GgufFastRun {
     }
 
     private static void deleteDaemonPortFile() {
-        try {
-            Files.deleteIfExists(daemonPortFile());
-        } catch (Exception ignored) {
-        }
+        daemonInfoStore().delete();
     }
 
     private static void deleteDaemonPortFileIfPort(int port) {
@@ -2803,9 +2778,6 @@ public final class GgufFastRun {
 
     private static long timeoutMillis() {
         return TimeUnit.SECONDS.toMillis(longConfig("aqli.gguf.fast_run.timeout_seconds", 180L));
-    }
-
-    private record DaemonInfo(int port, long pid, String key) {
     }
 
     static final class FastArgs {
