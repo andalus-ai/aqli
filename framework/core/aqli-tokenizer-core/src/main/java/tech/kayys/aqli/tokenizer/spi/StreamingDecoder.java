@@ -1,7 +1,6 @@
 package tech.kayys.aqli.tokenizer.spi;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import java.util.HashSet;
 import java.util.Set;
@@ -17,7 +16,8 @@ public class StreamingDecoder {
 
     private final Tokenizer tokenizer;
     private final DecodeOptions options;
-    private final List<Long> tokens = new ArrayList<>();
+    private long[] tokenBuffer = new long[16];
+    private int tokenCount = 0;
     private String lastFullText = "";
 
     private static final Pattern SCRIPT_DETECTOR = Pattern.compile(
@@ -47,14 +47,16 @@ public class StreamingDecoder {
      * @return the decoded string fragment corresponding to this token
      */
     public String decodeNext(long tokenId) {
-        tokens.add(tokenId);
+        if (tokenCount >= tokenBuffer.length) {
+            long[] newBuffer = new long[tokenBuffer.length * 2];
+            System.arraycopy(tokenBuffer, 0, newBuffer, 0, tokenCount);
+            tokenBuffer = newBuffer;
+        }
+        tokenBuffer[tokenCount++] = tokenId;
 
-        // We re-decode the full sequence to handle BPE merges and multi-byte UTF-8
-        // correctly across token boundaries.
-        long[] currentIds = tokens.stream().mapToLong(l -> l).toArray();
-        String currentFullText = tokenizer.decode(currentIds, options);
-
-
+        // We re-decode the full sequence using ranged decode to handle BPE merges
+        // and multi-byte UTF-8 correctly without copying prefixes.
+        String currentFullText = tokenizer.decode(tokenBuffer, 0, tokenCount, options);
 
         if (currentFullText.length() < lastFullText.length()) {
             // This can happen with certain special tokens or normalization rules.
@@ -68,13 +70,11 @@ public class StreamingDecoder {
         return delta;
     }
 
-
-
     /**
      * Clear the internal state for a new generation session.
      */
     public void reset() {
-        tokens.clear();
+        tokenCount = 0;
         lastFullText = "";
     }
 

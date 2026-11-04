@@ -1,9 +1,9 @@
 package tech.kayys.aqli.inference.llamacpp;
 
-import tech.kayys.aljabr.gguf.tokenizer.GGUFChatTemplateService;
+import tech.kayys.aqli.inference.llamacpp.GGUFChatTemplateService;
 
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aljabr.spi.model.ModelManifest;
-import tech.kayys.aljabr.spi.model.ModelFormat;
+import tech.kayys.aljabr.core.model.ModelFormat;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,10 +25,10 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 
-@QuarkusTest
+@ExtendWith(MockitoExtension.class)
 class LlamaCppRunnerTest {
 
-        @Inject
+        @Mock
         LlamaCppProviderConfig config;
 
         @Mock
@@ -42,6 +42,7 @@ class LlamaCppRunnerTest {
         @BeforeEach
         void setUp() {
                 MockitoAnnotations.openMocks(this);
+                org.mockito.Mockito.when(config.maxConcurrentRequests()).thenReturn(4);
                 runner = new LlamaCppRunner(binding, config, templateService);
         }
 
@@ -99,7 +100,7 @@ class LlamaCppRunnerTest {
 
                 assertThatThrownBy(() -> runner.infer(request))
                                 .isInstanceOf(IllegalStateException.class)
-                                .hasMessageContaining("not initialized");
+                                .hasMessageContaining("Not initialized");
         }
 
         @Test
@@ -125,8 +126,10 @@ class LlamaCppRunnerTest {
                 org.mockito.Mockito.when(localConfig.coalesceWindowMs()).thenReturn(1);
                 org.mockito.Mockito.when(localConfig.coalesceMaxBatch()).thenReturn(4);
                 org.mockito.Mockito.when(localConfig.coalesceMaxQueue()).thenReturn(16);
+                org.mockito.Mockito.when(localConfig.coalesceSeqMax()).thenReturn(1);
 
                 LlamaCppRunner localRunner = new LlamaCppRunner(binding, localConfig, templateService);
+                setField(localRunner, "coalescer", new LlamaCppCoalescer(binding, localConfig, new LlamaCppMetricsRecorder(), null));
                 Method method = LlamaCppRunner.class.getDeclaredMethod("shouldBypassCoalesce", InferenceRequest.class);
                 method.setAccessible(true);
 
@@ -154,14 +157,14 @@ class LlamaCppRunnerTest {
         @DisplayName("Reuse prefix skips KV clear and minimizes prompt decode")
         void testReusePrefixSkipsPromptPrefill() throws Exception {
                 LlamaCppProviderConfig localConfig = org.mockito.Mockito.mock(LlamaCppProviderConfig.class);
-                org.mockito.Mockito.when(localConfig.maxConcurrentRequests()).thenReturn(1);
-                org.mockito.Mockito.when(localConfig.defaultTimeout()).thenReturn(Duration.ofMillis(250));
-                org.mockito.Mockito.when(localConfig.maxContextTokens()).thenReturn(128);
-                org.mockito.Mockito.when(localConfig.batchSize()).thenReturn(8);
-                org.mockito.Mockito.when(localConfig.threads()).thenReturn(2);
-                org.mockito.Mockito.when(localConfig.gpuEnabled()).thenReturn(false);
-                org.mockito.Mockito.when(localConfig.mmapEnabled()).thenReturn(true);
-                org.mockito.Mockito.when(localConfig.mlockEnabled()).thenReturn(false);
+                org.mockito.Mockito.lenient().when(localConfig.maxConcurrentRequests()).thenReturn(1);
+                org.mockito.Mockito.lenient().when(localConfig.defaultTimeout()).thenReturn(Duration.ofMillis(250));
+                org.mockito.Mockito.lenient().when(localConfig.maxContextTokens()).thenReturn(128);
+                org.mockito.Mockito.lenient().when(localConfig.batchSize()).thenReturn(8);
+                org.mockito.Mockito.lenient().when(localConfig.threads()).thenReturn(2);
+                org.mockito.Mockito.lenient().when(localConfig.gpuEnabled()).thenReturn(false);
+                org.mockito.Mockito.lenient().when(localConfig.mmapEnabled()).thenReturn(true);
+                org.mockito.Mockito.lenient().when(localConfig.mlockEnabled()).thenReturn(false);
 
                 LlamaCppBinding localBinding = org.mockito.Mockito.mock(LlamaCppBinding.class);
                 GGUFChatTemplateService localTemplate = org.mockito.Mockito.mock(GGUFChatTemplateService.class);
@@ -180,6 +183,11 @@ class LlamaCppRunnerTest {
                 setField(localRunner, "eosToken", -1);
                 setField(localRunner, "manifest", createManifest());
                 setField(localRunner, "runtimeBatchSize", 8);
+
+                LlamaCppKVCacheManager kvManager = new LlamaCppKVCacheManager(localBinding, localConfig, createManifest());
+                setField(localRunner, "kvCacheManager", kvManager);
+                setField(localRunner, "tokenSampler", new LlamaCppTokenSampler(localBinding, 4));
+                setField(localRunner, "metricsRecorder", new LlamaCppMetricsRecorder());
 
                 // Access internal KVCacheManager to set history for prefix reuse test
                 java.lang.reflect.Field managerField = LlamaCppRunner.class.getDeclaredField("kvCacheManager");

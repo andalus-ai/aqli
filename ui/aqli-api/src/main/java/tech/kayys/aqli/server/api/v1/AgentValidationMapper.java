@@ -2,7 +2,7 @@ package tech.kayys.aqli.server.api.v1;
 
 
 import tech.kayys.aljabr.error.ErrorCode;
-import tech.kayys.aqli.spi.exception.InferenceException;import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.ws.rs.core.HttpHeaders;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
@@ -194,7 +194,7 @@ final class AgentValidationMapper {
         if (payload != null && payload.has("input")) {
             return "responses";
         }
-        throw new InferenceException(ErrorCode.VALIDATION_INVALID_FORMAT, "surface is required when it cannot be inferred");
+        throw new IllegalArgumentException("surface is required when it cannot be inferred");
     }
 
     private static String normalizeSurface(String surface) {

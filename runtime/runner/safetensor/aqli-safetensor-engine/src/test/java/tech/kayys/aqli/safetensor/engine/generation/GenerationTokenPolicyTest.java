@@ -7,12 +7,12 @@ package tech.kayys.aqli.safetensor.engine.generation;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
-import tech.kayys.aqli.safetensor.generation.GenerationConfig;
+import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
-import tech.kayys.aqli.tokenizer.spi.DecodeOptions;
-import tech.kayys.aqli.tokenizer.spi.EncodeOptions;
-import tech.kayys.aqli.tokenizer.spi.Tokenizer;
+import tech.kayys.aljabr.spi.tokenizer.DecodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.EncodeOptions;
+import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 
 import java.util.BitSet;
 import java.util.Map;
@@ -141,8 +141,8 @@ class GenerationTokenPolicyTest {
             CountingTokenizer tokenizer = new CountingTokenizer();
             GenerationTokenValidationCache validationCache = new GenerationTokenValidationCache(4);
             ModelRuntimeTraits traits = ModelRuntimeTraits.builder()
-                    .validateContinuationTokensByDecode()
-                    .rejectEmptyDecodedTokens()
+                    .validateContinuationTokensByDecode(true)
+                    .rejectEmptyDecodedTokens(true)
                     .build();
 
             assertEquals(2, sampleRepeatedCandidate(tokenizer, traits, validationCache));

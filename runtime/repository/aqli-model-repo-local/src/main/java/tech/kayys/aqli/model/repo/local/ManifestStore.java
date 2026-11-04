@@ -31,7 +31,9 @@ public class ManifestStore {
 
     ManifestStore(Path manifestDir) {
         this.manifestDir = manifestDir;
-        this.mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        this.mapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     public synchronized List<AqliManifest> listAll() {

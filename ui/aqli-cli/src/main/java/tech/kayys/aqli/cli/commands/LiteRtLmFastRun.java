@@ -78,10 +78,32 @@ public final class LiteRtLmFastRun {
                     + "If a term is ambiguous, answer the most common meaning first and mention common alternatives briefly.\n"
                     + "Question: ";
 
+    static {
+        try {
+            java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
+            if (rootLogger != null) {
+                rootLogger.setLevel(java.util.logging.Level.WARNING);
+                for (java.util.logging.Handler h : rootLogger.getHandlers()) {
+                    h.setLevel(java.util.logging.Level.WARNING);
+                }
+            }
+            java.util.logging.Logger.getLogger("io.opentelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("tech.kayys.aljabr").setLevel(java.util.logging.Level.WARNING);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private LiteRtLmFastRun() {
     }
 
     public static void main(String[] args) {
+        for (String a : args) {
+            if ("-v".equals(a) || "--verbose".equals(a)) {
+                System.setProperty("aqli.verbose", "true");
+                break;
+            }
+        }
         if (args.length > 0 && "__daemon".equals(args[0])) {
             System.exit(runDaemon());
             return;
@@ -2354,6 +2376,9 @@ public final class LiteRtLmFastRun {
                     arg = arg.substring(0, eq);
                 }
                 switch (arg) {
+                    case "-v", "--verbose" -> {
+                        System.setProperty("aqli.verbose", "true");
+                    }
                     case "--no-banner", "--suppress-banner" -> parsed.banner = false;
                     case "--model", "-m" -> {
                         Value next = valueOrNext(value, args, i);

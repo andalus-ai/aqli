@@ -92,6 +92,9 @@ class InferenceLogicExecutor {
         int seed = ((Number) request.getParameters().getOrDefault("seed", -1)).intValue();
         Random random = seed == -1 ? java.util.concurrent.ThreadLocalRandom.current() : new Random(seed);
         int maxTokens = ((Number) request.getParameters().getOrDefault("max_tokens", 128)).intValue();
+        if (maxContext > 0) {
+            maxTokens = Math.max(0, Math.min(maxTokens, maxContext - nTokens));
+        }
         long timeoutMs = Math.max(1000L, ((Number) request.getParameters().getOrDefault("inference_timeout_ms", 120000L)).longValue());
         Instant deadline = Instant.now().plusMillis(timeoutMs);
         List<String> stopSequences = resolveStopSequences(request);
@@ -158,7 +161,10 @@ class InferenceLogicExecutor {
         String prompt = (String) request.getParameters().getOrDefault("prompt", "");
         if (request.getMessages() == null || request.getMessages().isEmpty()) return prompt;
         
-        String rendered = templateService.render(chatTemplate, request.getMessages());
+        String rendered = templateService != null ? templateService.render(chatTemplate, request.getMessages()) : null;
+        if (rendered == null || rendered.isBlank()) {
+            return prompt;
+        }
         
         // Show prompt in log if verbose
         if (System.getProperty("quarkus.log.level", "INFO").equalsIgnoreCase("DEBUG")) {

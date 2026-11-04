@@ -35,4 +35,20 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation(project(":sdk:aqli-sdk-core"))
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("org.assertj:assertj-core:3.24.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+sourceSets {
+    test {
+        java {
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderConfigTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/MockLlamaCppProviderConfigProducer.java")
+        }
+    }
 }

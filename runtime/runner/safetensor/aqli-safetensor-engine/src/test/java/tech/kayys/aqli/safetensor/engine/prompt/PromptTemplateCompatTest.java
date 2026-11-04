@@ -1,7 +1,7 @@
 package tech.kayys.aqli.safetensor.engine.prompt;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.aljabr.spi.model.Message;
+import tech.kayys.aljabr.spi.Message;
 
 import java.util.List;
 
