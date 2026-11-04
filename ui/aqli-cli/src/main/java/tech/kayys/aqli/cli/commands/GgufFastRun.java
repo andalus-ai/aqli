@@ -2729,19 +2729,13 @@ public final class GgufFastRun {
     }
 
     private static OptionalInt readDaemonPort() {
-        Optional<GgufDaemonInfoStore.DaemonInfo> info = readDaemonInfo();
-        if (info.isEmpty()) {
-            return OptionalInt.empty();
-        }
-        if (!isProcessAlive(info.get().pid())) {
-            discardStaleDaemon(info.get());
-            return OptionalInt.empty();
-        }
-        if (strictDaemonKey() && !daemonKey().equals(info.get().key())) {
-            discardStaleDaemon(info.get());
-            return OptionalInt.empty();
-        }
-        return OptionalInt.of(info.get().port());
+        boolean strictKey = strictDaemonKey();
+        return staleDaemonLifecycle().resolvePort(
+                readDaemonInfo(),
+                strictKey ? daemonKey() : null,
+                strictKey,
+                staleDaemonForceKill(),
+                staleDaemonKillWaitMillis());
     }
 
     private static Optional<GgufDaemonInfoStore.DaemonInfo> readDaemonInfo() {
@@ -2792,46 +2786,11 @@ public final class GgufFastRun {
         }
     }
 
-    private static boolean isProcessAlive(long pid) {
-        if (pid <= 0 || pid == ProcessHandle.current().pid()) {
-            return false;
-        }
-        try {
-            Optional<ProcessHandle> handle = ProcessHandle.of(pid);
-            return handle.isPresent() && handle.get().isAlive();
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private static void discardStaleDaemon(GgufDaemonInfoStore.DaemonInfo info) {
-        deleteDaemonPortFile();
-        try {
-            terminateStaleDaemonProcess(info.pid());
-        } catch (Exception ignored) {
-        } finally {
-            removeLaunchctlDaemon();
-        }
-    }
-
-    private static void terminateStaleDaemonProcess(long pid) {
-        if (!isProcessAlive(pid)) {
-            return;
-        }
-        try {
-            ProcessHandle process = ProcessHandle.of(pid).orElse(null);
-            if (process == null || !process.isAlive()) {
-                return;
-            }
-            if (staleDaemonForceKill()) {
-                process.destroyForcibly();
-            } else {
-                process.destroy();
-            }
-            process.onExit().get(staleDaemonKillWaitMillis(), TimeUnit.MILLISECONDS);
-        } catch (Exception ignored) {
-            ProcessHandle.of(pid).ifPresent(ProcessHandle::destroyForcibly);
-        }
+    private static GgufStaleDaemonLifecycle staleDaemonLifecycle() {
+        return new GgufStaleDaemonLifecycle(
+                daemonInfoStore(),
+                GgufStaleDaemonLifecycle.systemProcesses(),
+                GgufFastRun::removeLaunchctlDaemon);
     }
 
     static boolean staleDaemonForceKill() {
