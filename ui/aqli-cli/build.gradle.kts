@@ -65,6 +65,7 @@ dependencies {
     implementation(project(":plugin:aqli-plugin-kernel-core"))
     implementation(project(":plugin:aqli-plugin-runner-core"))
     implementation(project(":runner:gguf:aqli-plugin-runner-gguf"))
+    implementation(project(":runner:gguf:aqli-runner-gguf"))
     implementation(project(":observability:aqli-observability"))
     implementation(project(":repository:aqli-model-repo-hf"))
     implementation(project(":repository:aqli-model-repo-kaggle"))
