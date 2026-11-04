@@ -1,8 +1,6 @@
 package tech.kayys.aqli.inference.gguf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -56,7 +54,6 @@ class GgufDaemonFramedOutputStreamTest {
 
         stream.flush();
 
-        assertTrue(bytes.size() == 0);
-        assertFalse(bytes.toByteArray().length > 0);
+        assertEquals(0, bytes.size());
     }
 }
