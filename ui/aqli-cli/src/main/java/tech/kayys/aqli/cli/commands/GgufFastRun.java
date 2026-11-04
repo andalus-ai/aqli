@@ -1,6 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.readString;
+import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
+
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeFrame;
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeStatusFrame;
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
@@ -2471,26 +2472,20 @@ public final class GgufFastRun {
             socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeoutMillis()));
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
-            String magic = readString(in);
-            if (DAEMON_STOP_MAGIC.equals(magic)) {
+            GgufDaemonRequestDecoder.Request request = GgufDaemonRequestDecoder.read(
+                    in, DAEMON_MAGIC, DAEMON_PREWARM_MAGIC, DAEMON_STOP_MAGIC);
+            if (request.kind() == GgufDaemonRequestDecoder.Kind.STOP) {
                 writeStatusFrame(framed, 0);
                 daemonLog("daemon stop requested");
                 return true;
             }
-            boolean prewarmRequest = DAEMON_PREWARM_MAGIC.equals(magic);
-            if (!DAEMON_MAGIC.equals(magic) && !prewarmRequest) {
+            if (request.kind() == GgufDaemonRequestDecoder.Kind.UNKNOWN) {
                 writeStatusFrame(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
-            int argCount = in.readInt();
-            if (argCount < 0 || argCount > 512) {
-                throw new IOException("Invalid GGUF daemon arg count: " + argCount);
-            }
-            String[] rawArgs = new String[argCount];
-            for (int i = 0; i < argCount; i++) {
-                rawArgs[i] = readString(in);
-            }
-            boolean requestTiming = in.readBoolean();
+            boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
+            String[] rawArgs = request.arguments();
+            boolean requestTiming = request.requestTiming();
 
             PrintStream out = new PrintStream(new FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
             PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
