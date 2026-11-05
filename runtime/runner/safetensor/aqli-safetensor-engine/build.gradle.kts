@@ -22,9 +22,6 @@ sourceSets {
             exclude("tech/kayys/aqli/safetensor/config/SafetensorProviderConfig.java")
             exclude("tech/kayys/aqli/safetensor/engine/lifecycle/**")
             exclude("tech/kayys/aqli/safetensor/mask/**")
-            // Legacy inference sources still depend on removed provider-era APIs and are
-            // excluded until their responsibilities are migrated to the current inference SPI.
-            exclude("tech/kayys/aqli/safetensor/inference/**")
         }
     }
     named("test") {
