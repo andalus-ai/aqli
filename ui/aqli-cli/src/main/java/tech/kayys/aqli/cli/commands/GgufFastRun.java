@@ -2573,65 +2573,6 @@ public final class GgufFastRun {
             socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeoutMillis()));
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
-<<<<<<< HEAD
-            String magic = readString(in);
-            if (DAEMON_STOP_MAGIC.equals(magic)) {
-                writeStatusFrame(framed, 0);
-                daemonLog("daemon stop requested");
-                return true;
-            }
-            boolean prewarmRequest = DAEMON_PREWARM_MAGIC.equals(magic);
-            if (!DAEMON_MAGIC.equals(magic) && !prewarmRequest) {
-                writeStatusFrame(framed, FALLBACK_TO_FULL_CLI);
-                return false;
-            }
-            int argCount = in.readInt();
-            if (argCount < 0 || argCount > 512) {
-                throw new IOException("Invalid GGUF daemon arg count: " + argCount);
-            }
-            String[] rawArgs = new String[argCount];
-            for (int i = 0; i < argCount; i++) {
-                rawArgs[i] = readString(in);
-            }
-            boolean requestTiming = in.readBoolean();
-
-            PrintStream out = new PrintStream(new FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
-            PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8);
-            int status;
-            REQUEST_TIMING.set(requestTiming);
-            try {
-                FastArgs parsed = FastArgs.parse(rawArgs);
-                if (!parsed.supported()) {
-                    status = FALLBACK_TO_FULL_CLI;
-                } else {
-                    Optional<Path> modelPath = resolveGgufModel(parsed);
-                    if (modelPath.isEmpty()) {
-                        status = FALLBACK_TO_FULL_CLI;
-                    } else if (prewarmRequest) {
-                        EngineMode engine = parsed.engineMode();
-                        if (engine == EngineMode.JAVA) {
-                            status = prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache);
-                        } else {
-                            status = prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
-                        }
-                    } else {
-                        status = generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
-                    }
-                }
-            } catch (Throwable throwable) {
-                err.println("GGUF daemon request failed: " + briefMessage(throwable));
-                if (fastRunDebug()) {
-                    throwable.printStackTrace(err);
-                }
-                status = COMMAND_ERROR;
-            } finally {
-                REQUEST_TIMING.remove();
-            }
-            out.flush();
-            err.flush();
-            writeStatusFrame(framed, status);
-            return false;
-=======
             GgufDaemonRequestDecoder.Request request = GgufDaemonRequestDecoder.read(
                     in, DAEMON_MAGIC, DAEMON_PREWARM_MAGIC, DAEMON_STOP_MAGIC);
             return GgufDaemonRequestDispatcher.dispatch(
@@ -2640,7 +2581,6 @@ public final class GgufFastRun {
                     FALLBACK_TO_FULL_CLI,
                     () -> daemonLog("daemon stop requested"),
                     (decoded, out, err) -> executeDaemonRequest(decoded, out, err, sessionCache));
->>>>>>> 92a0034d0af0da0705ab8ce822f1edf1138eeca0
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon client failed: " + briefMessage(e));
@@ -2665,9 +2605,13 @@ public final class GgufFastRun {
             if (modelPath.isEmpty()) {
                 return FALLBACK_TO_FULL_CLI;
             }
-            return prewarmRequest
-                    ? prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache)
-                    : generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
+            if (prewarmRequest) {
+                EngineMode engine = parsed.engineMode();
+                return engine == EngineMode.JAVA
+                        ? prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache)
+                        : prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
+            }
+            return generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
         } catch (Throwable throwable) {
             err.println("GGUF daemon request failed: " + briefMessage(throwable));
             if (fastRunDebug()) {
