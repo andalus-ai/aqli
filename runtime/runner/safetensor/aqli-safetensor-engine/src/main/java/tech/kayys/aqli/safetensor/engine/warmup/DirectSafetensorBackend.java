@@ -160,11 +160,6 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
                                 StreamingInferenceChunk.finalChunk(requestId, index.getAndIncrement(), "")));
     }
 
-    /** Same stream, expressed in the aqli SPI chunk type (kept for callers written against it). */
-    public Multi<tech.kayys.aqli.spi.inference.StreamingInferenceChunk> inferStream(InferenceRequest request) {
-        return stream(request).map(DirectSafetensorBackend::toAqliChunk);
-    }
-
     // ------------------------------------------------------------------ request planning
 
     /** Everything derived from a request before the engine is touched. */
@@ -338,16 +333,6 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
         InferenceResponse sanitized = DirectSafetensorTextPolicy.sanitizeResponse(response, plan.profile());
         String id = request.getRequestId();
         return id == null || id.isBlank() ? sanitized : sanitized.toBuilder().requestId(id).build();
-    }
-
-    private static tech.kayys.aqli.spi.inference.StreamingInferenceChunk toAqliChunk(StreamingInferenceChunk c) {
-        String delta = nz(c.delta());
-        if (!c.finished()) {
-            return tech.kayys.aqli.spi.inference.StreamingInferenceChunk.textDelta(c.requestId(), c.index(), delta);
-        }
-        return "error".equals(c.finishReason())
-                ? tech.kayys.aqli.spi.inference.StreamingInferenceChunk.errorChunk(c.requestId(), c.index(), delta)
-                : tech.kayys.aqli.spi.inference.StreamingInferenceChunk.finalChunk(c.requestId(), c.index(), delta);
     }
 
     private static String requestId(InferenceRequest request) {
