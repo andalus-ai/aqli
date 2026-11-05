@@ -219,7 +219,6 @@ includeOptionalProject("runner:onnx:aqli-runner-onnx", "runtime/runner/onnx/aqli
 
 includeOptionalProject("runner:safetensor:aqli-safetensor-engine", "runtime/runner/safetensor/aqli-safetensor-engine")
 includeOptionalProject("runner:safetensor:aqli-runner-flux", "runtime/runner/safetensor/aqli-runner-flux")
-// includeOptionalProject("runner:safetensor:aqli-runner-safetensor", "runtime/runner/safetensor/aqli-runner-safetensor")
 // includeOptionalProject("runner:safetensor:aqli-runner-stable-diffusion", "runtime/runner/safetensor/aqli-runner-stable-diffusion")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-api", "runtime/runner/safetensor/aqli-safetensor-api")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-core", "runtime/runner/safetensor/aqli-safetensor-core")

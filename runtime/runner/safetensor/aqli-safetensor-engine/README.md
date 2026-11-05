@@ -6,7 +6,7 @@ It is an Aqli runtime component, not a general-purpose tensor or model-loading f
 
 ## Responsibilities
 
-The current `DirectInferenceEngine` implementation is an application-scoped Aljabr `SafetensorEngine` integration. Its dependencies show the following execution collaborators:
+The active direct execution path is exposed through `DirectSafetensorBackend`, which adapts inference requests to the AQLI `DirectInferenceEngine`. The latter implements Aljabr's `SafetensorEngine` lifecycle contract while AQLI owns transformer execution. Its dependencies show the following collaborators:
 
 - Aljabr `SafetensorLoaderFacade` for loading SafeTensors data.
 - Aljabr `AccelWeightBridge` for bridging loaded weights into `AccelTensor`.
@@ -38,7 +38,7 @@ The test source set currently excludes legacy tests that reference removed APIs 
 
 ## Current migration notes
 
-- The legacy `safetensor/inference` source package remains excluded because it depends on removed provider APIs.
+- The obsolete provider-era `SafetensorEngine` facade under `safetensor/inference` has been removed; the active direct path is `engine/warmup/DirectSafetensorBackend` plus `engine/generation/DirectInferenceEngine`.
 - The former `SafetensorAqliSdk` no-op implementation has been removed; it must not be documented or reintroduced as the engine entry point.
 - The empty `InferenceRequestPlanner.plan(InferenceRequest)` stub and the excluded planning tests require a separate usage and migration audit before deciding whether to implement or remove them.
 - Audio and quantization modules are not declared as direct dependencies of this engine. Optional quantization integration is kept separate.

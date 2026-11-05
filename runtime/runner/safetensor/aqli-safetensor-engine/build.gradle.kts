@@ -22,11 +22,6 @@ sourceSets {
             exclude("tech/kayys/aqli/safetensor/config/SafetensorProviderConfig.java")
             exclude("tech/kayys/aqli/safetensor/engine/lifecycle/**")
             exclude("tech/kayys/aqli/safetensor/mask/**")
-            // Legacy inference adapter — depends on removed aqli-spi-provider surfaces
-            // (ProviderCapabilities, ProviderHealth, ProviderRequest, LibTorchProvider,
-            // GGUFConverter). The former SafetensorAqliSdk was a no-op and has been removed;
-            // migrate this legacy adapter against the current inference SPI before re-enabling it.
-            exclude("tech/kayys/aqli/safetensor/inference/**")
         }
     }
     named("test") {
