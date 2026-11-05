@@ -2606,9 +2606,13 @@ public final class GgufFastRun {
             if (modelPath.isEmpty()) {
                 return FALLBACK_TO_FULL_CLI;
             }
-            return prewarmRequest
-                    ? prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache)
-                    : generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
+            if (prewarmRequest) {
+                EngineMode engine = parsed.engineMode();
+                return engine == EngineMode.JAVA
+                        ? prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache)
+                        : prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
+            }
+            return generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
         } catch (Throwable throwable) {
             err.println("GGUF daemon request failed: " + briefMessage(throwable));
             if (fastRunDebug()) {
