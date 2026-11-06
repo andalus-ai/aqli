@@ -1,9 +1,7 @@
 package tech.kayys.aqli.spi.compat;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * Explicit conversion boundary between legacy AQLI SPI values and the canonical
@@ -115,7 +113,7 @@ public final class AljabrInferenceSpiAdapter {
                         value.getFunction().getArguments());
         return new tech.kayys.aljabr.spi.tool.ToolCall(
                 value.getId(),
-                value.getName(),
+                value.getFunction().getName(),
                 function,
                 value.getArguments(),
                 tech.kayys.aljabr.spi.tool.ToolDefinition.Type.valueOf(value.getType().name()));
@@ -130,7 +128,7 @@ public final class AljabrInferenceSpiAdapter {
                         value.getFunction().getArguments());
         return new tech.kayys.aqli.spi.tool.ToolCall(
                 value.getId(),
-                value.getName(),
+                value.getFunction().getName(),
                 function,
                 value.getArguments(),
                 tech.kayys.aqli.spi.tool.ToolDefinition.Type.valueOf(value.getType().name()));
