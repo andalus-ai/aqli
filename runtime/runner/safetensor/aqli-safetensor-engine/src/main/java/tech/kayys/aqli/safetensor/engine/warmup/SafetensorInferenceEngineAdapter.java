@@ -6,7 +6,6 @@
 package tech.kayys.aqli.safetensor.engine.warmup;
 
 import java.util.List;
-import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -146,18 +145,13 @@ public class SafetensorInferenceEngineAdapter
         if (message.getToolCalls() != null && !message.getToolCalls().isEmpty()) {
             throw new UnsupportedOperationException("Safetensors text generation does not support message tool calls");
         }
-        List<tech.kayys.aljabr.spi.Message.ContentPart> parts = null;
-        if (message.getContentParts() != null) {
-            parts = message.getContentParts().stream()
-                    .map(part -> new tech.kayys.aljabr.spi.Message.ContentPart(
-                            tech.kayys.aljabr.spi.Message.ContentType.valueOf(part.type().name()),
-                            part.text(), part.url(), part.data(), part.mimeType()))
-                    .toList();
+        if (message.getContentParts() != null && !message.getContentParts().isEmpty()) {
+            throw new UnsupportedOperationException("Safetensors text generation does not support multimodal message content");
         }
         return new tech.kayys.aljabr.spi.Message(
                 tech.kayys.aljabr.spi.Message.Role.valueOf(message.getRole().name()),
                 message.getContent(),
-                parts,
+                null,
                 message.getName(),
                 null,
                 message.getToolCallId());
