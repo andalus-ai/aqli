@@ -132,9 +132,23 @@ public interface RequestContext {
         return isCostSensitive();
     }
 
-    /** Get preferred device type. */
+    /**
+     * Compatibility adapter for consumers that require a known Aljabr device enum.
+     *
+     * <p>Prefer {@link #getPreferredDevice()} for routing because provider identifiers
+     * may be introduced independently of this enum.
+     *
+     * @deprecated Use {@link #getPreferredDevice()} to preserve unknown device identifiers.
+     */
+    @Deprecated(since = "0.1.0", forRemoval = false)
     default java.util.Optional<tech.kayys.aljabr.core.tensor.DeviceType> preferredDevice() {
-        return getPreferredDevice().map(tech.kayys.aljabr.core.tensor.DeviceType::fromId);
+        return getPreferredDevice().flatMap(id -> {
+            try {
+                return java.util.Optional.of(tech.kayys.aljabr.core.tensor.DeviceType.fromId(id));
+            } catch (IllegalArgumentException ignored) {
+                return java.util.Optional.empty();
+            }
+        });
     }
 
     /** Create a new context with a preferred device. */
