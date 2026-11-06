@@ -11,9 +11,10 @@ The following types exist in both repositories under distinct Java package names
 |---|---|---|---|
 | Conversation message | `tech.kayys.aqli.spi.Message` | `tech.kayys.aljabr.spi.Message` | Inspected implementations are effectively identical |
 | Tool definition | `tech.kayys.aqli.spi.tool.ToolDefinition` | `tech.kayys.aljabr.spi.tool.ToolDefinition` | Inspected implementations are effectively identical |
-| Inference request | `tech.kayys.aqli.spi.inference.InferenceRequest` | `tech.kayys.aljabr.spi.inference.InferenceRequest` | Similar structure, but coupled to project-local message, tool, context, and stage types |
-| Inference response | `tech.kayys.aqli.spi.inference.InferenceResponse` | `tech.kayys.aljabr.spi.inference.InferenceResponse` | Distinct public Java identities; full behavior and consumer comparison remains required |
-| Streaming chunk | `tech.kayys.aqli.spi.inference.StreamingInferenceChunk` | `tech.kayys.aljabr.spi.inference.StreamingInferenceChunk` | Very similar inspected record shape; package and modality dependencies differ |
+| Inference request | `tech.kayys.aqli.spi.inference.InferenceRequest` | `tech.kayys.aljabr.spi.inference.InferenceRequest` | Byte-for-byte identical after package normalization; both expose the same FFM `MemorySegment` API |
+| Inference response | `tech.kayys.aqli.spi.inference.InferenceResponse` | `tech.kayys.aljabr.spi.inference.InferenceResponse` | Byte-for-byte identical after package normalization, including nested finish-reason and tool-call types |
+| Streaming chunk | `tech.kayys.aqli.spi.inference.StreamingInferenceChunk` | `tech.kayys.aljabr.spi.inference.StreamingInferenceChunk` | Byte-for-byte identical after package normalization, including modality, usage, timestamp, and tool-call delta fields |
+| Response interface | `tech.kayys.aqli.spi.inference.InferenceResponseInterface` | `tech.kayys.aljabr.spi.inference.InferenceResponseInterface` | Byte-for-byte identical after package normalization |
 
 Other identified duplicates requiring the same treatment include `Attachment`, `InferenceStage`, and `InferenceResponseInterface`.
 
@@ -106,3 +107,34 @@ Before consolidating `InferenceRequest` and `RequestContext`:
 5. Only then migrate the AQLI compatibility surface to the canonical Aljabr contract.
 
 These are design and compatibility findings, not authorization to remove either public method immediately.
+
+
+## Inference DTO parity: direct normalized source comparison
+
+A direct source comparison was completed for the following four public inference DTO contracts in the current AQLI and Aljabr default branches. Each pair was identical line-for-line after replacing the package prefix `tech.kayys.aqli` / `tech.kayys.aljabr` with one neutral package token:
+
+| Contract | AQLI path | Aljabr path | Result |
+|---|---|---|---|
+| `InferenceRequest` | `:framework/spi/aqli-spi-inference` | `:core/aljabr-spi-inference` | Identical after package normalization |
+| `InferenceResponse` | `:framework/spi/aqli-spi-inference` | `:core/aljabr-spi-inference` | Identical after package normalization |
+| `StreamingInferenceChunk` | `:framework/spi/aqli-spi-inference` | `:core/aljabr-spi-inference` | Identical after package normalization |
+| `InferenceResponseInterface` | `:framework/spi/aqli-spi-inference` | `:core/aljabr-spi-inference` | Identical after package normalization |
+
+This establishes implementation duplication, not API interchangeability: Java treats the package-distinct types as unrelated, and their public signatures reference package-distinct `Message`, `ToolDefinition`, `RequestContext`, `InferenceStage`, and `Attachment` contracts. AQLI already exports the Aljabr inference SPI as an API dependency, but its public DTOs remain AQLI-owned classes.
+
+### Migration implications
+
+1. Add explicit bidirectional adapters at the AQLI inference SPI boundary. Request conversion must preserve request ID, API key, model, messages, tools, tool choice, parameters, streaming flag, preferred provider, plugin, timeout, priority, cache bypass, user/session/trace context, stage, prompt-token count, metadata, and attachments.
+2. Response conversion must preserve all token counts, duration, timestamp, metadata, tool calls, finish reason, and session ID. Do not collapse the richer response into the smaller `InferenceResponseInterface`.
+3. Streaming conversion must preserve index/order, modality, text/image delta, finished state, finish reason, usage, emitted timestamp, metadata, and tool-call start/delta/end fields.
+4. Keep the AQLI public DTOs during the compatibility window. Do not delete or deprecate them until consumers, serialization contracts, and source/binary compatibility have been verified.
+5. Do not copy `MemorySegment` from a request DTO into a portable canonical request. It is execution-scoped native state and needs a separate lifetime-owned context/handle. Until callers are inventoried and migrated, the adapter must make any omission explicit rather than silently claiming lossless conversion.
+
+### Validation still outstanding
+
+- Repository-wide import and construction-site inventory for the four DTOs, including tests, SDKs, and downstream consumers.
+- Adapter tests for null/default behavior, enum mapping, multimodal attachments, Jackson compatibility, and round-trip preservation.
+- Explicit native-context consumer inventory and execution-scope/lifetime tests.
+- CI/build validation of the adapter branch.
+
+The source comparison is complete for these four definitions; consumer inventory and runtime behavior equivalence are not yet complete.
