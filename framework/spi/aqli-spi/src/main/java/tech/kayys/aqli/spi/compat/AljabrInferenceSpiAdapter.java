@@ -107,7 +107,7 @@ public final class AljabrInferenceSpiAdapter {
     public static tech.kayys.aljabr.spi.tool.ToolCall toAljabr(
             tech.kayys.aqli.spi.tool.ToolCall value) {
         Objects.requireNonNull(value, "value");
-        tech.kayys.aqli.spi.tool.ToolCall.Function function =
+        tech.kayys.aljabr.spi.tool.ToolCall.Function function =
                 new tech.kayys.aljabr.spi.tool.ToolCall.Function(
                         value.getFunction().getName(),
                         value.getFunction().getArguments());
