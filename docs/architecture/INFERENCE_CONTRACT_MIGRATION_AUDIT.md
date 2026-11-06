@@ -46,3 +46,34 @@ Do not blindly change the dependency scope. First determine which AQLI-owned pub
 This document records a source comparison of inspected public type definitions and the AQLI inference SPI Gradle dependency declaration. It is not yet a complete repository-wide consumer inventory or downstream binary/source compatibility assessment.
 
 The next implementation gate is a complete import/usage inventory across AQLI modules, tests, SDKs, and Aljabr modules. Select the first type migration only after that inventory. No public class is removed by this audit.
+
+## Foundational contract parity: expanded source inspection
+
+A direct comparison of the four foundational types below shows that each AQLI implementation is byte-for-byte equivalent to its Aljabr counterpart after normalizing the package prefix from `tech.kayys.aqli` to `tech.kayys.aljabr`:
+
+| Concept | AQLI source module | Aljabr source module | Result |
+|---|---|---|---|
+| `Message` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
+| `RequestContext` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
+| `ToolCall` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
+| `ToolDefinition` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
+
+This expands the initial comparison: `ToolCall` and `RequestContext` are also exact duplicates, not merely similar types. `Message` directly depends on the project-local `ToolCall`, so those two must be migrated as a unit or through an explicit compatibility conversion. `ToolCall` itself refers to the project-local `ToolDefinition.Type`, making the dependency group a three-type cluster: `Message`, `ToolCall`, and `ToolDefinition`.
+
+## Module placement and dependency-boundary findings
+
+- AQLI places `Message`, `RequestContext`, `ToolCall`, and `ToolDefinition` in the lower-level `:spi:aqli-spi` module. Their Aljabr counterparts are in `:core:aljabr-spi-inference`. Consolidation therefore changes not only imports but also the module dependency graph for every consumer of `:spi:aqli-spi`.
+- AQLI `:spi:aqli-spi` declares `tech.kayys.aljabr:aljabr-tensor` as an `implementation` dependency, while its public `RequestContext.preferredDevice()` signature exposes `tech.kayys.aljabr.core.tensor.DeviceType`. This is another public API dependency leak. More importantly, it couples a generic request-context SPI to a concrete tensor/core type. The target design should decide whether device preference belongs in a framework-neutral execution hint or should be represented by a stable identifier; simply changing the dependency to `api` would expose the coupling rather than resolve it.
+- Aljabr's `:core:aljabr-spi-inference` intentionally has API dependencies on tensor and model SPI modules. AQLI's base SPI currently reaches the tensor module directly, which should be reconsidered as the canonical shared context is migrated.
+
+## Migration sequencing update
+
+The foundational group should be migrated in dependency order, not as isolated class replacements:
+
+1. Decide the canonical shape of `RequestContext` and remove its direct dependency on concrete `DeviceType` if the abstraction can use a stable device identifier.
+2. Canonicalize `ToolDefinition` and `ToolCall` together because `ToolCall` uses `ToolDefinition.Type`.
+3. Canonicalize `Message` after its `ToolCall` dependency is resolved.
+4. Inventory and migrate all consumers of the AQLI base SPI module before removing any duplicate classes or changing module ownership.
+5. Add API/serialization compatibility tests for old constructors, Jackson payloads, null/default semantics, and public method signatures before deleting or deprecating compatibility types.
+
+The parity comparison proves implementation duplication; it does **not** prove that a package/module migration is source- or binary-compatible. The full repository-wide consumer inventory remains outstanding.
