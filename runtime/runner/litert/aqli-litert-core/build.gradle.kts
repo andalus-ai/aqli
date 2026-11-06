@@ -22,7 +22,10 @@ dependencies {
     implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":sdk:aqli-sdk-api"))
     implementation(project(":runner:litert:aqli-runner-litert"))
-    implementation(project(":spi:aqli-spi-inference"))
+    // LiteRT's public SDK methods expose these request/response DTOs. Keep the
+    // compatibility SPI on the published API classpath; its API dependency
+    // also exposes the canonical Aljabr inference SPI to downstream consumers.
+    api(project(":spi:aqli-spi-inference"))
     implementation(group = "com.fasterxml.jackson.core", name = "jackson-databind")
     testImplementation(group = "org.junit.jupiter", name = "junit-jupiter")
 }
