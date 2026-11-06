@@ -1104,6 +1104,9 @@ stop_existing_fast_daemons
 echo -e "${BLUE}>>> Building Aqli...${NC}"
 
 METAL_MAKE_DIR="${PROJECT_ROOT}/${METAL_MODULE}/src/main/cpp/metal"
+if [ ! -f "${METAL_MAKE_DIR}/Makefile" ] && [ -f "${PROJECT_ROOT}/../../Aljabr/aljabr/backend/metal/aljabr-backend-metal/src/main/cpp/metal/Makefile" ]; then
+    METAL_MAKE_DIR="${PROJECT_ROOT}/../../Aljabr/aljabr/backend/metal/aljabr-backend-metal/src/main/cpp/metal"
+fi
 CLI_GRADLE_JAR="${PROJECT_ROOT}/${CLI_MODULE}/build/aqli.jar"
 CLI_GRADLE_QUARKUS_GEN_DIR="${PROJECT_ROOT}/${CLI_MODULE}/build/quarkus-build/gen"
 CLI_GRADLE_QUARKUS_GEN_JAR="${CLI_GRADLE_QUARKUS_GEN_DIR}/aqli.jar"
