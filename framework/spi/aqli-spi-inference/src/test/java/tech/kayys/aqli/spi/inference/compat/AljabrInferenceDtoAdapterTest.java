@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -59,6 +58,18 @@ class AljabrInferenceDtoAdapterTest {
         assertEquals(request.getPromptTokenCount(), restored.getPromptTokenCount());
         assertEquals(request.getMetadata(), restored.getMetadata());
         assertEquals(request.getAttachments().get(0).getUrl(), restored.getAttachments().get(0).getUrl());
+    }
+
+    @Test
+    void refusesToSilentlyDropNativeExecutionContext() {
+        InferenceRequest request = InferenceRequest.builder()
+                .model("test-model")
+                .message(Message.user("hello"))
+                .nativeContextSegment(java.lang.foreign.MemorySegment.ofArray(new byte[] { 1 }))
+                .build();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AljabrInferenceDtoAdapter.toAljabr(request));
     }
 
     @Test
