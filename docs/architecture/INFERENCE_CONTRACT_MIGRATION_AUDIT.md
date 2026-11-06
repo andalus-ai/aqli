@@ -138,3 +138,31 @@ This establishes implementation duplication, not API interchangeability: Java tr
 - CI/build validation of the adapter branch.
 
 The source comparison is complete for these four definitions; consumer inventory and runtime behavior equivalence are not yet complete.
+
+
+## Generic inference engine interface ownership
+
+A direct source comparison of the AQLI and Aljabr `InferenceEngine` interfaces and their `LocalInferenceEngine` defaults shows the same public method surface after package normalization. This is a second duplicate contract family beyond the request/response DTOs.
+
+The duplicated `InferenceEngine` surface currently combines two categories that should not be migrated as one indivisible API:
+
+| Capability | Long-term owner | Reason |
+|---|---|---|
+| Execute a framework inference request and produce a framework response | Aljabr | Reusable model execution contract |
+| Stream framework inference chunks | Aljabr | Reusable execution/stream contract |
+| Execute embeddings through framework embedding contracts | Aljabr | Framework capability, independent of serving lifecycle |
+| Resolve a model ID / select a loaded runtime model | AQLI | Runtime model registry and selection |
+| Submit/manage asynchronous jobs | AQLI | Job lifecycle, persistence, polling, cancellation and queueing |
+| Initialize/shutdown a deployed runtime | AQLI | Application/runtime lifecycle, not a model math primitive |
+| Runtime health, serving readiness and operational statistics | AQLI | Deployment and operational concerns |
+| Backend/provider-specific execution health | Provider SPI / Aljabr backend capability | Capability health should describe the execution provider, not the whole serving deployment |
+
+### Migration recommendation
+
+Do not move the entire AQLI `InferenceEngine` interface into Aljabr or delete its lifecycle methods in one change. Define a smaller Aljabr execution contract (or a clearly scoped existing execution interface) around portable request/response/stream/embedding operations. Keep an AQLI runtime service facade responsible for model selection, job orchestration, lifecycle and operational health, delegating execution to Aljabr.
+
+The current `LocalInferenceEngine` defaults also duplicate across the two projects. They should be consolidated only after the target Aljabr execution contract is agreed and direct implementations/consumers are inventoried; default implementations that return `null` stats or unconditional healthy status must not be treated as a reliable runtime-health model.
+
+### Consumer inventory status
+
+The repository tree confirms a broad AQLI Java surface across runtime core, adapters, plugins, runners and CLI. GitHub code search did not return usable indexed matches for the DTO identifiers, so this pass does not claim a complete import/construction-site inventory. Before changing public interfaces, perform a checked-out repository-wide search and classify direct implementors, method callers, serialization boundaries and external SDK consumers. No implementation migration is authorized by this audit alone.
