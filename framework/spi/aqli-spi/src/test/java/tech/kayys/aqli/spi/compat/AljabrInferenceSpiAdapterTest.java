@@ -3,7 +3,6 @@ package tech.kayys.aqli.spi.compat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
-import java.util.Map;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
