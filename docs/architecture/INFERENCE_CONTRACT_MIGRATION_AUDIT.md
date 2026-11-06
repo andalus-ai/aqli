@@ -77,3 +77,32 @@ The foundational group should be migrated in dependency order, not as isolated c
 5. Add API/serialization compatibility tests for old constructors, Jackson payloads, null/default semantics, and public method signatures before deleting or deprecating compatibility types.
 
 The parity comparison proves implementation duplication; it does **not** prove that a package/module migration is source- or binary-compatible. The full repository-wide consumer inventory remains outstanding.
+
+
+## Execution-boundary findings: native memory and device types
+
+Further inspection of both canonical and compatibility request/context contracts found two low-level concerns that must be addressed before the DTO migration.
+
+### Native memory in the public inference request
+
+Both AQLI and Aljabr `InferenceRequest` expose `Optional<MemorySegment> getNativeContextSegment()`. The backing field is transient and Jackson-ignored, but the public method still places the JDK Foreign Function & Memory API type in the shared inference request surface.
+
+This is not ordinary request data: a `MemorySegment` is process-local native-memory state with lifetime and scope constraints. It should not be serialized, transported, retained as a generic request property, or required by consumers that only need to submit an inference request. The shared request DTO should carry portable inference intent and metadata; native execution state should live in an execution-scoped context/handle owned by the selected backend or runtime adapter. Preserve any existing internal use through an explicit adapter during migration rather than deleting the accessor before its consumers are inventoried.
+
+### Device preference in RequestContext
+
+Both AQLI and Aljabr `RequestContext` expose a portable `Optional<String> getPreferredDevice()` and additionally expose `Optional<DeviceType> preferredDevice()`, coupling the context API to `aljabr-tensor`. The string form already provides the stable, extensible representation needed for routing hints. The enum-returning helper also parses through `DeviceType.fromId`, so an unrecognized future provider identifier can throw instead of remaining an opaque hint.
+
+The canonical contract should retain a stable device/provider identifier (or a small framework-neutral execution hint) as the primary API. If enum compatibility is needed, keep it as a deprecated adapter in the relevant compatibility layer, not as a foundational context dependency.
+
+### Updated migration gate
+
+Before consolidating `InferenceRequest` and `RequestContext`:
+
+1. Inventory all callers of `getNativeContextSegment()` and `preferredDevice()` in both repositories.
+2. Move native-memory state to an execution-scoped abstraction with explicit lifetime ownership; keep the portable request DTO independent of FFM.
+3. Make device preference extensible and backend-neutral; retain conversion helpers only at compatibility boundaries.
+4. Add tests for unknown device identifiers, FFM scope/lifetime behavior, JSON serialization, and source/binary compatibility.
+5. Only then migrate the AQLI compatibility surface to the canonical Aljabr contract.
+
+These are design and compatibility findings, not authorization to remove either public method immediately.
