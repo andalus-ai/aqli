@@ -95,6 +95,14 @@ public interface InferenceEngine {
          */
         EngineStats getStats();
 
+        /** Canonical Aljabr embedding execution entry point. */
+        default Uni<tech.kayys.aljabr.spi.embedding.EmbeddingResponse> executeEmbedding(
+                        String modelId, tech.kayys.aljabr.spi.embedding.EmbeddingRequest request) {
+                return executeEmbedding(modelId,
+                                tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.fromAljabr(request))
+                                .map(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter::toAljabr);
+        }
+
         /**
          * Engine statistics data
          */
