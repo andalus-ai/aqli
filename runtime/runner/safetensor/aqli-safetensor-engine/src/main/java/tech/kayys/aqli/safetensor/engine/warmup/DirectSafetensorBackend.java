@@ -177,8 +177,7 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
     public boolean supports(InferenceRequest request) {
         try {
             Path modelPath = resolveRequestCheckpoint(request);
-            DirectSafetensorRunProfile.load(modelPath);
-            return true;
+            return DirectSafetensorRunProfile.load(modelPath).config() != null;
         } catch (RuntimeException failure) {
             return false;
         }
