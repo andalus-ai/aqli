@@ -56,4 +56,14 @@ dependencies {
     implementation("org.slf4j:slf4j-api:2.0.13")
     
     compileOnly("org.graalvm.sdk:nativeimage:24.1.2")
+
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
