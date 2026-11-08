@@ -42,7 +42,17 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @jakarta.enterprise.context.ApplicationScoped
 @io.quarkus.arc.Unremovable
-public class LiteRTEngine implements LocalInferenceEngine {
+public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
+    @Override
+    public String providerId() {
+        return PROVIDER_ID;
+    }
+
+    @Override
+    public java.util.Set<tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability> capabilities() {
+        return java.util.Set.of(tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability.STREAMING);
+    }
+
 
     private static final Logger LOG = Logger.getLogger(LiteRTEngine.class);
     private static final String PROVIDER_ID = "litert";
