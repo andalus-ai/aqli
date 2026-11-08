@@ -153,6 +153,34 @@ public final class AljabrInferenceDtoAdapter {
                 value.toolCallId(), value.toolName(), value.toolInputDelta());
     }
 
+    public static tech.kayys.aljabr.spi.embedding.EmbeddingRequest toAljabr(
+            tech.kayys.aqli.spi.embedding.EmbeddingRequest value) {
+        Objects.requireNonNull(value, "value");
+        return new tech.kayys.aljabr.spi.embedding.EmbeddingRequest(
+                value.requestId(), value.model(), value.inputs(), value.parameters());
+    }
+
+    public static tech.kayys.aqli.spi.embedding.EmbeddingRequest fromAljabr(
+            tech.kayys.aljabr.spi.embedding.EmbeddingRequest value) {
+        Objects.requireNonNull(value, "value");
+        return new tech.kayys.aqli.spi.embedding.EmbeddingRequest(
+                value.requestId(), value.model(), value.inputs(), value.parameters());
+    }
+
+    public static tech.kayys.aljabr.spi.embedding.EmbeddingResponse toAljabr(
+            tech.kayys.aqli.spi.embedding.EmbeddingResponse value) {
+        Objects.requireNonNull(value, "value");
+        return new tech.kayys.aljabr.spi.embedding.EmbeddingResponse(
+                value.requestId(), value.model(), value.embeddings(), value.dimension(), value.metadata());
+    }
+
+    public static tech.kayys.aqli.spi.embedding.EmbeddingResponse fromAljabr(
+            tech.kayys.aljabr.spi.embedding.EmbeddingResponse value) {
+        Objects.requireNonNull(value, "value");
+        return new tech.kayys.aqli.spi.embedding.EmbeddingResponse(
+                value.requestId(), value.model(), value.embeddings(), value.dimension(), value.metadata());
+    }
+
     private static tech.kayys.aljabr.spi.inference.Attachment toAljabr(
             tech.kayys.aqli.spi.inference.Attachment value) {
         return new tech.kayys.aljabr.spi.inference.Attachment(
