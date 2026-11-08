@@ -70,7 +70,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see LoraAdapterManager
  */
 @ApplicationScoped
-public class LlamaCppEngine implements LocalInferenceEngine {
+public class LlamaCppEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
+    @Override
+    public String providerId() {
+        return PROVIDER_ID;
+    }
+
+    @Override
+    public Set<tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability> capabilities() {
+        return java.util.Set.of(tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability.STREAMING, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability.EMBEDDINGS);
+    }
+
 
     private static final Logger log = Logger.getLogger(LlamaCppEngine.class);
     private static final String PROVIDER_ID = "gguf";
