@@ -96,6 +96,54 @@ public interface InferenceEngine {
         EngineStats getStats();
 
         /**
+         * Canonical Aljabr request entry point. Existing AQLI implementations remain
+         * source-compatible while callers can use the shared framework DTOs.
+         */
+        default Uni<tech.kayys.aljabr.spi.inference.InferenceResponse> infer(
+                        tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+                return infer(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.fromAljabr(request))
+                                .map(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter::toAljabr);
+        }
+
+        /** Canonical Aljabr asynchronous execution entry point. */
+        default Uni<tech.kayys.aljabr.spi.inference.InferenceResponse> executeAsync(
+                        String modelId, tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+                return executeAsync(modelId,
+                                tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.fromAljabr(request))
+                                .map(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter::toAljabr);
+        }
+
+        /** Canonical Aljabr blocking execution entry point. */
+        default tech.kayys.aljabr.spi.inference.InferenceResponse execute(
+                        String modelId, tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+                return tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.toAljabr(
+                                execute(modelId,
+                                                tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter
+                                                                .fromAljabr(request)));
+        }
+
+        /** Canonical Aljabr streaming entry point. */
+        default Multi<tech.kayys.aljabr.spi.inference.StreamingInferenceChunk> stream(
+                        tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+                return stream(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.fromAljabr(request))
+                                .map(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter::toAljabr);
+        }
+
+        /** Canonical Aljabr streaming entry point with explicit model selection. */
+        default Multi<tech.kayys.aljabr.spi.inference.StreamingInferenceChunk> streamExecute(
+                        String modelId, tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+                return streamExecute(modelId,
+                                tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.fromAljabr(request))
+                                .map(tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter::toAljabr);
+        }
+
+        /** Canonical Aljabr asynchronous job submission entry point. */
+        default Uni<String> submitAsyncJob(tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+                return submitAsyncJob(
+                                tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter.fromAljabr(request));
+        }
+
+        /**
          * Engine statistics data
          */
         record EngineStats(
