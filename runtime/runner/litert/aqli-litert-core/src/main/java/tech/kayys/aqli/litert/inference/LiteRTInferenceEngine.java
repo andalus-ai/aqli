@@ -17,6 +17,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collection;
+import tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -151,6 +153,35 @@ public class LiteRTInferenceEngine implements Closeable {
      */
     public CompletableFuture<List<InferenceResponse>> inferBatchAsync(List<InferenceRequest> requests) {
         return CompletableFuture.supplyAsync(() -> inferBatch(requests));
+    }
+
+    /**
+     * Execute a request expressed in the canonical Aljabr inference contract.
+     */
+    public tech.kayys.aljabr.spi.inference.InferenceResponse infer(
+            tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+        InferenceRequest legacyRequest = AljabrInferenceDtoAdapter.fromAljabr(request);
+        return AljabrInferenceDtoAdapter.toAljabr(infer(legacyRequest));
+    }
+
+    /** Execute an asynchronous request using canonical Aljabr contracts. */
+    public CompletableFuture<tech.kayys.aljabr.spi.inference.InferenceResponse> inferAsync(
+            tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+        InferenceRequest legacyRequest = AljabrInferenceDtoAdapter.fromAljabr(request);
+        return inferAsync(legacyRequest).thenApply(AljabrInferenceDtoAdapter::toAljabr);
+    }
+
+    /** Execute a batch using canonical Aljabr contracts. */
+    public List<tech.kayys.aljabr.spi.inference.InferenceResponse> inferBatch(
+            Collection<tech.kayys.aljabr.spi.inference.InferenceRequest> requests) {
+        return requests.stream().map(this::infer).toList();
+    }
+
+    /** Execute an asynchronous batch using canonical Aljabr contracts. */
+    public CompletableFuture<List<tech.kayys.aljabr.spi.inference.InferenceResponse>> inferBatchAsync(
+            Collection<tech.kayys.aljabr.spi.inference.InferenceRequest> requests) {
+        List<tech.kayys.aljabr.spi.inference.InferenceRequest> snapshot = List.copyOf(requests);
+        return CompletableFuture.supplyAsync(() -> inferBatch(snapshot));
     }
 
     /**
