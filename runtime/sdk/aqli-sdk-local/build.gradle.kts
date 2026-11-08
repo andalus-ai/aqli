@@ -28,7 +28,9 @@ dependencies {
 
     
     implementation("tech.kayys.aljabr:aljabr-gguf-converter:0.1.0-SNAPSHOT")
+    implementation(project(":repository:aqli-model-repo-common"))
     implementation(project(":repository:aqli-model-repo-hf"))
+    implementation(project(":repository:aqli-model-repo-kaggle"))
     implementation(project(":repository:aqli-model-repo-local"))
     implementation(project(":tokenizer:aqli-tokenizer-core"))
     implementation(project(":spi:aqli-spi"))
@@ -41,6 +43,14 @@ dependencies {
     // implementation(project(":runner:safetensor:aqli-safetensor-engine"))
     implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
     implementation(project(":optimization:aqli-plugin-kv-cache"))
+
+    // Local SDK is the runtime composition boundary; CLI and other clients should
+    // consume this module instead of assembling inference providers themselves.
+    implementation(project(":runner:gguf:aqli-runner-gguf"))
+    implementation(project(":runner:litert:aqli-runner-litert"))
+    implementation(project(":runner:onnx:aqli-runner-onnx"))
+    implementation(project(":runner:safetensor:aqli-safetensor-engine"))
+    implementation(project(":observability:aqli-observability"))
 
 
 
