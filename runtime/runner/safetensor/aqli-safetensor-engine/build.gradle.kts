@@ -95,6 +95,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT")
     testImplementation("tech.kayys.aljabr:aljabr-model-gemma4:0.1.0-SNAPSHOT")
+    testImplementation("tech.kayys.aljabr:aljabr-model-falcon-h1:0.1.0-SNAPSHOT")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

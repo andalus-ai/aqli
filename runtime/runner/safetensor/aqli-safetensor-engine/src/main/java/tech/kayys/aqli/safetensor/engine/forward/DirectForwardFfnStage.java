@@ -40,6 +40,13 @@ final class DirectForwardFfnStage {
                         DirectForwardGatedFfnWeights.fromLayer(layerWeights),
                         ctx.workspace(), mlpOutputBuffer);
         DirectInferenceProfiler.recordFfnNanos(System.nanoTime() - tFfn0);
+        if (ctx.layerIdx() < 8 && Boolean.getBoolean("aqli.debug.mamba")) {
+            float[] fData = mlpOut.toFloatArray();
+            int lastOff = (ctx.seqLen() - 1) * ctx.config().hiddenSize();
+            System.err.printf("[FFN-DBG] L%02d mlpOut:   %.6f %.6f %.6f %.6f%n",
+                    ctx.layerIdx(), fData[lastOff], fData[lastOff+1], fData[lastOff+2], fData[lastOff+3]);
+            System.err.flush();
+        }
         if (ctx.verboseLayers()) {
             logTensorStats(mlpOut, "layer " + ctx.layerIdx() + " mlpOut");
         }

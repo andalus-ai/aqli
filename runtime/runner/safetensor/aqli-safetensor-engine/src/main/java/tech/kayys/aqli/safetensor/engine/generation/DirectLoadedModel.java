@@ -32,13 +32,14 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
     private final TokenSamplingMasks baseTokenSamplingMasks;
     private final Map<String, AccelTensor> weights;
     private final Arena weightArena;
+    private final AutoCloseable session;
 
     public DirectLoadedModel(Path path, Map<String, AccelTensor> weights,
             Tokenizer tokenizer, String key,
             boolean quantized, InferenceQuantizer.QuantStrategy quantStrategy,
             String quantCacheState, Path quantCachePath,
             ModelConfig config, ModelArchitecture architecture, ModelRuntimeTraits runtimeTraits,
-            Arena weightArena) {
+            Arena weightArena, AutoCloseable session) {
         this.path = path;
         this.weights = weights;
         this.tokenizer = tokenizer;
@@ -54,6 +55,17 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
         this.baseTokenSamplingMasks = buildTokenSamplingMasks(tokenizer, this.baseStopTokenIds,
                 this.config.vocabSize(), this.runtimeTraits);
         this.weightArena = weightArena;
+        this.session = session;
+    }
+
+    public DirectLoadedModel(Path path, Map<String, AccelTensor> weights,
+            Tokenizer tokenizer, String key,
+            boolean quantized, InferenceQuantizer.QuantStrategy quantStrategy,
+            String quantCacheState, Path quantCachePath,
+            ModelConfig config, ModelArchitecture architecture, ModelRuntimeTraits runtimeTraits,
+            Arena weightArena) {
+        this(path, weights, tokenizer, key, quantized, quantStrategy, quantCacheState, quantCachePath,
+                config, architecture, runtimeTraits, weightArena, null);
     }
 
     @Override
@@ -120,9 +132,14 @@ public class DirectLoadedModel implements SafetensorEngine.LoadedModel {
     }
 
     void closeWeightArena() {
-        if (weightArena == null) {
-            return;
+        if (session != null) {
+            try {
+                session.close();
+            } catch (Exception ignored) {
+            }
         }
-        weightArena.close();
+        if (weightArena != null) {
+            weightArena.close();
+        }
     }
 }

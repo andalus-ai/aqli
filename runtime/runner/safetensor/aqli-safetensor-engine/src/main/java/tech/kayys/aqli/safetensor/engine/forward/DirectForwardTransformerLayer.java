@@ -52,6 +52,28 @@ final class DirectForwardTransformerLayer {
             System.err.println("  -> AttentionStage");
         }
         DirectForwardAttentionStage.run(stageContext, context.attentionKernel(), kvCache, startPos, sharedKvStates);
+        if (layerWeights.hasMamba()) {
+            if (stageContext.verboseLayers()) {
+                System.err.println("  -> MambaStage");
+            }
+            DirectForwardMambaWeights mambaWeights = resolvedWeights != null && resolvedWeights.mambaWeights() != null
+                    ? resolvedWeights.mambaWeights()[layerIdx]
+                    : DirectForwardMambaWeights.fromLayer(layerWeights);
+            if (mambaWeights != null) {
+                AccelTensor mambaOut = DirectForwardMambaStage.compute(
+                        stageContext, mambaWeights, kvCache, ws.getNormedAttnSeg());
+                DirectForwardElementwiseOps.residualAdd(
+                        stageContext.runtime().log(),
+                        stageContext.runtime().metalBinding(),
+                        hiddenOut,
+                        mambaOut,
+                        hiddenOut,
+                        seqLen,
+                        config.hiddenSize(),
+                        stageContext.useNativeElementwiseAdd());
+                mambaOut.close();
+            }
+        }
         if (stageContext.verboseLayers()) {
             System.err.println("  -> FfnStage");
         }
@@ -60,6 +82,14 @@ final class DirectForwardTransformerLayer {
             System.err.println("  -> LayerTailStage");
         }
         DirectForwardLayerTailStage.run(stageContext, perLayerInput);
+        if (Boolean.getBoolean("aqli.debug.mamba")) {
+            AccelTensor dbgOut = AccelTensor.view(hiddenOut, new long[]{seqLen, config.hiddenSize()});
+            float[] hData = dbgOut.toFloatArray();
+            int lastOff = (seqLen - 1) * config.hiddenSize();
+            System.err.printf("[LAYER-DBG] L%02d: %.6f %.6f %.6f %.6f%n",
+                    layerIdx, hData[lastOff], hData[lastOff+1], hData[lastOff+2], hData[lastOff+3]);
+            System.err.flush();
+        }
         if (stageContext.verboseLayers()) {
             System.err.println("  -> Layer complete");
         }

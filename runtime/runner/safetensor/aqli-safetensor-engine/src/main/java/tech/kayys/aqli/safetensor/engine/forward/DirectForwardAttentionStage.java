@@ -79,6 +79,13 @@ final class DirectForwardAttentionStage {
         long tAttention0 = System.nanoTime();
         AccelTensor attnOut = attentionKernel.compute(attnIn);
         DirectInferenceProfiler.recordAttentionNanos(System.nanoTime() - tAttention0);
+        if (ctx.layerIdx() < 8 && Boolean.getBoolean("aqli.debug.mamba")) {
+            float[] aData = attnOut.toFloatArray();
+            int lastOff = (ctx.seqLen() - 1) * ctx.config().hiddenSize();
+            System.err.printf("[ATTN-DBG] L%02d attnOut: %.6f %.6f %.6f %.6f%n",
+                    ctx.layerIdx(), aData[lastOff], aData[lastOff+1], aData[lastOff+2], aData[lastOff+3]);
+            System.err.flush();
+        }
         if (ctx.verboseLayers()) {
             logTensorStats(attnOut, "layer " + ctx.layerIdx() + " attnOut");
         }

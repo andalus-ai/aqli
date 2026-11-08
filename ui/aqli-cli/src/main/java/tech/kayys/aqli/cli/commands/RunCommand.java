@@ -1712,7 +1712,14 @@ public class RunCommand implements Runnable {
                     };
 
                 // Start primary stream
-                subscribeToStream.accept(sdk.streamCompletion(request));
+                var stream = sdk.streamCompletion(request);
+                if (stream == null) {
+                    System.err.println("Error: No provider available to handle inference for model '" + modelId
+                            + "' (format: " + format + ", provider: " + providerId + ").");
+                    requestProcessExit(1);
+                    return;
+                }
+                subscribeToStream.accept(stream);
 
                 try {
                     latch.await();
@@ -1726,6 +1733,12 @@ public class RunCommand implements Runnable {
             } else {
                 try {
                     InferenceResponse response = sdk.createCompletion(request);
+                    if (response == null) {
+                        System.err.println("Error: No provider available to handle inference for model '" + modelId
+                                + "' (format: " + format + ", provider: " + providerId + ").");
+                        requestProcessExit(1);
+                        return;
+                    }
                     printResponse(response, startTime);
                     requestProcessExit();
                 } catch (Throwable createEx) {
@@ -6290,8 +6303,14 @@ public class RunCommand implements Runnable {
             return "--grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
-        if (checkpoint != null && DirectSafetensorRunProfile.load(checkpoint).nativeBf16Matvec()) {
-            return "this checkpoint uses the guarded native-BF16 profile, which is not enabled for direct CLI runs";
+        if (checkpoint != null) {
+            DirectSafetensorRunProfile profile = DirectSafetensorRunProfile.load(checkpoint);
+            if (profile.nativeBf16Matvec()) {
+                return "this checkpoint uses the guarded native-BF16 profile, which is not enabled for direct CLI runs";
+            }
+            if (!DirectSafetensorRoutePolicy.isArchitectureSupported(profile.config())) {
+                return DirectSafetensorRoutePolicy.architectureDeclineReason(profile.config());
+            }
         }
         return "the direct run policy declined this checkpoint";
     }

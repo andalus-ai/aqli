@@ -8,6 +8,8 @@ import tech.kayys.aqli.sdk.route.*;
 
 import tech.kayys.aqli.sdk.route.RoutePreflightDiagnosticFields.ProblemDetail;
 import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
+import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 import tech.kayys.aljabr.spi.model.ModelFamilyQuantizedLoaderProfile;
 
 import java.nio.charset.StandardCharsets;
@@ -125,10 +127,88 @@ public final class DirectSafetensorRoutePolicy {
         if (profile.nativeBf16Matvec() && !allowGuardedGemma4TextDirectRun(checkpointPath, profile)) {
             return false;
         }
+        if (!isArchitectureSupported(profile.config())) {
+            return false;
+        }
         if (hasText(sessionId) || hasText(grammar)) {
             return false;
         }
         return hasText(prompt) && directInferenceEngineAvailable;
+    }
+
+    private static volatile boolean pluginsLoaded = false;
+
+    private static synchronized void ensurePluginsLoaded() {
+        ModelFamilyPluginRegistry reg = ModelFamilyPluginRegistry.global();
+        if (!pluginsLoaded) {
+            try {
+                var container = io.quarkus.arc.Arc.container();
+                if (container != null && container.isRunning()) {
+                    var instances = container.select(ModelFamilyPlugin.class);
+                    for (ModelFamilyPlugin p : instances) {
+                        reg.register(p);
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            try {
+                ClassLoader cl = Thread.currentThread().getContextClassLoader();
+                if (cl != null) {
+                    java.util.ServiceLoader.load(ModelFamilyPlugin.class, cl).forEach(reg::register);
+                }
+            } catch (Throwable ignored) {
+            }
+            try {
+                java.util.ServiceLoader.load(ModelFamilyPlugin.class, ModelFamilyPlugin.class.getClassLoader()).forEach(reg::register);
+            } catch (Throwable ignored) {
+            }
+            pluginsLoaded = true;
+        }
+        if (reg.plugin("falcon_h1").isEmpty()) {
+            try {
+                Class<?> clazz = Class.forName("tech.kayys.aljabr.models.falconh1.FalconH1ModelFamilyPlugin");
+                reg.register((ModelFamilyPlugin) clazz.getDeclaredConstructor().newInstance());
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    public static boolean isArchitectureSupported(ModelConfig config) {
+        if (config == null) {
+            return false;
+        }
+        ensurePluginsLoaded();
+        String archName = config.primaryArchitecture();
+        String modelType = config.modelType();
+        return ModelFamilyPluginRegistry.global().all().stream()
+                .anyMatch(p -> p.architectureAdapters().stream().anyMatch(a ->
+                        (archName != null && a.supportedArchClassNames().contains(archName))
+                                || (modelType != null && a.supportedModelTypes().contains(modelType))));
+    }
+
+    public static String architectureDeclineReason(ModelConfig config) {
+        if (config == null) {
+            return "model configuration could not be loaded";
+        }
+        ensurePluginsLoaded();
+        String archName = config.primaryArchitecture();
+        String modelType = config.modelType();
+        ModelFamilyPlugin familyPlugin = ModelFamilyPluginRegistry.global().all().stream()
+                .filter(p -> (archName != null && p.descriptor().architectureClassNames().contains(archName))
+                        || (modelType != null && p.descriptor().modelTypes().contains(modelType)))
+                .findFirst().orElse(null);
+        if (familyPlugin != null) {
+            String directStatus = familyPlugin.descriptor().metadata().get("direct_safetensor");
+            if (directStatus != null && !directStatus.isBlank()) {
+                return String.format("architecture '%s' (model_type: '%s') cannot run via direct SafeTensor engine: %s",
+                        archName != null ? archName : "unknown",
+                        modelType != null ? modelType : "unknown",
+                        directStatus);
+            }
+        }
+        return String.format("architecture '%s' (model_type: '%s') is not supported for direct SafeTensor inference in this build",
+                archName != null ? archName : "unknown",
+                modelType != null ? modelType : "unknown");
     }
 
     public static DirectSafetensorRunProfile profileForProvider(String providerId, Path checkpointPath) {

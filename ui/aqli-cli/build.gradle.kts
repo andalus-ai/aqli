@@ -85,6 +85,7 @@ dependencies {
     implementation("tech.kayys.aljabr:aljabr-model-gemma:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-model-gemma4:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-model-qwen:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-model-falcon-h1:0.1.0-SNAPSHOT")
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")

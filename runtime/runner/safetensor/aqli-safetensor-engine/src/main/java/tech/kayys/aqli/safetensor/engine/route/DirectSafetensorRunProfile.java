@@ -82,7 +82,11 @@ public record DirectSafetensorRunProfile(
     }
 
     public boolean requiresChatTemplateFormatting() {
-        return config != null && config.modelType() != null && config.modelType().contains("qwen");
+        if (config == null || config.modelType() == null) {
+            return false;
+        }
+        String mt = config.modelType().toLowerCase(Locale.ROOT);
+        return mt.contains("qwen") || mt.contains("falcon");
     }
 
     private static String normalize(String value) {

@@ -25,7 +25,25 @@ record ResolvedModelWeights(
         AccelTensor pleProjectionNorm,
         AccelTensor finalNorm,
         AccelTensor lmHead,
-        ResolvedLayerWeights[] layers) {
+        ResolvedLayerWeights[] layers,
+        DirectForwardMambaWeights[] mambaWeights) {
+
+    ResolvedModelWeights(
+            String archId,
+            String modelType,
+            int numLayers,
+            boolean addOneRmsNorm,
+            AccelTensor embedTokens,
+            AccelTensor packedPleEmbeddings,
+            AccelTensor pleProjection,
+            AccelTensor pleProjectionNorm,
+            AccelTensor finalNorm,
+            AccelTensor lmHead,
+            ResolvedLayerWeights[] layers) {
+        this(archId, modelType, numLayers, addOneRmsNorm, embedTokens,
+                packedPleEmbeddings, pleProjection, pleProjectionNorm,
+                finalNorm, lmHead, layers, null);
+    }
 
     static ResolvedModelWeights create(Map<String, AccelTensor> weights, ModelConfig config,
             ModelArchitecture arch, boolean addOneRmsNorm) {
@@ -67,7 +85,24 @@ record ResolvedModelWeights(
                     WeightTensorResolver.first(weights, arch.layerPerLayerProjectionWeightCandidates(i)),
                     WeightTensorResolver.first(weights, arch.layerPostPerLayerInputNormWeightCandidates(i)),
                     layerScalar,
-                    cachedScalarValue(layerScalar));
+                    cachedScalarValue(layerScalar),
+                    WeightTensorResolver.first(weights, arch.layerMambaInProjWeightCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaConv1dWeightCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaConv1dBiasCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaDtBiasCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaALogWeightCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaDWeightCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaOutProjWeightCandidates(i)),
+                    WeightTensorResolver.first(weights, arch.layerMambaNormWeightCandidates(i)));
+        }
+        DirectForwardMambaWeights[] mambaWeights = null;
+        for (int i = 0; i < numLayers; i++) {
+            if (layers[i].hasMamba()) {
+                if (mambaWeights == null) {
+                    mambaWeights = new DirectForwardMambaWeights[numLayers];
+                }
+                mambaWeights[i] = DirectForwardMambaWeights.fromLayer(layers[i]);
+            }
         }
         return new ResolvedModelWeights(
                 arch.id(),
@@ -80,7 +115,8 @@ record ResolvedModelWeights(
                 WeightTensorResolver.first(weights, arch.perLayerProjectionNormWeightCandidates()),
                 WeightTensorResolver.first(weights, arch.finalNormWeightCandidates()),
                 lmHead,
-                layers);
+                layers,
+                mambaWeights);
     }
 
     boolean matches(ModelConfig config, ModelArchitecture arch, boolean addOneRmsNorm) {

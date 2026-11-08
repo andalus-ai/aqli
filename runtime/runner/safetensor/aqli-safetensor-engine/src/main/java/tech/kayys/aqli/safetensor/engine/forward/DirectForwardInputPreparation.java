@@ -77,6 +77,9 @@ final class DirectForwardInputPreparation {
         ws.ensureCapacity((long) seqLen * config.hiddenSize(), config.hiddenSize(), config.intermediateSize());
         long[] hiddenShape = new long[] { 1L, seqLen, config.hiddenSize() };
         float scale = request.arch().embeddingScaleFactor((int) embedTable.size(-1));
+        if (config.embeddingMultiplier() != null) {
+            scale *= config.resolvedEmbeddingMultiplier();
+        }
         embedTable.copyRowsToFloatSegment(request.inputIds(), ws.getHiddenASeg(), scale);
 
         AccelTensor hidden = AccelTensor.view(ws.getHiddenASeg(), hiddenShape);
@@ -106,6 +109,9 @@ final class DirectForwardInputPreparation {
         ws.ensureCapacity(config.hiddenSize(), config.hiddenSize(), config.intermediateSize());
         long[] tokenHiddenShape = new long[] { 1L, 1L, config.hiddenSize() };
         float scale = request.arch().embeddingScaleFactor((int) embedTable.size(-1));
+        if (config.embeddingMultiplier() != null) {
+            scale *= config.resolvedEmbeddingMultiplier();
+        }
         embedTable.copyRowToFloatSegment(request.tokenId(), ws.getHiddenASeg(), scale);
 
         AccelTensor hiddenView = null;

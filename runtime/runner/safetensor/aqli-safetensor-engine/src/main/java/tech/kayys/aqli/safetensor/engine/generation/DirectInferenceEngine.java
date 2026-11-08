@@ -151,6 +151,16 @@ public class DirectInferenceEngine implements SafetensorEngine {
             super(path, weights, tokenizer, key, quantized, quantStrategy, quantCacheState, quantCachePath,
                     config, architecture, runtimeTraits, weightArena);
         }
+
+        public LoadedModel(Path path, Map<String, AccelTensor> weights,
+                Tokenizer tokenizer, String key,
+                boolean quantized, InferenceQuantizer.QuantStrategy quantStrategy,
+                String quantCacheState, Path quantCachePath,
+                ModelConfig config, ModelArchitecture architecture, ModelRuntimeTraits runtimeTraits,
+                Arena weightArena, AutoCloseable session) {
+            super(path, weights, tokenizer, key, quantized, quantStrategy, quantCacheState, quantCachePath,
+                    config, architecture, runtimeTraits, weightArena, session);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

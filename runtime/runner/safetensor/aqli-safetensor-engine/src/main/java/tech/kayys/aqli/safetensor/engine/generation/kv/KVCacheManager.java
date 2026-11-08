@@ -44,6 +44,7 @@ public class KVCacheManager {
                 new java.util.concurrent.ConcurrentHashMap<>();
         private tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization kvQuantization =
                 tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
+        private Object mambaState;
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
             this.maxSeqLen = maxSeqLen;
@@ -83,6 +84,14 @@ public class KVCacheManager {
 
         public ForwardWorkspace getWorkspace() {
             return workspace;
+        }
+
+        public Object getMambaState() {
+            return mambaState;
+        }
+
+        public void setMambaState(Object mambaState) {
+            this.mambaState = mambaState;
         }
 
         private void appendBlock(int layerIdx) {

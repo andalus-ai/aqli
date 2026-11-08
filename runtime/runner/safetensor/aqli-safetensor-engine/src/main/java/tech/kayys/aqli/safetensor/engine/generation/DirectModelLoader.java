@@ -19,6 +19,7 @@ import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelRuntimeTraits;
 import tech.kayys.aljabr.spi.tokenizer.TokenizerFactory;
 import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
+import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRoutePolicy;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -58,9 +59,21 @@ final class DirectModelLoader {
         Arena weightArena = Arena.ofAuto();
         ModelConfig config = loadConfig(modelPath);
         ModelArchitecture architecture = null;
-        ModelFamilyPlugin plugin = architectureRegistry.get().all().stream().filter(p -> p.architectureAdapters().stream().anyMatch(a -> a.supportedArchClassNames().contains(config.primaryArchitecture()))).findFirst().orElse(null);
+        String archName = config.primaryArchitecture();
+        String modelType = config.modelType();
+        ModelFamilyPlugin plugin = architectureRegistry.get().all().stream()
+                .filter(p -> p.architectureAdapters().stream().anyMatch(a ->
+                        (archName != null && a.supportedArchClassNames().contains(archName))
+                                || (modelType != null && a.supportedModelTypes().contains(modelType))))
+                .findFirst().orElse(null);
         if (plugin != null) {
-            architecture = plugin.architectureAdapters().stream().filter(a -> a.supportedArchClassNames().contains(config.primaryArchitecture())).findFirst().orElse(null);
+            architecture = plugin.architectureAdapters().stream()
+                    .filter(a -> (archName != null && a.supportedArchClassNames().contains(archName))
+                            || (modelType != null && a.supportedModelTypes().contains(modelType)))
+                    .findFirst().orElse(null);
+        }
+        if (architecture == null) {
+            throw new UnsupportedOperationException(DirectSafetensorRoutePolicy.architectureDeclineReason(config));
         }
         ModelRuntimeTraits runtimeTraits = plugin != null ? plugin.runtimeTraits(config) : ModelRuntimeTraits.fallbackFromConfig(config);
         WeightLoadResult weightLoadResult = loadWeights(modelPath, effectiveQuantStrategy, config, runtimeTraits);
@@ -71,7 +84,7 @@ final class DirectModelLoader {
         return new DirectInferenceEngine.LoadedModel(modelPath, weights, tokenizer, key,
                 effectiveQuantStrategy != InferenceQuantizer.QuantStrategy.NONE, effectiveQuantStrategy,
                 weightLoadResult.quantCacheState(), weightLoadResult.quantCachePath(),
-                config, architecture, runtimeTraits, weightArena);
+                config, architecture, runtimeTraits, weightArena, weightLoadResult.session());
     }
 
     static InferenceQuantizer.QuantStrategy normalizeQuantStrategy(InferenceQuantizer.QuantStrategy quantStrategy) {
@@ -94,36 +107,54 @@ final class DirectModelLoader {
         long t0 = System.currentTimeMillis();
 
         Map<String, AccelTensor> weights;
-        try (SafetensorShardSession session = safetensorLoader.get().open(modelPath)) {
+        SafetensorShardSession session = safetensorLoader.get().open(modelPath);
+        AutoCloseable modelSession = session;
+        try {
             System.err.printf("[Aqli] Phase 2/4: Bridging tensors (%.1fs)...%n", (System.currentTimeMillis() - t0) / 1000.0);
             weights = weightBridge.get().bridgeAll(session);
             System.err.printf("[Aqli] Phase 2/4: Bridged %d tensors (%.1fs)%n", weights.size(), (System.currentTimeMillis() - t0) / 1000.0);
+
+            String quantCacheState = "off";
+            Path quantCachePath = null;
+            if (quantStrategy == InferenceQuantizer.QuantStrategy.NONE) {
+                System.err.printf("[Aqli] Phase 3/4: Applying Metal F16 weight cache (%.1fs)...%n", (System.currentTimeMillis() - t0) / 1000.0);
+                MetalF16WeightCache.CacheResult cacheResult = new MetalF16WeightCache(safetensorLoader.get(), weightBridge.get())
+                        .maybeUse(modelPath, weights, config, runtimeTraits);
+                weights = cacheResult.weights();
+                if (cacheResult.cacheSession() != null) {
+                    AutoCloseable prev = modelSession;
+                    AutoCloseable cacheSess = cacheResult.cacheSession();
+                    modelSession = () -> {
+                        try {
+                            prev.close();
+                        } finally {
+                            cacheSess.close();
+                        }
+                    };
+                }
+            } else {
+                System.err.printf("[Aqli] Phase 3/4: Quantizing weights with strategy=%s (%.1fs)...%n", quantStrategy, (System.currentTimeMillis() - t0) / 1000.0);
+                InferenceQuantizer.Result quantizationResult = quantizationEngine.get()
+                        .quantizeWeightsForInferenceDetailed(modelPath, weights, quantStrategy);
+                weights = quantizationResult.weights();
+                quantCacheState = quantizationResult.cacheState();
+                quantCachePath = quantizationResult.cachePath();
+            }
+
+            System.err.printf("[Aqli] Phase 4/4: Expanding weight aliases (%.1fs)...%n", (System.currentTimeMillis() - t0) / 1000.0);
+            WeightAliasExpander.applyCommonAliases(weights);
+            System.err.printf("[Aqli] Model ready: %d weights total (%.1fs)%n", weights.size(), (System.currentTimeMillis() - t0) / 1000.0);
+            LOG.infof("DirectInferenceEngine: bridged %d tensors (Accelerate/FFM backend, strategy=%s)",
+                    weights.size(), quantStrategy);
+            return new WeightLoadResult(weights, quantCacheState, quantCachePath, modelSession);
         } catch (Exception e) {
+            try {
+                modelSession.close();
+            } catch (Exception ignored) {
+            }
             LOG.errorf("Failed to load weights from %s: %s", modelPath, e.getMessage());
             throw new IllegalStateException("Failed to load weights: " + e.getMessage(), e);
         }
-
-        String quantCacheState = "off";
-        Path quantCachePath = null;
-        if (quantStrategy == InferenceQuantizer.QuantStrategy.NONE) {
-            System.err.printf("[Aqli] Phase 3/4: Applying Metal F16 weight cache (%.1fs)...%n", (System.currentTimeMillis() - t0) / 1000.0);
-            weights = new MetalF16WeightCache(safetensorLoader.get(), weightBridge.get())
-                    .maybeUse(modelPath, weights, config, runtimeTraits);
-        } else {
-            System.err.printf("[Aqli] Phase 3/4: Quantizing weights with strategy=%s (%.1fs)...%n", quantStrategy, (System.currentTimeMillis() - t0) / 1000.0);
-            InferenceQuantizer.Result quantizationResult = quantizationEngine.get()
-                    .quantizeWeightsForInferenceDetailed(modelPath, weights, quantStrategy);
-            weights = quantizationResult.weights();
-            quantCacheState = quantizationResult.cacheState();
-            quantCachePath = quantizationResult.cachePath();
-        }
-
-        System.err.printf("[Aqli] Phase 4/4: Expanding weight aliases (%.1fs)...%n", (System.currentTimeMillis() - t0) / 1000.0);
-        WeightAliasExpander.applyCommonAliases(weights);
-        System.err.printf("[Aqli] Model ready: %d weights total (%.1fs)%n", weights.size(), (System.currentTimeMillis() - t0) / 1000.0);
-        LOG.infof("DirectInferenceEngine: bridged %d tensors (Accelerate/FFM backend, strategy=%s)",
-                weights.size(), quantStrategy);
-        return new WeightLoadResult(weights, quantCacheState, quantCachePath);
     }
 
     private Tokenizer loadTokenizerWithContext(Path modelPath) {
@@ -157,6 +188,6 @@ final class DirectModelLoader {
         }
     }
 
-    private record WeightLoadResult(Map<String, AccelTensor> weights, String quantCacheState, Path quantCachePath) {
+    private record WeightLoadResult(Map<String, AccelTensor> weights, String quantCacheState, Path quantCachePath, AutoCloseable session) {
     }
 }

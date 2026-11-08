@@ -47,27 +47,30 @@ final class MetalF16WeightCache {
     private final SafetensorLoaderFacade safetensorLoader;
     private final AccelWeightBridge weightBridge;
 
+    record CacheResult(Map<String, AccelTensor> weights, AutoCloseable cacheSession) {
+    }
+
     MetalF16WeightCache(SafetensorLoaderFacade safetensorLoader, AccelWeightBridge weightBridge) {
         this.safetensorLoader = safetensorLoader;
         this.weightBridge = weightBridge;
     }
 
-    Map<String, AccelTensor> maybeUse(Path modelPath, Map<String, AccelTensor> weights, ModelConfig config,
+    CacheResult maybeUse(Path modelPath, Map<String, AccelTensor> weights, ModelConfig config,
             ModelRuntimeTraits traits) {
         if (Boolean.getBoolean(DISABLE_METAL_F16_DISK_CACHE_PROPERTY) || !isNativeMetalRuntimeActive()) {
-            return weights;
+            return new CacheResult(weights, null);
         }
         ModelRuntimeTraits effectiveTraits = ModelRuntimeTraitsResolver.resolve(config, traits);
         if (effectiveTraits.nativeBf16Matvec()
                 && !Boolean.getBoolean(ENABLE_GEMMA4_METAL_F16_DISK_CACHE_PROPERTY)) {
             LOG.debugf("Skipping Metal F16 weight cache for Gemma-4 text; BF16->F16 parity is experimental.");
-            return weights;
+            return new CacheResult(weights, null);
         }
         long cacheMaxBytes = Long.getLong(
                 METAL_F16_DISK_CACHE_MAX_BYTES_PROPERTY,
                 DEFAULT_METAL_F16_DISK_CACHE_MAX_BYTES);
         if (cacheMaxBytes <= 0L) {
-            return weights;
+            return new CacheResult(weights, null);
         }
         Path cachePath = cachePath(modelPath);
         long cacheBudgetBytes = Files.isRegularFile(cachePath)
@@ -75,19 +78,19 @@ final class MetalF16WeightCache {
                 : availableCacheBudget(cachePath, cacheMaxBytes);
         Map<String, AccelTensor> cacheableWeights = selectCacheWeights(weights, cacheBudgetBytes);
         if (cacheableWeights.isEmpty()) {
-            return weights;
+            return new CacheResult(weights, null);
         }
         long cacheBytes = estimateCacheBytes(cacheableWeights);
         if (cacheBytes <= 0L || cacheBytes > cacheMaxBytes) {
-            return weights;
+            return new CacheResult(weights, null);
         }
 
-        Map<String, AccelTensor> cached = tryLoad(cachePath, weights, cacheableWeights.keySet());
+        CacheResult cached = tryLoad(cachePath, weights, cacheableWeights.keySet());
         if (cached != null) {
             return cached;
         }
         if (!hasEnoughCacheSpace(cachePath, cacheBytes)) {
-            return weights;
+            return new CacheResult(weights, null);
         }
 
         Path tempPath = tempCachePath(cachePath);
@@ -101,7 +104,7 @@ final class MetalF16WeightCache {
                             ? tensor.toF16CachedUpTo(cacheMaxBytes)
                             : tensor;
                     if (cacheTensor == null) {
-                        return weights;
+                        return new CacheResult(weights, null);
                     }
                     converted.put(entry.getKey(), cacheTensor);
                 }
@@ -126,21 +129,24 @@ final class MetalF16WeightCache {
             }
             LOG.warnf(e, "Failed to persist Metal F16 weight cache for %s", modelPath);
         }
-        return weights;
+        return new CacheResult(weights, null);
     }
 
-    private Map<String, AccelTensor> tryLoad(
+    private CacheResult tryLoad(
             Path cachePath,
             Map<String, AccelTensor> expected,
             Set<String> expectedCachedNames) {
         if (!Files.isRegularFile(cachePath)) {
             return null;
         }
-        try (SafetensorShardSession cacheSession = safetensorLoader.open(cachePath)) {
+        SafetensorShardSession cacheSession = null;
+        try {
+            cacheSession = safetensorLoader.open(cachePath);
             Map<String, AccelTensor> cached = weightBridge.bridgeAll(cacheSession);
             if (!cached.keySet().containsAll(expectedCachedNames)) {
                 cached.values().forEach(AccelTensor::close);
                 LOG.warnf("Ignoring stale Metal F16 weight cache with missing tensors: %s", cachePath);
+                closeSilently(cacheSession);
                 return null;
             }
 
@@ -152,6 +158,7 @@ final class MetalF16WeightCache {
                 if (!isValidCacheReplacement(source, replacement)) {
                     cached.values().forEach(AccelTensor::close);
                     LOG.warnf("Ignoring stale Metal F16 weight cache with mismatched tensor '%s': %s", name, cachePath);
+                    closeSilently(cacheSession);
                     return null;
                 }
                 AccelTensor old = merged.put(name, replacement);
@@ -167,11 +174,21 @@ final class MetalF16WeightCache {
                     .forEach(AccelTensor::close);
             LOG.infof("DirectInferenceEngine: using Metal F16 weight cache [%s] (%d tensors)",
                     cachePath, usedCachedNames.size());
-            return merged;
+            return new CacheResult(merged, cacheSession);
         } catch (Exception e) {
+            closeSilently(cacheSession);
             LOG.warnf(e, "Failed to load Metal F16 weight cache from %s", cachePath);
         }
         return null;
+    }
+
+    private static void closeSilently(AutoCloseable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     private boolean isValidCacheReplacement(AccelTensor source, AccelTensor cached) {

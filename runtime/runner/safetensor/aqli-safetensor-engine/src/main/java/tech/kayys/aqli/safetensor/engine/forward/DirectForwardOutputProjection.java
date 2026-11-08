@@ -35,9 +35,34 @@ final class DirectForwardOutputProjection {
         }
 
         AccelTensor lastPos = selectLastToken(normed, request.seqLen());
+        if (Boolean.getBoolean("aqli.debug.mamba")) {
+            float[] fnData = lastPos.toFloatArray();
+            System.err.printf("[LOGITS-DBG] FinalNorm last token: [%.6f, %.6f, %.6f, %.6f]%n",
+                    fnData[0], fnData[1], fnData[2], fnData[3]);
+            System.err.flush();
+        }
         AccelTensor logitsOutput = DirectForwardLogits.reusableOutputTensor(context.workspace(), lastPos, lmHeadW);
         try {
-            return projectLogits(context, false, lastPos, lmHeadW, logitsOutput);
+            AccelTensor projected = projectLogits(context, false, lastPos, lmHeadW, logitsOutput);
+            if (Boolean.getBoolean("aqli.debug.mamba")) {
+                float[] lData = projected.toFloatArray();
+                // Find top 5
+                java.util.PriorityQueue<int[]> pq = new java.util.PriorityQueue<>(
+                        (a, b) -> Float.compare(Float.intBitsToFloat(a[1]), Float.intBitsToFloat(b[1])));
+                for (int i = 0; i < lData.length; i++) {
+                    pq.offer(new int[]{i, Float.floatToIntBits(lData[i])});
+                    if (pq.size() > 5) pq.poll();
+                }
+                java.util.List<int[]> top = new java.util.ArrayList<>(pq);
+                top.sort((a, b) -> Float.compare(Float.intBitsToFloat(b[1]), Float.intBitsToFloat(a[1])));
+                System.err.print("[LOGITS-DBG] Top 5 logits: ");
+                for (int[] pair : top) {
+                    System.err.printf("(%d, %.4f) ", pair[0], Float.intBitsToFloat(pair[1]));
+                }
+                System.err.println();
+                System.err.flush();
+            }
+            return projected;
         } finally {
             lastPos.closeWithParent();
         }
@@ -101,6 +126,13 @@ final class DirectForwardOutputProjection {
                 applyFinalSoftcap(logits, softcap);
             }
         }
+
+        if (context.config().lmHeadMultiplier() != null) {
+            float multiplier = context.config().resolvedLmHeadMultiplier();
+            if (multiplier != 1.0f) {
+                applyLmHeadMultiplier(logits, multiplier);
+            }
+        }
         
         DirectInferenceProfiler.recordLogitsProjectionNanos(System.nanoTime() - tLogits0);
         return logits;
@@ -113,6 +145,16 @@ final class DirectForwardOutputProjection {
         }
         MemorySegment.copy(floats, 0, logits.dataPtr(), ValueLayout.JAVA_FLOAT, 0L, floats.length);
         return logits;
+    }
+
+    private static void applyLmHeadMultiplier(AccelTensor logits, float multiplier) {
+        MemorySegment seg = logits.dataPtr();
+        long numFloats = logits.numel();
+        for (long i = 0; i < numFloats; i++) {
+            long offset = i * Float.BYTES;
+            float val = seg.get(ValueLayout.JAVA_FLOAT, offset);
+            seg.set(ValueLayout.JAVA_FLOAT, offset, val * multiplier);
+        }
     }
 
     private static AccelTensor linear(DirectForwardOutputProjectionContext context,
