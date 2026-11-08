@@ -9,6 +9,8 @@ import tech.kayys.aqli.spi.inference.InferenceResponse;
 import java.io.Closeable;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Collection;
+import tech.kayys.aqli.spi.inference.compat.AljabrInferenceDtoAdapter;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -130,6 +132,40 @@ public class LiteRTSdk implements Closeable {
     public CompletableFuture<List<InferenceResponse>> inferBatchAsync(List<InferenceRequest> requests) {
         checkClosed();
         return inferenceEngine.inferBatchAsync(requests);
+    }
+
+    /**
+     * Run inference using the canonical Aljabr request/response contract.
+     * The AQLI overloads remain available for source and binary compatibility.
+     */
+    public tech.kayys.aljabr.spi.inference.InferenceResponse infer(
+            tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+        checkClosed();
+        InferenceRequest legacyRequest = AljabrInferenceDtoAdapter.fromAljabr(request);
+        return AljabrInferenceDtoAdapter.toAljabr(inferenceEngine.infer(legacyRequest));
+    }
+
+    /** Run asynchronous inference using canonical Aljabr contracts. */
+    public CompletableFuture<tech.kayys.aljabr.spi.inference.InferenceResponse> inferAsync(
+            tech.kayys.aljabr.spi.inference.InferenceRequest request) {
+        checkClosed();
+        InferenceRequest legacyRequest = AljabrInferenceDtoAdapter.fromAljabr(request);
+        return inferenceEngine.inferAsync(legacyRequest).thenApply(AljabrInferenceDtoAdapter::toAljabr);
+    }
+
+    /** Run a batch using canonical Aljabr contracts. Collection avoids List erasure collision. */
+    public List<tech.kayys.aljabr.spi.inference.InferenceResponse> inferBatch(
+            Collection<tech.kayys.aljabr.spi.inference.InferenceRequest> requests) {
+        checkClosed();
+        return requests.stream().map(this::infer).toList();
+    }
+
+    /** Run an asynchronous batch using canonical Aljabr contracts. */
+    public CompletableFuture<List<tech.kayys.aljabr.spi.inference.InferenceResponse>> inferBatchAsync(
+            Collection<tech.kayys.aljabr.spi.inference.InferenceRequest> requests) {
+        checkClosed();
+        List<tech.kayys.aljabr.spi.inference.InferenceRequest> snapshot = List.copyOf(requests);
+        return CompletableFuture.supplyAsync(() -> inferBatch(snapshot));
     }
 
     /**
