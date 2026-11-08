@@ -1,10 +1,12 @@
 package tech.kayys.aqli.spi.inference.compat;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -129,4 +131,30 @@ class AljabrInferenceDtoAdapterTest {
         assertEquals(chunk.toolName(), restored.toolName());
         assertEquals(chunk.toolInputDelta(), restored.toolInputDelta());
     }
+    @Test
+    void roundTripsEmbeddingRequestAndResponse() {
+        var request = new tech.kayys.aqli.spi.embedding.EmbeddingRequest(
+                "embedding-request", "embedding-model", List.of("hello", "world"), Map.of("normalize", true));
+
+        var canonicalRequest = AljabrInferenceDtoAdapter.toAljabr(request);
+        var restoredRequest = AljabrInferenceDtoAdapter.fromAljabr(canonicalRequest);
+
+        assertEquals(request.requestId(), restoredRequest.requestId());
+        assertEquals(request.model(), restoredRequest.model());
+        assertEquals(request.inputs(), restoredRequest.inputs());
+        assertEquals(request.parameters(), restoredRequest.parameters());
+
+        var response = new tech.kayys.aqli.spi.embedding.EmbeddingResponse(
+                "embedding-request", "embedding-model", List.of(new float[] { 0.1f, 0.2f }),
+                2, Map.of("provider", "java"));
+        var canonicalResponse = AljabrInferenceDtoAdapter.toAljabr(response);
+        var restoredResponse = AljabrInferenceDtoAdapter.fromAljabr(canonicalResponse);
+
+        assertEquals(response.requestId(), restoredResponse.requestId());
+        assertEquals(response.model(), restoredResponse.model());
+        assertEquals(response.dimension(), restoredResponse.dimension());
+        assertEquals(response.metadata(), restoredResponse.metadata());
+        assertArrayEquals(response.embeddings().get(0), restoredResponse.embeddings().get(0));
+    }
+
 }
