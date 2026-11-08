@@ -23,7 +23,17 @@ import tech.kayys.aljabr.spi.model.HealthStatus;
  */
 @ApplicationScoped
 public class SafetensorInferenceEngineAdapter
-        implements tech.kayys.aqli.spi.inference.LocalInferenceEngine {
+        implements tech.kayys.aqli.spi.inference.LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
+    @Override
+    public String providerId() {
+        return "safetensor";
+    }
+
+    @Override
+    public java.util.Set<tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability> capabilities() {
+        return java.util.Set.of(tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability.STREAMING);
+    }
+
 
     @Inject
     Instance<DirectSafetensorBackend> backend;

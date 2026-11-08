@@ -43,7 +43,17 @@ import java.util.Set;
  */
 @ApplicationScoped
 @io.quarkus.arc.Unremovable
-public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceEngine {
+public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
+    @Override
+    public String providerId() {
+        return PROVIDER_ID;
+    }
+
+    @Override
+    public Set<tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability> capabilities() {
+        return java.util.Set.of(tech.kayys.aqli.spi.inference.InferenceEngineDescriptor.Capability.STREAMING);
+    }
+
 
     private static final Logger LOG = Logger.getLogger(OnnxEngine.class);
     private static final String PROVIDER_ID = "onnx";
