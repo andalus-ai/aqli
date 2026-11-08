@@ -68,7 +68,7 @@ class AljabrInferenceDtoAdapterTest {
         var toolCall = new tech.kayys.aqli.spi.tool.ToolCall(
                 "call-multimodal",
                 "lookup",
-                new tech.kayys.aqli.spi.tool.ToolCall.Function("lookup", "{\\"query\\":\\"weather\\"}"),
+                new tech.kayys.aqli.spi.tool.ToolCall.Function("lookup", "{\"query\":\"weather\"}"),
                 Map.of("query", "weather"),
                 tech.kayys.aqli.spi.tool.ToolDefinition.Type.MCP_TOOL);
 
