@@ -8,7 +8,7 @@ dependencies {
     implementation(project(":spi:aqli-spi-runner"))
     implementation(project(":spi:aqli-spi-plugin"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation(project(":runner:gguf:aqli-runner-gguf"))
+    implementation(project(":runner:gguf:aqli-runner-gguf-llamacpp"))
     implementation(project(":plugin:aqli-plugin-runner-core"))
     
     // Add aljabr model spi for MultimodalRequest

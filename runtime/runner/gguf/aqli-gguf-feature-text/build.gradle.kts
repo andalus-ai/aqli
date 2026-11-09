@@ -8,8 +8,8 @@ dependencies {
     implementation(project(":spi:aqli-spi-runner"))
     implementation(project(":spi:aqli-spi-plugin"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation(project(":runner:gguf:aqli-runner-gguf"))
-    implementation(project(":runner:gguf:aqli-plugin-runner-gguf"))
+    implementation(project(":runner:gguf:aqli-runner-gguf-llamacpp"))
+    implementation(project(":runner:gguf:aqli-plugin-runner-gguf-llamacpp"))
 
     // Add other typical dependencies
     implementation("org.jboss.logging:jboss-logging")
