@@ -57,6 +57,54 @@ public final class GgufStandaloneRunner {
     private static final int OUTPUT_BUFFER_RETRY_LIMIT = 2;
     private static final ThreadLocal<Boolean> REQUEST_TIMING = new ThreadLocal<>();
 
+    private static final GgufDaemonExecutionHandler DAEMON_EXECUTION_HANDLER =
+            new GgufDaemonExecutionHandler(FALLBACK_TO_FULL_CLI, COMMAND_ERROR,
+                    new GgufDaemonExecutionHandler.Operations() {
+                        @Override
+                        public GgufRunArguments parseArguments(String[] arguments) {
+                            return parseRunArguments(arguments);
+                        }
+
+                        @Override
+                        public Optional<Path> resolveModel(GgufRunArguments arguments) {
+                            return resolveGgufModel(arguments);
+                        }
+
+                        @Override
+                        public int prewarm(Path modelPath, GgufRunArguments arguments,
+                                PrintStream out, PrintStream err, GgufSessionCache sessionCache) throws Throwable {
+                            return engineMode(arguments) == EngineMode.JAVA
+                                    ? prewarmWithJava(modelPath, arguments, out, err, sessionCache)
+                                    : prewarmWithLlamaCpp(modelPath, arguments, out, err, sessionCache);
+                        }
+
+                        @Override
+                        public int run(Path modelPath, GgufRunArguments arguments,
+                                PrintStream out, PrintStream err, GgufSessionCache sessionCache) throws Throwable {
+                            return generate(modelPath, arguments, out, err, sessionCache, "daemon");
+                        }
+
+                        @Override
+                        public void setRequestTiming(boolean enabled) {
+                            REQUEST_TIMING.set(enabled);
+                        }
+
+                        @Override
+                        public void clearRequestTiming() {
+                            REQUEST_TIMING.remove();
+                        }
+
+                        @Override
+                        public boolean debugEnabled() {
+                            return fastRunDebug();
+                        }
+
+                        @Override
+                        public String briefMessage(Throwable throwable) {
+                            return GgufStandaloneRunner.briefMessage(throwable);
+                        }
+                    });
+
     static {
         try {
             java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
@@ -2125,33 +2173,7 @@ public final class GgufStandaloneRunner {
             PrintStream out,
             PrintStream err,
             GgufSessionCache sessionCache) {
-        boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
-        REQUEST_TIMING.set(request.requestTiming());
-        try {
-            GgufRunArguments parsed = parseRunArguments(request.arguments());
-            if (!parsed.supported()) {
-                return FALLBACK_TO_FULL_CLI;
-            }
-            Optional<Path> modelPath = resolveGgufModel(parsed);
-            if (modelPath.isEmpty()) {
-                return FALLBACK_TO_FULL_CLI;
-            }
-            if (prewarmRequest) {
-                EngineMode engine = engineMode(parsed);
-                return engine == EngineMode.JAVA
-                        ? prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache)
-                        : prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
-            }
-            return generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
-        } catch (Throwable throwable) {
-            err.println("GGUF daemon request failed: " + briefMessage(throwable));
-            if (fastRunDebug()) {
-                throwable.printStackTrace(err);
-            }
-            return COMMAND_ERROR;
-        } finally {
-            REQUEST_TIMING.remove();
-        }
+        return DAEMON_EXECUTION_HANDLER.execute(request, out, err, sessionCache);
     }
 
     private static int stopDaemon() {
