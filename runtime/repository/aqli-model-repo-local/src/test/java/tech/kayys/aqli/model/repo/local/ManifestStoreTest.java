@@ -37,6 +37,17 @@ class ManifestStoreTest {
         assertTrue(store.findByModelId("org/model", "dev").isEmpty());
     }
 
+
+    @Test
+    void failsWhenManifestLocationIsNotADirectory() throws Exception {
+        Path manifestLocation = temporaryDirectory.resolve("not-a-directory");
+        Files.writeString(manifestLocation, "not a directory");
+
+        ManifestStore store = new ManifestStore(manifestLocation);
+
+        assertThrows(IllegalStateException.class, store::listAll);
+    }
+
     @Test
     void computesStableDistinctNamesForRevisions() {
         assertEquals(AqliManifest.computeName("org/model", "main"),
