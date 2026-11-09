@@ -1901,16 +1901,16 @@ public final class GgufStandaloneRunner {
     }
 
     private static final class GgufSessionCache implements AutoCloseable {
-        private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
-<<<<<<< HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
+        private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);<<<<<<<HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
         private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f,
                 true);
 
         private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath)
                 throws Exception {
 =======
-        private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends =
-                new LinkedHashMap<>(2, 0.75f, true);
+
+        private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends = new LinkedHashMap<>(
+                2, 0.75f, true);
 
         private synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
                 Path modelPath) throws Exception {
@@ -2099,7 +2099,7 @@ public final class GgufStandaloneRunner {
                 boolean useMmap,
                 boolean useMlock,
                 boolean swaFull) throws Throwable {
-            NativeGgufBinding binding = NativeGgufBinding.INSTANCE;
+            LlamaCppGgufNativeBindings binding = LlamaCppGgufNativeBindings.INSTANCE;
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment model = arena.allocateFrom(modelPath.toString(), StandardCharsets.UTF_8);
                 MemorySegment backendDir = arena.allocateFrom(llamaLibDir().toString(), StandardCharsets.UTF_8);
@@ -2143,7 +2143,7 @@ public final class GgufStandaloneRunner {
             int retries = 0;
             for (int attempt = 0; attempt <= OUTPUT_BUFFER_RETRY_LIMIT; ++attempt) {
                 MemorySegment output = outputSegment(requestedOutputBytes);
-                int generated = (int) NativeGgufBinding.INSTANCE.generate.invokeExact(
+                int generated = (int) LlamaCppGgufNativeBindings.INSTANCE.generate.invokeExact(
                         handle,
                         promptSegment,
                         maxTokens,
@@ -2185,7 +2185,7 @@ public final class GgufStandaloneRunner {
 
         private synchronized Optional<String> metrics(boolean warmSession, String reuseKind) throws Throwable {
             ensureOpen();
-            NativeGgufBinding binding = NativeGgufBinding.INSTANCE;
+            LlamaCppGgufNativeBindings binding = LlamaCppGgufNativeBindings.INSTANCE;
             if (binding.metrics == null) {
                 return Optional.empty();
             }
@@ -2266,7 +2266,7 @@ public final class GgufStandaloneRunner {
             }
             closed = true;
             try {
-                NativeGgufBinding.INSTANCE.close.invokeExact(handle);
+                LlamaCppGgufNativeBindings.INSTANCE.close.invokeExact(handle);
             } catch (Throwable ignored) {
             } finally {
                 scratchArena.close();
@@ -2285,7 +2285,7 @@ public final class GgufStandaloneRunner {
         return Path.of(System.getProperty("user.home"), ".aqli", "libs", "llama").toAbsolutePath();
     }
 
-    private static Path bridgePath() {
+    static Path bridgePath() {
         String configured = configValue("aqli.gguf.fast_run.bridge");
         if (configured != null && !configured.isBlank()) {
             return Path.of(configured).toAbsolutePath();
@@ -2307,82 +2307,6 @@ public final class GgufStandaloneRunner {
             return cursor.getClass().getSimpleName();
         }
         return message.replace('\n', ' ').replace('\r', ' ');
-    }
-
-    private static final class NativeGgufBinding {
-        private static final NativeGgufBinding INSTANCE = new NativeGgufBinding();
-
-        private final MethodHandle open;
-        private final MethodHandle generate;
-        private final MethodHandle backendName;
-        private final MethodHandle metrics;
-        private final MethodHandle hardExit;
-        private final MethodHandle close;
-
-        private NativeGgufBinding() {
-            try {
-                Path bridge = bridgePath();
-                if (!Files.isRegularFile(bridge)) {
-                    throw new IOException("GGUF fast bridge is not installed at " + bridge);
-                }
-                System.load(bridge.toString());
-                Linker linker = Linker.nativeLinker();
-                SymbolLookup lookup = SymbolLookup.libraryLookup(bridge, Arena.global());
-                this.open = linker.downcallHandle(
-                        lookup.find("aqli_gguf_open").orElseThrow(),
-                        FunctionDescriptor.of(ValueLayout.ADDRESS,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.JAVA_LONG));
-                this.generate = linker.downcallHandle(
-                        lookup.find("aqli_gguf_generate").orElseThrow(),
-                        FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_FLOAT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.JAVA_FLOAT,
-                                ValueLayout.JAVA_INT,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.JAVA_LONG,
-                                ValueLayout.ADDRESS,
-                                ValueLayout.JAVA_LONG));
-                this.backendName = linker.downcallHandle(
-                        lookup.find("aqli_gguf_backend_name").orElseThrow(),
-                        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-                Optional<MemorySegment> metricsSymbol = lookup.find("aqli_gguf_last_metrics");
-                this.metrics = metricsSymbol.isPresent()
-                        ? linker.downcallHandle(
-                                metricsSymbol.get(),
-                                FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                                        ValueLayout.ADDRESS,
-                                        ValueLayout.ADDRESS,
-                                        ValueLayout.JAVA_LONG))
-                        : null;
-                Optional<MemorySegment> hardExitSymbol = lookup.find("aqli_gguf_hard_exit");
-                this.hardExit = hardExitSymbol.isPresent()
-                        ? linker.downcallHandle(
-                                hardExitSymbol.get(),
-                                FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT))
-                        : null;
-                this.close = linker.downcallHandle(
-                        lookup.find("aqli_gguf_close").orElseThrow(),
-                        FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
-            } catch (Throwable throwable) {
-                throw new ExceptionInInitializerError(throwable);
-            }
-        }
     }
 
     private static OptionalInt requestDaemon(String[] rawArgs) {
@@ -2846,7 +2770,7 @@ public final class GgufStandaloneRunner {
         System.out.flush();
         System.err.flush();
         try {
-            MethodHandle hardExit = NativeGgufBinding.INSTANCE.hardExit;
+            MethodHandle hardExit = LlamaCppGgufNativeBindings.INSTANCE.hardExit;
             if (hardExit != null) {
                 hardExit.invokeExact(status);
             }
