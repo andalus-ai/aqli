@@ -25,9 +25,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.lang.foreign.FunctionDescriptor;
-import java.lang.foreign.Linker;
-import java.lang.foreign.SymbolLookup;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -1993,10 +1990,6 @@ public final class GgufFastRun {
             return Path.of(configured).toAbsolutePath();
         }
         return Path.of(System.getProperty("user.home"), ".aqli", "libs", "libaqli_gguf_fast.dylib").toAbsolutePath();
-    }
-
-    private static boolean isNull(MemorySegment segment) {
-        return segment == null || segment.equals(MemorySegment.NULL) || segment.address() == 0L;
     }
 
     private static String briefMessage(Throwable throwable) {
