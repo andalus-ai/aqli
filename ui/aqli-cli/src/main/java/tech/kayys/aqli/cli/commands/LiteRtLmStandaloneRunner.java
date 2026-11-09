@@ -277,55 +277,42 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static Optional<RouteMatch> resolveLiteRtLmRouteMatch(LiteRTRunArguments args) {
-        if (args.modelFile() != null) {
-            Optional<Path> explicit = resolvePath(Path.of(args.modelFile()));
-            if (explicit.isPresent()) {
-                return findLiteRtLmFromExplicitPath(explicit.get())
-                        .map(path -> new RouteMatch(path, "modelFile", false));
-            }
+        Optional<RouteMatch> resolved = new LiteRTRouteResolver()
+                .resolve(
+                        args.modelFile(),
+                        args.model(),
+                        modelIndexPath(),
+                        equivalentLiteRtFastPathEnabled())
+                .map(match -> new RouteMatch(match.path(), match.source(), match.cacheHit()));
+        if (resolved.isPresent() || args.model() == null) {
+            return resolved;
         }
-        if (args.model() != null) {
-            Optional<Path> direct = resolvePath(Path.of(args.model()));
-            if (direct.isPresent()) {
-                Optional<Path> found = findLiteRtLmFromExplicitPath(direct.get());
-                if (found.isPresent()) {
-                    return Optional.of(new RouteMatch(found.get(), "model", false));
-                }
+
+        // Preserve AQLI's legacy index and cached Gemma alternate-runtime fallback.
+        // These policies depend on the CLI-owned LocalModelIndex and route policy.
+        try {
+            Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(args.model());
+            if (indexed.isPresent()
+                    && isLiteRtIndexEntry(indexed.get())
+                    && indexed.get().path != null
+                    && !indexed.get().path.isBlank()) {
+                return findLiteRtLmFromExplicitPath(Path.of(indexed.get().path))
+                        .map(path -> new RouteMatch(path, "local-index-litert", true));
             }
-            Optional<RouteMatch> fastIndexed = findIndexedLiteRtModelRoute(args.model());
-            if (fastIndexed.isPresent()) {
-                Optional<Path> found = findLiteRtLmFromExplicitPath(fastIndexed.get().path());
-                if (found.isPresent()) {
+            if (indexed.isPresent()
+                    && isSafetensorIndexEntry(indexed.get())
+                    && indexed.get().path != null
+                    && !indexed.get().path.isBlank()) {
+                Optional<Path> cachedGemma4LiteRt = findCachedGemma4LiteRtModelPath(indexed.get().path);
+                if (cachedGemma4LiteRt.isPresent()) {
                     return Optional.of(new RouteMatch(
-                            found.get(),
-                            fastIndexed.get().source(),
-                            fastIndexed.get().cacheHit()));
+                            cachedGemma4LiteRt.get(),
+                            "cached-gemma4-litert",
+                            true));
                 }
             }
-            try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(args.model());
-                if (indexed.isPresent()
-                        && isLiteRtIndexEntry(indexed.get())
-                        && indexed.get().path != null
-                        && !indexed.get().path.isBlank()) {
-                    return findLiteRtLmFromExplicitPath(Path.of(indexed.get().path))
-                            .map(path -> new RouteMatch(path, "local-index-litert", true));
-                }
-                if (indexed.isPresent()
-                        && isSafetensorIndexEntry(indexed.get())
-                        && indexed.get().path != null
-                        && !indexed.get().path.isBlank()) {
-                    Optional<Path> cachedGemma4LiteRt = findCachedGemma4LiteRtModelPath(indexed.get().path);
-                    if (cachedGemma4LiteRt.isPresent()) {
-                        return Optional.of(new RouteMatch(
-                                cachedGemma4LiteRt.get(),
-                                "cached-gemma4-litert",
-                                true));
-                    }
-                }
-            } catch (Throwable ignored) {
-                // Full CLI has the complete resolver if the lightweight index read fails.
-            }
+        } catch (Throwable ignored) {
+            // Full CLI has the complete resolver if the lightweight index read fails.
         }
         return Optional.empty();
     }
