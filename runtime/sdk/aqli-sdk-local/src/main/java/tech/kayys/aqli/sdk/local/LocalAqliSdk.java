@@ -169,13 +169,23 @@ public class LocalAqliSdk implements AqliSdk {
     }
 
     @Override
-    public List<String> getRecentLogs(int maxLines) {
-        return List.of();
+    public List<String> listAvailableProviders() {
+        return engines.availableProviders();
     }
 
     @Override
-    public Map<String, Object> getMetrics(String providerId, String modelId) {
-        return Map.of("availableProviders", engines.availableProviders());
+    public List<String> getRecentLogs(int maxLines) throws SdkException {
+        throw unsupported("Runtime log retrieval");
+    }
+
+    @Override
+    public Map<String, Object> getMetrics(String providerId, String modelId) throws SdkException {
+        throw unsupported("Inference metrics");
+    }
+
+    @Override
+    public List<tech.kayys.aqli.spi.plugin.AqliPlugin.PluginMetadata> listPlugins() throws SdkException {
+        throw unsupported("Plugin catalogue");
     }
 
     private InferenceRequest applyDefaults(InferenceRequest request) {
