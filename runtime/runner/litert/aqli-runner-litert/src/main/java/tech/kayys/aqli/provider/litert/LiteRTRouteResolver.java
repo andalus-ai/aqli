@@ -49,8 +49,12 @@ public final class LiteRTRouteResolver {
             return Optional.empty();
         }
         return indexResolver.resolve(indexPath, model, allowEquivalent)
-                .flatMap(indexed -> selectArtifact(indexed.path())
+                .flatMap(indexed -> resolveArtifact(indexed.path())
                         .map(path -> new RouteMatch(path, indexed.source(), true)));
+    }
+
+    public Optional<Path> resolveArtifact(Path path) {
+        return selectArtifact(path);
     }
 
     private Optional<RouteMatch> resolveExplicit(String value, String source) {
@@ -62,7 +66,7 @@ public final class LiteRTRouteResolver {
             Path normalized = candidate.isAbsolute()
                     ? candidate.toAbsolutePath().normalize()
                     : Path.of("").toAbsolutePath().resolve(candidate).normalize();
-            return selectArtifact(normalized)
+            return resolveArtifact(normalized)
                     .map(path -> new RouteMatch(path, source, false));
         } catch (RuntimeException ignored) {
             return Optional.empty();
