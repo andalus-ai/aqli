@@ -34,8 +34,6 @@ import java.util.function.Predicate;
  */
 public final class DirectSafetensorRoutePolicy {
 
-    public static LocalModelResolver resolver;
-
     private static final String DEFAULT_RUN_SYSTEM_PROMPT = "Answer directly and briefly.";
     private static final String QWEN_SAFETENSOR_RUN_SYSTEM_PROMPT = "You are a helpful assistant.";
     private static final String DISABLE_DEFAULT_RUN_SYSTEM_PROPERTY = "aqli.cli.disable_default_run_system";
@@ -248,16 +246,6 @@ public final class DirectSafetensorRoutePolicy {
         return hasText(explicitSystemPrompt) || (profile != null && profile.config() != null && profile.config().modelType() != null && profile.config().modelType().contains("qwen"));
     }
 
-    public static boolean shouldUseDirectLiteRtStreamPath(String currentProvider, String localPath) {
-        if (!"litert".equalsIgnoreCase(currentProvider) || !hasText(localPath)) {
-            return false;
-        }
-        if (!Boolean.getBoolean("aqli.cli.enable_direct_litert_stream")) {
-            return false;
-        }
-        return looksLikeLiteRtArtifactOrDirectory(localPath);
-    }
-
     public static AlternateRuntimeSelection selectGemma3AlternateRuntime(String currentProvider, String requestedModelId,
             String localPath, boolean providerExplicit, boolean preferAlternateRuntime,
             Predicate<String> providerActive) {
@@ -327,7 +315,7 @@ public final class DirectSafetensorRoutePolicy {
                 providerExplicit,
                 preferAlternateRuntime,
                 providerActive,
-                resolver::resolveLiteRtModel);
+                null);
     }
 
     public static AlternateRuntimeSelection selectGemma4MobileQatAlternateRuntime(
@@ -420,23 +408,31 @@ public final class DirectSafetensorRoutePolicy {
             boolean preferAlternateRuntime,
             Predicate<String> providerActive) {
         return selectGemma4TextAlternateRuntime(
-                currentProvider,
-                requestedModelId,
-                localPath,
-                providerExplicit,
-                preferAlternateRuntime,
-                providerActive,
-                DirectSafetensorRoutePolicy::findLocalGemma4GgufEquivalent);
+                currentProvider, requestedModelId, localPath, providerExplicit,
+                preferAlternateRuntime, providerActive, (LocalModelResolver) null);
     }
 
     public static AlternateRuntimeSelection selectGemma4TextAlternateRuntime(
-            String currentProvider,
-            String requestedModelId,
-            String localPath,
-            boolean providerExplicit,
-            boolean preferAlternateRuntime,
-            Predicate<String> providerActive,
-            BiFunction<String, String, Optional<Path>> ggufResolver) {
+            String currentProvider, String requestedModelId, String localPath,
+            boolean providerExplicit, boolean preferAlternateRuntime,
+            Predicate<String> providerActive, BiFunction<String, String, Optional<Path>> ggufResolver) {
+        return selectGemma4TextAlternateRuntime(currentProvider, requestedModelId, localPath,
+                providerExplicit, preferAlternateRuntime, providerActive, ggufResolver, null);
+    }
+
+    public static AlternateRuntimeSelection selectGemma4TextAlternateRuntime(
+            String currentProvider, String requestedModelId, String localPath,
+            boolean providerExplicit, boolean preferAlternateRuntime,
+            Predicate<String> providerActive, LocalModelResolver localModelResolver) {
+        return selectGemma4TextAlternateRuntime(currentProvider, requestedModelId, localPath,
+                providerExplicit, preferAlternateRuntime, providerActive, null, localModelResolver);
+    }
+
+    private static AlternateRuntimeSelection selectGemma4TextAlternateRuntime(
+            String currentProvider, String requestedModelId, String localPath,
+            boolean providerExplicit, boolean preferAlternateRuntime,
+            Predicate<String> providerActive, BiFunction<String, String, Optional<Path>> ggufResolver,
+            LocalModelResolver localModelResolver) {
         if (!allowGemma4TextAlternateRuntime(providerExplicit, preferAlternateRuntime)) {
             return AlternateRuntimeSelection.none();
         }
@@ -458,7 +454,8 @@ public final class DirectSafetensorRoutePolicy {
             Optional<Path> cachedGguf = findCachedGemma4TextGgufEquivalent(requestedModelId, localPath);
             Optional<Path> localGguf = cachedGguf
                     .or(() -> findPreferredAlternateArtifact(modelDir.get(), requestedModelId, GGUF_SUFFIXES))
-                    .or(() -> resolveGgufEquivalent(ggufResolver, requestedModelId, localPath));
+                    .or(() -> resolveGgufEquivalent(ggufResolver, requestedModelId, localPath))
+                    .or(() -> findLocalGemma4GgufEquivalent(localModelResolver, requestedModelId, localPath));
             if (localGguf.isPresent() && providerActive.test("gguf")) {
                 Path selected = localGguf.get().toAbsolutePath().normalize();
                 boolean cacheHit = cachedGguf.isPresent();
@@ -501,23 +498,31 @@ public final class DirectSafetensorRoutePolicy {
             boolean preferAlternateRuntime,
             Predicate<String> providerActive) {
         return selectCommunityTextGgufAlternateRuntime(
-                currentProvider,
-                requestedModelId,
-                localPath,
-                providerExplicit,
-                preferAlternateRuntime,
-                providerActive,
-                DirectSafetensorRoutePolicy::findLocalCommunityTextGgufEquivalent);
+                currentProvider, requestedModelId, localPath, providerExplicit,
+                preferAlternateRuntime, providerActive, (LocalModelResolver) null);
     }
 
     public static AlternateRuntimeSelection selectCommunityTextGgufAlternateRuntime(
-            String currentProvider,
-            String requestedModelId,
-            String localPath,
-            boolean providerExplicit,
-            boolean preferAlternateRuntime,
-            Predicate<String> providerActive,
-            BiFunction<String, String, Optional<Path>> ggufResolver) {
+            String currentProvider, String requestedModelId, String localPath,
+            boolean providerExplicit, boolean preferAlternateRuntime,
+            Predicate<String> providerActive, BiFunction<String, String, Optional<Path>> ggufResolver) {
+        return selectCommunityTextGgufAlternateRuntime(currentProvider, requestedModelId, localPath,
+                providerExplicit, preferAlternateRuntime, providerActive, ggufResolver, null);
+    }
+
+    public static AlternateRuntimeSelection selectCommunityTextGgufAlternateRuntime(
+            String currentProvider, String requestedModelId, String localPath,
+            boolean providerExplicit, boolean preferAlternateRuntime,
+            Predicate<String> providerActive, LocalModelResolver localModelResolver) {
+        return selectCommunityTextGgufAlternateRuntime(currentProvider, requestedModelId, localPath,
+                providerExplicit, preferAlternateRuntime, providerActive, null, localModelResolver);
+    }
+
+    private static AlternateRuntimeSelection selectCommunityTextGgufAlternateRuntime(
+            String currentProvider, String requestedModelId, String localPath,
+            boolean providerExplicit, boolean preferAlternateRuntime,
+            Predicate<String> providerActive, BiFunction<String, String, Optional<Path>> ggufResolver,
+            LocalModelResolver localModelResolver) {
         if (!allowCommunityTextGgufAlternateRuntime(providerExplicit, preferAlternateRuntime)) {
             return AlternateRuntimeSelection.none();
         }
@@ -540,7 +545,8 @@ public final class DirectSafetensorRoutePolicy {
                     findCachedCommunityTextGgufEquivalent(selectedFamily, requestedModelId, localPath);
             Optional<Path> localGguf = cachedGguf
                     .or(() -> findPreferredAlternateArtifact(modelDir.get(), requestedModelId, GGUF_SUFFIXES))
-                    .or(() -> resolveGgufEquivalent(ggufResolver, requestedModelId, localPath));
+                    .or(() -> resolveGgufEquivalent(ggufResolver, requestedModelId, localPath))
+                    .or(() -> findLocalCommunityTextGgufEquivalent(localModelResolver, requestedModelId, localPath));
             if (localGguf.isPresent() && providerActive.test("gguf")) {
                 Path selected = localGguf.get().toAbsolutePath().normalize();
                 boolean cacheHit = cachedGguf.isPresent();
@@ -860,7 +866,11 @@ public final class DirectSafetensorRoutePolicy {
         }
     }
 
-    private static Optional<Path> findLocalGemma4GgufEquivalent(String requestedModelId, String localPath) {
+    private static Optional<Path> findLocalGemma4GgufEquivalent(
+            LocalModelResolver resolver, String requestedModelId, String localPath) {
+        if (resolver == null) {
+            return Optional.empty();
+        }
         Set<String> requestedKeys = gemma4GgufTargetKeys(requestedModelId, localPath);
         if (requestedKeys.isEmpty()) {
             return Optional.empty();
@@ -1021,7 +1031,9 @@ public final class DirectSafetensorRoutePolicy {
                 .replace('.', '_');
     }
 
-    private static Optional<Path> findLocalCommunityTextGgufEquivalent(String requestedModelId, String localPath) {
+    private static Optional<Path> findLocalCommunityTextGgufEquivalent(
+            LocalModelResolver resolver, String requestedModelId, String localPath) {
+        if (resolver == null) return Optional.empty();
         Set<String> requestedKeys = communityTextGgufTargetKeys(requestedModelId, localPath);
         if (requestedKeys.isEmpty()) {
             return Optional.empty();
@@ -1508,33 +1520,6 @@ public final class DirectSafetensorRoutePolicy {
     private static boolean isGemma4MobileQat(Path modelDir) {
         ModelFamilyQuantizedLoaderProfile profile = ModelFamilyQuantizedLoaderProfile.fromModelDir(modelDir);
         return profile != null && profile.mobileQatSupported();
-    }
-
-    private static boolean looksLikeLiteRtArtifactOrDirectory(String localPath) {
-        try {
-            Path path = Path.of(localPath).toAbsolutePath().normalize();
-            if (Files.isRegularFile(path)) {
-                return isLiteRtFileName(path.getFileName().toString());
-            }
-            if (!Files.isDirectory(path)) {
-                return false;
-            }
-            try (var stream = Files.list(path)) {
-                return stream
-                        .filter(Files::isRegularFile)
-                        .map(candidate -> candidate.getFileName().toString())
-                        .anyMatch(DirectSafetensorRoutePolicy::isLiteRtFileName);
-            }
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private static boolean isLiteRtFileName(String name) {
-        return name != null
-                && (name.toLowerCase(Locale.ROOT).endsWith(".litertlm")
-                || name.toLowerCase(Locale.ROOT).endsWith(".task")
-                || name.toLowerCase(Locale.ROOT).endsWith(".tflite"));
     }
 
     private static Optional<Path> modelDirectory(String localPath) {
