@@ -1,0 +1,50 @@
+plugins {
+    java
+}
+
+dependencies {
+    implementation(project(":core:aqli-core"))
+    implementation(project(":spi:aqli-spi"))
+    implementation(project(":spi:aqli-spi-runner"))
+    implementation(project(":spi:aqli-spi-inference"))
+    implementation(project(":repository:aqli-model-repo-local"))
+
+    // This module is the opt-in AQLI adapter for Aljabr's optional llama.cpp provider.
+    implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-llamacpp:0.1.0-SNAPSHOT")
+
+    implementation("org.jboss.logging:jboss-logging")
+    implementation("io.smallrye.reactive:mutiny:2.5.5")
+    implementation("io.micrometer:micrometer-core:1.14.4")
+    implementation("com.hubspot.jinjava:jinjava:2.7.3")
+    implementation("jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1")
+    implementation("jakarta.inject:jakarta.inject-api:2.0.1")
+    implementation("org.eclipse.microprofile.fault-tolerance:microprofile-fault-tolerance-api:4.0.2")
+    implementation("io.quarkus:quarkus-arc:3.7.1")
+    implementation("io.opentelemetry:opentelemetry-api:1.34.1")
+
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(project(":sdk:aqli-sdk-core"))
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("org.assertj:assertj-core:3.24.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+sourceSets {
+    test {
+        java {
+            // These legacy tests target the removed LlamaCppProvider facade and
+            // were intentionally excluded by the former combined runner module.
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderConfigTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/MockLlamaCppProviderConfigProducer.java")
+        }
+    }
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
