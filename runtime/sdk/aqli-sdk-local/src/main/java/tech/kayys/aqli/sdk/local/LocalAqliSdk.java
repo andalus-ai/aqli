@@ -8,14 +8,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
-import jakarta.enterprise.context.ApplicationScoped;
 import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 import tech.kayys.aljabr.spi.model.ModelInfo;
-import tech.kayys.aqli.sdk.model.ModelListRequest;
-import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.SystemInfo;
@@ -37,7 +34,7 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
  * operations remain unsupported until their corresponding runtime services
  * are composed here.</p>
  */
-public final class LocalAqliSdk implements AqliSdk {
+public class LocalAqliSdk implements AqliSdk {
 
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
