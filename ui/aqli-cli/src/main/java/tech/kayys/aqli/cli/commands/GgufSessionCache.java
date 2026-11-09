@@ -20,7 +20,7 @@ final class GgufSessionCache implements AutoCloseable {
         this.log = log;
     }
 
-private record SessionKey(
+    private record SessionKey(
         Path modelPath,
         int context,
         int batch,
@@ -33,7 +33,7 @@ private record SessionKey(
         boolean swaFull) {
 }
 
-private record SessionLease(
+    record SessionLease(
         LlamaCppGgufSession session,
         boolean reused,
         boolean closeOnClose,
@@ -76,7 +76,7 @@ private record SessionLease(
     private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
 
-    private synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
+    synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
             Path modelPath) throws Exception {
         Path key = modelPath.toAbsolutePath().normalize();
         tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
@@ -91,7 +91,7 @@ private record SessionLease(
         return opened;
     }
 
-    private SessionLease acquire(
+    SessionLease acquire(
             Path modelPath,
             int context,
             int batch,
