@@ -24,7 +24,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
 
     @Test
     void runHeaderMatchesFullCliShapeForIndexedModels() {
-        LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
+        tech.kayys.aqli.provider.litert.LiteRTRunArguments args = tech.kayys.aqli.provider.litert.LiteRTRunArguments.parse(
                 new String[]{"run", "--model", "7c51c9", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -43,7 +43,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
 
     @Test
     void runHeaderDoesNotPrintResolvedLineForExplicitModelFile() {
-        LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
+        tech.kayys.aqli.provider.litert.LiteRTRunArguments args = tech.kayys.aqli.provider.litert.LiteRTRunArguments.parse(
                 new String[]{"run", "--modelFile", "/tmp/gemma-4-E2B-it.litertlm", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -148,7 +148,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         System.setProperty("user.home", tempHome.toString());
         System.clearProperty("aqli.litert.fast_run.auto_equivalent");
         try {
-            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
+            tech.kayys.aqli.provider.litert.LiteRTRunArguments args = tech.kayys.aqli.provider.litert.LiteRTRunArguments.parse(
                     new String[]{"run", "--model", "97cbf2", "--prompt", "hello"});
             LiteRtLmStandaloneRunner.RouteResolution route = LiteRtLmStandaloneRunner.resolveLiteRtLmRoute(args).orElseThrow();
 
@@ -186,7 +186,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         System.setProperty("user.home", tempHome.toString());
         System.clearProperty("aqli.litert.fast_run.auto_equivalent");
         try {
-            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
+            tech.kayys.aqli.provider.litert.LiteRTRunArguments args = tech.kayys.aqli.provider.litert.LiteRTRunArguments.parse(
                     new String[]{"run", "--model", "0576e9", "--prompt", "hello"});
             LiteRtLmStandaloneRunner.RouteResolution route = LiteRtLmStandaloneRunner.resolveLiteRtLmRoute(args).orElseThrow();
 
@@ -215,7 +215,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         System.setProperty("user.home", tempHome.toString());
         System.setProperty("aqli.litert.fast_run.auto_equivalent", "false");
         try {
-            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
+            tech.kayys.aqli.provider.litert.LiteRTRunArguments args = tech.kayys.aqli.provider.litert.LiteRTRunArguments.parse(
                     new String[]{"run", "--model", "97cbf2", "--prompt", "hello"});
 
             assertTrue(LiteRtLmStandaloneRunner.resolveLiteRtLmModel(args).isEmpty());
@@ -246,7 +246,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         System.clearProperty("aqli.litert.fast_run.auto_equivalent");
         System.clearProperty("aqli.litert.fast_run.daemon_route_cache");
         try {
-            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
+            tech.kayys.aqli.provider.litert.LiteRTRunArguments args = tech.kayys.aqli.provider.litert.LiteRTRunArguments.parse(
                     new String[]{"run", "--model", "97cbf2", "--prompt", "hello"});
             LiteRtLmStandaloneRunner.RouteResolutionCache cache = new LiteRtLmStandaloneRunner.RouteResolutionCache();
 
