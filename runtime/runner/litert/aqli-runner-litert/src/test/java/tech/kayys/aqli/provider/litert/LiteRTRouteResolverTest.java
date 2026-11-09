@@ -42,6 +42,18 @@ class LiteRTRouteResolverTest {
         assertTrue(result.cacheHit());
     }
 
+
+    @Test
+    void resolvesIndexedArtifactBesideStaleIndexedDirectoryPath() throws Exception {
+        Path artifact = Files.writeString(tempDir.resolve("gemma.litertlm"), "model");
+        Path staleDirectory = tempDir.resolve("model-directory");
+        Path index = Files.writeString(tempDir.resolve("index.json"), """
+                [{"id":"google/gemma-4-E2B-it","format":"litertlm","path":"%s"}]
+                """.formatted(staleDirectory));
+        var result = new LiteRTRouteResolver().resolve(null, "google/gemma-4-E2B-it", index, false).orElseThrow();
+        assertEquals(artifact, result.path());
+    }
+
     @Test
     void ignoresNonLiteRtExplicitFileAndUnresolvedIndex() throws Exception {
         Path other = Files.writeString(tempDir.resolve("weights.safetensors"), "weights");
