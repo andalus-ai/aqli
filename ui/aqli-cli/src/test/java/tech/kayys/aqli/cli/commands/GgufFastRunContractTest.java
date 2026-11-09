@@ -17,6 +17,8 @@ class GgufFastRunContractTest {
 
     @Test
     void prewarmAddsRunCommandAndStableDefaults() {
+        System.setProperty("aqli.gguf.fast_run.prewarm_prompt", "where is jakarta");
+        System.setProperty("aqli.gguf.fast_run.prewarm_context_tokens", "10");
         assertArrayEquals(
                 new String[] {
                     "run",
