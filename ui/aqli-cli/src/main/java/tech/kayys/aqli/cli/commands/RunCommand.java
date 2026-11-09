@@ -3301,30 +3301,7 @@ public class RunCommand implements Runnable {
     }
 
     private Path resolveOnnxDiagnosticPath(String modelId, String finalLocalPath) {
-        for (String candidate : List.of(finalLocalPath, modelId)) {
-            Path direct = existingCliPath(candidate);
-            if (direct != null) {
-                return direct;
-            }
-            if (candidate == null || candidate.isBlank()) {
-                continue;
-            }
-            try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(candidate, "onnx");
-                if (indexed.isEmpty()) {
-                    indexed = LocalModelIndex.find(candidate);
-                }
-                if (indexed.isPresent() && indexed.get().path != null) {
-                    Path indexedPath = existingCliPath(indexed.get().path);
-                    if (indexedPath != null) {
-                        return indexedPath;
-                    }
-                }
-            } catch (Exception ignored) {
-                // Continue with the next candidate.
-            }
-        }
-        return null;
+        return OnnxDiagnosticModelPathResolver.resolve(finalLocalPath, modelId, this::existingCliPath);
     }
 
     private List<String> normalizedInputImagePaths() {
