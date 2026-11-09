@@ -1,4 +1,6 @@
 package tech.kayys.aqli.cli.commands;
+import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
+import tech.kayys.aqli.provider.litert.LiteRTModelIndexResolver;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -51,7 +53,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -62,15 +63,14 @@ import java.util.regex.Pattern;
  * This entrypoint intentionally supports only local text LiteRT-LM inference so
  * short prompts do not pay the whole CLI/SDK startup tax.</p>
  */
-public final class LiteRtLmFastRun {
-    private static final int FALLBACK_TO_FULL_CLI = 42;
+public final class LiteRtLmStandaloneRunner {
+    private static final int FALLBACK_TO_FULL_CLI = StandaloneRunProtocol.FALLBACK_TO_FULL_CLI;
     private static final String DAEMON_MAGIC = "AQLI_LITERT_FAST_DAEMON_V1";
     private static final String DAEMON_PREWARM_MAGIC = "AQLI_LITERT_FAST_DAEMON_PREWARM_V1";
     private static final String DAEMON_STOP_MAGIC = "AQLI_LITERT_FAST_DAEMON_STOP_V1";
     private static final int DEFAULT_MAX_NUM_TOKENS = 2048;
     private static final int DEFAULT_MAX_NUM_TOKENS_CEILING = 2048;
     private static final int DEFAULT_MAX_NUM_TOKENS_FLOOR = 256;
-    private static final Pattern JSON_OBJECT_PATTERN = Pattern.compile("\\{.*?}", Pattern.DOTALL);
     private static final Pattern BARE_QUESTION_PATTERN = Pattern.compile(
             "(?i)^(who|what|where|when|why|how|which|whom|whose|is|are|was|were|do|does|did|can|could|should|would|will|may|might)\\b.*[^.?!]$");
     private static final String SHORT_QUESTION_INSTRUCTION =
@@ -94,7 +94,7 @@ public final class LiteRtLmFastRun {
         }
     }
 
-    private LiteRtLmFastRun() {
+    private LiteRtLmStandaloneRunner() {
     }
 
     public static void main(String[] args) {
@@ -124,8 +124,8 @@ public final class LiteRtLmFastRun {
 
     static int run(String[] args) {
         try {
-            FastArgs parsed = FastArgs.parse(args);
-            if (!parsed.supported()) {
+            LiteRTRunArguments parsed = LiteRTRunArguments.parse(args, System.getProperty("aqli.litert.fast_run.backend", "gpu"));
+            if (!parsed.isSupportedRequest()) {
                 return FALLBACK_TO_FULL_CLI;
             }
             if (daemonEnabled()) {
@@ -161,8 +161,8 @@ public final class LiteRtLmFastRun {
                 return 0;
             }
             String[] runArgs = prewarmRunArgs(args);
-            FastArgs parsed = FastArgs.parse(runArgs);
-            if (!parsed.supported()) {
+            LiteRTRunArguments parsed = LiteRTRunArguments.parse(runArgs, System.getProperty("aqli.litert.fast_run.backend", "gpu"));
+            if (!parsed.isSupportedRequest()) {
                 printPrewarmUsage(System.err);
                 return 2;
             }
@@ -260,11 +260,11 @@ public final class LiteRtLmFastRun {
         return "";
     }
 
-    static Optional<Path> resolveLiteRtLmModel(FastArgs args) {
+    static Optional<Path> resolveLiteRtLmModel(LiteRTRunArguments args) {
         return resolveLiteRtLmRoute(args).map(RouteResolution::path);
     }
 
-    static Optional<RouteResolution> resolveLiteRtLmRoute(FastArgs args) {
+    static Optional<RouteResolution> resolveLiteRtLmRoute(LiteRTRunArguments args) {
         long startNanos = System.nanoTime();
         Optional<RouteMatch> match = resolveLiteRtLmRouteMatch(args);
         long durationNanos = System.nanoTime() - startNanos;
@@ -276,23 +276,23 @@ public final class LiteRtLmFastRun {
                 durationNanos));
     }
 
-    private static Optional<RouteMatch> resolveLiteRtLmRouteMatch(FastArgs args) {
-        if (args.modelFile != null) {
-            Optional<Path> explicit = resolvePath(Path.of(args.modelFile));
+    private static Optional<RouteMatch> resolveLiteRtLmRouteMatch(LiteRTRunArguments args) {
+        if (args.modelFile() != null) {
+            Optional<Path> explicit = resolvePath(Path.of(args.modelFile()));
             if (explicit.isPresent()) {
                 return findLiteRtLmFromExplicitPath(explicit.get())
                         .map(path -> new RouteMatch(path, "modelFile", false));
             }
         }
-        if (args.model != null) {
-            Optional<Path> direct = resolvePath(Path.of(args.model));
+        if (args.model() != null) {
+            Optional<Path> direct = resolvePath(Path.of(args.model()));
             if (direct.isPresent()) {
                 Optional<Path> found = findLiteRtLmFromExplicitPath(direct.get());
                 if (found.isPresent()) {
                     return Optional.of(new RouteMatch(found.get(), "model", false));
                 }
             }
-            Optional<RouteMatch> fastIndexed = findIndexedLiteRtModelRoute(args.model);
+            Optional<RouteMatch> fastIndexed = findIndexedLiteRtModelRoute(args.model());
             if (fastIndexed.isPresent()) {
                 Optional<Path> found = findLiteRtLmFromExplicitPath(fastIndexed.get().path());
                 if (found.isPresent()) {
@@ -303,7 +303,7 @@ public final class LiteRtLmFastRun {
                 }
             }
             try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(args.model);
+                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(args.model());
                 if (indexed.isPresent()
                         && isLiteRtIndexEntry(indexed.get())
                         && indexed.get().path != null
@@ -348,47 +348,11 @@ public final class LiteRtLmFastRun {
     }
 
     static Optional<RouteMatch> findIndexedLiteRtModelRoute(String ref) {
-        if (ref == null || ref.isBlank()) {
-            return Optional.empty();
-        }
-        Path indexPath = modelIndexPath();
-        if (!Files.isRegularFile(indexPath)) {
-            return Optional.empty();
-        }
-        try {
-            String needle = ref.trim();
-            String json = Files.readString(indexPath);
-            Matcher objects = JSON_OBJECT_PATTERN.matcher(json);
-            List<IndexCandidate> candidates = new ArrayList<>();
-            while (objects.find()) {
-                String object = objects.group();
-                IndexCandidate candidate = IndexCandidate.from(object);
-                if (candidate.path() != null && !candidate.path().isBlank()) {
-                    candidates.add(candidate);
-                    if (matchesIndexEntry(candidate, needle) && isLiteRtIndexObject(candidate)) {
-                        return Optional.of(new RouteMatch(
-                                Path.of(candidate.path()),
-                                "fast-index-litert",
-                                true));
-                    }
-                }
-            }
-            if (equivalentLiteRtFastPathEnabled()) {
-                Optional<IndexCandidate> requested = candidates.stream()
-                        .filter(candidate -> matchesIndexEntry(candidate, needle))
-                        .findFirst();
-                if (requested.isPresent()) {
-                    return findEquivalentLiteRtModelPath(candidates, requested.get())
-                            .map(path -> new RouteMatch(
-                                    path,
-                                    "fast-index-equivalent-litert",
-                                    true));
-                }
-            }
-        } catch (Exception ignored) {
-            // Full CLI resolver remains available if the lightweight parse fails.
-        }
-        return Optional.empty();
+        return new LiteRTModelIndexResolver().resolve(
+                        modelIndexPath(),
+                        ref,
+                        equivalentLiteRtFastPathEnabled())
+                .map(match -> new RouteMatch(match.path(), match.source(), true));
     }
 
     static record RouteResolution(
@@ -409,21 +373,16 @@ public final class LiteRtLmFastRun {
             boolean cacheHit) {
     }
 
-    private static boolean matchesIndexEntry(IndexCandidate candidate, String ref) {
-        if (candidate == null) {
-            return false;
-        }
-        if (ref.equals(candidate.id())
-                || ref.equals(candidate.shortId())
-                || ref.equals(candidate.name())
-                || ref.equals(candidate.path())) {
-            return true;
-        }
-        String normalized = ref.replace("\\", "/").toLowerCase(Locale.ROOT);
-        String normalizedPath = candidate.path() == null
-                ? ""
-                : candidate.path().replace("\\", "/").toLowerCase(Locale.ROOT);
-        return normalizedPath.endsWith(normalized);
+    private static boolean isLiteRtFormat(String format) {
+        if (format == null || format.isBlank()) return false;
+        return switch (format.trim().toLowerCase(Locale.ROOT)) {
+            case "litert", "litertlm", "tflite", "tfl", "task" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean isLiteRtPathString(String path) {
+        return path != null && path.replace("\\", "/").toLowerCase(Locale.ROOT).endsWith(".litertlm");
     }
 
     private static boolean isLiteRtIndexEntry(LocalModelIndex.Entry entry) {
@@ -462,259 +421,6 @@ public final class LiteRtLmFastRun {
         return findLiteRtLmFromExplicitPath(Path.of(selection.localPath()));
     }
 
-    private static boolean isLiteRtIndexObject(IndexCandidate candidate) {
-        return candidate != null
-                && (isLiteRtFormat(candidate.format())
-                || isLiteRtPathString(candidate.path()));
-    }
-
-    private static Optional<Path> findEquivalentLiteRtModelPath(
-            List<IndexCandidate> candidates,
-            IndexCandidate requested) {
-        if (candidates == null || candidates.isEmpty() || !canUseLiteRtEquivalentFor(requested)) {
-            return Optional.empty();
-        }
-        Set<String> requestedKeys = canonicalModelKeys(requested);
-        if (requestedKeys.isEmpty()) {
-            return Optional.empty();
-        }
-        return candidates.stream()
-                .filter(LiteRtLmFastRun::isLiteRtIndexObject)
-                .filter(candidate -> !sameIndexPath(candidate, requested))
-                .filter(candidate -> compatibleArchitecture(requested, candidate))
-                .filter(candidate -> intersects(requestedKeys, canonicalModelKeys(candidate)))
-                .sorted((left, right) -> Integer.compare(
-                        equivalentLiteRtPreference(left),
-                        equivalentLiteRtPreference(right)))
-                .map(IndexCandidate::path)
-                .filter(path -> path != null && !path.isBlank())
-                .map(Path::of)
-                .findFirst();
-    }
-
-    private static boolean canUseLiteRtEquivalentFor(IndexCandidate requested) {
-        if (requested == null || isLiteRtIndexObject(requested)) {
-            return false;
-        }
-        String format = requested.format() == null ? "" : requested.format().trim().toLowerCase(Locale.ROOT);
-        if (!format.isBlank()
-                && !format.equals("safetensor")
-                && !format.equals("safetensors")
-                && !format.equals("gguf")) {
-            return false;
-        }
-        String architecture = requested.architecture() == null
-                ? ""
-                : requested.architecture().trim().toLowerCase(Locale.ROOT);
-        String identity = ((requested.id() == null ? "" : requested.id()) + " "
-                + (requested.name() == null ? "" : requested.name()) + " "
-                + (requested.path() == null ? "" : requested.path())).toLowerCase(Locale.ROOT);
-        return architecture.contains("gemma") || identity.contains("gemma");
-    }
-
-    private static boolean compatibleArchitecture(IndexCandidate requested, IndexCandidate candidate) {
-        String requestedArchitecture = normalizedArchitecture(requested.architecture());
-        String candidateArchitecture = normalizedArchitecture(candidate.architecture());
-        return requestedArchitecture.isBlank()
-                || candidateArchitecture.isBlank()
-                || requestedArchitecture.equals(candidateArchitecture);
-    }
-
-    private static String normalizedArchitecture(String architecture) {
-        if (architecture == null || architecture.isBlank()) {
-            return "";
-        }
-        String normalized = architecture.trim().toLowerCase(Locale.ROOT);
-        if (normalized.equals("unknown")) {
-            return "";
-        }
-        if (normalized.contains("gemma")) {
-            return "gemma";
-        }
-        return normalized.replaceAll("[^a-z0-9]+", "");
-    }
-
-    static Set<String> canonicalModelKeys(IndexCandidate candidate) {
-        Set<String> keys = new HashSet<>();
-        if (candidate == null) {
-            return keys;
-        }
-        addCanonicalModelKey(keys, candidate.id());
-        addCanonicalModelKey(keys, candidate.name());
-        addCanonicalModelKey(keys, lastPathSegment(candidate.path()));
-        return keys;
-    }
-
-    private static void addCanonicalModelKey(Set<String> keys, String value) {
-        String key = canonicalModelKey(value);
-        if (!key.isBlank()) {
-            keys.add(key);
-        }
-    }
-
-    static String canonicalModelKey(String value) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        String leaf = lastPathSegment(value)
-                .replace("__", "/")
-                .replace('\\', '/')
-                .toLowerCase(Locale.ROOT);
-        int slash = leaf.lastIndexOf('/');
-        if (slash >= 0 && slash + 1 < leaf.length()) {
-            leaf = leaf.substring(slash + 1);
-        }
-        leaf = leaf
-                .replaceAll("\\.(litertlm|litert|tflite|tfl|task|gguf|safetensors?|bin)$", "")
-                .replaceAll("(?i)(-?litert-?lm|-?litertlm|-?tflite|-?safetensors?|\\.safetensors?)$", "");
-        String[] tokens = leaf.split("[^a-z0-9]+");
-        StringBuilder key = new StringBuilder();
-        for (String token : tokens) {
-            if (token.isBlank() || isCanonicalNoiseToken(token)) {
-                continue;
-            }
-            key.append(token);
-        }
-        return key.toString();
-    }
-
-    private static String lastPathSegment(String value) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        String normalized = value.replace('\\', '/');
-        int slash = normalized.lastIndexOf('/');
-        return slash >= 0 && slash + 1 < normalized.length()
-                ? normalized.substring(slash + 1)
-                : normalized;
-    }
-
-    private static boolean isCanonicalNoiseToken(String token) {
-        return switch (token) {
-            case "google", "litert", "community", "lm", "gguf", "safetensor", "safetensors",
-                    "qat", "mobile", "transformers",
-                    "q4", "q5", "q6", "q8", "k", "m", "f16", "fp16", "bf16" -> true;
-            default -> false;
-        };
-    }
-
-    private static int equivalentLiteRtPreference(IndexCandidate candidate) {
-        String path = candidate.path() == null ? "" : candidate.path().toLowerCase(Locale.ROOT);
-        String name = candidate.name() == null ? "" : candidate.name().toLowerCase(Locale.ROOT);
-        int score = 0;
-        if (!path.endsWith(".litertlm") && !name.endsWith(".litertlm")) {
-            score += 20;
-        }
-        if (path.contains("qualcomm") || name.contains("qualcomm")) {
-            score += 100;
-        }
-        return score;
-    }
-
-    static boolean equivalentLiteRtFastPathEnabled() {
-        String configured = System.getProperty("aqli.litert.fast_run.auto_equivalent");
-        return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
-    }
-
-    private static boolean sameIndexPath(IndexCandidate left, IndexCandidate right) {
-        if (left == null || right == null || left.path() == null || right.path() == null) {
-            return false;
-        }
-        return left.path().equals(right.path());
-    }
-
-    private static boolean intersects(Set<String> left, Set<String> right) {
-        if (left == null || right == null || left.isEmpty() || right.isEmpty()) {
-            return false;
-        }
-        for (String value : right) {
-            if (left.contains(value)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isLiteRtFormat(String format) {
-        if (format == null || format.isBlank()) {
-            return false;
-        }
-        String normalized = format.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("litert")
-                || normalized.equals("litertlm")
-                || normalized.equals("tflite")
-                || normalized.equals("tfl")
-                || normalized.equals("task");
-    }
-
-    private static boolean isLiteRtPathString(String path) {
-        if (path == null || path.isBlank()) {
-            return false;
-        }
-        return path.replace("\\", "/").toLowerCase(Locale.ROOT).endsWith(".litertlm");
-    }
-
-    static record IndexCandidate(
-            String object,
-            String id,
-            String shortId,
-            String name,
-            String architecture,
-            String format,
-            String path) {
-
-        static IndexCandidate from(String object) {
-            return new IndexCandidate(
-                    object,
-                    jsonStringField(object, "id").orElse(null),
-                    jsonStringField(object, "shortId").orElse(null),
-                    jsonStringField(object, "name").orElse(null),
-                    jsonStringField(object, "architecture").orElse(null),
-                    jsonStringField(object, "format").orElse(null),
-                    jsonStringField(object, "path").orElse(null));
-        }
-    }
-
-    private static Optional<String> jsonStringField(String object, String field) {
-        String quotedField = Pattern.quote(field);
-        Pattern fieldPattern = Pattern.compile("\"" + quotedField + "\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"");
-        Matcher matcher = fieldPattern.matcher(object);
-        if (!matcher.find()) {
-            return Optional.empty();
-        }
-        return Optional.of(unescapeJsonString(matcher.group(1)));
-    }
-
-    private static String unescapeJsonString(String value) {
-        StringBuilder out = new StringBuilder(value.length());
-        boolean escaping = false;
-        for (int i = 0; i < value.length(); i++) {
-            char ch = value.charAt(i);
-            if (!escaping) {
-                if (ch == '\\') {
-                    escaping = true;
-                } else {
-                    out.append(ch);
-                }
-                continue;
-            }
-            switch (ch) {
-                case '"', '\\', '/' -> out.append(ch);
-                case 'b' -> out.append('\b');
-                case 'f' -> out.append('\f');
-                case 'n' -> out.append('\n');
-                case 'r' -> out.append('\r');
-                case 't' -> out.append('\t');
-                default -> out.append(ch);
-            }
-            escaping = false;
-        }
-        if (escaping) {
-            out.append('\\');
-        }
-        return out.toString();
-    }
-
     private static Optional<Path> findLiteRtLmFromExplicitPath(Path path) {
         try {
             if (Files.isRegularFile(path) && isLiteRtLm(path)) {
@@ -730,7 +436,7 @@ public final class LiteRtLmFastRun {
             try (var stream = Files.list(searchDir)) {
                 return stream
                         .filter(Files::isRegularFile)
-                        .filter(LiteRtLmFastRun::isLiteRtLm)
+                        .filter(LiteRtLmStandaloneRunner::isLiteRtLm)
                         .sorted((left, right) -> Integer.compare(
                                 liteRtLmPreference(left),
                                 liteRtLmPreference(right)))
@@ -759,13 +465,13 @@ public final class LiteRtLmFastRun {
         return score;
     }
 
-    private static void generate(RouteResolution route, FastArgs args) throws Exception {
+    private static void generate(RouteResolution route, LiteRTRunArguments args) throws Exception {
         generate(route, args, System.out, System.err, null, "fast path");
     }
 
     private static void generate(
             RouteResolution route,
-            FastArgs args,
+            LiteRTRunArguments args,
             PrintStream out,
             PrintStream err,
             EngineCache engineCache,
@@ -776,17 +482,17 @@ public final class LiteRtLmFastRun {
         Engine.Companion.setNativeMinLogSeverity(nativeLogSeverity());
 
         int engineMaxNumTokens = maxNumTokens(args);
-        if (args.banner) {
+        if (args.banner()) {
             printRunHeader(modelPath, args, out);
         }
         long beforeEngineInitNanos = System.nanoTime();
-        String requestedBackend = normalizedBackend(args.backend);
+        String requestedBackend = normalizedBackend(args.backend());
         try (EngineLease lease = engineCache == null
                 ? openEngine(modelPath, requestedBackend, engineMaxNumTokens, true, false)
                 : engineCache.acquire(modelPath, requestedBackend, engineMaxNumTokens)) {
             long afterEngineInitNanos = System.nanoTime();
             String warmSuffix = engineCache == null ? "" : ", warmEngine=" + lease.reused;
-            if (args.banner) {
+            if (args.banner()) {
                 printExecutionRoute(out, lease, runnerName);
                 out.printf("Using official LiteRT-LM JVM %s for %s (backend=%s, speculativeDecoding=%s, engineMaxNumTokens=%d%s).%n",
                         runnerName,
@@ -796,15 +502,15 @@ public final class LiteRtLmFastRun {
                         engineMaxNumTokens,
                         warmSuffix);
             }
-            if (lease.fallbackReason != null && args.banner) {
+            if (lease.fallbackReason != null && args.banner()) {
                 err.printf("LiteRT-LM GPU backend failed; using official CPU fallback instead: %s%n",
                         lease.fallbackReason);
             }
 
             SamplerConfig sampler = new SamplerConfig(
-                    Math.max(1, args.topK),
-                    Math.max(0.0d, Math.min(1.0d, args.topP)),
-                    Math.max(0.0d, args.temperature),
+                    Math.max(1, args.topK()),
+                    Math.max(0.0d, Math.min(1.0d, args.topP())),
+                    Math.max(0.0d, args.temperature()),
                     0);
             ConversationConfig conversationConfig = new ConversationConfig(
                     null,
@@ -821,8 +527,8 @@ public final class LiteRtLmFastRun {
                 AtomicInteger streamUpdates = new AtomicInteger(0);
                 AtomicLong firstChunkNanos = new AtomicLong(0L);
                 AtomicReference<Throwable> error = new AtomicReference<>();
-                ApproximateTokenStreamLimiter tokenLimiter = new ApproximateTokenStreamLimiter(args.maxTokens);
-                conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt)), new MessageCallback() {
+                ApproximateTokenStreamLimiter tokenLimiter = new ApproximateTokenStreamLimiter(args.maxTokens());
+                conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt())), new MessageCallback() {
                     @Override
                     public void onMessage(com.google.ai.edge.litertlm.Message message) {
                         if (cancelled.get()) {
@@ -863,7 +569,7 @@ public final class LiteRtLmFastRun {
                 }
                 lease.markPrewarmed(prewarmIterationCount());
                 long endNanos = System.nanoTime();
-                if (args.banner) {
+                if (args.banner()) {
                     printFastRunStats(out,
                             streamUpdates.get(),
                             tokenLimiter.emittedTokenCount(),
@@ -957,7 +663,7 @@ public final class LiteRtLmFastRun {
         return nanos / 1_000_000.0d;
     }
 
-    static void printRunHeader(Path modelPath, FastArgs args, PrintStream out) {
+    static void printRunHeader(Path modelPath, LiteRTRunArguments args, PrintStream out) {
         printBanner(out);
         if (shouldPrintResolvedModelPath(modelPath, args)) {
             out.printf("Resolved local model index entry: %s%n", modelPath);
@@ -1011,12 +717,12 @@ public final class LiteRtLmFastRun {
         out.println();
     }
 
-    private static boolean shouldPrintResolvedModelPath(Path modelPath, FastArgs args) {
-        if (args == null || args.model == null || args.model.isBlank() || args.modelFile != null) {
+    private static boolean shouldPrintResolvedModelPath(Path modelPath, LiteRTRunArguments args) {
+        if (args == null || args.model() == null || args.model().isBlank() || args.modelFile() != null) {
             return false;
         }
         try {
-            Path requested = Path.of(args.model);
+            Path requested = Path.of(args.model());
             Path resolved = requested.isAbsolute()
                     ? requested.toAbsolutePath().normalize()
                     : Path.of("").toAbsolutePath().resolve(requested).normalize();
@@ -1149,7 +855,7 @@ public final class LiteRtLmFastRun {
         return message.replace('\n', ' ').strip();
     }
 
-    private static int maxNumTokens(FastArgs args) {
+    private static int maxNumTokens(LiteRTRunArguments args) {
         Integer configured = Integer.getInteger("aqli.litert.lm_jvm_bridge.max_num_tokens");
         if (configured != null && configured > 0) {
             return configured;
@@ -1157,7 +863,7 @@ public final class LiteRtLmFastRun {
         if (!dynamicEngineTokensEnabled()) {
             return DEFAULT_MAX_NUM_TOKENS;
         }
-        return dynamicEngineTokenBudget(args.prompt, args.maxTokens);
+        return dynamicEngineTokenBudget(args.prompt(), args.maxTokens());
     }
 
     static int dynamicEngineTokenBudget(String prompt, int maxTokens) {
@@ -1343,7 +1049,7 @@ public final class LiteRtLmFastRun {
             command.add("-Djava.library.path=" + System.getProperty("java.library.path", ""));
             command.add("-cp");
             command.add(System.getProperty("java.class.path"));
-            command.add(LiteRtLmFastRun.class.getName());
+            command.add(LiteRtLmStandaloneRunner.class.getName());
             command.add("__daemon");
 
             if (!startDetachedDaemon(command)) {
@@ -1588,8 +1294,8 @@ public final class LiteRtLmFastRun {
             for (int i = 0; i < argCount; i++) {
                 rawArgs[i] = readString(in);
             }
-            FastArgs parsed = FastArgs.parse(rawArgs);
-            if (!parsed.supported()) {
+            LiteRTRunArguments parsed = LiteRTRunArguments.parse(rawArgs);
+            if (!parsed.isSupportedRequest()) {
                 writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
@@ -1601,8 +1307,8 @@ public final class LiteRtLmFastRun {
             daemonLog("%s request model=%s backend=%s maxTokens=%d",
                     prewarmRequest ? "prewarm" : "run",
                     route.get().path().getFileName(),
-                    normalizedBackend(parsed.backend),
-                    parsed.maxTokens);
+                    normalizedBackend(parsed.backend()),
+                    parsed.maxTokens());
             try (PrintStream out = new PrintStream(new FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
                  PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8)) {
                 if (prewarmRequest) {
@@ -1629,14 +1335,14 @@ public final class LiteRtLmFastRun {
 
     private static void prewarmEngine(
             Path modelPath,
-            FastArgs args,
+            LiteRTRunArguments args,
             PrintStream out,
             EngineCache engineCache) throws Exception {
         long startNanos = System.nanoTime();
         Files.createDirectories(cacheDir());
         Engine.Companion.setNativeMinLogSeverity(nativeLogSeverity());
         int engineMaxNumTokens = maxNumTokens(args);
-        String requestedBackend = normalizedBackend(args.backend);
+        String requestedBackend = normalizedBackend(args.backend());
         try (EngineLease lease = engineCache.acquire(modelPath, requestedBackend, engineMaxNumTokens)) {
             int decodeWarmupTokens = prewarmTokenCount();
             int targetWarmupIterations = prewarmIterationCount();
@@ -1662,11 +1368,11 @@ public final class LiteRtLmFastRun {
         }
     }
 
-    private static void warmConversation(EngineLease lease, FastArgs args, int maxWarmupTokens) throws Exception {
+    private static void warmConversation(EngineLease lease, LiteRTRunArguments args, int maxWarmupTokens) throws Exception {
         SamplerConfig sampler = new SamplerConfig(
-                Math.max(1, args.topK),
-                Math.max(0.0d, Math.min(1.0d, args.topP)),
-                Math.max(0.0d, args.temperature),
+                Math.max(1, args.topK()),
+                Math.max(0.0d, Math.min(1.0d, args.topP())),
+                Math.max(0.0d, args.temperature()),
                 0);
         ConversationConfig conversationConfig = new ConversationConfig(
                 null,
@@ -1681,7 +1387,7 @@ public final class LiteRtLmFastRun {
             AtomicBoolean cancelled = new AtomicBoolean(false);
             AtomicReference<Throwable> error = new AtomicReference<>();
             ApproximateTokenStreamLimiter tokenLimiter = new ApproximateTokenStreamLimiter(maxWarmupTokens);
-            conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt)), new MessageCallback() {
+            conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt())), new MessageCallback() {
                 @Override
                 public void onMessage(com.google.ai.edge.litertlm.Message message) {
                     if (cancelled.get()) {
@@ -2207,7 +1913,7 @@ public final class LiteRtLmFastRun {
         private final Map<String, RouteResolution> routes = new HashMap<>();
         private String modelIndexFingerprint = "";
 
-        synchronized Optional<RouteResolution> resolve(FastArgs args) {
+        synchronized Optional<RouteResolution> resolve(LiteRTRunArguments args) {
             if (!daemonRouteCacheEnabled()) {
                 return resolveLiteRtLmRoute(args);
             }
@@ -2251,7 +1957,7 @@ public final class LiteRtLmFastRun {
         private final RouteResolutionCache routeCache = new RouteResolutionCache();
         private final Map<String, EngineLease> engines = new HashMap<>();
 
-        private Optional<RouteResolution> resolveRoute(FastArgs args) {
+        private Optional<RouteResolution> resolveRoute(LiteRTRunArguments args) {
             return routeCache.resolve(args);
         }
 
@@ -2297,9 +2003,9 @@ public final class LiteRtLmFastRun {
         return route != null && route.path() != null && Files.isRegularFile(route.path());
     }
 
-    private static String routeCacheKey(FastArgs args, String indexFingerprint) {
-        return "model=" + nullToEmpty(args.model)
-                + "|modelFile=" + nullToEmpty(args.modelFile)
+    private static String routeCacheKey(LiteRTRunArguments args, String indexFingerprint) {
+        return "model=" + nullToEmpty(args.model())
+                + "|modelFile=" + nullToEmpty(args.modelFile())
                 + "|cwd=" + Path.of("").toAbsolutePath().normalize()
                 + "|home=" + System.getProperty("user.home", "")
                 + "|autoEquivalent=" + equivalentLiteRtFastPathEnabled()
@@ -2344,167 +2050,4 @@ public final class LiteRtLmFastRun {
                 + " spec=" + System.getProperty("aqli.litert.fast_run.speculative_decoding", "");
     }
 
-    static final class FastArgs {
-        private String model;
-        private String modelFile;
-        private String prompt;
-        private int maxTokens = 256;
-        private double temperature = 0.2d;
-        private double topP = 0.9d;
-        private int topK = 40;
-        private String backend = System.getProperty("aqli.litert.fast_run.backend", "gpu");
-        private boolean supported = true;
-        private boolean banner = true;
-
-        private boolean supported() {
-            return supported && prompt != null && !prompt.isBlank()
-                    && ((model != null && !model.isBlank()) || (modelFile != null && !modelFile.isBlank()));
-        }
-
-        static FastArgs parse(String[] args) {
-            FastArgs parsed = new FastArgs();
-            if (args.length == 0 || !"run".equals(args[0])) {
-                parsed.supported = false;
-                return parsed;
-            }
-            for (int i = 1; i < args.length; i++) {
-                String arg = args[i];
-                String value = null;
-                int eq = arg.indexOf('=');
-                if (arg.startsWith("--") && eq > 0) {
-                    value = arg.substring(eq + 1);
-                    arg = arg.substring(0, eq);
-                }
-                switch (arg) {
-                    case "-v", "--verbose" -> {
-                        System.setProperty("aqli.verbose", "true");
-                    }
-                    case "--no-banner", "--suppress-banner" -> parsed.banner = false;
-                    case "--model", "-m" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.model = next.value();
-                        i = next.index();
-                    }
-                    case "--modelFile", "--model-file", "--model-path" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.modelFile = next.value();
-                        i = next.index();
-                    }
-                    case "--prompt", "-p" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.prompt = next.value();
-                        i = next.index();
-                    }
-                    case "--max-tokens" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.maxTokens = parseInt(next.value(), parsed.maxTokens);
-                        i = next.index();
-                    }
-                    case "--temperature" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.temperature = parseDouble(next.value(), parsed.temperature);
-                        i = next.index();
-                    }
-                    case "--top-p" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.topP = parseDouble(next.value(), parsed.topP);
-                        i = next.index();
-                    }
-                    case "--top-k" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.topK = parseInt(next.value(), parsed.topK);
-                        i = next.index();
-                    }
-                    case "--backend" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.backend = next.value();
-                        i = next.index();
-                    }
-                    case "--use-cpu" -> parsed.backend = "cpu";
-                    case "--enable-cpu" -> {
-                        // CPU fallback is already enabled by default for GPU init failures.
-                    }
-                    case "--platform" -> {
-                        Value next = valueOrNext(value, args, i);
-                        String platform = next.value();
-                        i = next.index();
-                        if ("cpu".equalsIgnoreCase(platform)) {
-                            parsed.backend = "cpu";
-                        } else if ("metal".equalsIgnoreCase(platform) || "gpu".equalsIgnoreCase(platform)) {
-                            parsed.backend = "gpu";
-                        } else {
-                            parsed.supported = false;
-                        }
-                    }
-                    case "--provider" -> {
-                        Value next = valueOrNext(value, args, i);
-                        String provider = next.value();
-                        i = next.index();
-                        if (provider != null && !provider.isBlank() && !"litert".equalsIgnoreCase(provider)) {
-                            parsed.supported = false;
-                        }
-                    }
-                    case "--format" -> {
-                        Value next = valueOrNext(value, args, i);
-                        String requestedFormat = next.value();
-                        i = next.index();
-                        if (requestedFormat != null
-                                && !requestedFormat.isBlank()
-                                && !isLiteRtFormat(requestedFormat)) {
-                            parsed.supported = false;
-                        }
-                    }
-                    case "--engine", "--gguf-engine" -> {
-                        Value next = valueOrNext(value, args, i);
-                        i = next.index();
-                    }
-                    case "--stream" -> {
-                        String stream = value != null ? value : "true";
-                        if ("false".equalsIgnoreCase(stream)) {
-                            parsed.supported = false;
-                        }
-                    }
-                    case "--no-cache", "--offline", "--local" -> {
-                        // Safe no-op for the local fast path.
-                    }
-                    default -> {
-                        if (arg.startsWith("-")) {
-                            parsed.supported = false;
-                        }
-                    }
-                }
-            }
-            return parsed;
-        }
-
-        private record Value(String value, int index) {
-        }
-
-        private static Value valueOrNext(String inline, String[] args, int currentIndex) {
-            if (inline != null) {
-                return new Value(inline, currentIndex);
-            }
-            int nextIndex = currentIndex + 1;
-            if (nextIndex >= args.length) {
-                return new Value("", currentIndex);
-            }
-            return new Value(args[nextIndex], nextIndex);
-        }
-
-        private static int parseInt(String value, int fallback) {
-            try {
-                return Math.max(1, Integer.parseInt(value));
-            } catch (Exception ignored) {
-                return fallback;
-            }
-        }
-
-        private static double parseDouble(String value, double fallback) {
-            try {
-                return Double.parseDouble(value);
-            } catch (Exception ignored) {
-                return fallback;
-            }
-        }
-    }
 }
