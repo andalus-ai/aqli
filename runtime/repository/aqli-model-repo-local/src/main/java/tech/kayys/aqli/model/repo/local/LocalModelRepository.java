@@ -125,7 +125,11 @@ public class LocalModelRepository implements ModelRepository {
         String candidate = configuredPath != null && !configuredPath.isBlank()
                 ? configuredPath
                 : joinReference(ref);
-        Path path = Path.of(candidate).toAbsolutePath().normalize();
+        Path path = pathFromLocation(candidate);
+        if (path == null) {
+            throw new IllegalArgumentException("Local model reference must resolve to a filesystem path: " + ref);
+        }
+        path = path.toAbsolutePath().normalize();
         if (!Files.exists(path)) {
             throw new IllegalArgumentException("Local model path does not exist: " + path);
         }
@@ -211,7 +215,8 @@ public class LocalModelRepository implements ModelRepository {
                 .modelId(stored.getModelId())
                 .name(stored.getName() == null ? stored.getModelId() : stored.getName())
                 .version(stored.getRevision() == null ? "main" : stored.getRevision())
-                .path(stored.getBlobPath() == null ? "" : stored.getBlobPath())
+                .path(stored.getBlobPath() == null || stored.getBlobPath().isBlank()
+                        ? stored.getModelId() : stored.getBlobPath())
                 .apiKey(COMMUNITY)
                 .requestId(requestId == null || requestId.isBlank() ? COMMUNITY : requestId)
                 .architecture(stored.getArchitecture())
@@ -249,7 +254,10 @@ public class LocalModelRepository implements ModelRepository {
         if (manifest.artifacts() != null && !manifest.artifacts().isEmpty()) {
             return manifest.artifacts().keySet().iterator().next();
         }
-        String file = manifest.path() == null ? "" : Path.of(manifest.path()).getFileName().toString();
+        String location = manifest.path();
+        String file = location == null || location.isBlank()
+                ? ""
+                : Path.of(location).getFileName().toString();
         ModelFormat detected = ModelFormat.fromExtension(extension(file));
         return detected == ModelFormat.UNKNOWN ? ModelFormat.fromId("unknown") : detected;
     }
@@ -315,9 +323,16 @@ public class LocalModelRepository implements ModelRepository {
         }
         try {
             URI uri = URI.create(location);
-            return "file".equalsIgnoreCase(uri.getScheme()) ? Path.of(uri) : Path.of(location);
+            if (uri.getScheme() == null) {
+                return Path.of(location);
+            }
+            return "file".equalsIgnoreCase(uri.getScheme()) ? Path.of(uri) : null;
         } catch (RuntimeException ignored) {
-            return Path.of(location);
+            try {
+                return Path.of(location);
+            } catch (RuntimeException invalidPath) {
+                return null;
+            }
         }
     }
 }
