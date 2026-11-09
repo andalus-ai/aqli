@@ -58,6 +58,8 @@ final class ModelFormatResolver {
         String normalized = requestedModel.trim();
         if (normalized.regionMatches(true, 0, "hf:", 0, 3)) {
             normalized = normalized.substring(3);
+        } else if (normalized.regionMatches(true, 0, "huggingface:", 0, "huggingface:".length())) {
+            normalized = normalized.substring("huggingface:".length());
         }
         normalized = normalized.toLowerCase(Locale.ROOT);
         return normalized.startsWith("onnx-community/")
