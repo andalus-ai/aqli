@@ -37,8 +37,11 @@ public class ManifestStore {
     }
 
     public synchronized List<AqliManifest> listAll() {
-        if (!Files.isDirectory(manifestDir)) {
+        if (!Files.exists(manifestDir)) {
             return List.of();
+        }
+        if (!Files.isDirectory(manifestDir)) {
+            throw new IllegalStateException("Model manifest location is not a directory: " + manifestDir);
         }
         try (Stream<Path> paths = Files.list(manifestDir)) {
             return paths.filter(Files::isRegularFile)
@@ -49,7 +52,7 @@ public class ManifestStore {
                     .map(Optional::orElseThrow)
                     .toList();
         } catch (IOException e) {
-            return List.of();
+            throw new IllegalStateException("Unable to list model manifests in " + manifestDir, e);
         }
     }
 
@@ -77,7 +80,9 @@ public class ManifestStore {
         try {
             Path file = manifestDir.resolve(safeFileName(id) + ".json");
             Files.deleteIfExists(file);
-        } catch (IOException ignored) {}
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to delete model manifest " + id, e);
+        }
     }
 
     public void migrateIfNeeded() {
