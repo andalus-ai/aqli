@@ -4922,7 +4922,10 @@ public class RunCommand implements Runnable {
     }
 
     private String hfRepoIdFromModelRef(String requestedModel) {
-        return ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
+        ModelSourceResolver.Source source = ModelSourceResolver.classify(requestedModel);
+        return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
+                ? source.reference()
+                : null;
     }
 
     private boolean isCloudProviderName(String provider) {
