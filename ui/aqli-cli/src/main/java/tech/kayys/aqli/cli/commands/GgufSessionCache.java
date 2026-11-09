@@ -11,7 +11,25 @@ import java.util.function.IntSupplier;
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
  * Runtime configuration and logging remain supplied by the CLI boundary.
  */
-    private record SessionKey(
+private record SessionKey(
+        Path modelPath,
+        int context,
+        int batch,
+        int microBatch,
+        int threads,
+        int batchThreads,
+        int gpuLayers,
+        boolean useMmap,
+        boolean useMlock,
+        boolean swaFull) {
+}
+
+record SessionLease(
+        LlamaCppGgufSession session,
+        boolean reused,
+        boolean closeOnClose,
+        String reuseKind) implements AutoCloseable {
+    static SessionLease open(
             Path modelPath,
             int context,
             int batch,
@@ -21,196 +39,185 @@ import java.util.function.IntSupplier;
             int gpuLayers,
             boolean useMmap,
             boolean useMlock,
-            boolean swaFull) {
+            boolean swaFull) throws Throwable {
+        return new SessionLease(LlamaCppGgufSession.open(
+                modelPath,
+                context,
+                batch,
+                microBatch,
+                threads,
+                batchThreads,
+                gpuLayers,
+                useMmap,
+                useMlock,
+                swaFull), false, true, "cold");
     }
-
-    record SessionLease(
-            LlamaCppGgufSession session,
-            boolean reused,
-            boolean closeOnClose,
-            String reuseKind) implements AutoCloseable {
-        static SessionLease open(
-                Path modelPath,
-                int context,
-                int batch,
-                int microBatch,
-                int threads,
-                int batchThreads,
-                int gpuLayers,
-                boolean useMmap,
-                boolean useMlock,
-                boolean swaFull) throws Throwable {
-            return new SessionLease(LlamaCppGgufSession.open(
-                    modelPath,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull), false, true, "cold");
-        }
 
     @Override
     public void close() {
-            if (closeOnClose) {
-                session.close();
-            }
+        if (closeOnClose) {
+            session.close();
         }
     }
+}
 
-final class GgufSessionCache implements AutoCloseable {\n    private final IntSupplier maxSessionsSupplier;\n    private final Consumer<String> log;\n\n    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log) {\n        this.maxSessionsSupplier = maxSessionsSupplier;\n        this.log = log;\n    }
-    private final Map<SessionKey, LlamaCppGufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
+final class GgufSessionCache implements AutoCloseable {
+    private final IntSupplier maxSessionsSupplier;
+    private final Consumer<String> log;
+
+    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log) {
+        this.maxSessionsSupplier = maxSessionsSupplier;
+        this.log = log;
+    }
+    private final Map<SessionKey, LlamaCppGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
     private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends =
-                new LinkedHashMap<>(2, 0.75f, true);
+            new LinkedHashMap<>(2, 0.75f, true);
 
-    synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
-                Path modelPath) throws Exception {
-            Path key = modelPath.toAbsolutePath().normalize();
-            tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
-            if (existing != null) {
-                log.accept("java backend cache hit: " + key.getFileName());
-                return existing;
-            }
-            daemonLog("java backend cache miss: " + key.getFileName());
-            tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
-                    tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
-            javaBackends.put(key, opened);
-            return opened;
+    private synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
+            Path modelPath) throws Exception {
+        Path key = modelPath.toAbsolutePath().normalize();
+        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
+        if (existing != null) {
+            daemonLog("java backend cache hit: " + key.getFileName());
+            return existing;
         }
+        daemonLog("java backend cache miss: " + key.getFileName());
+        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
+                tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
+        javaBackends.put(key, opened);
+        return opened;
+    }
 
-    SessionLease acquire(
-                Path modelPath,
-                int context,
-                int batch,
-                int microBatch,
-                int threads,
-                int batchThreads,
-                int gpuLayers,
-                boolean useMmap,
-                boolean useMlock,
-                boolean swaFull) throws Throwable {
-            SessionKey key = new SessionKey(
-                    modelPath.toAbsolutePath().normalize(),
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull);
-            LlamaCppGgufSession existing = sessions.get(key);
-            if (existing != null) {
-                daemonLog("session cache hit: " + key.modelPath().getFileName()
-                        + ", context=" + context
-                        + ", gpuLayers=" + gpuLayers
-                        + ", sessions=" + sessions.size());
-                return new SessionLease(existing, true, false, "exact");
-            }
-            SessionLease compatible = findCompatible(key);
-            if (compatible != null) {
-                return compatible;
-            }
-            daemonLog("session cache miss: " + key.modelPath().getFileName()
+    private SessionLease acquire(
+            Path modelPath,
+            int context,
+            int batch,
+            int microBatch,
+            int threads,
+            int batchThreads,
+            int gpuLayers,
+            boolean useMmap,
+            boolean useMlock,
+            boolean swaFull) throws Throwable {
+        SessionKey key = new SessionKey(
+                modelPath.toAbsolutePath().normalize(),
+                context,
+                batch,
+                microBatch,
+                threads,
+                batchThreads,
+                gpuLayers,
+                useMmap,
+                useMlock,
+                swaFull);
+        LlamaCppGgufSession existing = sessions.get(key);
+        if (existing != null) {
+            daemonLog("session cache hit: " + key.modelPath().getFileName()
                     + ", context=" + context
                     + ", gpuLayers=" + gpuLayers
                     + ", sessions=" + sessions.size());
-            LlamaCppGgufSession opened = LlamaCppGgufSession.open(
-                    key.modelPath(),
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull);
-            sessions.put(key, opened);
-            evictOverflowSessions();
-            return new SessionLease(opened, false, false, "cold");
+            return new SessionLease(existing, true, false, "exact");
         }
+        SessionLease compatible = findCompatible(key);
+        if (compatible != null) {
+            return compatible;
+        }
+        daemonLog("session cache miss: " + key.modelPath().getFileName()
+                + ", context=" + context
+                + ", gpuLayers=" + gpuLayers
+                + ", sessions=" + sessions.size());
+        LlamaCppGgufSession opened = LlamaCppGgufSession.open(
+                key.modelPath(),
+                context,
+                batch,
+                microBatch,
+                threads,
+                batchThreads,
+                gpuLayers,
+                useMmap,
+                useMlock,
+                swaFull);
+        sessions.put(key, opened);
+        evictOverflowSessions();
+        return new SessionLease(opened, false, false, "cold");
+    }
 
     private SessionLease findCompatible(SessionKey requested) {
-            Map.Entry<SessionKey, LlamaCppGgufSession> best = null;
-            for (Map.Entry<SessionKey, LlamaCppGgufSession> entry : sessions.entrySet()) {
-                if (!isCompatibleWarmSession(entry.getKey(), requested)) {
-                    continue;
-                }
-                if (best == null || smallerCompatibleSession(entry.getKey(), best.getKey())) {
-                    best = entry;
-                }
+        Map.Entry<SessionKey, LlamaCppGgufSession> best = null;
+        for (Map.Entry<SessionKey, LlamaCppGgufSession> entry : sessions.entrySet()) {
+            if (!isCompatibleWarmSession(entry.getKey(), requested)) {
+                continue;
             }
-            if (best == null) {
-                return null;
+            if (best == null || smallerCompatibleSession(entry.getKey(), best.getKey())) {
+                best = entry;
             }
-            SessionKey selected = best.getKey();
-            LlamaCppGgufSession session = sessions.get(selected);
-            daemonLog("session cache compatible hit: " + selected.modelPath().getFileName()
-                    + ", requestedContext=" + requested.context()
-                    + ", warmContext=" + selected.context()
-                    + ", requestedBatch=" + requested.batch()
-                    + ", warmBatch=" + selected.batch()
-                    + ", gpuLayers=" + selected.gpuLayers()
-                    + ", sessions=" + sessions.size());
-            return new SessionLease(session, true, false, "compatible");
         }
+        if (best == null) {
+            return null;
+        }
+        SessionKey selected = best.getKey();
+        LlamaCppGgufSession session = sessions.get(selected);
+        daemonLog("session cache compatible hit: " + selected.modelPath().getFileName()
+                + ", requestedContext=" + requested.context()
+                + ", warmContext=" + selected.context()
+                + ", requestedBatch=" + requested.batch()
+                + ", warmBatch=" + selected.batch()
+                + ", gpuLayers=" + selected.gpuLayers()
+                + ", sessions=" + sessions.size());
+        return new SessionLease(session, true, false, "compatible");
+    }
 
-        private static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
-            return warm.modelPath().equals(requested.modelPath())
-                    && warm.context() >= requested.context()
-                    && warm.batch() >= requested.batch()
-                    && warm.microBatch() >= requested.microBatch()
-                    && warm.threads() == requested.threads()
-                    && warm.batchThreads() == requested.batchThreads()
-                    && warm.gpuLayers() == requested.gpuLayers()
-                    && warm.useMmap() == requested.useMmap()
-                    && warm.useMlock() == requested.useMlock()
-                    && warm.swaFull() == requested.swaFull();
-        }
+    private static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
+        return warm.modelPath().equals(requested.modelPath())
+                && warm.context() >= requested.context()
+                && warm.batch() >= requested.batch()
+                && warm.microBatch() >= requested.microBatch()
+                && warm.threads() == requested.threads()
+                && warm.batchThreads() == requested.batchThreads()
+                && warm.gpuLayers() == requested.gpuLayers()
+                && warm.useMmap() == requested.useMmap()
+                && warm.useMlock() == requested.useMlock()
+                && warm.swaFull() == requested.swaFull();
+    }
 
-        private static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
-            int contextCompare = Integer.compare(left.context(), right.context());
-            if (contextCompare != 0) {
-                return contextCompare < 0;
-            }
-            int batchCompare = Integer.compare(left.batch(), right.batch());
-            if (batchCompare != 0) {
-                return batchCompare < 0;
-            }
-            return Integer.compare(left.microBatch(), right.microBatch()) < 0;
+    private static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
+        int contextCompare = Integer.compare(left.context(), right.context());
+        if (contextCompare != 0) {
+            return contextCompare < 0;
         }
+        int batchCompare = Integer.compare(left.batch(), right.batch());
+        if (batchCompare != 0) {
+            return batchCompare < 0;
+        }
+        return Integer.compare(left.microBatch(), right.microBatch()) < 0;
+    }
 
     private void evictOverflowSessions() {
-            int maxSessions = maxSessionsSupplier.getAsInt();
-            while (sessions.size() > maxSessions) {
-                Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
-                sessions.remove(eldest.getKey());
-                daemonLog("session cache evict: " + eldest.getKey().modelPath().getFileName()
-                        + ", context=" + eldest.getKey().context()
-                        + ", gpuLayers=" + eldest.getKey().gpuLayers()
-                        + ", maxSessions=" + maxSessions);
-                eldest.getValue().close();
-            }
-        }
-
-        @Override
-        public void close() {
-            for (LlamaCppGgufSession session : sessions.values()) {
-                session.close();
-            }
-            sessions.clear();
-            for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
-                try {
-                    backendSession.close();
-                } catch (Exception ignored) {
-                }
-            }
-            javaBackends.clear();
+        int maxSessions = maxSessionsSupplier.getAsInt();
+        while (sessions.size() > maxSessions) {
+            Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
+            sessions.remove(eldest.getKey());
+            daemonLog("session cache evict: " + eldest.getKey().modelPath().getFileName()
+                    + ", context=" + eldest.getKey().context()
+                    + ", gpuLayers=" + eldest.getKey().gpuLayers()
+                    + ", maxSessions=" + maxSessions);
+            eldest.getValue().close();
         }
     }
+
+    @Override
+    public void close() {
+        for (LlamaCppGgufSession session : sessions.values()) {
+            session.close();
+        }
+        sessions.clear();
+        for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
+            try {
+                backendSession.close();
+            } catch (Exception ignored) {
+            }
+        }
+        javaBackends.clear();
+    }
+}
 
