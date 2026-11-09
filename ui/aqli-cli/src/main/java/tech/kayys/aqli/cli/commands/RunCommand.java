@@ -503,7 +503,7 @@ public class RunCommand implements Runnable {
     @Option(names = { "--engine", "--gguf-engine" }, description = "GGUF engine mode: auto, java, llamacpp, benchmark")
     String ggufEngine;
 
-    @Option(names = { "--backend" }, description = "GGUF backend to use for local fast path (metal or cpu)")
+    @Option(names = { "--backend" }, description = "GGUF backend to use for local standalone runner (metal or cpu)")
     String ggufBackend;
 
     @Option(names = { "--java-native", "--java" }, description = "Use the Java-native GGUF loader/probe path")
@@ -622,7 +622,7 @@ public class RunCommand implements Runnable {
                 }
             }
 
-            if (!routeReportJson && tryCachedGemma4MobileQatLiteRtFastPath(requestedProviderExplicit, requestedProviderId)) {
+            if (!routeReportJson && tryCachedGemma4MobileQatLiteRtRun(requestedProviderExplicit, requestedProviderId)) {
                 return;
             }
 
@@ -631,7 +631,7 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (!routeReportJson && tryStandaloneGgufFastPath()) {
+            if (!routeReportJson && tryStandaloneGgufRun()) {
                 return;
             }
 
@@ -1186,11 +1186,11 @@ public class RunCommand implements Runnable {
                 prompt = "";
             }
 
-            if (tryStandaloneLiteRtFastPath(finalLocalPath)) {
+            if (tryStandaloneLiteRtRun(finalLocalPath)) {
                 return;
             }
 
-            if (tryStandaloneGgufFastPath(true)) {
+            if (tryStandaloneGgufRun(true)) {
                 return;
             }
 
@@ -5652,8 +5652,8 @@ public class RunCommand implements Runnable {
         return providerId != null && "mcp".equalsIgnoreCase(providerId.trim());
     }
 
-    boolean shouldTryStandaloneLiteRtFastPath(String localPath) {
-        return StandaloneFastRunPolicy.shouldTryLiteRt(
+    boolean shouldUseStandaloneLiteRtRun(String localPath) {
+        return StandaloneRunPolicy.shouldUseLiteRtStandalone(
                 routeReportJson,
                 Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true")),
                 prompt,
@@ -5662,7 +5662,7 @@ public class RunCommand implements Runnable {
                 isSimpleStandaloneTextRun());
     }
 
-    String[] buildStandaloneLiteRtFastRunArgs(String localPath) {
+    String[] buildStandaloneLiteRtRunArgs(String localPath) {
         List<String> args = new java.util.ArrayList<>();
         args.add("run");
         args.add("--modelFile");
@@ -5682,23 +5682,23 @@ public class RunCommand implements Runnable {
         return args.toArray(String[]::new);
     }
 
-    private boolean tryStandaloneLiteRtFastPath(String localPath) {
-        if (!shouldTryStandaloneLiteRtFastPath(localPath)) {
+    private boolean tryStandaloneLiteRtRun(String localPath) {
+        if (!shouldUseStandaloneLiteRtRun(localPath)) {
             return false;
         }
         return StandaloneLiteRtRunExecutor.execute(
-                buildStandaloneLiteRtFastRunArgs(localPath),
+                buildStandaloneLiteRtRunArgs(localPath),
                 LiteRtLmStandaloneRunner::run,
                 this::requestProcessExit,
                 System::exit);
     }
 
-    private boolean tryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit) {
-        return tryCachedGemma4MobileQatLiteRtFastPath(providerExplicit, providerId);
+    private boolean tryCachedGemma4MobileQatLiteRtRun(boolean providerExplicit) {
+        return tryCachedGemma4MobileQatLiteRtRun(providerExplicit, providerId);
     }
 
-    private boolean tryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit, String requestedProviderId) {
-        if (!shouldTryCachedGemma4MobileQatLiteRtFastPath(providerExplicit, requestedProviderId)) {
+    private boolean tryCachedGemma4MobileQatLiteRtRun(boolean providerExplicit, String requestedProviderId) {
+        if (!shouldUseCachedGemma4MobileQatLiteRtRun(providerExplicit, requestedProviderId)) {
             return false;
         }
         Optional<LocalModelIndex.Entry> indexed = findSafetensorIndexEntry(modelId);
@@ -5718,18 +5718,18 @@ public class RunCommand implements Runnable {
         }
         providerId = selection.provider();
         return StandaloneLiteRtRunExecutor.execute(
-                buildStandaloneLiteRtFastRunArgs(selection.localPath()),
+                buildStandaloneLiteRtRunArgs(selection.localPath()),
                 LiteRtLmStandaloneRunner::run,
                 this::requestProcessExit,
                 System::exit);
     }
 
-    boolean shouldTryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit) {
-        return shouldTryCachedGemma4MobileQatLiteRtFastPath(providerExplicit, providerId);
+    boolean shouldUseCachedGemma4MobileQatLiteRtRun(boolean providerExplicit) {
+        return shouldUseCachedGemma4MobileQatLiteRtRun(providerExplicit, providerId);
     }
 
-    boolean shouldTryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit, String requestedProviderId) {
-        return StandaloneFastRunPolicy.shouldTryCachedGemma4LiteRt(
+    boolean shouldUseCachedGemma4MobileQatLiteRtRun(boolean providerExplicit, String requestedProviderId) {
+        return StandaloneRunPolicy.shouldUseCachedGemma4LiteRtStandalone(
                 Boolean.parseBoolean(System.getProperty("aqli.cli.enable_cached_gemma4_litert_fast_path", "true")),
                 modelId,
                 modelFile,
@@ -5749,8 +5749,8 @@ public class RunCommand implements Runnable {
                         : LocalModelIndex.find(reference, preferredFormat));
     }
 
-    boolean shouldTryStandaloneGgufFastPath() {
-        return StandaloneFastRunPolicy.shouldTryGguf(
+    boolean shouldUseStandaloneGgufRun() {
+        return StandaloneRunPolicy.shouldUseGgufStandalone(
                 routeReportJson,
                 prompt,
                 providerId,
@@ -5828,12 +5828,12 @@ public class RunCommand implements Runnable {
         return args.toArray(String[]::new);
     }
 
-    private boolean tryStandaloneGgufFastPath() {
-        return tryStandaloneGgufFastPath(false);
+    private boolean tryStandaloneGgufRun() {
+        return tryStandaloneGgufRun(false);
     }
 
-    private boolean tryStandaloneGgufFastPath(boolean suppressBanner) {
-        if (!shouldTryStandaloneGgufFastPath()) {
+    private boolean tryStandaloneGgufRun(boolean suppressBanner) {
+        if (!shouldUseStandaloneGgufRun()) {
             return false;
         }
         int status = GgufStandaloneRunner.run(buildStandaloneGgufStandaloneRunnerArgs(suppressBanner));
