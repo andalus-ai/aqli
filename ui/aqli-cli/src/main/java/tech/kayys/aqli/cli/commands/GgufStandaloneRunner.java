@@ -878,13 +878,14 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         boolean useMmap = booleanConfig("aqli.gguf.fast_run.mmap", true);
         boolean useMlock = booleanConfig("aqli.gguf.fast_run.mlock", false);
-        SessionLease opened = sessionCache == null
-                ? SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
+        GgufSessionCache.SessionLease opened = sessionCache == null
+                ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
+                        nGpuLayers,
                         useMmap, useMlock, swaFull)
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
-        try (SessionLease lease = opened) {
+        try (GgufSessionCache.SessionLease lease = opened) {
             LlamaCppGgufSession session = lease.session();
             int tokens = prewarmTokenCount();
             String sessionLabel = sessionReuseLabel(sessionCache != null, lease.reused(), lease.reuseKind());
@@ -947,13 +948,14 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         boolean useMmap = booleanConfig("aqli.gguf.fast_run.mmap", true);
         boolean useMlock = booleanConfig("aqli.gguf.fast_run.mlock", false);
-        SessionLease opened = sessionCache == null
-                ? SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
+        GgufSessionCache.SessionLease opened = sessionCache == null
+                ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
+                        nGpuLayers,
                         useMmap, useMlock, swaFull)
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
-        try (SessionLease lease = opened) {
+        try (GgufSessionCache.SessionLease lease = opened) {
             LlamaCppGgufSession session = lease.session();
             String sessionLabel = sessionReuseLabel(sessionCache != null, lease.reused(), lease.reuseKind());
             String warmSuffix = ", session=" + sessionLabel;
@@ -2316,7 +2318,8 @@ public final class GgufStandaloneRunner {
         try {
             Files.createDirectories(daemonRunDir());
             try (ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
-                    GgufSessionCache sessionCache = new GgufSessionCache()) {
+                    GgufSessionCache sessionCache = new GgufSessionCache(GgufFastRun::daemonMaxSessions,
+                            GgufFastRun::daemonLog)) {
                 port = server.getLocalPort();
                 writeDaemonPort(port);
                 long idleSeconds = longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
@@ -2535,7 +2538,7 @@ public final class GgufStandaloneRunner {
         return !daemonSession && hardExitAfterRun();
     }
 
-    private static void daemonLog(String message) {
+    static void daemonLog(String message) {
         System.err.printf("%tF %<tT [gguf-daemon] %s%n", System.currentTimeMillis(), message);
     }
 
