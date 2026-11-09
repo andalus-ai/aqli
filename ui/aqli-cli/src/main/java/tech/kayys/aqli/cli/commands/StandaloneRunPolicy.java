@@ -3,17 +3,17 @@ package tech.kayys.aqli.cli.commands;
 import java.util.Locale;
 
 /**
- * Pure eligibility rules for the optional standalone inference shortcuts.
+ * Pure eligibility rules for the optional standalone inference routes.
  *
  * <p>This class deliberately owns routing policy only. Argument construction,
  * model resolution, execution, and fallback handling remain with the
- * format-specific fast runners and the full CLI.</p>
+ * format-specific standalone runners and the full CLI.</p>
  */
-final class StandaloneFastRunPolicy {
-    private StandaloneFastRunPolicy() {
+final class StandaloneRunPolicy {
+    private StandaloneRunPolicy() {
     }
 
-    static boolean shouldTryLiteRt(
+    static boolean shouldUseLiteRtStandalone(
             boolean routeReportJson,
             boolean enabled,
             String prompt,
@@ -28,7 +28,7 @@ final class StandaloneFastRunPolicy {
                 && simpleTextRun;
     }
 
-    static boolean shouldTryCachedGemma4LiteRt(
+    static boolean shouldUseCachedGemma4LiteRtStandalone(
             boolean enabled,
             String modelId,
             String modelFile,
@@ -47,7 +47,7 @@ final class StandaloneFastRunPolicy {
                 && simpleTextRun;
     }
 
-    static boolean shouldTryGguf(
+    static boolean shouldUseGgufStandalone(
             boolean routeReportJson,
             String prompt,
             String providerId,
