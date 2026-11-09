@@ -25,15 +25,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class GgufFastRunPromptTest {
+class GgufStandaloneRunnerPromptTest {
 
     @Test
     void runHeaderMatchesFullCliShapeForIndexedGgufModels() {
-        GgufFastRun.FastArgs args = GgufFastRun.FastArgs.parse(
+        tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                 new String[] {"run", "--model", "b71c9d", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-        GgufFastRun.printRunHeader(
+        GgufStandaloneRunner.printRunHeader(
                 Path.of("/tmp/google__gemma-4-E2B-it-Q4_K_M.gguf"),
                 args,
                 new PrintStream(bytes, true, StandardCharsets.UTF_8));
@@ -48,11 +48,11 @@ class GgufFastRunPromptTest {
 
     @Test
     void runHeaderDoesNotPrintResolvedLineForExplicitGgufModelFile() {
-        GgufFastRun.FastArgs args = GgufFastRun.FastArgs.parse(
+        tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                 new String[] {"run", "--model-file", "/tmp/model.gguf", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-        GgufFastRun.printRunHeader(
+        GgufStandaloneRunner.printRunHeader(
                 Path.of("/tmp/model.gguf"),
                 args,
                 new PrintStream(bytes, true, StandardCharsets.UTF_8));
@@ -65,11 +65,11 @@ class GgufFastRunPromptTest {
 
     @Test
     void runHeaderCanSuppressBannerForFullCliHandoffs() {
-        GgufFastRun.FastArgs args = GgufFastRun.FastArgs.parse(
+        tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                 new String[] {"run", "--no-banner", "--model", "b71c9d", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-        GgufFastRun.printRunHeader(
+        GgufStandaloneRunner.printRunHeader(
                 Path.of("/tmp/google__gemma-4-E2B-it-Q4_K_M.gguf"),
                 args,
                 new PrintStream(bytes, true, StandardCharsets.UTF_8));
@@ -85,41 +85,41 @@ class GgufFastRunPromptTest {
     void executionRouteNamesGgufDaemonAndDirectFastPath() {
         assertEquals(
                 "Execution route: gguf (backend=MTL0 (Apple M4)) [llama_cpp_gguf_daemon]",
-                GgufFastRun.executionRouteLine("MTL0 (Apple M4)", "daemon"));
+                GgufStandaloneRunner.executionRouteLine("MTL0 (Apple M4)", "daemon"));
         assertEquals(
                 "Execution route: gguf (backend=CPU) [llama_cpp_gguf_fast_path]",
-                GgufFastRun.executionRouteLine("CPU", "fast path"));
+                GgufStandaloneRunner.executionRouteLine("CPU", "fast path"));
         assertEquals(
                 "Execution route: gguf (backend=java-native) [java_native_gguf_fast_path]",
-                GgufFastRun.executionRouteLine("java-native", "fast path"));
+                GgufStandaloneRunner.executionRouteLine("java-native", "fast path"));
     }
 
     @Test
     void sessionReuseLabelsExposeColdExactAndCompatibleDaemonHits() {
-        assertEquals("one-shot", GgufFastRun.sessionReuseLabel(false, false, "cold"));
-        assertEquals("cold", GgufFastRun.sessionReuseLabel(true, false, "cold"));
-        assertEquals("warm-exact", GgufFastRun.sessionReuseLabel(true, true, "exact"));
-        assertEquals("warm-compatible", GgufFastRun.sessionReuseLabel(true, true, "compatible"));
+        assertEquals("one-shot", GgufStandaloneRunner.sessionReuseLabel(false, false, "cold"));
+        assertEquals("cold", GgufStandaloneRunner.sessionReuseLabel(true, false, "cold"));
+        assertEquals("warm-exact", GgufStandaloneRunner.sessionReuseLabel(true, true, "exact"));
+        assertEquals("warm-compatible", GgufStandaloneRunner.sessionReuseLabel(true, true, "compatible"));
     }
 
     @Test
     void sessionCoverageSummaryShowsWarmShapeReuseBounds() {
         assertEquals("ctx<=2048,batch<=1024,ubatch<=512",
-                GgufFastRun.sessionCoverageSummary(2048, 1024, 512));
+                GgufStandaloneRunner.sessionCoverageSummary(2048, 1024, 512));
     }
 
     @Test
     void outputBufferSizingUsesSafetyFloorAndTokenScaledCapacity() {
-        assertEquals(64L * 1024L, GgufFastRun.outputBufferBytesForTokens(1));
-        assertEquals(128L * 1024L, GgufFastRun.outputBufferBytesForTokens(256));
+        assertEquals(64L * 1024L, GgufStandaloneRunner.outputBufferBytesForTokens(1));
+        assertEquals(128L * 1024L, GgufStandaloneRunner.outputBufferBytesForTokens(256));
     }
 
     @Test
     void outputBufferRetryDoublesCapacityAndDetectsNativeOverflow() {
-        assertEquals(128L * 1024L, GgufFastRun.nextOutputBufferBytes(64L * 1024L));
-        assertTrue(GgufFastRun.outputBufferTooSmall(-9, ""));
-        assertTrue(GgufFastRun.outputBufferTooSmall(-7, "output buffer too small"));
-        assertFalse(GgufFastRun.outputBufferTooSmall(-7, "token conversion failed"));
+        assertEquals(128L * 1024L, GgufStandaloneRunner.nextOutputBufferBytes(64L * 1024L));
+        assertTrue(GgufStandaloneRunner.outputBufferTooSmall(-9, ""));
+        assertTrue(GgufStandaloneRunner.outputBufferTooSmall(-7, "output buffer too small"));
+        assertFalse(GgufStandaloneRunner.outputBufferTooSmall(-7, "token conversion failed"));
     }
 
     @Test
@@ -130,7 +130,7 @@ class GgufFastRunPromptTest {
         long generate = TimeUnit.MILLISECONDS.toNanos(500);
         long end = start + open + generate;
 
-        GgufFastRun.printFastRunStats(
+        GgufStandaloneRunner.printFastRunStats(
                 new PrintStream(bytes, true, StandardCharsets.UTF_8),
                 "Fast GGUF",
                 10,
@@ -168,7 +168,7 @@ class GgufFastRunPromptTest {
                 + "warmSession=true, sessionReuse=exact, "
                 + "javaOutputBufferBytes=65536, javaOutputRetries=1";
 
-        GgufFastRun.printFastRunStats(
+        GgufStandaloneRunner.printFastRunStats(
                 new PrintStream(bytes, true, StandardCharsets.UTF_8),
                 "Fast GGUF",
                 10,
@@ -199,7 +199,7 @@ class GgufFastRunPromptTest {
 
     @Test
     void parsesNativeMetricStringIntoStableKeyValuePairs() {
-        Map<String, String> metrics = GgufFastRun.parseNativeMetrics(
+        Map<String, String> metrics = GgufStandaloneRunner.parseNativeMetrics(
                 "backend=Metal (Apple M4), gpuLayers=-1, prefill=12.000ms, promptCache=hit, "
                         + "tokenizeCache=hit, sampler=reused, samplerMs=0.010ms, "
                         + "promptCacheEagerShort=true, repeatedPrompt=true, "
@@ -221,7 +221,7 @@ class GgufFastRunPromptTest {
 
     @Test
     void wrapsGemma4PromptWithTurnTokens() {
-        String formatted = GgufFastRun.formatPromptForModel(
+        String formatted = GgufStandaloneRunner.formatPromptForModel(
                 "where is jakarta",
                 Path.of("/tmp/google__gemma-4-E2B-it-Q4_K_M.gguf"));
 
@@ -230,7 +230,7 @@ class GgufFastRunPromptTest {
 
     @Test
     void keepsGemma4NonQuestionPromptWithoutConciseQuestionInstruction() {
-        String formatted = GgufFastRun.formatPromptForModel(
+        String formatted = GgufStandaloneRunner.formatPromptForModel(
                 "write a tiny poem about jakarta",
                 Path.of("/tmp/google__gemma-4-E2B-it-Q4_K_M.gguf"));
 
@@ -242,7 +242,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.concise_qa_prompt");
         System.setProperty("aqli.gguf.fast_run.concise_qa_prompt", "false");
         try {
-            String formatted = GgufFastRun.formatPromptForModel(
+            String formatted = GgufStandaloneRunner.formatPromptForModel(
                     "where is jakarta",
                     Path.of("/tmp/google__gemma-4-E2B-it-Q4_K_M.gguf"));
 
@@ -256,31 +256,31 @@ class GgufFastRunPromptTest {
     void keepsPreformattedPromptUntouched() {
         String prompt = "<|turn>user\nwhere is jakarta<turn|>\n<|turn>model\n";
 
-        assertEquals(prompt, GgufFastRun.formatPromptForModel(
+        assertEquals(prompt, GgufStandaloneRunner.formatPromptForModel(
                 prompt,
                 Path.of("/tmp/google__gemma-4-E2B-it-Q4_K_M.gguf")));
     }
 
     @Test
     void keepsNonGemma4PromptRawInAutoMode() {
-        assertEquals("where is jakarta", GgufFastRun.formatPromptForModel(
+        assertEquals("where is jakarta", GgufStandaloneRunner.formatPromptForModel(
                 "where is jakarta",
                 Path.of("/tmp/llama.gguf")));
     }
 
     @Test
     void providerJavaSelectsJavaEngineByDefault() {
-        assertEquals("JAVA", GgufFastRun.effectiveEngineModeName("java", "auto"));
+        assertEquals("JAVA", GgufStandaloneRunner.effectiveEngineModeName("java", "auto"));
     }
 
     @Test
     void explicitEngineOverridesProviderDefault() {
-        assertEquals("LLAMA_CPP", GgufFastRun.effectiveEngineModeName("java", "llama.cpp"));
+        assertEquals("LLAMA_CPP", GgufStandaloneRunner.effectiveEngineModeName("java", "llama.cpp"));
     }
 
     @Test
     void benchmarkAliasSelectsBenchmarkMode() {
-        assertEquals("BENCHMARK", GgufFastRun.effectiveEngineModeName("gguf", "compare"));
+        assertEquals("BENCHMARK", GgufStandaloneRunner.effectiveEngineModeName("gguf", "compare"));
     }
 
     @Test
@@ -306,7 +306,7 @@ class GgufFastRunPromptTest {
 
         assertEquals(
                 "loaderReady=true, decoderTensorsReady=true, rowDotReady=true, generationReady=false",
-                GgufFastRun.javaReadinessSummary(profile));
+                GgufStandaloneRunner.javaReadinessSummary(profile));
     }
 
     @Test
@@ -314,7 +314,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.batch");
         System.setProperty("aqli.gguf.fast_run.batch", "4096");
         try {
-            assertEquals(2048, GgufFastRun.boundedBatch("aqli.gguf.fast_run.batch", 1024, 2048));
+            assertEquals(2048, GgufStandaloneRunner.boundedBatch("aqli.gguf.fast_run.batch", 1024, 2048));
         } finally {
             restoreProperty("aqli.gguf.fast_run.batch", previous);
         }
@@ -325,7 +325,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.ubatch");
         System.setProperty("aqli.gguf.fast_run.ubatch", "0");
         try {
-            assertEquals(1, GgufFastRun.boundedBatch("aqli.gguf.fast_run.ubatch", 512, 1024));
+            assertEquals(1, GgufStandaloneRunner.boundedBatch("aqli.gguf.fast_run.ubatch", 512, 1024));
         } finally {
             restoreProperty("aqli.gguf.fast_run.ubatch", previous);
         }
@@ -333,15 +333,15 @@ class GgufFastRunPromptTest {
 
     @Test
     void fastRunConfigEnvNamesIncludeShellFriendlyAliases() {
-        assertTrue(GgufFastRun.configEnvNames("aqli.gguf.fast_run.gpu_layers")
+        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.gpu_layers")
                 .contains("AQLI_GGUF_FAST_GPU_LAYERS"));
-        assertTrue(GgufFastRun.configEnvNames("aqli.gguf.fast_run.gpu_layers")
+        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.gpu_layers")
                 .contains("GGUF_GPU_LAYERS"));
-        assertTrue(GgufFastRun.configEnvNames("aqli.gguf.fast_run.batch")
+        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.batch")
                 .contains("GGUF_BATCH_SIZE"));
-        assertTrue(GgufFastRun.configEnvNames("aqli.gguf.fast_run.context")
+        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.context")
                 .contains("GGUF_CONTEXT_SIZE"));
-        assertTrue(GgufFastRun.configEnvNames("aqli.gguf.fast_run.daemon")
+        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.daemon")
                 .contains("AQLI_GGUF_FAST_DAEMON"));
     }
 
@@ -350,7 +350,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.context");
         System.clearProperty("aqli.gguf.fast_run.context");
         try {
-            assertEquals(512, GgufFastRun.fastRunContext("where is jakarta", 24));
+            assertEquals(512, GgufStandaloneRunner.fastRunContext("where is jakarta", 24));
         } finally {
             restoreProperty("aqli.gguf.fast_run.context", previous);
         }
@@ -361,7 +361,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.context");
         System.clearProperty("aqli.gguf.fast_run.context");
         try {
-            assertEquals(2048, GgufFastRun.fastRunContext("x".repeat(1000), 24));
+            assertEquals(2048, GgufStandaloneRunner.fastRunContext("x".repeat(1000), 24));
         } finally {
             restoreProperty("aqli.gguf.fast_run.context", previous);
         }
@@ -372,7 +372,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.context");
         System.setProperty("aqli.gguf.fast_run.context", "1536");
         try {
-            assertEquals(1536, GgufFastRun.fastRunContext("where is jakarta", 24));
+            assertEquals(1536, GgufStandaloneRunner.fastRunContext("where is jakarta", 24));
         } finally {
             restoreProperty("aqli.gguf.fast_run.context", previous);
         }
@@ -387,7 +387,7 @@ class GgufFastRunPromptTest {
         System.clearProperty("aqli.gguf.fast_run.max_auto_context");
         System.clearProperty("aqli.gguf.fast_run.prewarm_min_context");
         try {
-            assertEquals(2048, GgufFastRun.fastRunPrewarmContext("where is jakarta", 10));
+            assertEquals(2048, GgufStandaloneRunner.fastRunPrewarmContext("where is jakarta", 10));
         } finally {
             restoreProperty("aqli.gguf.fast_run.context", previousContext);
             restoreProperty("aqli.gguf.fast_run.max_auto_context", previousMaxAuto);
@@ -400,7 +400,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.context");
         System.setProperty("aqli.gguf.fast_run.context", "1536");
         try {
-            assertEquals(1536, GgufFastRun.fastRunPrewarmContext("where is jakarta", 10));
+            assertEquals(1536, GgufStandaloneRunner.fastRunPrewarmContext("where is jakarta", 10));
         } finally {
             restoreProperty("aqli.gguf.fast_run.context", previous);
         }
@@ -415,7 +415,7 @@ class GgufFastRunPromptTest {
         System.setProperty("aqli.gguf.fast_run.max_auto_context", "2048");
         System.setProperty("aqli.gguf.fast_run.prewarm_min_context", "512");
         try {
-            assertEquals(512, GgufFastRun.fastRunPrewarmContext("where is jakarta", 10));
+            assertEquals(512, GgufStandaloneRunner.fastRunPrewarmContext("where is jakarta", 10));
         } finally {
             restoreProperty("aqli.gguf.fast_run.context", previousContext);
             restoreProperty("aqli.gguf.fast_run.max_auto_context", previousMaxAuto);
@@ -428,7 +428,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.swa_full");
         System.clearProperty("aqli.gguf.fast_run.swa_full");
         try {
-            assertFalse(GgufFastRun.fastRunSwaFull());
+            assertFalse(GgufStandaloneRunner.fastRunSwaFull());
         } finally {
             restoreProperty("aqli.gguf.fast_run.swa_full", previous);
         }
@@ -439,7 +439,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.swa_full");
         System.setProperty("aqli.gguf.fast_run.swa_full", "true");
         try {
-            assertTrue(GgufFastRun.fastRunSwaFull());
+            assertTrue(GgufStandaloneRunner.fastRunSwaFull());
         } finally {
             restoreProperty("aqli.gguf.fast_run.swa_full", previous);
         }
@@ -450,7 +450,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.swa_full");
         System.setProperty("aqli.gguf.fast_run.swa_full", "yes");
         try {
-            assertTrue(GgufFastRun.fastRunSwaFull());
+            assertTrue(GgufStandaloneRunner.fastRunSwaFull());
         } finally {
             restoreProperty("aqli.gguf.fast_run.swa_full", previous);
         }
@@ -461,7 +461,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.cpu_fallback");
         System.clearProperty("aqli.gguf.fast_run.cpu_fallback");
         try {
-            assertTrue(GgufFastRun.fastRunCpuFallback());
+            assertTrue(GgufStandaloneRunner.fastRunCpuFallback());
         } finally {
             restoreProperty("aqli.gguf.fast_run.cpu_fallback", previous);
         }
@@ -472,7 +472,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.cpu_fallback");
         System.setProperty("aqli.gguf.fast_run.cpu_fallback", "false");
         try {
-            assertFalse(GgufFastRun.fastRunCpuFallback());
+            assertFalse(GgufStandaloneRunner.fastRunCpuFallback());
         } finally {
             restoreProperty("aqli.gguf.fast_run.cpu_fallback", previous);
         }
@@ -483,7 +483,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.timing");
         System.clearProperty("aqli.gguf.fast_run.timing");
         try {
-            assertFalse(GgufFastRun.fastRunTiming());
+            assertFalse(GgufStandaloneRunner.fastRunTiming());
         } finally {
             restoreProperty("aqli.gguf.fast_run.timing", previous);
         }
@@ -494,7 +494,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.timing");
         System.setProperty("aqli.gguf.fast_run.timing", "true");
         try {
-            assertTrue(GgufFastRun.fastRunTiming());
+            assertTrue(GgufStandaloneRunner.fastRunTiming());
         } finally {
             restoreProperty("aqli.gguf.fast_run.timing", previous);
         }
@@ -505,7 +505,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.hard_exit_after_run");
         System.clearProperty("aqli.gguf.fast_run.hard_exit_after_run");
         try {
-            assertTrue(GgufFastRun.shouldHardExitAfterNativeRun(false));
+            assertTrue(GgufStandaloneRunner.shouldHardExitAfterNativeRun(false));
         } finally {
             restoreProperty("aqli.gguf.fast_run.hard_exit_after_run", previous);
         }
@@ -516,7 +516,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.hard_exit_after_run");
         System.clearProperty("aqli.gguf.fast_run.hard_exit_after_run");
         try {
-            assertFalse(GgufFastRun.shouldHardExitAfterNativeRun(true));
+            assertFalse(GgufStandaloneRunner.shouldHardExitAfterNativeRun(true));
         } finally {
             restoreProperty("aqli.gguf.fast_run.hard_exit_after_run", previous);
         }
@@ -527,7 +527,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.hard_exit_after_run");
         System.setProperty("aqli.gguf.fast_run.hard_exit_after_run", "false");
         try {
-            assertFalse(GgufFastRun.shouldHardExitAfterNativeRun(false));
+            assertFalse(GgufStandaloneRunner.shouldHardExitAfterNativeRun(false));
         } finally {
             restoreProperty("aqli.gguf.fast_run.hard_exit_after_run", previous);
         }
@@ -538,7 +538,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.stale_daemon_force_kill");
         System.clearProperty("aqli.gguf.fast_run.stale_daemon_force_kill");
         try {
-            assertTrue(GgufFastRun.staleDaemonForceKill());
+            assertTrue(GgufStandaloneRunner.staleDaemonForceKill());
         } finally {
             restoreProperty("aqli.gguf.fast_run.stale_daemon_force_kill", previous);
         }
@@ -549,7 +549,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.stale_daemon_force_kill");
         System.setProperty("aqli.gguf.fast_run.stale_daemon_force_kill", "false");
         try {
-            assertFalse(GgufFastRun.staleDaemonForceKill());
+            assertFalse(GgufStandaloneRunner.staleDaemonForceKill());
         } finally {
             restoreProperty("aqli.gguf.fast_run.stale_daemon_force_kill", previous);
         }
@@ -560,7 +560,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.stale_daemon_kill_wait_ms");
         System.setProperty("aqli.gguf.fast_run.stale_daemon_kill_wait_ms", "1");
         try {
-            assertEquals(100L, GgufFastRun.staleDaemonKillWaitMillis());
+            assertEquals(100L, GgufStandaloneRunner.staleDaemonKillWaitMillis());
         } finally {
             restoreProperty("aqli.gguf.fast_run.stale_daemon_kill_wait_ms", previous);
         }
@@ -571,7 +571,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_launcher");
         System.clearProperty("aqli.gguf.fast_run.daemon_launcher");
         try {
-            assertEquals(GgufFastRun.defaultDaemonLauncherMode(), GgufFastRun.daemonLauncherMode());
+            assertEquals(GgufStandaloneRunner.defaultDaemonLauncherMode(), GgufStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_launcher", previous);
         }
@@ -582,7 +582,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_launcher");
         System.setProperty("aqli.gguf.fast_run.daemon_launcher", " auto ");
         try {
-            assertEquals("auto", GgufFastRun.daemonLauncherMode());
+            assertEquals("auto", GgufStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_launcher", previous);
         }
@@ -593,7 +593,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_launcher");
         System.setProperty("aqli.gguf.fast_run.daemon_launcher", " launchctl ");
         try {
-            assertEquals("launchctl", GgufFastRun.daemonLauncherMode());
+            assertEquals("launchctl", GgufStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_launcher", previous);
         }
@@ -604,7 +604,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_launcher");
         System.setProperty("aqli.gguf.fast_run.daemon_launcher", "bogus");
         try {
-            assertEquals(GgufFastRun.defaultDaemonLauncherMode(), GgufFastRun.daemonLauncherMode());
+            assertEquals(GgufStandaloneRunner.defaultDaemonLauncherMode(), GgufStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_launcher", previous);
         }
@@ -615,7 +615,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_request_retry_ms");
         System.clearProperty("aqli.gguf.fast_run.daemon_request_retry_ms");
         try {
-            assertEquals(2_000L, GgufFastRun.daemonRequestRetryMillis());
+            assertEquals(2_000L, GgufStandaloneRunner.daemonRequestRetryMillis());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_request_retry_ms", previous);
         }
@@ -626,7 +626,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_request_retry_ms");
         System.setProperty("aqli.gguf.fast_run.daemon_request_retry_ms", "-1");
         try {
-            assertEquals(0L, GgufFastRun.daemonRequestRetryMillis());
+            assertEquals(0L, GgufStandaloneRunner.daemonRequestRetryMillis());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_request_retry_ms", previous);
         }
@@ -637,7 +637,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_request_retry_sleep_ms");
         System.setProperty("aqli.gguf.fast_run.daemon_request_retry_sleep_ms", "1");
         try {
-            assertEquals(10L, GgufFastRun.daemonRequestRetrySleepMillis());
+            assertEquals(10L, GgufStandaloneRunner.daemonRequestRetrySleepMillis());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_request_retry_sleep_ms", previous);
         }
@@ -648,7 +648,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_max_sessions");
         System.clearProperty("aqli.gguf.fast_run.daemon_max_sessions");
         try {
-            assertEquals(2, GgufFastRun.daemonMaxSessions());
+            assertEquals(2, GgufStandaloneRunner.daemonMaxSessions());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_max_sessions", previous);
         }
@@ -659,7 +659,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.daemon_max_sessions");
         System.setProperty("aqli.gguf.fast_run.daemon_max_sessions", "0");
         try {
-            assertEquals(1, GgufFastRun.daemonMaxSessions());
+            assertEquals(1, GgufStandaloneRunner.daemonMaxSessions());
         } finally {
             restoreProperty("aqli.gguf.fast_run.daemon_max_sessions", previous);
         }
@@ -676,7 +676,7 @@ class GgufFastRunPromptTest {
                         "--provider", "gguf",
                         "--engine", "auto"
                 },
-                GgufFastRun.prewarmRunArgs(new String[] {"--model", "b71c9d"}));
+                GgufStandaloneRunner.prewarmRunArgs(new String[] {"--model", "b71c9d"}));
     }
 
     @Test
@@ -690,7 +690,7 @@ class GgufFastRunPromptTest {
                         "--provider", "gguf",
                         "--engine", "auto"
                 },
-                GgufFastRun.prewarmRunArgs(new String[] {
+                GgufStandaloneRunner.prewarmRunArgs(new String[] {
                         "--model", "b71c9d",
                         "--prompt", "what is jakarta",
                         "--max-tokens", "64"
@@ -708,12 +708,12 @@ class GgufFastRunPromptTest {
                         "--provider", "gguf",
                         "--engine", "auto"
                 },
-                GgufFastRun.prewarmRunArgs(new String[] {"prewarm", "--model", "b71c9d"}));
+                GgufStandaloneRunner.prewarmRunArgs(new String[] {"prewarm", "--model", "b71c9d"}));
     }
 
     @Test
     void prewarmReturnsFallbackForLiteRtProvider() {
-        assertEquals(42, GgufFastRun.prewarm(new String[] {
+        assertEquals(42, GgufStandaloneRunner.prewarm(new String[] {
                 "--provider", "litert",
                 "--model", "7c51c9"
         }));
@@ -721,14 +721,14 @@ class GgufFastRunPromptTest {
 
     @Test
     void prewarmReturnsFallbackForLiteRtModelFileWithoutProvider() {
-        assertEquals(42, GgufFastRun.prewarm(new String[] {
+        assertEquals(42, GgufStandaloneRunner.prewarm(new String[] {
                 "--model-file", "/tmp/gemma-4-E2B-it.litertlm"
         }));
     }
 
     @Test
     void runReturnsFallbackForLiteRtModelFileWithoutProvider() {
-        assertEquals(42, GgufFastRun.run(new String[] {
+        assertEquals(42, GgufStandaloneRunner.run(new String[] {
                 "run",
                 "--model-file", "/tmp/gemma-4-E2B-it.litertlm",
                 "--prompt", "where is jakarta"
@@ -750,10 +750,10 @@ class GgufFastRunPromptTest {
         System.setProperty("aqli.home", tempHome.toString());
         System.clearProperty("aqli.gguf.fast_run.auto_equivalent");
         try {
-            GgufFastRun.FastArgs args = GgufFastRun.FastArgs.parse(
+            tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                     new String[] {"run", "--model", "97cbf2", "--prompt", "hello"});
 
-            assertEquals(ggufFile.toAbsolutePath().normalize(), GgufFastRun.resolveGgufModel(args).orElseThrow());
+            assertEquals(ggufFile.toAbsolutePath().normalize(), GgufStandaloneRunner.resolveGgufModel(args).orElseThrow());
         } finally {
             restoreProperty("aqli.home", previousHome);
             restoreProperty("aqli.gguf.fast_run.auto_equivalent", previousAutoEquivalent);
@@ -775,10 +775,10 @@ class GgufFastRunPromptTest {
         System.setProperty("aqli.home", tempHome.toString());
         System.setProperty("aqli.gguf.fast_run.auto_equivalent", "false");
         try {
-            GgufFastRun.FastArgs args = GgufFastRun.FastArgs.parse(
+            tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                     new String[] {"run", "--model", "97cbf2", "--prompt", "hello"});
 
-            assertTrue(GgufFastRun.resolveGgufModel(args).isEmpty());
+            assertTrue(GgufStandaloneRunner.resolveGgufModel(args).isEmpty());
         } finally {
             restoreProperty("aqli.home", previousHome);
             restoreProperty("aqli.gguf.fast_run.auto_equivalent", previousAutoEquivalent);
@@ -790,7 +790,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.prewarm_tokens");
         System.clearProperty("aqli.gguf.fast_run.prewarm_tokens");
         try {
-            assertEquals(2, GgufFastRun.prewarmTokenCount());
+            assertEquals(2, GgufStandaloneRunner.prewarmTokenCount());
         } finally {
             restoreProperty("aqli.gguf.fast_run.prewarm_tokens", previous);
         }
@@ -801,7 +801,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.prewarm_tokens");
         System.setProperty("aqli.gguf.fast_run.prewarm_tokens", "1");
         try {
-            assertEquals(2, GgufFastRun.prewarmTokenCount());
+            assertEquals(2, GgufStandaloneRunner.prewarmTokenCount());
         } finally {
             restoreProperty("aqli.gguf.fast_run.prewarm_tokens", previous);
         }
@@ -812,7 +812,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.strict_daemon_key");
         System.clearProperty("aqli.gguf.fast_run.strict_daemon_key");
         try {
-            assertFalse(GgufFastRun.strictDaemonKey());
+            assertFalse(GgufStandaloneRunner.strictDaemonKey());
         } finally {
             restoreProperty("aqli.gguf.fast_run.strict_daemon_key", previous);
         }
@@ -823,7 +823,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.strict_daemon_key");
         System.setProperty("aqli.gguf.fast_run.strict_daemon_key", "true");
         try {
-            assertTrue(GgufFastRun.strictDaemonKey());
+            assertTrue(GgufStandaloneRunner.strictDaemonKey());
         } finally {
             restoreProperty("aqli.gguf.fast_run.strict_daemon_key", previous);
         }
@@ -834,7 +834,7 @@ class GgufFastRunPromptTest {
         String previous = System.getProperty("aqli.gguf.fast_run.hard_exit_after_run");
         System.clearProperty("aqli.gguf.fast_run.hard_exit_after_run");
         try {
-            assertTrue(GgufFastRun.hardExitAfterRun());
+            assertTrue(GgufStandaloneRunner.hardExitAfterRun());
         } finally {
             restoreProperty("aqli.gguf.fast_run.hard_exit_after_run", previous);
         }
@@ -865,7 +865,7 @@ class GgufFastRunPromptTest {
                 "--engine", "java",
                 "--backend", "cpu",
                 "--provider", "gguf"
-        }, command.buildStandaloneGgufFastRunArgs());
+        }, command.buildStandaloneGgufStandaloneRunnerArgs());
     }
 
     @Test
@@ -889,7 +889,7 @@ class GgufFastRunPromptTest {
                 "--top-k", "1",
                 "--top-p", "1.0",
                 "--provider", "gguf"
-        }, command.buildStandaloneGgufFastRunArgs(true));
+        }, command.buildStandaloneGgufStandaloneRunnerArgs(true));
     }
 
     @Test
@@ -922,7 +922,7 @@ class GgufFastRunPromptTest {
                 "--top-k", "1",
                 "--top-p", "1.0",
                 "--provider", "gguf"
-        }, command.buildStandaloneGgufFastRunArgs());
+        }, command.buildStandaloneGgufStandaloneRunnerArgs());
     }
 
     @Test
@@ -973,7 +973,7 @@ class GgufFastRunPromptTest {
                 "--top-p", "1.0",
                 "--engine", "java",
                 "--provider", "gguf"
-        }, command.buildStandaloneGgufFastRunArgs());
+        }, command.buildStandaloneGgufStandaloneRunnerArgs());
     }
 
     private static void restoreProperty(String name, String value) {
