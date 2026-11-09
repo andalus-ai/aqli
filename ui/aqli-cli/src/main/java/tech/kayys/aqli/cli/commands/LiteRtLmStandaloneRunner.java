@@ -374,6 +374,18 @@ public final class LiteRtLmStandaloneRunner {
             boolean cacheHit) {
     }
 
+    private static boolean isLiteRtFormat(String format) {
+        if (format == null || format.isBlank()) return false;
+        return switch (format.trim().toLowerCase(Locale.ROOT)) {
+            case "litert", "litertlm", "tflite", "tfl", "task" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean isLiteRtPathString(String path) {
+        return path != null && path.replace("\\", "/").toLowerCase(Locale.ROOT).endsWith(".litertlm");
+    }
+
     private static boolean isLiteRtIndexEntry(LocalModelIndex.Entry entry) {
         if (entry == null) {
             return false;
