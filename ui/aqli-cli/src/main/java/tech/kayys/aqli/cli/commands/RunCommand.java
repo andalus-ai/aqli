@@ -6347,7 +6347,7 @@ public class RunCommand implements Runnable {
 
         try {
             Path originalPath = Path.of(localPath).toAbsolutePath().normalize();
-            Optional<Path> directArtifact = resolveDirectLibtorchArtifact(originalPath);
+            Optional<Path> directArtifact = ProviderArtifactResolver.resolveLibtorchArtifact(originalPath);
             if (directArtifact.isPresent()) {
                 Path resolved = directArtifact.get().toAbsolutePath().normalize();
                 if (!resolved.equals(originalPath)) {
@@ -6359,22 +6359,26 @@ public class RunCommand implements Runnable {
             // Fall through to registry-based lookup and explicit compatibility hint.
         }
 
-        Optional<ModelInfo> alternative = findLocalArtifactForProvider(requestedModelId, localPath, normalizedProvider);
+        Optional<Path> alternative;
+        try {
+            alternative = ProviderArtifactResolver.findLibtorchArtifact(
+                    sdk.listModels().stream()
+                            .map(model -> new ProviderArtifactResolver.Artifact(
+                                    model.getModelId(),
+                                    model.getShortId(),
+                                    extractModelPath(model),
+                                    model.getFormat()))
+                            .toList(),
+                    requestedModelId,
+                    localPath);
+        } catch (Exception ignored) {
+            alternative = Optional.empty();
+        }
         if (alternative.isPresent()) {
-            String candidatePath = extractModelPath(alternative.get());
-            if (candidatePath != null && !candidatePath.isBlank()) {
-                try {
-                    Optional<Path> resolved = resolveDirectLibtorchArtifact(Path.of(candidatePath));
-                    if (resolved.isPresent()) {
-                        Path artifactPath = resolved.get().toAbsolutePath().normalize();
-                        System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
-                                + artifactPath);
-                        return new ProviderLocalPathResolution(true, artifactPath.toString());
-                    }
-                } catch (Exception ignored) {
-                    // Keep the explicit error below if the candidate is not actually runnable.
-                }
-            }
+            Path artifactPath = alternative.get().toAbsolutePath().normalize();
+            System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
+                    + artifactPath);
+            return new ProviderLocalPathResolution(true, artifactPath.toString());
         }
 
         if (isSafetensorCheckpointDir(localPath) || isSafetensorWeightFile(localPath)) {
@@ -6386,119 +6390,6 @@ public class RunCommand implements Runnable {
                 + "(.pt, .pts, .pth, .bin).");
         System.err.println("Resolved local path: " + localPath);
         return new ProviderLocalPathResolution(false, localPath);
-    }
-
-    private Optional<ModelInfo> findLocalArtifactForProvider(
-            String requestedModelId,
-            String localPath,
-            String currentProvider) {
-        if (!"libtorch".equalsIgnoreCase(currentProvider)) {
-            return Optional.empty();
-        }
-        try {
-            List<ModelInfo> models = sdk.listModels();
-            if (models.isEmpty()) {
-                return Optional.empty();
-            }
-
-            String canonicalModelId = models.stream()
-                    .filter(model -> requestedModelId != null && (requestedModelId.equalsIgnoreCase(model.getModelId())
-                            || requestedModelId.equalsIgnoreCase(model.getShortId())))
-                    .map(ModelInfo::getModelId)
-                    .findFirst()
-                    .orElseGet(() -> models.stream()
-                            .filter(model -> {
-                                String candidatePath = extractModelPath(model);
-                                return candidatePath != null && candidatePath.equals(localPath);
-                            })
-                            .map(ModelInfo::getModelId)
-                            .findFirst()
-                            .orElse(requestedModelId));
-
-            return models.stream()
-                    .filter(model -> canonicalModelId != null && canonicalModelId.equalsIgnoreCase(model.getModelId()))
-                    .filter(model -> {
-                        String candidatePath = extractModelPath(model);
-                        if (candidatePath == null || candidatePath.equals(localPath)) {
-                            return false;
-                        }
-                        try {
-                            return resolveDirectLibtorchArtifact(Path.of(candidatePath)).isPresent();
-                        } catch (Exception ignored) {
-                            return false;
-                        }
-                    })
-                    .sorted((left, right) -> Integer.compare(
-                            libtorchArtifactPriority(extractModelPath(right), right.getFormat()),
-                            libtorchArtifactPriority(extractModelPath(left), left.getFormat())))
-                    .findFirst();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private Optional<Path> resolveDirectLibtorchArtifact(Path root) {
-        if (root == null || !Files.exists(root)) {
-            return Optional.empty();
-        }
-        if (Files.isRegularFile(root) && isLibtorchModelFile(root)) {
-            return Optional.of(root);
-        }
-        if (!Files.isDirectory(root)) {
-            return Optional.empty();
-        }
-        try (var paths = Files.walk(root, 3)) {
-            return paths
-                    .filter(Files::isRegularFile)
-                    .filter(this::isLibtorchModelFile)
-                    .sorted((left, right) -> Integer.compare(libtorchArtifactPriority(right, null),
-                            libtorchArtifactPriority(left, null)))
-                    .findFirst();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private boolean isLibtorchModelFile(Path path) {
-        if (path == null) {
-            return false;
-        }
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".pt")
-                || name.endsWith(".pts")
-                || name.endsWith(".pth")
-                || name.endsWith(".bin");
-    }
-
-    private int libtorchArtifactPriority(Path path, String format) {
-        if (path == null) {
-            return 0;
-        }
-        return libtorchArtifactPriority(path.toString(), format);
-    }
-
-    private int libtorchArtifactPriority(String path, String format) {
-        int score = 0;
-        String normalizedPath = path == null ? "" : path.toLowerCase(Locale.ROOT);
-        String normalizedFormat = format == null ? "" : format.toLowerCase(Locale.ROOT);
-        if (normalizedFormat.equals("torchscript")) {
-            score += 50;
-        } else if (normalizedFormat.equals("pytorch")) {
-            score += 20;
-        }
-        if (normalizedPath.contains("/libtorchscript/")) {
-            score += 40;
-        }
-        if (normalizedPath.endsWith(".pt")) {
-            score += 30;
-        } else if (normalizedPath.endsWith(".pts")) {
-            score += 25;
-        } else if (normalizedPath.endsWith(".pth")) {
-            score += 15;
-        } else if (normalizedPath.endsWith(".bin")) {
-            score += 10;
-        }
-        return score;
     }
 
     private boolean isSafetensorWeightFile(String localPath) {
