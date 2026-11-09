@@ -5686,16 +5686,11 @@ public class RunCommand implements Runnable {
         if (!shouldTryStandaloneLiteRtFastPath(localPath)) {
             return false;
         }
-        int status = LiteRtLmStandaloneRunner.run(buildStandaloneLiteRtFastRunArgs(localPath));
-        if (StandaloneRunProtocol.isFallbackToFullCliStatus(status)) {
-            return false;
-        }
-        if (status == 0) {
-            requestProcessExit();
-            return true;
-        }
-        System.exit(status);
-        return true;
+        return StandaloneLiteRtRunExecutor.execute(
+                buildStandaloneLiteRtFastRunArgs(localPath),
+                LiteRtLmStandaloneRunner::run,
+                this::requestProcessExit,
+                System::exit);
     }
 
     private boolean tryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit) {
@@ -5722,16 +5717,11 @@ public class RunCommand implements Runnable {
             return false;
         }
         providerId = selection.provider();
-        int status = LiteRtLmStandaloneRunner.run(buildStandaloneLiteRtFastRunArgs(selection.localPath()));
-        if (StandaloneRunProtocol.isFallbackToFullCliStatus(status)) {
-            return false;
-        }
-        if (status == 0) {
-            requestProcessExit();
-            return true;
-        }
-        System.exit(status);
-        return true;
+        return StandaloneLiteRtRunExecutor.execute(
+                buildStandaloneLiteRtFastRunArgs(selection.localPath()),
+                LiteRtLmStandaloneRunner::run,
+                this::requestProcessExit,
+                System::exit);
     }
 
     boolean shouldTryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit) {
