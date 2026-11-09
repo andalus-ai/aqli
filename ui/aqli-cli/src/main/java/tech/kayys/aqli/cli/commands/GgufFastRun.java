@@ -552,22 +552,17 @@ public final class GgufFastRun {
                     out.println("--------------------------------------------------");
                 }
 
-                // Build the InferenceRequest carrying prompt + sampling params.
-                String modelName = modelPath.getFileName().toString();
-                var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
-                        .model(modelName)
-                        .prompt(formattedPrompt)
-                        .message(tech.kayys.aljabr.spi.Message.user(args.prompt))
-                        .maxTokens(args.maxTokens)
-                        .temperature(args.temperature)
-                        .topP(args.topP)
-                        .topK(args.topK);
-                if (!Double.isNaN(args.repeatPenalty)) {
-                    reqBuilder.repeatPenalty(args.repeatPenalty);
-                } else if (args.temperature <= 0.0) {
-                    reqBuilder.repeatPenalty(1.0);
-                }
-                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest = reqBuilder.build();
+                // Translate the formatted prompt and sampling options into Aljabr's canonical request.
+                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest =
+                        tech.kayys.aqli.inference.gguf.GgufInferenceRequestFactory.create(
+                                modelPath,
+                                formattedPrompt,
+                                args.prompt,
+                                args.maxTokens,
+                                args.temperature,
+                                args.topP,
+                                args.topK,
+                                args.repeatPenalty);
 
                 long openStartNanos = System.nanoTime();
                 tech.kayys.aljabr.gguf.api.GgufBackend backend = null;
