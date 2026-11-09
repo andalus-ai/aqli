@@ -622,7 +622,6 @@ public class RunCommand implements Runnable {
                     format = "onnx";
                 }
             }
-            ensureBuiltinProviderRegistration();
 
             if (!routeReportJson && tryCachedGemma4MobileQatLiteRtFastPath(requestedProviderExplicit, requestedProviderId)) {
                 return;
@@ -6301,26 +6300,6 @@ public class RunCommand implements Runnable {
                             || id.contains("gguf"));
         } catch (Exception ignored) {
             return false;
-        }
-    }
-
-    private void ensureBuiltinProviderRegistration() {
-        ensureProviderRegistered(
-                "litert",
-                "tech.kayys.aqli.provider.litert.LiteRTProvider");
-        ensureProviderRegistered(
-                "onnx",
-                "tech.kayys.aqli.provider.onnx.OnnxProvider");
-    }
-
-    private void ensureProviderRegistered(String providerId, String className) {
-        try {
-            
-            Class<?> clazz = Class.forName(className);
-            Object instance = clazz.getDeclaredConstructor().newInstance();
-            
-        } catch (Throwable t) {
-            System.err.printf("Provider bootstrap failed for %s (%s): %s%n", providerId, className, t.getMessage());
         }
     }
 
