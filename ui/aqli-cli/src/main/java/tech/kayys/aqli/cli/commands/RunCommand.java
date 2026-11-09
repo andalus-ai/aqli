@@ -5751,33 +5751,12 @@ public class RunCommand implements Runnable {
     }
 
     private Optional<LocalModelIndex.Entry> findSafetensorIndexEntry(String modelRef) {
-        if (modelRef == null || modelRef.isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(modelRef, "safetensor");
-            if (indexed.isPresent()
-                    && indexed.get().path != null
-                    && !indexed.get().path.isBlank()
-                    && Files.exists(Path.of(indexed.get().path))) {
-                return indexed;
-            }
-        } catch (Exception ignored) {
-            // Fall back below to the default index lookup.
-        }
-        try {
-            Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(modelRef);
-            if (indexed.isPresent()
-                    && "safetensor".equalsIgnoreCase(indexed.get().format)
-                    && indexed.get().path != null
-                    && !indexed.get().path.isBlank()
-                    && Files.exists(Path.of(indexed.get().path))) {
-                return indexed;
-            }
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-        return Optional.empty();
+        return LocalModelIndexResolver.findExactFormat(
+                modelRef,
+                "safetensor",
+                (reference, preferredFormat) -> preferredFormat == null
+                        ? LocalModelIndex.find(reference)
+                        : LocalModelIndex.find(reference, preferredFormat));
     }
 
     boolean shouldTryStandaloneGgufFastPath() {
