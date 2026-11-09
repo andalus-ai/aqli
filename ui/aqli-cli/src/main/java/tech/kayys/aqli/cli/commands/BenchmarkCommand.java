@@ -35,7 +35,13 @@ public class BenchmarkCommand implements Runnable {
 
     @Override
     public void run() {
-        String selectedProvider = resolveProvider();
+        String selectedProvider;
+        try {
+            selectedProvider = resolveProvider();
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            return;
+        }
         if (!sdk.listAvailableProviders().stream().anyMatch(
                 available -> available.equalsIgnoreCase(selectedProvider))) {
             System.err.println("Inference provider is not available: " + selectedProvider);
