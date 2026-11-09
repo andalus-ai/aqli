@@ -71,26 +71,23 @@ subprojects {
 
     tasks.withType<JavaCompile> {
         options.encoding = "UTF-8"
-        // Enable preview features if needed for Java 21 FFM
-        options.compilerArgs.add("--enable-preview")
-        options.compilerArgs.add("--add-modules=jdk.incubator.vector")
+        // AQLI targets JDK 25. FFM is a finalized API; preview and incubator
+        // modules must be enabled only by subprojects that actually use them.
+        // In particular, the Vector API belongs to the relevant compute backend,
+        // not to every SDK, CLI, repository, or runtime module.
     }
 
     tasks.withType<Test>().configureEach {
-        jvmArgs(
-            "--enable-preview",
-            "--add-modules=jdk.incubator.vector",
-            "--enable-native-access=ALL-UNNAMED",
-        )
+        // Keep native access available for AQLI's FFM-backed integrations.
+        // Do not force preview features or the incubating Vector API on all tests.
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
         useJUnitPlatform()
     }
 
     tasks.withType<JavaExec>().configureEach {
-        jvmArgs(
-            "--enable-preview",
-            "--add-modules=jdk.incubator.vector",
-            "--enable-native-access=ALL-UNNAMED",
-        )
+        // FFM native access is required by selected runtime integrations.
+        // Preview and incubator flags are scoped by the modules that need them.
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
     }
 
     val sourceSets = extensions.getByType(SourceSetContainer::class.java)
