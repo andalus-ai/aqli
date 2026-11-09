@@ -84,7 +84,7 @@ class ProviderArtifactResolverTest {
                 tempDir.resolve("missing.pt")).isEmpty());
         assertTrue(ProviderArtifactResolver.findLibtorchArtifact(
                 List.of(new ProviderArtifactResolver.Artifact(
-                        "org/model", null, "\u0000invalid", "torchscript")),
+                        "org/model", null, String.valueOf((char) 0) + "invalid", "torchscript")),
                 "org/model",
                 null).isEmpty());
         assertTrue(ProviderArtifactResolver.findLibtorchArtifact(
