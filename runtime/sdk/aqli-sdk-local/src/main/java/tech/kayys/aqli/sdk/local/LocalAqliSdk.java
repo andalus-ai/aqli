@@ -13,7 +13,7 @@ import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
-import tech.kayys.aqli.sdk.model.ModelInfo;
+import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelListRequest;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import tech.kayys.aqli.sdk.model.ModelResolution;
