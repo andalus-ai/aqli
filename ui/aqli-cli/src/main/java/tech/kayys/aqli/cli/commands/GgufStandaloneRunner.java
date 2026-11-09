@@ -3,7 +3,6 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
-import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
 
 import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
 
@@ -54,7 +53,7 @@ import tech.kayys.aljabr.gguf.runtime.GgufRuntimeProbe;
  * {@code aqli run} calls.
  */
 public final class GgufStandaloneRunner {
-    private static final int FALLBACK_TO_FULL_CLI = StandaloneFastRunProtocol.FALLBACK_TO_FULL_CLI;
+    private static final int FALLBACK_TO_FULL_CLI = StandaloneRunProtocol.FALLBACK_TO_FULL_CLI;
     private static final int COMMAND_ERROR = 2;
     private static final String DAEMON_MAGIC = "AQLI_GGUF_FAST_DAEMON_V1";
     private static final String DAEMON_STOP_MAGIC = "AQLI_GGUF_FAST_DAEMON_STOP_V1";
@@ -83,7 +82,7 @@ public final class GgufStandaloneRunner {
     }
 
     static boolean isFallbackToFullCliStatus(int status) {
-        return StandaloneFastRunProtocol.isFallbackToFullCliStatus(status);
+        return StandaloneRunProtocol.isFallbackToFullCliStatus(status);
     }
 
     public static void main(String[] args) {
