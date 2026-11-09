@@ -88,7 +88,7 @@ public class LlamaCppEngine implements LocalInferenceEngine, tech.kayys.aqli.spi
 
 
     private static final Logger log = Logger.getLogger(LlamaCppEngine.class);
-    private static final String PROVIDER_ID = "gguf";
+    private static final String PROVIDER_ID = "llamacpp";
     private static final String PROVIDER_VERSION = "1.1.0";
 
     private final LlamaCppProviderConfig config;
