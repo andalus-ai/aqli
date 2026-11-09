@@ -33,6 +33,18 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+sourceSets {
+    test {
+        java {
+            // These legacy tests target the removed LlamaCppProvider facade and
+            // were intentionally excluded by the former combined runner module.
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderConfigTest.java")
+            exclude("tech/kayys/aqli/inference/llamacpp/MockLlamaCppProviderConfigProducer.java")
+        }
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
 }
