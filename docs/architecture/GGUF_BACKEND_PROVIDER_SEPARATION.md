@@ -137,3 +137,45 @@ The module split is a compatibility boundary, not yet the final single-source-of
 3. Adapt AQLI runtime/CLI to the canonical provider SPI. Keep serving lifecycle, daemon protocol, and operational configuration in AQLI; do not duplicate backend implementation.
 4. Retire AQLI's transitional FFM classes and the placeholder legacy plugin only after parity tests and downstream compatibility are established.
 5. Promote Java by architecture only after golden-output, quantization, sampling, cache, streaming, and performance gates pass. Until then, retain llama.cpp as the explicit optional fallback.
+
+
+## Additional implementation audit: remaining CLI and binding duplication
+
+The module extraction does not yet complete the provider boundary. A source audit of the current CLI and both repositories found two additional execution paths that must be addressed before claiming llama.cpp is fully optional or that Aljabr is the sole GGUF execution implementation.
+
+### CLI fast path still embeds a llama.cpp bridge
+
+- `ui/aqli-cli/.../GgufFastRun.java` contains its own `NativeGgufBinding` and `NativeGgufSession`, with direct FFM downcalls to a custom `aqli_gguf_fast` ABI.
+- The custom C++ implementation is `runtime/runner/gguf/gguf-fast-bridge/aqli_gguf_fast.cpp`; it includes `llama.h` and directly manages llama model/context, prompt cache, sampler, and decode.
+- The CLI resolves the bridge from `~/.aqli/libs/libaqli_gguf_fast.dylib` (or an explicit property), independently of the extracted `aqli-runner-gguf-llamacpp` module.
+- The Java branch in `GgufFastRun` directly creates Aljabr's `JavaGgufBackendProvider`; the llama.cpp branch uses the custom bridge. This means the CLI class still combines two execution providers and bypasses the canonical Aljabr provider-selection engine.
+- The CLI `BenchmarkCommand` previously depended on the extracted `LlamaCppRunnerPlugin` and its placeholder execution implementation. The current extraction change replaces that with direct Java-provider execution, avoiding a compile-time dependency on the optional plugin.
+
+### Duplicate low-level llama.cpp bindings
+
+Aljabr's `:core:aljabr-gguf-llamacpp` already owns a ServiceLoader provider and low-level FFM binding. AQLI's new `aqli-runner-gguf-llamacpp` module also contains its own `LlamaCppBinding`, native loader, struct layouts, handles, sampler operations, model initializer, and runner/session stack. It depends on Aljabr's llama.cpp artifact but still maintains a second native integration.
+
+This is not the desired final separation. AQLI may own runtime lifecycle, model/session admission, provider configuration policy, and AQLI-facing metrics, but the actual GGUF backend and llama.cpp FFM implementation should have one canonical owner in Aljabr. The AQLI optional module should become a thin runtime adapter around Aljabr's `GgufBackendProvider` / `GgufBackend` / `GgufInferenceEngine`, not a second FFM implementation.
+
+### Revised target and migration order
+
+1. Preserve the current extracted AQLI module boundary and keep llama.cpp absent from the generic format-level runner.
+2. Treat the custom `gguf-fast-bridge` and `GgufFastRun.NativeGgufBinding` as legacy CLI execution code. Do not add them to the generic runner or default CLI distribution.
+3. Consolidate low-level llama.cpp FFM ownership in Aljabr's `aljabr-gguf-llamacpp`. Migrate AQLI runtime/session behavior to an adapter that wraps Aljabr's backend contract; do not keep both bindings alive as parallel providers.
+4. Keep CLI parsing, model reference resolution, output formatting, and daemon transport in AQLI. Delegate generation to the selected runtime/backend provider. Any retained fast path must call the same canonical provider API instead of opening llama.cpp directly.
+5. Preserve the current CLI fast path until equivalent provider-backed behavior, daemon/session reuse, cancellation, metrics, and model coverage are tested. Retire the custom bridge only after parity tests and benchmark comparison.
+6. Prove the default Java-only CLI classpath has no llama.cpp native binding/module and that adding the optional provider enables explicit llama.cpp selection without changing the GGUF format integration.
+
+Until these steps are completed, the accurate status is: the AQLI GGUF runner module boundary is separated, but the CLI still has a legacy direct llama.cpp fast path and AQLI still duplicates low-level llama.cpp FFM classes. The architecture is not yet fully consolidated.
+
+
+### Aljabr provider integration is not ready to replace the AQLI runner
+
+The Aljabr llama.cpp provider currently has concrete correctness and contract gaps:
+
+- `LlamaCppGgufBackendProvider.create()` constructs `new LlamaCppRunner(binding, null, templateService)`. The runner constructor immediately dereferences `providerConfig.maxConcurrentRequests()`, so this path fails with a null-pointer exception.
+- The provider does not build a `ModelManifest` or call `runner.initialize(...)`. Even if a non-null configuration were supplied, the runner would remain uninitialized and inference would fail its initialization guard.
+- Aljabr PR #383 has now extended `GgufBackend` with streaming and embedding operations. The llama.cpp backend delegates both to `LlamaCppRunner`; synchronous-only providers retain a one-final-chunk compatibility adapter and unsupported embeddings fail explicitly. This closes the API-shape gap, but does not yet make the Aljabr llama.cpp provider operational because its creation/initialization path remains broken.
+- `LlamaCppProviderConfig` is a SmallRye `@ConfigMapping` interface in the Aljabr provider module, while the provider is instantiated through Java `ServiceLoader`. Framework-level backend creation should not assume a Quarkus CDI configuration context.
+
+Consequently, do not replace AQLI's current llama.cpp streaming/session implementation with Aljabr's `GgufInferenceEngine` yet. Before migration, Aljabr needs a plain Java provider-settings contract, correct model/runner initialization, and backend operations for streaming and embeddings (or a generic inference-engine provider contract that preserves those capabilities). Add provider integration tests that prove a backend can be created and execute, stream, close, and report unsupported capabilities accurately without requiring physical accelerator hardware.
