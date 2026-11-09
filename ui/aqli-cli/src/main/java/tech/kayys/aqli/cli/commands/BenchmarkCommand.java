@@ -76,40 +76,26 @@ public class BenchmarkCommand implements Runnable {
                     throw new RuntimeException("Could not resolve GGUF model path for: " + modelPath);
                 }
 
-                // Route through LlamaCppRunnerPlugin with explicit java backend selection.
-                tech.kayys.aqli.plugin.runner.llamacpp.LlamaCppRunnerPlugin plugin =
-                        new tech.kayys.aqli.plugin.runner.llamacpp.LlamaCppRunnerPlugin();
-                tech.kayys.aqli.plugin.runner.RunnerContext ctx =
-                        tech.kayys.aqli.plugin.runner.RunnerContext.builder()
-                                .metadata(java.util.Map.of("gguf.backend", "java"))
+                // Benchmark the canonical Aljabr Java GGUF backend directly.
+                // The optional llama.cpp RunnerPlugin is deliberately not a CLI dependency.
+                tech.kayys.aljabr.spi.inference.InferenceRequest ggufRequest =
+                        tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
+                                .model(resolved.get().getFileName().toString())
+                                .prompt(prompt)
+                                .message(tech.kayys.aljabr.spi.Message.user(prompt))
+                                .temperature(0.2)
+                                .maxTokens(100)
                                 .build();
-                plugin.initialize(ctx);
-
-                tech.kayys.aqli.plugin.runner.ModelLoadRequest loadRequest =
-                        new tech.kayys.aqli.plugin.runner.ModelLoadRequest(
-                                resolved.get().toString(),
-                                "gguf",
-                                tech.kayys.aqli.plugin.runner.RunnerConfig.defaultConfig(),
-                                java.util.Map.of("gguf.backend", "java"));
-                tech.kayys.aqli.plugin.runner.ModelHandle handle = plugin.loadModel(loadRequest, ctx);
-
-                tech.kayys.aqli.plugin.runner.RunnerRequest rr =
-                        tech.kayys.aqli.plugin.runner.RunnerRequest.builder()
-                                .type(tech.kayys.aqli.plugin.runner.RequestType.INFER)
-                                .inferenceRequest(request)
-                                .build();
-                tech.kayys.aqli.plugin.runner.RunnerResult<?> result = plugin.execute(rr, ctx);
-                plugin.unloadModel(handle, ctx);
-                plugin.shutdown();
-
-                if (result.isSuccess()) {
-                    Object data = result.getData();
-                    if (data instanceof tech.kayys.aqli.spi.inference.InferenceResponse resp) {
-                        outputContent = resp.getContent() != null ? resp.getContent() : "";
-                    } else if (data != null) {
-                        outputContent = data.toString();
-                    }
-                } else {
+                tech.kayys.aljabr.gguf.api.GgufBackendProvider javaProvider =
+                        new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+                try (tech.kayys.aljabr.gguf.api.GgufBackend backend =
+                             javaProvider.create(resolved.get(), java.util.Map.of("backend", "java"))) {
+                    tech.kayys.aljabr.spi.inference.InferenceResponse response = backend.execute(ggufRequest);
+                    outputContent = response != null && response.getContent() != null
+                            ? response.getContent()
+                            : "";
+                }
+            } else {
                     throw new RuntimeException(result.getErrorMessage().orElse("GGUF execution failed"));
                 }
             } else {
