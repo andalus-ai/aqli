@@ -118,3 +118,22 @@ aqli.gguf.provider=llamacpp
 ## Immediate next implementation slice
 
 Start with the optional AQLI module boundary and Gradle dependency graph. Do not move the whole package in one unreviewed bulk change. First isolate the existing llama.cpp engine/provider classes and tests behind the optional module, then wire the AQLI generic GGUF integration to Aljabr's existing Java provider API. Preserve the current default until the no-llama Java-only test matrix and hardware benchmarks pass.
+
+
+## Implementation gaps found during the AQLI extraction
+
+The module split is a compatibility boundary, not yet the final single-source-of-truth implementation.
+
+- AQLI's moved `LlamaCppEngine`, `LlamaCppBinding`, and `LlamaCppRunner` still contain a separate FFM execution path. Keep them isolated as a transitional compatibility implementation; the intended end state is for Aljabr's GGUF provider to own native execution, while AQLI owns runtime lifecycle/adaptation. Do not allow both bindings to evolve independently.
+- The moved `LlamaCppRunnerPlugin` is currently a legacy placeholder: its initialization assigns `llamaCppRunner = null`, and its inference/tokenization/detokenization operations return placeholder result maps rather than invoking the runner. Moving it out of the default dependency graph does not make it production-ready. Treat it as compatibility-only until it is wired and tested, or remove it in a deliberate breaking release.
+- Aljabr's current `LlamaCppGgufBackendProvider.create(Path, Map)` is not yet usable as the AQLI CLI replacement: it constructs `LlamaCppRunner(binding, null, templateService)`, while the runner constructor immediately dereferences `providerConfig.maxConcurrentRequests()`; it also returns the runner without calling `initialize(ModelManifest, runnerConfig)`. This must be repaired and covered by provider-level integration tests before the CLI migrates to this SPI.
+- Aljabr's `JavaGgufBackendProvider` currently has an empty `ARCHITECTURES_READY_FOR_GENERATION` set. It can be discovered and probed, but it does not yet declare any architecture generation-ready. Do not make it the default solely because its provider artifact is present.
+- CLI `GgufFastRun` remains a separate legacy path with its own direct FFM bridge and native session cache. It defaults to `engine=auto`, which currently routes generation through that legacy llama.cpp path. The follow-up should replace this duplicate bridge with the canonical Aljabr provider SPI while preserving session reuse, daemon protocol, request semantics, and benchmark comparability.
+
+### Required order after module isolation
+
+1. Make the Aljabr llama.cpp provider construct and initialize a real runner from a GGUF path and provider config; test lifecycle and failure cleanup.
+2. Add provider-level integration tests for Java and llama.cpp selection, explicit-unavailable errors, AUTO capability selection, and close/unload behavior.
+3. Adapt AQLI runtime/CLI to the canonical provider SPI. Keep serving lifecycle, daemon protocol, and operational configuration in AQLI; do not duplicate backend implementation.
+4. Retire AQLI's transitional FFM classes and the placeholder legacy plugin only after parity tests and downstream compatibility are established.
+5. Promote Java by architecture only after golden-output, quantization, sampling, cache, streaming, and performance gates pass. Until then, retain llama.cpp as the explicit optional fallback.
