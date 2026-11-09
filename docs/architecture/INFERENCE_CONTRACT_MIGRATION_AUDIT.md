@@ -184,3 +184,46 @@ A further comparison of the current AQLI and Aljabr `InferenceRequest` implement
 4. Preserve the existing constructors and builder behavior during the migration window. Do not claim complete request round-trip fidelity until custom context semantics are represented and tested.
 
 This is a source-level API capability finding. It does not justify moving runtime routing policy into Aljabr or removing either repository's compatibility context type.
+
+## Runtime orchestration SPI parity: expanded ownership boundary
+
+A second source-comparison pass found a wider duplicated family in the two inference SPI modules. The following pairs are byte-for-byte identical after normalizing the AQLI/Aljabr package prefix:
+
+| Contract | AQLI path | Aljabr path | Initial ownership recommendation |
+|---|---|---|---|
+| `EngineContext` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | AQLI runtime |
+| `ExecutionContext` | `:framework:spi:aqli-spi-inference` | `:core:aljabr-spi-inference` | AQLI runtime orchestration |
+| `ExecutionStatus` | same | same | AQLI runtime orchestration |
+| `ExecutionToken` | same | same | AQLI runtime orchestration |
+| `Priority` | same | same | Aljabr portable inference request contract |
+| `AsyncJobStatus` | same | same | AQLI asynchronous job lifecycle |
+| `BatchConfig` | same | same | AQLI serving scheduler |
+| `BatchInferenceRequest` | same | same | AQLI batch admission/serving contract |
+| `BatchMetrics` | same | same | AQLI runtime observability |
+| `BatchResponse` | same | same | AQLI batch serving result |
+| `BatchResult` | same | same | AQLI batch serving result |
+| `BatchScheduler` | same | same | AQLI scheduling/orchestration |
+| `BatchStrategy` | same | same | AQLI scheduling policy |
+
+The `BatchResult` pair has the same structure and behavior, with the AQLI version importing Aljabr's `ErrorPayload`; the other listed pairs compare identical after package normalization.
+
+### Why this changes the consolidation plan
+
+The duplication is not limited to portable model-execution contracts. It includes application/runtime orchestration concepts: a global engine executor/configuration context, mutable per-request execution state, durable execution tokens and transitions, asynchronous job status, and a complete batch scheduler contract.
+
+The intended separation is:
+
+- **Aljabr:** portable model execution, inference request/response/stream/embedding contracts, tensor/model execution, reusable backend capabilities, and low-level batch computation primitives.
+- **AQLI:** runtime engine lifecycle, mutable execution orchestration, execution/job state, asynchronous job management, batch admission and scheduling policy, runtime batch metrics, routing, serving, and deployment operations.
+
+AQLI should not need to import Aljabr's serving scheduler just to run an inference engine. Conversely, Aljabr should not retain a second copy of AQLI's application-level scheduler or job lifecycle merely because the original interfaces were copied into both SPI modules.
+
+### Migration guardrails
+
+1. Treat this as an ownership migration, not an immediate deletion. Inventory implementations and consumers of each duplicated type in both repositories, including provider modules, tests, persistence, serialization, and SDKs.
+2. Keep `Priority` canonical in Aljabr because it is a portable inference-request property; convert the AQLI enum at the existing adapter boundary until the AQLI request facade is retired.
+3. Move runtime orchestration contracts toward AQLI ownership only after verifying that no Aljabr framework execution implementation requires them. If Aljabr needs per-call execution state for kernel/model execution, define a smaller backend/framework execution context rather than importing AQLI's job/scheduler lifecycle.
+4. Do not confuse serving-level dynamic/continuous batching with low-level tensor batch operations. AQLI owns admission, queueing, fairness, timeout, and scheduling; Aljabr owns reusable batched model/tensor execution capabilities.
+5. Keep AQLI compatibility types during the transition and prevent the two copies from evolving independently.
+
+This is a focused parity and ownership pass, not a complete inventory of every duplicated SPI type. Additional overlapping types (including inference phase/pipeline, observer, validation, and verification contracts) still require classification.
