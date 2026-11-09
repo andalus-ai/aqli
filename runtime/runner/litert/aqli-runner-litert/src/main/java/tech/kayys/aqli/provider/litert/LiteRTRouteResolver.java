@@ -66,6 +66,9 @@ public final class LiteRTRouteResolver {
             Path normalized = candidate.isAbsolute()
                     ? candidate.toAbsolutePath().normalize()
                     : Path.of("").toAbsolutePath().resolve(candidate).normalize();
+            if (!Files.exists(normalized)) {
+                return Optional.empty();
+            }
             return resolveArtifact(normalized)
                     .map(path -> new RouteMatch(path, source, false));
         } catch (RuntimeException ignored) {
