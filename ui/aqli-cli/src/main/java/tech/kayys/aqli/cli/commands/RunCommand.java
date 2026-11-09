@@ -6359,16 +6359,21 @@ public class RunCommand implements Runnable {
             // Fall through to registry-based lookup and explicit compatibility hint.
         }
 
-        Optional<Path> alternative = ProviderArtifactResolver.findLibtorchArtifact(
-                sdk.listModels().stream()
-                        .map(model -> new ProviderArtifactResolver.Artifact(
-                                model.getModelId(),
-                                model.getShortId(),
-                                extractModelPath(model),
-                                model.getFormat()))
-                        .toList(),
-                requestedModelId,
-                localPath);
+        Optional<Path> alternative;
+        try {
+            alternative = ProviderArtifactResolver.findLibtorchArtifact(
+                    sdk.listModels().stream()
+                            .map(model -> new ProviderArtifactResolver.Artifact(
+                                    model.getModelId(),
+                                    model.getShortId(),
+                                    extractModelPath(model),
+                                    model.getFormat()))
+                            .toList(),
+                    requestedModelId,
+                    localPath);
+        } catch (Exception ignored) {
+            alternative = Optional.empty();
+        }
         if (alternative.isPresent()) {
             Path artifactPath = alternative.get().toAbsolutePath().normalize();
             System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
