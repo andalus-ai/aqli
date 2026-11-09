@@ -29,7 +29,7 @@ class GgufStandaloneRunnerPromptTest {
 
     @Test
     void runHeaderMatchesFullCliShapeForIndexedGgufModels() {
-        GgufStandaloneRunner.FastArgs args = GgufStandaloneRunner.FastArgs.parse(
+        tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                 new String[] {"run", "--model", "b71c9d", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -48,7 +48,7 @@ class GgufStandaloneRunnerPromptTest {
 
     @Test
     void runHeaderDoesNotPrintResolvedLineForExplicitGgufModelFile() {
-        GgufStandaloneRunner.FastArgs args = GgufStandaloneRunner.FastArgs.parse(
+        tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                 new String[] {"run", "--model-file", "/tmp/model.gguf", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -65,7 +65,7 @@ class GgufStandaloneRunnerPromptTest {
 
     @Test
     void runHeaderCanSuppressBannerForFullCliHandoffs() {
-        GgufStandaloneRunner.FastArgs args = GgufStandaloneRunner.FastArgs.parse(
+        tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                 new String[] {"run", "--no-banner", "--model", "b71c9d", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -750,7 +750,7 @@ class GgufStandaloneRunnerPromptTest {
         System.setProperty("aqli.home", tempHome.toString());
         System.clearProperty("aqli.gguf.fast_run.auto_equivalent");
         try {
-            GgufStandaloneRunner.FastArgs args = GgufStandaloneRunner.FastArgs.parse(
+            tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                     new String[] {"run", "--model", "97cbf2", "--prompt", "hello"});
 
             assertEquals(ggufFile.toAbsolutePath().normalize(), GgufStandaloneRunner.resolveGgufModel(args).orElseThrow());
@@ -775,7 +775,7 @@ class GgufStandaloneRunnerPromptTest {
         System.setProperty("aqli.home", tempHome.toString());
         System.setProperty("aqli.gguf.fast_run.auto_equivalent", "false");
         try {
-            GgufStandaloneRunner.FastArgs args = GgufStandaloneRunner.FastArgs.parse(
+            tech.kayys.aqli.inference.gguf.GgufRunArguments args = GgufStandaloneRunner.parseRunArguments(
                     new String[] {"run", "--model", "97cbf2", "--prompt", "hello"});
 
             assertTrue(GgufStandaloneRunner.resolveGgufModel(args).isEmpty());
