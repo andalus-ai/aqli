@@ -68,7 +68,7 @@ public class AqliSdkFactory {
      */
     public static AqliSdk createForGguf() throws SdkException {
         return createLocalSdk(SdkConfig.builder()
-                .preferredProvider("gguf")
+                .preferredProvider("llamacpp")
                 .modelFormat("GGUF")
                 .build());
     }
@@ -81,7 +81,7 @@ public class AqliSdkFactory {
      */
     public static AqliSdk createForGguf(String ggufBasePath) throws SdkException {
         return createLocalSdk(SdkConfig.builder()
-                .preferredProvider("gguf")
+                .preferredProvider("llamacpp")
                 .modelFormat("GGUF")
                 .ggufBasePath(ggufBasePath)
                 .build());

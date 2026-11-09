@@ -53,6 +53,8 @@ dependencies {
     implementation(project(":sdk:aqli-sdk"))
     implementation(project(":sdk:aqli-sdk-api"))
     implementation(project(":sdk:aqli-sdk-core"))
+    // Compose local inference engines and expose the local AqliSdk CDI producer.
+    implementation(project(":sdk:aqli-sdk-local"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
