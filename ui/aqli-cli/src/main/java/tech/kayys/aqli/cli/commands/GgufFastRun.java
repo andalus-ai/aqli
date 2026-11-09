@@ -54,7 +54,7 @@ import tech.kayys.aljabr.gguf.runtime.GgufRuntimeProbe;
  * {@code aqli run} calls.
  */
 public final class GgufFastRun {
-    private static final int FALLBACK_TO_FULL_CLI = 42;
+    private static final int FALLBACK_TO_FULL_CLI = StandaloneFastRunProtocol.FALLBACK_TO_FULL_CLI;
     private static final int COMMAND_ERROR = 2;
     private static final String DAEMON_MAGIC = "AQLI_GGUF_FAST_DAEMON_V1";
     private static final String DAEMON_STOP_MAGIC = "AQLI_GGUF_FAST_DAEMON_STOP_V1";
@@ -83,7 +83,7 @@ public final class GgufFastRun {
     }
 
     static boolean isFallbackToFullCliStatus(int status) {
-        return status == FALLBACK_TO_FULL_CLI;
+        return StandaloneFastRunProtocol.isFallbackToFullCliStatus(status);
     }
 
     public static void main(String[] args) {
