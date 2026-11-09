@@ -4906,19 +4906,12 @@ public class RunCommand implements Runnable {
     }
 
     private Optional<LocalModelIndex.Entry> findLocalIndexEntry(String repoId, String preferredFormat) {
-        for (String ref : List.of(repoId, "hf:" + repoId)) {
-            try {
-                Optional<LocalModelIndex.Entry> entry = preferredFormat == null
+        return LocalModelIndexResolver.find(
+                repoId,
+                preferredFormat,
+                (ref, format) -> format == null
                         ? LocalModelIndex.find(ref)
-                        : LocalModelIndex.find(ref, preferredFormat);
-                if (entry.isPresent() && entry.get().path != null && Files.exists(Path.of(entry.get().path))) {
-                    return entry;
-                }
-            } catch (Exception ignored) {
-                // Best effort lookup; caller will produce the final diagnostic.
-            }
-        }
-        return Optional.empty();
+                        : LocalModelIndex.find(ref, format));
     }
 
     private String hfRepoIdFromModelRef(String requestedModel) {
