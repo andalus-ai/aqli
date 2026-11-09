@@ -1,7 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
 import java.util.function.IntConsumer;
-import java.util.function.IntUnaryOperator;
+import java.util.function.ToIntFunction;
 
 /**
  * Executes the LiteRT standalone runner and translates its process status
@@ -17,7 +17,7 @@ final class StandaloneLiteRtRunExecutor {
 
     static boolean execute(
             String[] args,
-            IntUnaryOperator runner,
+            ToIntFunction<String[]> runner,
             Runnable onSuccess,
             IntConsumer onFailure) {
         int status = runner.applyAsInt(args);
