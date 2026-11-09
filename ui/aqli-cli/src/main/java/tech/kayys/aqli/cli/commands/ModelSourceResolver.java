@@ -59,7 +59,7 @@ final class ModelSourceResolver {
                 || value.startsWith("/")
                 || value.startsWith(".")
                 || value.startsWith("~")
-                || value.contains("\\\\")
+                || value.contains("\\")
                 || !value.contains("/")) {
             return null;
         }
