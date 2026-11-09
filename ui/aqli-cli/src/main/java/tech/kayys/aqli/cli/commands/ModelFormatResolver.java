@@ -77,9 +77,9 @@ final class ModelFormatResolver {
         return switch (format.trim().toLowerCase(Locale.ROOT)) {
             case "gguf" -> "gguf";
             case "safetensors", "safetensor" -> "safetensor";
-            case "litert", "task", "tflite", "litertlm" -> "litert";
+            case "litert", "task", "tflite" -> "litert";
             case "onnx" -> "onnx";
-            case "torchscript", "pytorch", "pt", "pth", "pts" -> "libtorch";
+            case "torchscript", "pytorch" -> "libtorch";
             default -> null;
         };
     }
