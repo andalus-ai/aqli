@@ -6027,7 +6027,7 @@ public class RunCommand implements Runnable {
         }
         providerId = selection.provider();
         int status = LiteRtLmFastRun.run(buildStandaloneLiteRtFastRunArgs(selection.localPath()));
-        if (status == 42) {
+        if (StandaloneFastRunProtocol.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
