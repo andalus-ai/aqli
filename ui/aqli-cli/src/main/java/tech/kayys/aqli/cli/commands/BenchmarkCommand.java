@@ -28,7 +28,9 @@ public class BenchmarkCommand implements Runnable {
     @Parameters(index = "0", description = "Model path or ID")
     String modelPath;
 
-    @Option(names = {"--provider", "-p"}, description = "Provider (gguf, safetensor, litert, onnx)", defaultValue = "")
+    @Option(names = {"--provider", "-p"},
+            description = "Inference provider ID (e.g. llamacpp, safetensor, litert, onnx)",
+            defaultValue = "")
     String provider;
 
     @Override
@@ -56,11 +58,17 @@ public class BenchmarkCommand implements Runnable {
                 .requestId(UUID.randomUUID().toString())
                 .model(modelPath)
                 .parameter("model_path", modelPath)
-                .preferredProvider(provider)
+                .preferredProvider(selectedProvider)
                 .temperature(0.2)
                 .maxTokens(100)
-                .message(tech.kayys.aqli.spi.Message.user(prompt))
+                .message(Message.user(prompt))
                 .build();
+
+        System.out.println("== Model Inference Benchmark ==");
+        System.out.println("Model    : " + modelPath);
+        System.out.println("Provider : " + selectedProvider);
+        System.out.println("Prompt   : " + prompt);
+        System.out.println("Generating...");
 
         Instant started = Instant.now();
         String outputContent;
@@ -119,9 +127,15 @@ public class BenchmarkCommand implements Runnable {
                 outputContent = response.getContent() == null ? "" : response.getContent();
             }
         } catch (Exception e) {
-            System.err.println("Error running benchmark: " + e.getMessage());
-            e.printStackTrace();
-            return;
+            System.err.println("Benchmark inference failed: " + e.getMessage());
+        }
+    }
+
+    private String resolveProvider() {
+        if (provider != null && !provider.isBlank()) {
+            String requested = provider.trim();
+            // Keep the CLI's historical format alias while routing by the real SPI provider ID.
+            return "gguf".equalsIgnoreCase(requested) ? "llamacpp" : requested;
         }
 
         long elapsedMs = Math.max(1L, Duration.between(started, Instant.now()).toMillis());

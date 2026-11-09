@@ -62,8 +62,8 @@ import java.util.regex.Pattern;
  * This entrypoint intentionally supports only local text LiteRT-LM inference so
  * short prompts do not pay the whole CLI/SDK startup tax.</p>
  */
-public final class LiteRtLmFastRun {
-    private static final int FALLBACK_TO_FULL_CLI = 42;
+public final class LiteRtLmStandaloneRunner {
+    private static final int FALLBACK_TO_FULL_CLI = StandaloneRunProtocol.FALLBACK_TO_FULL_CLI;
     private static final String DAEMON_MAGIC = "AQLI_LITERT_FAST_DAEMON_V1";
     private static final String DAEMON_PREWARM_MAGIC = "AQLI_LITERT_FAST_DAEMON_PREWARM_V1";
     private static final String DAEMON_STOP_MAGIC = "AQLI_LITERT_FAST_DAEMON_STOP_V1";
@@ -94,7 +94,7 @@ public final class LiteRtLmFastRun {
         }
     }
 
-    private LiteRtLmFastRun() {
+    private LiteRtLmStandaloneRunner() {
     }
 
     public static void main(String[] args) {
@@ -479,7 +479,7 @@ public final class LiteRtLmFastRun {
             return Optional.empty();
         }
         return candidates.stream()
-                .filter(LiteRtLmFastRun::isLiteRtIndexObject)
+                .filter(LiteRtLmStandaloneRunner::isLiteRtIndexObject)
                 .filter(candidate -> !sameIndexPath(candidate, requested))
                 .filter(candidate -> compatibleArchitecture(requested, candidate))
                 .filter(candidate -> intersects(requestedKeys, canonicalModelKeys(candidate)))
@@ -730,7 +730,7 @@ public final class LiteRtLmFastRun {
             try (var stream = Files.list(searchDir)) {
                 return stream
                         .filter(Files::isRegularFile)
-                        .filter(LiteRtLmFastRun::isLiteRtLm)
+                        .filter(LiteRtLmStandaloneRunner::isLiteRtLm)
                         .sorted((left, right) -> Integer.compare(
                                 liteRtLmPreference(left),
                                 liteRtLmPreference(right)))
@@ -1343,7 +1343,7 @@ public final class LiteRtLmFastRun {
             command.add("-Djava.library.path=" + System.getProperty("java.library.path", ""));
             command.add("-cp");
             command.add(System.getProperty("java.class.path"));
-            command.add(LiteRtLmFastRun.class.getName());
+            command.add(LiteRtLmStandaloneRunner.class.getName());
             command.add("__daemon");
 
             if (!startDetachedDaemon(command)) {
