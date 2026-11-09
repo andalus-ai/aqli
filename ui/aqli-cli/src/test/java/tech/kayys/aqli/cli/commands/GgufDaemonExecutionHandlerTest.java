@@ -1,7 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
@@ -94,7 +93,7 @@ class GgufDaemonExecutionHandlerTest {
                 new PrintStream(new ByteArrayOutputStream()), null);
 
         assertEquals(FALLBACK, status);
-        assertFalse(operations.runCalls > 0);
+        assertEquals(0, operations.runCalls);
     }
 
     private static GgufDaemonExecutionHandler handler(FakeOperations operations) {
@@ -136,10 +135,10 @@ class GgufDaemonExecutionHandlerTest {
 
         @Override
         public int run(Path modelPath, GgufRunArguments parsed,
-                PrintStream out, PrintStream err, GgufSessionCache cache) {
+                PrintStream out, PrintStream err, GgufSessionCache cache) throws Throwable {
             runCalls++;
             if (failure != null) {
-                throw new IllegalStateException(failure);
+                throw failure;
             }
             return 0;
         }
