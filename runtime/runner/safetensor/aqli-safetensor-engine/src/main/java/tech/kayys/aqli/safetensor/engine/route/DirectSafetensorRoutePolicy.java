@@ -246,16 +246,6 @@ public final class DirectSafetensorRoutePolicy {
         return hasText(explicitSystemPrompt) || (profile != null && profile.config() != null && profile.config().modelType() != null && profile.config().modelType().contains("qwen"));
     }
 
-    public static boolean shouldUseDirectLiteRtStreamPath(String currentProvider, String localPath) {
-        if (!"litert".equalsIgnoreCase(currentProvider) || !hasText(localPath)) {
-            return false;
-        }
-        if (!Boolean.getBoolean("aqli.cli.enable_direct_litert_stream")) {
-            return false;
-        }
-        return looksLikeLiteRtArtifactOrDirectory(localPath);
-    }
-
     public static AlternateRuntimeSelection selectGemma3AlternateRuntime(String currentProvider, String requestedModelId,
             String localPath, boolean providerExplicit, boolean preferAlternateRuntime,
             Predicate<String> providerActive) {
@@ -1530,33 +1520,6 @@ public final class DirectSafetensorRoutePolicy {
     private static boolean isGemma4MobileQat(Path modelDir) {
         ModelFamilyQuantizedLoaderProfile profile = ModelFamilyQuantizedLoaderProfile.fromModelDir(modelDir);
         return profile != null && profile.mobileQatSupported();
-    }
-
-    private static boolean looksLikeLiteRtArtifactOrDirectory(String localPath) {
-        try {
-            Path path = Path.of(localPath).toAbsolutePath().normalize();
-            if (Files.isRegularFile(path)) {
-                return isLiteRtFileName(path.getFileName().toString());
-            }
-            if (!Files.isDirectory(path)) {
-                return false;
-            }
-            try (var stream = Files.list(path)) {
-                return stream
-                        .filter(Files::isRegularFile)
-                        .map(candidate -> candidate.getFileName().toString())
-                        .anyMatch(DirectSafetensorRoutePolicy::isLiteRtFileName);
-            }
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private static boolean isLiteRtFileName(String name) {
-        return name != null
-                && (name.toLowerCase(Locale.ROOT).endsWith(".litertlm")
-                || name.toLowerCase(Locale.ROOT).endsWith(".task")
-                || name.toLowerCase(Locale.ROOT).endsWith(".tflite"));
     }
 
     private static Optional<Path> modelDirectory(String localPath) {
