@@ -225,4 +225,4 @@ final class LlamaCppGgufSession implements AutoCloseable {
         return segment == null || segment.equals(MemorySegment.NULL) || segment.address() == 0L;
     }
 
-    }
+}
