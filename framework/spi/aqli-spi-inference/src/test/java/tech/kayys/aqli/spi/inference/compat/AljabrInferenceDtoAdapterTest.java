@@ -62,6 +62,61 @@ class AljabrInferenceDtoAdapterTest {
         assertEquals(request.getAttachments().get(0).getUrl(), restored.getAttachments().get(0).getUrl());
     }
 
+
+    @Test
+    void roundTripsMultimodalMessagesAndToolDefinitions() {
+        var toolCall = new tech.kayys.aqli.spi.tool.ToolCall(
+                "call-multimodal",
+                "lookup",
+                new tech.kayys.aqli.spi.tool.ToolCall.Function("lookup", "{\"query\":\"weather\"}"),
+                Map.of("query", "weather"),
+                tech.kayys.aqli.spi.tool.ToolDefinition.Type.MCP_TOOL);
+
+        var userMessage = Message.multiModal(Message.Role.USER, List.of(
+                Message.ContentPart.text("Describe this media"),
+                Message.ContentPart.imageUrl("https://example.test/image.png"),
+                Message.ContentPart.audioBase64("YXVkaW8=", "audio/wav")));
+        var assistantMessage = Message.assistantWithToolCalls("I will look that up.", List.of(toolCall));
+
+        var toolDefinition = tech.kayys.aqli.spi.tool.ToolDefinition.builder()
+                .name("lookup")
+                .type(tech.kayys.aqli.spi.tool.ToolDefinition.Type.MCP_TOOL)
+                .description("Look up information")
+                .parameters(Map.of("type", "object", "properties",
+                        Map.of("query", Map.of("type", "string"))))
+                .strict(true)
+                .metadata("origin", "adapter-test")
+                .build();
+
+        var request = InferenceRequest.builder()
+                .model("multimodal-model")
+                .message(userMessage)
+                .message(assistantMessage)
+                .tool(toolDefinition)
+                .build();
+
+        var restored = AljabrInferenceDtoAdapter.fromAljabr(
+                AljabrInferenceDtoAdapter.toAljabr(request));
+
+        assertEquals(request.getMessages(), restored.getMessages());
+        assertEquals(userMessage.getContentParts(), restored.getMessages().get(0).getContentParts());
+
+        var restoredCall = restored.getMessages().get(1).getToolCalls().get(0);
+        assertEquals(toolCall.getId(), restoredCall.getId());
+        assertEquals(toolCall.getType(), restoredCall.getType());
+        assertEquals(toolCall.getFunction().getName(), restoredCall.getFunction().getName());
+        assertEquals(toolCall.getFunction().getArguments(), restoredCall.getFunction().getArguments());
+        assertEquals(toolCall.getArguments(), restoredCall.getArguments());
+
+        var restoredDefinition = restored.getTools().get(0);
+        assertEquals(toolDefinition.getName(), restoredDefinition.getName());
+        assertEquals(toolDefinition.getType(), restoredDefinition.getType());
+        assertEquals(toolDefinition.getDescription(), restoredDefinition.getDescription());
+        assertEquals(toolDefinition.getParameters(), restoredDefinition.getParameters());
+        assertEquals(toolDefinition.isStrict(), restoredDefinition.isStrict());
+        assertEquals(toolDefinition.getMetadata(), restoredDefinition.getMetadata());
+    }
+
     @Test
     void refusesToSilentlyDropNativeExecutionContext() {
         InferenceRequest request = InferenceRequest.builder()
