@@ -3,7 +3,6 @@ package tech.kayys.aqli.safetensor.engine.route;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
