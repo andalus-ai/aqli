@@ -11,8 +11,8 @@ import tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider;
 /**
  * Owns or borrows a Java-native GGUF backend for a runner operation.
  *
- * <p>One-shot sessions own and close their backend. Cached sessions are owned
- * by the cache and are exposed to individual operations as borrowed sessions.</p>
+ * <p>One-shot sessions own and close their backend. When retained by a daemon
+ * cache, the cache owns this session and closes it during cache shutdown.</p>
  */
 public final class GgufJavaBackendSession implements AutoCloseable {
 
@@ -29,14 +29,11 @@ public final class GgufJavaBackendSession implements AutoCloseable {
     public static GgufJavaBackendSession open(Path modelPath) throws Exception {
         Objects.requireNonNull(modelPath, "modelPath");
         GgufBackendProvider provider = new JavaGgufBackendProvider();
-        return new GgufJavaBackendSession(
-                provider.create(modelPath.toAbsolutePath().normalize(), Map.of("backend", "java")),
-                true);
+        return owned(provider.create(modelPath.toAbsolutePath().normalize(), Map.of("backend", "java")));
     }
 
-    /** Wraps a backend whose lifecycle is managed by an external cache. */
-    public static GgufJavaBackendSession borrowed(GgufBackend backend) {
-        return new GgufJavaBackendSession(backend, false);
+    static GgufJavaBackendSession owned(GgufBackend backend) {
+        return new GgufJavaBackendSession(backend, true);
     }
 
     /** Returns the backend while this session remains open. */
