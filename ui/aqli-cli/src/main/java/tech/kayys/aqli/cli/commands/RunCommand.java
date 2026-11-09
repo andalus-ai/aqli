@@ -5991,7 +5991,7 @@ public class RunCommand implements Runnable {
             return false;
         }
         int status = LiteRtLmFastRun.run(buildStandaloneLiteRtFastRunArgs(localPath));
-        if (status == 42) {
+        if (StandaloneFastRunProtocol.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
