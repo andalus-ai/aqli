@@ -2829,13 +2829,12 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        System.out.println("ONNX diagnostics");
-        System.out.println("================");
-        System.out.println("Requested model: " + nullToDash(modelId));
-        System.out.println("Resolved path: " + nullToDash(finalLocalPath));
-
         Path diagnosticPath = resolveOnnxDiagnosticPath(modelId, finalLocalPath);
         if (diagnosticPath == null) {
+            System.out.println("ONNX diagnostics");
+            System.out.println("================");
+            System.out.println("Requested model: " + nullToDash(modelId));
+            System.out.println("Resolved path: " + nullToDash(finalLocalPath));
             System.err.println();
             System.err.println("Error: no local ONNX path was resolved for diagnostics.");
             System.err.println("Pull the model first or pass --modelDir /path/to/repository.");
@@ -2843,81 +2842,15 @@ public class RunCommand implements Runnable {
         }
 
         OnnxModelDiagnostics.Report report = OnnxModelDiagnostics.inspect(diagnosticPath);
-        System.out.println("Diagnostic path: " + displayPath(diagnosticPath));
-        System.out.println("Model directory: " + (report.modelDir() == null ? "-" : displayPath(report.modelDir())));
-        System.out.println("Pipeline: " + nullToDash(report.pipelineType()));
-        System.out.println("Model type: " + nullToDash(report.modelType()));
-        if (!report.architectures().isEmpty()) {
-            System.out.println("Architectures: " + String.join(", ", report.architectures()));
-        }
-        if (!report.capabilities().isEmpty()) {
-            System.out.println("Capabilities: " + String.join(", ", report.capabilities()));
-        }
-        if (report.genAiInfo() != null) {
-            OnnxGraphDiagnosticsRenderer.printGenAiInfo(report.genAiInfo(), System.out);
-        }
-        int exitCode = report.graphs().isEmpty() ? 1 : 0;
-
-        System.out.println();
-        System.out.println("Graphs");
-        System.out.println("------");
-        if (report.graphs().isEmpty()) {
-            System.out.println("(none)");
-        } else {
-            for (OnnxModelDiagnostics.GraphInfo graph : report.graphs()) {
-                List<String> tags = new ArrayList<>();
-                tags.add(graph.role());
-                tags.add(graph.quantization());
-                if (graph.externalData()) {
-                    tags.add("external-data");
-                }
-                System.out.println("- " + graph.relativePath()
-                        + " [" + String.join(", ", tags) + ", " + formatBytes(graph.sizeBytes()) + "]");
-                OnnxGraphDiagnosticsRenderer.printGraphIo(graph, System.out);
-            }
-        }
-
-        System.out.println();
-        System.out.println("Sidecars");
-        System.out.println("--------");
-        System.out.println(report.sidecars().isEmpty() ? "(none)" : formatDiagnosticList(report.sidecars(), 12));
-
+        int exitCode = OnnxModelReportRenderer.print(
+                report, modelId, finalLocalPath, diagnosticPath, this::displayPath, System.out);
         if (report.isPaddleOcrVl()) {
             exitCode = Math.max(exitCode, printPaddleOcrVlPreflight(report));
         }
-
-        if (!report.warnings().isEmpty()) {
-            System.out.println();
-            System.out.println("Warnings");
-            System.out.println("--------");
-            for (String warning : report.warnings()) {
-                System.out.println("- " + warning);
-            }
-        }
-
-        if (!report.recommendations().isEmpty()) {
-            System.out.println();
-            System.out.println("Next steps");
-            System.out.println("----------");
-            for (String recommendation : report.recommendations()) {
-                System.out.println("- " + recommendation);
-            }
-        }
-
         System.out.println();
         System.out.println(exitCode == 0 ? "Status: inspected" : "Status: attention needed");
         return exitCode;
     }
-
-
-
-
-
-
-
-
-
-
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
         System.out.println();
