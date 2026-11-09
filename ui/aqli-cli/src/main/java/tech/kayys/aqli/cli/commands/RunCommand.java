@@ -93,7 +93,6 @@ import tech.kayys.suling.audio.Suling;
 @Unremovable
 @Command(name = "run", description = "Run inference using a specified model")
 public class RunCommand implements Runnable {
-    static { tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRoutePolicy.resolver = new CliLocalModelResolver(); }
     private static final String MOSS_AUDIO_TOKENIZER_REPOSITORY =
             "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
     private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
@@ -963,6 +962,7 @@ public class RunCommand implements Runnable {
                 return;
             }
             finalLocalPath = providerLocalPathResolution.localPath();
+            CliLocalModelResolver localModelResolver = new CliLocalModelResolver();
             DirectSafetensorRoutePolicy.AlternateRuntimeSelection gemma3Selection =
                     DirectSafetensorRoutePolicy.selectGemma3AlternateRuntime(
                             providerId, modelId, finalLocalPath, providerExplicit,
@@ -991,7 +991,8 @@ public class RunCommand implements Runnable {
             DirectSafetensorRoutePolicy.AlternateRuntimeSelection gemma4MobileQatSelection =
                     DirectSafetensorRoutePolicy.selectGemma4MobileQatAlternateRuntime(
                             providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive);
+                            preferAlternateRuntime, this::isRuntimeRouteActive,
+                            localModelResolver::resolveLiteRtModel);
             if (!quietRouteResolutionOutput() && gemma4MobileQatSelection.hasNotice()) {
                 System.out.println(gemma4MobileQatSelection.notice());
             }
@@ -1013,7 +1014,8 @@ public class RunCommand implements Runnable {
             DirectSafetensorRoutePolicy.AlternateRuntimeSelection nativeBf16MatvecSelection =
                     DirectSafetensorRoutePolicy.selectGemma4TextAlternateRuntime(
                             providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive);
+                            preferAlternateRuntime, this::isRuntimeRouteActive,
+                            localModelResolver);
             if (!quietRouteResolutionOutput() && nativeBf16MatvecSelection.hasNotice()) {
                 System.out.println(nativeBf16MatvecSelection.notice());
             }
@@ -1036,7 +1038,8 @@ public class RunCommand implements Runnable {
             DirectSafetensorRoutePolicy.AlternateRuntimeSelection communityTextGgufSelection =
                     DirectSafetensorRoutePolicy.selectCommunityTextGgufAlternateRuntime(
                             providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive);
+                            preferAlternateRuntime, this::isRuntimeRouteActive,
+                            localModelResolver);
             if (!quietRouteResolutionOutput() && communityTextGgufSelection.hasNotice()) {
                 System.out.println(communityTextGgufSelection.notice());
             }
