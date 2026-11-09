@@ -17,7 +17,6 @@ dependencies {
     // Aljabr owns generated llama.cpp/ggml FFM bindings and the reusable GGUF backend.
     implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
-    implementation("tech.kayys.aljabr:aljabr-gguf-llamacpp:0.1.0-SNAPSHOT")
     
     implementation("org.jboss.logging:jboss-logging")
     implementation("io.smallrye.reactive:mutiny:2.5.5")
@@ -43,12 +42,3 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-sourceSets {
-    test {
-        java {
-            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderTest.java")
-            exclude("tech/kayys/aqli/inference/llamacpp/GGUFProviderConfigTest.java")
-            exclude("tech/kayys/aqli/inference/llamacpp/MockLlamaCppProviderConfigProducer.java")
-        }
-    }
-}
