@@ -1,20 +1,20 @@
 package tech.kayys.aqli.cli.commands;
 
-import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
-
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Option;
-import tech.kayys.aqli.cli.AqliCommand;
+import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
+import tech.kayys.aqli.cli.AqliCommand;
+import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.LocalInferenceEngine;
 
-import java.util.UUID;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.UUID;
 
 @Command(name = "benchmark", description = "Benchmark a local model (Safetensor, GGUF, LiteRT)")
 public class BenchmarkCommand implements Runnable {
@@ -23,7 +23,7 @@ public class BenchmarkCommand implements Runnable {
     AqliCommand parentCommand;
 
     @Inject
-    jakarta.enterprise.inject.Instance<tech.kayys.aqli.spi.inference.LocalInferenceEngine> engines;
+    Instance<LocalInferenceEngine> engines;
 
     @Parameters(index = "0", description = "Model path or ID")
     String modelPath;
@@ -42,16 +42,16 @@ public class BenchmarkCommand implements Runnable {
             else if (lower.endsWith(".safetensors") || lower.endsWith(".st")) provider = "safetensor";
             else if (lower.endsWith(".tflite") || lower.endsWith(".task")) provider = "litert";
             else if (lower.endsWith(".onnx")) provider = "onnx";
-            else provider = "safetensor"; // Default
+            else provider = "safetensor";
             System.out.println("Auto-detected provider: " + provider);
         } else {
             System.out.println("Manually selected provider: " + provider);
         }
-        
+
         String prompt = "Who are you and what can you do?";
         System.out.println("\nPrompt: " + prompt);
         System.out.println("Generating...");
-        
+
         InferenceRequest request = InferenceRequest.builder()
                 .requestId(UUID.randomUUID().toString())
                 .model(modelPath)
@@ -63,21 +63,19 @@ public class BenchmarkCommand implements Runnable {
                 .build();
 
         Instant started = Instant.now();
-        String outputContent = "";
+        String outputContent;
         try {
             if ("gguf".equalsIgnoreCase(provider)) {
                 System.out.println("INFO: Executing Java-native GGUF backend...");
-                tech.kayys.aqli.cli.commands.GgufFastRun.FastArgs parsed =
-                        tech.kayys.aqli.cli.commands.GgufFastRun.FastArgs.parse(
-                                new String[]{"run", "--model", modelPath});
-                java.util.Optional<java.nio.file.Path> resolved =
-                        tech.kayys.aqli.cli.commands.GgufFastRun.resolveGgufModel(parsed);
+                GgufFastRun.FastArgs parsed =
+                        GgufFastRun.FastArgs.parse(new String[]{"run", "--model", modelPath});
+                java.util.Optional<java.nio.file.Path> resolved = GgufFastRun.resolveGgufModel(parsed);
                 if (resolved.isEmpty()) {
-                    throw new RuntimeException("Could not resolve GGUF model path for: " + modelPath);
+                    throw new IllegalStateException("Could not resolve GGUF model path for: " + modelPath);
                 }
 
-                // Benchmark the canonical Aljabr Java GGUF backend directly.
-                // The optional llama.cpp RunnerPlugin is deliberately not a CLI dependency.
+                // Use the canonical Aljabr request/backend contract. The CLI benchmark
+                // must not depend on the optional llama.cpp RunnerPlugin.
                 tech.kayys.aljabr.spi.inference.InferenceRequest ggufRequest =
                         tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
                                 .model(resolved.get().getFileName().toString())
@@ -96,46 +94,46 @@ public class BenchmarkCommand implements Runnable {
                             : "";
                 }
             } else {
-                    throw new RuntimeException(result.getErrorMessage().orElse("GGUF execution failed"));
-                }
-            } else {
-                System.out.println("DEBUG: Executing Safetensor via LocalInferenceEngine...");
-                tech.kayys.aqli.spi.inference.LocalInferenceEngine safetensorEngine = null;
-                System.out.println("DEBUG: Available engines in Instance<LocalInferenceEngine>:");
-                for (tech.kayys.aqli.spi.inference.LocalInferenceEngine engine : engines) {
+                System.out.println("DEBUG: Executing local inference provider...");
+                LocalInferenceEngine selected = null;
+                for (LocalInferenceEngine engine : engines) {
                     String className = engine.getClass().getName();
                     System.out.println("  - " + className);
-                    if (className.contains("SafetensorEngine") || className.contains("DirectSafetensorBackend")) {
-                        safetensorEngine = engine;
+                    if ("safetensor".equalsIgnoreCase(provider)
+                            && (className.contains("SafetensorEngine")
+                                    || className.contains("DirectSafetensorBackend"))) {
+                        selected = engine;
+                        break;
                     }
                 }
-                if (safetensorEngine == null) {
-                    System.out.println("DEBUG: SafetensorEngine not found, falling back to first available engine");
-                    safetensorEngine = engines.iterator().next();
+                if (selected == null) {
+                    selected = engines.stream().findFirst().orElse(null);
                 }
-                InferenceResponse response = safetensorEngine.infer(request).await().indefinitely();
-                if (response != null) {
-                    outputContent = response.getContent();
-                } else {
-                    throw new RuntimeException("Safetensor engine returned null");
+                if (selected == null) {
+                    throw new IllegalStateException("No local inference engine is available");
                 }
+                InferenceResponse response = selected.infer(request).await().indefinitely();
+                if (response == null) {
+                    throw new IllegalStateException("Inference engine returned null");
+                }
+                outputContent = response.getContent() == null ? "" : response.getContent();
             }
         } catch (Exception e) {
             System.err.println("Error running benchmark: " + e.getMessage());
             e.printStackTrace();
             return;
         }
-        long elapsedMs = Math.max(1L, Duration.between(started, Instant.now()).toMillis());
 
+        long elapsedMs = Math.max(1L, Duration.between(started, Instant.now()).toMillis());
         System.out.println("\nResult:\n" + outputContent);
         System.out.println("--------------------------------------------------");
         System.out.println("Metrics:");
-        
-        int outputTokens = outputContent.split("\\s+").length; // Rough fallback
+
+        int outputTokens = outputContent.isBlank() ? 0 : outputContent.trim().split("\\s+").length;
         double tokensPerSec = (outputTokens / (double) elapsedMs) * 1000.0;
-        
+
         System.out.println("Total Time : " + elapsedMs + " ms");
-        System.out.printf("Throughput : %.2f tokens / sec\n", tokensPerSec);
+        System.out.printf("Throughput : %.2f tokens / sec%n", tokensPerSec);
         System.out.println("Provider   : " + provider);
         System.out.println("--------------------------------------------------");
     }
