@@ -36,6 +36,7 @@ import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
+import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRunner;
 import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
@@ -1516,8 +1517,23 @@ public class RunCommand implements Runnable {
                 String explicitDirectSystemPrompt = useCliDirectSystemPrompt
                         ? effectiveSystemPrompt
                         : null;
-                InferenceResponse response = runDirectSafetensorCompletion(finalLocalPath, prompt,
-                        explicitDirectSystemPrompt);
+                System.err.println("Directly generating...");
+                InferenceResponse response = DirectSafetensorCompletionRunner.run(
+                        directInferenceEngine(),
+                        new DirectSafetensorCompletionRunner.Request(
+                                resolveSafetensorCheckpointPath(finalLocalPath),
+                                directProfile,
+                                prompt,
+                                explicitDirectSystemPrompt,
+                                maxTokens,
+                                temperature,
+                                topK,
+                                topP,
+                                repeatPenalty,
+                                quantizeKv,
+                                seed,
+                                quantizeStrategy));
+                System.err.println("Generated response: '" + response.getContent() + "'");
                 printResponse(response, startTime);
                 requestProcessExit();
             } else if (effectiveStream && shouldUseDirectLiteRtStreamPath(executionProviderId, finalLocalPath)) {
@@ -5391,52 +5407,6 @@ public class RunCommand implements Runnable {
         return DirectSafetensorRoutePolicy.shouldUseDirectLiteRtStreamPath(currentProvider, localPath);
     }
 
-    private InferenceResponse runDirectSafetensorCompletion(String localPath, String userPrompt,
-            String effectiveSystemPrompt) throws Exception {
-        Path modelPath = resolveSafetensorCheckpointPath(localPath);
-        if (modelPath == null) {
-            throw new IllegalArgumentException("Invalid safetensor model path: " + localPath);
-        }
-        DirectSafetensorRunProfile profile = DirectSafetensorRunProfile.load(modelPath);
-        float effectiveRepeatPenalty = DirectSafetensorTextPolicy.normalizeRepeatPenalty(profile, repeatPenalty);
-        GenerationConfig.KvCacheQuantization kvQuant = GenerationConfig.KvCacheQuantization.NONE;
-        if ("int8".equalsIgnoreCase(quantizeKv)) {
-            kvQuant = GenerationConfig.KvCacheQuantization.INT8;
-        } else if ("int4".equalsIgnoreCase(quantizeKv) || "turbo".equalsIgnoreCase(quantizeKv)) {
-            kvQuant = GenerationConfig.KvCacheQuantization.INT4;
-        }
-
-        GenerationConfig config = GenerationConfig.builder()
-                .maxNewTokens(maxTokens)
-                .strategy(resolveDirectSamplingStrategy())
-                .temperature((float) temperature)
-                .topK(topK)
-                .topP((float) topP)
-                .repetitionPenalty(effectiveRepeatPenalty)
-                .kvCacheQuant(kvQuant)
-                .seed(seed != null ? seed.longValue() : -1L)
-                .build();
-        String preparedPrompt = DirectSafetensorTextPolicy.preparePrompt(profile, effectiveSystemPrompt, userPrompt);
-        
-        directInferenceEngine().loadModel(modelPath, null, quantizeStrategy);
-        System.err.println("Directly generating...");
-        tech.kayys.aljabr.spi.inference.InferenceResponse response = directInferenceEngine().generate(preparedPrompt, modelPath, config)
-                .await()
-                .atMost(Duration.ofMinutes(5));
-        System.err.println("Generated response: '" + response.getContent() + "'");
-        var sanitized = DirectSafetensorTextPolicy.sanitizeResponse(response, profile);
-        return InferenceResponse.builder()
-                .requestId(sanitized.getRequestId())
-                .content(sanitized.getContent())
-                .model(sanitized.getModel())
-                .tokensUsed(sanitized.getTokensUsed())
-                .inputTokens(sanitized.getInputTokens())
-                .outputTokens(sanitized.getOutputTokens())
-                .durationMs(sanitized.getDurationMs())
-                .metadata(sanitized.getMetadata())
-                .build();
-    }
-
     private Path resolveSafetensorCheckpointPath(String localPath) {
         if (localPath == null || localPath.isBlank()) {
             return null;
@@ -5458,24 +5428,6 @@ public class RunCommand implements Runnable {
         } catch (Exception ignored) {
             return null;
         }
-    }
-
-    private GenerationConfig.SamplingStrategy resolveDirectSamplingStrategy() {
-        if (temperature < 1.0e-4f || topK == 1) {
-            return GenerationConfig.SamplingStrategy.GREEDY;
-        }
-        boolean hasTopK = topK > 0;
-        boolean hasTopP = topP > 0.0 && topP < 1.0;
-        if (hasTopK && hasTopP) {
-            return GenerationConfig.SamplingStrategy.TOP_K_TOP_P;
-        }
-        if (hasTopP) {
-            return GenerationConfig.SamplingStrategy.TOP_P;
-        }
-        if (hasTopK) {
-            return GenerationConfig.SamplingStrategy.TOP_K;
-        }
-        return GenerationConfig.SamplingStrategy.GREEDY;
     }
 
     private DirectInferenceEngine directInferenceEngine() {
