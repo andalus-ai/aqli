@@ -4802,26 +4802,7 @@ public class RunCommand implements Runnable {
     }
 
     private String formatForLocalModelPath(Path modelPath) {
-        if (modelPath == null || modelPath.getFileName() == null) {
-            return null;
-        }
-        String name = modelPath.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".gguf")) {
-            return "gguf";
-        }
-        if (name.endsWith(".litertlm") || name.endsWith(".tflite") || name.endsWith(".task")) {
-            return "litert";
-        }
-        if (name.endsWith(".onnx")) {
-            return "onnx";
-        }
-        if (name.endsWith(".safetensors") || name.endsWith(".safetensor")) {
-            return "safetensors";
-        }
-        if (name.endsWith(".pt") || name.endsWith(".pth") || name.endsWith(".pts")) {
-            return "torchscript";
-        }
-        return null;
+        return ModelFormatResolver.formatForPath(modelPath);
     }
 
     private boolean shouldPreferOnnxResolution(String requestedModel, String requestedFormat, String requestedProvider) {
@@ -4847,7 +4828,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isOnnxProvider(String requestedProvider) {
-        return requestedProvider != null && "onnx".equalsIgnoreCase(requestedProvider.trim());
+        return ModelFormatResolver.isOnnxProvider(requestedProvider);
     }
 
     private boolean isOnnxFormat(String requestedFormat) {
@@ -4855,27 +4836,11 @@ public class RunCommand implements Runnable {
     }
 
     private String canonicalModelFormat(String requestedFormat) {
-        if (requestedFormat == null || requestedFormat.isBlank()) {
-            return null;
-        }
-        return switch (requestedFormat.trim().toLowerCase(Locale.ROOT)) {
-            case "onnx" -> "onnx";
-            case "safetensor", "safetensors" -> "safetensors";
-            case "litert", "tflite", "task", "litertlm" -> "litert";
-            case "gguf" -> "gguf";
-            case "torchscript", "pytorch", "pt", "pth", "pts" -> "torchscript";
-            default -> requestedFormat.trim().toLowerCase(Locale.ROOT);
-        };
+        return ModelFormatResolver.canonicalFormat(requestedFormat);
     }
 
     private boolean looksLikeOnnxModelRef(String requestedModel) {
-        String normalized = stripHfPrefix(requestedModel).toLowerCase(Locale.ROOT);
-        return normalized.startsWith("onnx-community/")
-                || normalized.endsWith("-onnx")
-                || normalized.endsWith("_onnx")
-                || normalized.contains("/onnx")
-                || normalized.contains("-onnx-")
-                || normalized.contains("_onnx_");
+        return ModelFormatResolver.looksLikeOnnxModelReference(requestedModel);
     }
 
     private String stripHfPrefix(String value) {
@@ -6265,7 +6230,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isGgufFormat(String value) {
-        return value != null && value.trim().equalsIgnoreCase("gguf");
+        return ModelFormatResolver.isGgufFormat(value);
     }
 
     private boolean looksLikeGgufPath(String value) {
@@ -6273,17 +6238,7 @@ public class RunCommand implements Runnable {
     }
 
     private String normalizeRequestedProvider(String rawProviderId) {
-        if (rawProviderId == null) {
-            return null;
-        }
-        String trimmed = rawProviderId.trim();
-        if (trimmed.isEmpty()) {
-            return trimmed;
-        }
-        return switch (trimmed.toLowerCase(Locale.ROOT)) {
-            case "torch", "torchscript", "pytorch" -> "libtorch";
-            default -> trimmed.toLowerCase(Locale.ROOT);
-        };
+        return ModelFormatResolver.normalizeProvider(rawProviderId);
     }
 
     private String inferProviderFromIndex(LocalModelIndex.Entry entry) {
@@ -6301,18 +6256,7 @@ public class RunCommand implements Runnable {
     }
 
     private String providerForFormat(String format) {
-        if (format == null) {
-            return null;
-        }
-        String normalized = format.trim().toLowerCase(java.util.Locale.ROOT);
-        return switch (normalized) {
-            case "gguf" -> "gguf";
-            case "safetensors", "safetensor" -> "safetensor";
-            case "litert", "task", "tflite" -> "litert";
-            case "onnx" -> "onnx";
-            case "torchscript", "pytorch" -> "libtorch";
-            default -> null;
-        };
+        return ModelFormatResolver.providerForFormat(format);
     }
 
     private record AudioQualityPreset(String format, Integer bitrateKbps, Integer flacCompression) {
