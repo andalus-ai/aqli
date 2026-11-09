@@ -104,12 +104,12 @@ final class OnnxModelReportRenderer {
         if (bytes < 1024) {
             return bytes + " B";
         }
-        if (bytes < 1024L * 1024L) {
-            return String.format(java.util.Locale.ROOT, "%.1f KiB", bytes / 1024.0);
+        double value = bytes;
+        String[] units = {"B", "KiB", "MiB", "GiB", "TiB"};
+        int unit = 0;
+        while (value >= 1024.0 && unit < units.length - 1) {
+            value /= 1024.0;
+            unit++;
         }
-        if (bytes < 1024L * 1024L * 1024L) {
-            return String.format(java.util.Locale.ROOT, "%.1f MiB", bytes / (1024.0 * 1024.0));
-        }
-        return String.format(java.util.Locale.ROOT, "%.2f GiB", bytes / (1024.0 * 1024.0 * 1024.0));
-    }
-}
+        return String.format(java.util.Locale.ROOT, "%.1f %s", value, units[unit]);
+    }}
