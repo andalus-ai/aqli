@@ -166,3 +166,21 @@ The current `LocalInferenceEngine` defaults also duplicate across the two projec
 ### Consumer inventory status
 
 The repository tree confirms a broad AQLI Java surface across runtime core, adapters, plugins, runners and CLI. GitHub code search did not return usable indexed matches for the DTO identifiers, so this pass does not claim a complete import/construction-site inventory. Before changing public interfaces, perform a checked-out repository-wide search and classify direct implementors, method callers, serialization boundaries and external SDK consumers. No implementation migration is authorized by this audit alone.
+
+## RequestContext construction and adapter gap
+
+A further comparison of the current AQLI and Aljabr `InferenceRequest` implementations found a shared construction limitation that matters to canonical migration:
+
+- Both DTOs expose `getRequestContext()`, but their public JSON constructors and builders synthesize the context internally from only API key, request ID, user ID, session ID, and trace ID.
+- Neither builder accepts a `RequestContext` instance. Consequently, callers cannot submit a context carrying tenant ID, model scope, preferred-device identifier, cost-sensitivity, or a context-specific timeout through the normal `InferenceRequest` builder.
+- The existing `AljabrInferenceDtoAdapter` maps the identity fields above, but does not map the other `RequestContext` hints. This is not currently a lossy conversion of a custom context accepted by the builder—the builder cannot accept one—but it exposes a missing capability in both parallel contracts and would become a real loss if custom context injection is added on only one side.
+- The request-level `timeout` field is mapped separately. It must not be confused with `RequestContext.timeout()`.
+
+### Required design before context consolidation
+
+1. Decide whether `RequestContext` is immutable request data, an execution-scoped context, or a composition of both. Tenant/model scope and user/session/trace identity may be portable request metadata; device and cost hints are routing hints; timeout is an execution policy.
+2. Add an explicit context-injection path only after that ownership split is agreed. Avoid silently flattening all context fields into unrelated builder scalars.
+3. If context conversion remains necessary at the compatibility boundary, add bidirectional adapters and tests for every supported field, including unknown device identifiers.
+4. Preserve the existing constructors and builder behavior during the migration window. Do not claim complete request round-trip fidelity until custom context semantics are represented and tested.
+
+This is a source-level API capability finding. It does not justify moving runtime routing policy into Aljabr or removing either repository's compatibility context type.
