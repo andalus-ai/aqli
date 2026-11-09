@@ -240,14 +240,19 @@ public class LocalModelRepository implements ModelRepository {
     }
 
     private static String resolvePrimaryPath(ModelManifest manifest) {
-        if (manifest.artifacts() != null && !manifest.artifacts().isEmpty()) {
-            return manifest.artifacts().values().stream()
-                    .map(ArtifactLocation::uri)
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .orElse(manifest.path());
+        String location = manifest.artifacts() != null && !manifest.artifacts().isEmpty()
+                ? manifest.artifacts().values().stream()
+                        .map(ArtifactLocation::uri)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(manifest.path())
+                : manifest.path();
+        Path path = pathFromLocation(location);
+        if (path == null || !Files.exists(path)) {
+            throw new IllegalArgumentException(
+                    "Local model repository requires an existing filesystem artifact: " + location);
         }
-        return manifest.path();
+        return path.toAbsolutePath().normalize().toString();
     }
 
     private static ModelFormat resolveFormat(ModelManifest manifest) {
