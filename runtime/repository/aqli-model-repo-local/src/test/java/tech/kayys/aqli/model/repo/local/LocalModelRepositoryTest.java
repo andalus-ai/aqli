@@ -2,6 +2,7 @@ package tech.kayys.aqli.model.repo.local;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -82,8 +83,8 @@ class LocalModelRepositoryTest {
         LocalModelRepository repository = new LocalModelRepository(
                 new ManifestStore(temporaryDirectory.resolve("manifests")));
 
-        assertTrue(repository.list("tenant-a", Pageable.of(-1, 10))
-                .subscribeAsCompletionStage().toCompletableFuture().isCompletedExceptionally());
+        assertThrows(IllegalArgumentException.class,
+                () -> repository.list("tenant-a", Pageable.of(-1, 10)).await().indefinitely());
     }
 
     private static ModelManifest manifest(String modelId, Path weights) {
