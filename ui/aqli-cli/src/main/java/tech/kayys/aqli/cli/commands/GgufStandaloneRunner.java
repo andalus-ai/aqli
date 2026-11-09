@@ -563,22 +563,11 @@ public final class GgufStandaloneRunner {
                                 args.repeatPenalty());
 
                 long openStartNanos = System.nanoTime();
-<<<<<<< HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
-                tech.kayys.aljabr.gguf.api.GgufBackend backend = null;
-                boolean shouldClose = false;
-                if (sessionCache != null) {
-                    backend = sessionCache.acquireJavaBackend(modelPath);
-                } else {
-                    tech.kayys.aljabr.gguf.api.GgufBackendProvider provider = new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
-                    backend = provider.create(modelPath, Map.of("backend", "java"));
-                    shouldClose = true;
-                }
-=======
                 tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession = sessionCache != null
                         ? sessionCache.acquireJavaBackend(modelPath)
                         : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(modelPath);
                 boolean shouldClose = sessionCache == null;
->>>>>>> 37c608ba12dc4b5ab20e4262e5b91ff10bbfea66:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufFastRun.java
+
                 long openNanos = System.nanoTime() - openStartNanos;
                 long generateNanos;
                 long afterGenerateNanos;
@@ -741,34 +730,11 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession = sessionCache != null
                 ? sessionCache.acquireJavaBackend(modelPath)
-<<<<<<< HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
-                : new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider().create(modelPath,
-                        Map.of("backend", "java"));
-        long openNanos = System.nanoTime() - openStartNanos;
-        String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt() : "Hello";
-        String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
-        var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
-                .model(modelPath.getFileName().toString())
-                .prompt(formattedPrompt)
-                .message(tech.kayys.aljabr.spi.Message.user(rawPrompt))
-                .maxTokens(prewarmTokenCount())
-                .temperature(0.0);
-        long genStartNanos = System.nanoTime();
-        backend.execute(reqBuilder.build());
-        long generateNanos = System.nanoTime() - genStartNanos;
-        long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
-        out.printf("Prewarmed Java-native GGUF daemon for %s (tokens=%d).%n",
-                modelPath.getFileName(), prewarmTokenCount());
-        out.printf("[GGUF daemon prewarm, Duration: %.2fs]%n", durationMs / 1000.0d);
-        if (fastRunTiming()) {
-            err.printf("Java GGUF timing: open=%.3fms, generateCall=%.3fms%n",
-                    openNanos / 1_000_000.0d, generateNanos / 1_000_000.0d);
-=======
                 : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(modelPath);
         boolean shouldClose = sessionCache == null;
         long openNanos = System.nanoTime() - openStartNanos;
         try {
-            String rawPrompt = (args.prompt != null && !args.prompt.isBlank()) ? args.prompt : "Hello";
+            String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt : "Hello";
             String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
             var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
                     .model(modelPath.getFileName().toString())
@@ -792,7 +758,7 @@ public final class GgufStandaloneRunner {
             if (shouldClose) {
                 backendSession.close();
             }
->>>>>>> 37c608ba12dc4b5ab20e4262e5b91ff10bbfea66:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufFastRun.java
+
         }
     }
 
@@ -1846,222 +1812,6 @@ public final class GgufStandaloneRunner {
         return booleanConfig("aqli.gguf.fast_run.daemon", false);
     }
 
-    private record SessionKey(
-            Path modelPath,
-            int context,
-            int batch,
-            int microBatch,
-            int threads,
-            int batchThreads,
-            int gpuLayers,
-            boolean useMmap,
-            boolean useMlock,
-            boolean swaFull) {
-    }
-
-    private record SessionLease(
-            LlamaCppGgufSession session,
-            boolean reused,
-            boolean closeOnClose,
-            String reuseKind) implements AutoCloseable {
-        static SessionLease open(
-                Path modelPath,
-                int context,
-                int batch,
-                int microBatch,
-                int threads,
-                int batchThreads,
-                int gpuLayers,
-                boolean useMmap,
-                boolean useMlock,
-                boolean swaFull) throws Throwable {
-            return new SessionLease(LlamaCppGgufSession.open(
-                    modelPath,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull), false, true, "cold");
-        }
-
-        @Override
-        public void close() {
-            if (closeOnClose) {
-                session.close();
-            }
-        }
-    }
-
-    private static final class GgufSessionCache implements AutoCloseable {
-        private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);<<<<<<<HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
-        private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f,
-                true);
-
-        private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath)
-                throws Exception {
-=======
-
-        private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends = new LinkedHashMap<>(
-                2, 0.75f, true);
-
-        private synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
-                Path modelPath) throws Exception {
->>>>>>> 37c608ba12dc4b5ab20e4262e5b91ff10bbfea66:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufFastRun.java
-            Path key = modelPath.toAbsolutePath().normalize();
-            tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
-            if (existing != null) {
-                daemonLog("java backend cache hit: " + key.getFileName());
-                return existing;
-            }
-            daemonLog("java backend cache miss: " + key.getFileName());
-<<<<<<< HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
-            tech.kayys.aljabr.gguf.api.GgufBackendProvider provider = new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
-            tech.kayys.aljabr.gguf.api.GgufBackend opened = provider.create(key, Map.of("backend", "java"));
-=======
-            tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
-                    tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
->>>>>>> 37c608ba12dc4b5ab20e4262e5b91ff10bbfea66:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufFastRun.java
-            javaBackends.put(key, opened);
-            return opened;
-        }
-
-        private SessionLease acquire(
-                Path modelPath,
-                int context,
-                int batch,
-                int microBatch,
-                int threads,
-                int batchThreads,
-                int gpuLayers,
-                boolean useMmap,
-                boolean useMlock,
-                boolean swaFull) throws Throwable {
-            SessionKey key = new SessionKey(
-                    modelPath.toAbsolutePath().normalize(),
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull);
-            LlamaCppGgufSession existing = sessions.get(key);
-            if (existing != null) {
-                daemonLog("session cache hit: " + key.modelPath().getFileName()
-                        + ", context=" + context
-                        + ", gpuLayers=" + gpuLayers
-                        + ", sessions=" + sessions.size());
-                return new SessionLease(existing, true, false, "exact");
-            }
-            SessionLease compatible = findCompatible(key);
-            if (compatible != null) {
-                return compatible;
-            }
-            daemonLog("session cache miss: " + key.modelPath().getFileName()
-                    + ", context=" + context
-                    + ", gpuLayers=" + gpuLayers
-                    + ", sessions=" + sessions.size());
-            LlamaCppGgufSession opened = LlamaCppGgufSession.open(
-                    key.modelPath(),
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull);
-            sessions.put(key, opened);
-            evictOverflowSessions();
-            return new SessionLease(opened, false, false, "cold");
-        }
-
-        private SessionLease findCompatible(SessionKey requested) {
-            Map.Entry<SessionKey, LlamaCppGgufSession> best = null;
-            for (Map.Entry<SessionKey, LlamaCppGgufSession> entry : sessions.entrySet()) {
-                if (!isCompatibleWarmSession(entry.getKey(), requested)) {
-                    continue;
-                }
-                if (best == null || smallerCompatibleSession(entry.getKey(), best.getKey())) {
-                    best = entry;
-                }
-            }
-            if (best == null) {
-                return null;
-            }
-            SessionKey selected = best.getKey();
-            LlamaCppGgufSession session = sessions.get(selected);
-            daemonLog("session cache compatible hit: " + selected.modelPath().getFileName()
-                    + ", requestedContext=" + requested.context()
-                    + ", warmContext=" + selected.context()
-                    + ", requestedBatch=" + requested.batch()
-                    + ", warmBatch=" + selected.batch()
-                    + ", gpuLayers=" + selected.gpuLayers()
-                    + ", sessions=" + sessions.size());
-            return new SessionLease(session, true, false, "compatible");
-        }
-
-        private static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
-            return warm.modelPath().equals(requested.modelPath())
-                    && warm.context() >= requested.context()
-                    && warm.batch() >= requested.batch()
-                    && warm.microBatch() >= requested.microBatch()
-                    && warm.threads() == requested.threads()
-                    && warm.batchThreads() == requested.batchThreads()
-                    && warm.gpuLayers() == requested.gpuLayers()
-                    && warm.useMmap() == requested.useMmap()
-                    && warm.useMlock() == requested.useMlock()
-                    && warm.swaFull() == requested.swaFull();
-        }
-
-        private static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
-            int contextCompare = Integer.compare(left.context(), right.context());
-            if (contextCompare != 0) {
-                return contextCompare < 0;
-            }
-            int batchCompare = Integer.compare(left.batch(), right.batch());
-            if (batchCompare != 0) {
-                return batchCompare < 0;
-            }
-            return Integer.compare(left.microBatch(), right.microBatch()) < 0;
-        }
-
-        private void evictOverflowSessions() {
-            int maxSessions = daemonMaxSessions();
-            while (sessions.size() > maxSessions) {
-                Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
-                sessions.remove(eldest.getKey());
-                daemonLog("session cache evict: " + eldest.getKey().modelPath().getFileName()
-                        + ", context=" + eldest.getKey().context()
-                        + ", gpuLayers=" + eldest.getKey().gpuLayers()
-                        + ", maxSessions=" + maxSessions);
-                eldest.getValue().close();
-            }
-        }
-
-        @Override
-        public void close() {
-            for (LlamaCppGgufSession session : sessions.values()) {
-                session.close();
-            }
-            sessions.clear();
-            for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
-                try {
-                    backendSession.close();
-                } catch (Exception ignored) {
-                }
-            }
-            javaBackends.clear();
-        }
-    }
-
     static Path llamaLibDir() {
         String configured = firstNonBlank(
                 configValue("aqli.gguf.fast_run.llama_lib_dir"),
@@ -2318,8 +2068,8 @@ public final class GgufStandaloneRunner {
         try {
             Files.createDirectories(daemonRunDir());
             try (ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
-                    GgufSessionCache sessionCache = new GgufSessionCache(GgufFastRun::daemonMaxSessions,
-                            GgufFastRun::daemonLog)) {
+                    GgufSessionCache sessionCache = new GgufSessionCache(GgufStandaloneRunner::daemonMaxSessions,
+                            GgufStandaloneRunner::daemonLog)) {
                 port = server.getLocalPort();
                 writeDaemonPort(port);
                 long idleSeconds = longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
