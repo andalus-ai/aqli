@@ -43,6 +43,44 @@ final class LocalModelIndexResolver {
         return Optional.empty();
     }
 
+    /**
+     * Resolves one reference using a preferred-format lookup, then verifies the
+     * unfiltered result has that format. Unlike {@link #find}, this does not
+     * add an {@code hf:} alias; callers use it when exact-reference semantics
+     * are part of the existing CLI contract.
+     */
+    static Optional<LocalModelIndex.Entry> findExactFormat(
+            String reference,
+            String preferredFormat,
+            Lookup lookup) {
+        if (reference == null || reference.isBlank()
+                || preferredFormat == null || preferredFormat.isBlank()
+                || lookup == null) {
+            return Optional.empty();
+        }
+
+        try {
+            Optional<LocalModelIndex.Entry> preferred = lookup.find(reference, preferredFormat);
+            if (preferred.isPresent() && hasExistingArtifact(preferred.get())) {
+                return preferred;
+            }
+        } catch (Exception ignored) {
+            // Preserve the fallback to an unfiltered index lookup.
+        }
+
+        try {
+            Optional<LocalModelIndex.Entry> fallback = lookup.find(reference, null);
+            if (fallback.isPresent()
+                    && preferredFormat.equalsIgnoreCase(fallback.get().format)
+                    && hasExistingArtifact(fallback.get())) {
+                return fallback;
+            }
+        } catch (Exception ignored) {
+            // The caller owns the final user-facing diagnostic.
+        }
+        return Optional.empty();
+    }
+
     private static boolean hasExistingArtifact(LocalModelIndex.Entry entry) {
         if (entry == null || entry.path == null || entry.path.isBlank()) {
             return false;
