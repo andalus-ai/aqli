@@ -73,7 +73,8 @@ public final class GgufStandaloneRunner {
                 }
             }
             java.util.logging.Logger.getLogger("io.opentelemetry").setLevel(java.util.logging.Level.WARNING);
-            java.util.logging.Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry")
+                    .setLevel(java.util.logging.Level.WARNING);
             java.util.logging.Logger.getLogger("tech.kayys.aljabr").setLevel(java.util.logging.Level.WARNING);
         } catch (Throwable ignored) {
         }
@@ -204,7 +205,8 @@ public final class GgufStandaloneRunner {
                     }
                 }
             } catch (Throwable ignored) {
-                // The full CLI can still resolve unknown references after this lightweight fallback.
+                // The full CLI can still resolve unknown references after this lightweight
+                // fallback.
             }
         }
         return false;
@@ -540,7 +542,8 @@ public final class GgufStandaloneRunner {
                     printExecutionRoute(out, "java-native", runnerName);
                 }
 
-                // Resolve prompt through the same model-specific chat template the llamacpp path uses.
+                // Resolve prompt through the same model-specific chat template the llamacpp
+                // path uses.
                 String formattedPrompt = formatPromptForModel(args.prompt(), modelPath);
                 if (args.debugPrompt()) {
                     out.println("[Raw Prompt Dispatched (Before LLM)]:");
@@ -552,9 +555,10 @@ public final class GgufStandaloneRunner {
                     out.println("--------------------------------------------------");
                 }
 
-                // Translate the resolved prompt and sampling options into Aljabr's request contract.
-                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest =
-                        tech.kayys.aqli.inference.gguf.GgufInferenceRequestFactory.create(
+                // Translate the resolved prompt and sampling options into Aljabr's request
+                // contract.
+                tech.kayys.aljabr.spi.inference.InferenceRequest inferenceRequest = tech.kayys.aqli.inference.gguf.GgufInferenceRequestFactory
+                        .create(
                                 modelPath,
                                 formattedPrompt,
                                 args.prompt(),
@@ -570,8 +574,7 @@ public final class GgufStandaloneRunner {
                 if (sessionCache != null) {
                     backend = sessionCache.acquireJavaBackend(modelPath);
                 } else {
-                    tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
-                            new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+                    tech.kayys.aljabr.gguf.api.GgufBackendProvider provider = new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
                     backend = provider.create(modelPath, Map.of("backend", "java"));
                     shouldClose = true;
                 }
@@ -737,7 +740,8 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         tech.kayys.aljabr.gguf.api.GgufBackend backend = sessionCache != null
                 ? sessionCache.acquireJavaBackend(modelPath)
-                : new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider().create(modelPath, Map.of("backend", "java"));
+                : new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider().create(modelPath,
+                        Map.of("backend", "java"));
         long openNanos = System.nanoTime() - openStartNanos;
         String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt() : "Hello";
         String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
@@ -859,8 +863,8 @@ public final class GgufStandaloneRunner {
             long generateNanos = System.nanoTime() - generateStartNanos;
             long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
             out.printf("Prewarmed llama.cpp GGUF daemon for %s "
-                            + "(backend=%s, nGpuLayers=%d, threads=%d, context=%d, batch=%d, ubatch=%d, "
-                            + "tokens=%d, session=%s, coverage=%s, cpuFallback=%s).%n",
+                    + "(backend=%s, nGpuLayers=%d, threads=%d, context=%d, batch=%d, ubatch=%d, "
+                    + "tokens=%d, session=%s, coverage=%s, cpuFallback=%s).%n",
                     modelPath.getFileName(),
                     session.backendName(),
                     nGpuLayers,
@@ -927,8 +931,8 @@ public final class GgufStandaloneRunner {
             }
             if (!fastRunQuiet() && !args.noInfo()) {
                 out.printf("Using llama.cpp GGUF %s for %s "
-                                + "(backend=%s, nGpuLayers=%d, threads=%d, context=%d, batch=%d, ubatch=%d, "
-                                + "swaFull=%s, cpuFallback=%s%s).%n",
+                        + "(backend=%s, nGpuLayers=%d, threads=%d, context=%d, batch=%d, ubatch=%d, "
+                        + "swaFull=%s, cpuFallback=%s%s).%n",
                         runnerName,
                         modelPath.getFileName(),
                         session.backendName(),
@@ -998,17 +1002,24 @@ public final class GgufStandaloneRunner {
     /**
      * Strips model thinking-channel blocks from the raw output string.
      *
-     * <p>Gemma 4 (and similar models with chain-of-thought) emit thinking tokens in the
-     * form {@code <|channel>thought\n...<channel|>} before the visible response. In normal
-     * (non-raw) mode we discard those blocks so the caller only sees the final answer text.
+     * <p>
+     * Gemma 4 (and similar models with chain-of-thought) emit thinking tokens in
+     * the
+     * form {@code <|channel>thought\n...<channel|>} before the visible response. In
+     * normal
+     * (non-raw) mode we discard those blocks so the caller only sees the final
+     * answer text.
      *
-     * <p>With {@code --raw} this method is bypassed and the literal byte stream is printed.
+     * <p>
+     * With {@code --raw} this method is bypassed and the literal byte stream is
+     * printed.
      */
     static String stripThinkingChannels(String output) {
         if (output == null || output.isEmpty()) {
             return output;
         }
-        // Remove every <|channel>NAME ... <channel|> block including the trailing newline.
+        // Remove every <|channel>NAME ... <channel|> block including the trailing
+        // newline.
         String stripped = output.replaceAll("(?s)<\\|channel>[^<|]*?(?:<\\|[^|>]*\\|>|<channel\\|>)\\n?", "");
         // Trim any leading blank lines that were left after removal.
         return stripped.stripLeading();
@@ -1093,7 +1104,8 @@ public final class GgufStandaloneRunner {
         double generationSpeed = generateSeconds > 0.0d && outputTokens > 0 ? outputTokens / generateSeconds : 0.0d;
         double tokenLatencyMs = outputTokens > 0 ? generateMs / outputTokens : 0.0d;
 
-        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s (generate call)]%n", label, durationSeconds, generationSpeed);
+        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s (generate call)]%n", label, durationSeconds,
+                generationSpeed);
         out.println("Performance Metrics:");
         out.printf("  open time      = %9.2f ms%n", openOrGenerateMillis(openNanos));
         out.printf("  generate call  = %9.2f ms%n", generateMs);
@@ -1117,14 +1129,22 @@ public final class GgufStandaloneRunner {
                     if (backend != null && !backend.isBlank()) {
                         attrs.put("native_backend", backend);
                     }
-                    if (m.containsKey("gpuLayers")) attrs.put("gpuLayers", Long.parseLong(m.get("gpuLayers")));
-                    if (m.containsKey("threads")) attrs.put("threads", Long.parseLong(m.get("threads")));
-                    if (m.containsKey("context")) attrs.put("context", Long.parseLong(m.get("context")));
-                    if (m.containsKey("batch")) attrs.put("batch", Long.parseLong(m.get("batch")));
-                    
-                    if (m.containsKey("modelLoad")) reg.record("aqli.llm.native.load", Double.parseDouble(m.get("modelLoad")), attrs.build());
-                    if (m.containsKey("contextInit")) reg.record("aqli.llm.native.context_init", Double.parseDouble(m.get("contextInit")), attrs.build());
-                    if (m.containsKey("tokenize")) reg.record("aqli.llm.native.tokenize", Double.parseDouble(m.get("tokenize")), attrs.build());
+                    if (m.containsKey("gpuLayers"))
+                        attrs.put("gpuLayers", Long.parseLong(m.get("gpuLayers")));
+                    if (m.containsKey("threads"))
+                        attrs.put("threads", Long.parseLong(m.get("threads")));
+                    if (m.containsKey("context"))
+                        attrs.put("context", Long.parseLong(m.get("context")));
+                    if (m.containsKey("batch"))
+                        attrs.put("batch", Long.parseLong(m.get("batch")));
+
+                    if (m.containsKey("modelLoad"))
+                        reg.record("aqli.llm.native.load", Double.parseDouble(m.get("modelLoad")), attrs.build());
+                    if (m.containsKey("contextInit"))
+                        reg.record("aqli.llm.native.context_init", Double.parseDouble(m.get("contextInit")),
+                                attrs.build());
+                    if (m.containsKey("tokenize"))
+                        reg.record("aqli.llm.native.tokenize", Double.parseDouble(m.get("tokenize")), attrs.build());
                     if (m.containsKey("prefill")) {
                         double prefillMs = nativeMillis(m, "prefill");
                         int promptTokens = parseCount(m.get("promptTokens"));
@@ -1567,7 +1587,8 @@ public final class GgufStandaloneRunner {
                 Process process = new ProcessBuilder("/usr/sbin/sysctl", "-n", "hw.perflevel0.logicalcpu")
                         .redirectError(ProcessBuilder.Redirect.DISCARD)
                         .start();
-                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(process.getInputStream()))) {
                     String line = reader.readLine();
                     if (line != null && !line.isBlank()) {
                         int pCores = Integer.parseInt(line.trim());
@@ -1598,8 +1619,10 @@ public final class GgufStandaloneRunner {
         int maxAutoContext = fastRunMaxAutoContext();
         int promptBytes = prompt == null ? 0 : prompt.getBytes(StandardCharsets.UTF_8).length;
         int requested = (int) Math.min(Integer.MAX_VALUE, (long) promptBytes + Math.max(1, maxTokens) + 128L);
-        // Lower bound of 512: empirically, Metal FA kernel iterates over the full allocated
-        // KV buffer (not just used slots), so larger contexts hurt short-query performance.
+        // Lower bound of 512: empirically, Metal FA kernel iterates over the full
+        // allocated
+        // KV buffer (not just used slots), so larger contexts hurt short-query
+        // performance.
         // 512 is the sweet spot for typical short-to-medium queries on M4.
         return nextPowerOfTwoBounded(requested, 512, maxAutoContext);
     }
@@ -1775,7 +1798,8 @@ public final class GgufStandaloneRunner {
     }
 
     /**
-     * Quiet mode: suppress all verbose run headers, execution-route lines, performance
+     * Quiet mode: suppress all verbose run headers, execution-route lines,
+     * performance
      * metrics blocks, and the 'Using llama.cpp GGUF...' status line. Only the raw
      * generated tokens are printed to stdout. Activated by system property
      * {@code aqli.gguf.fast_run.quiet=true} or env {@code AQLI_GGUF_FAST_QUIET=1}.
@@ -1841,9 +1865,11 @@ public final class GgufStandaloneRunner {
 
     private static final class GgufSessionCache implements AutoCloseable {
         private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
-        private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f, true);
+        private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f,
+                true);
 
-        private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath) throws Exception {
+        private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath)
+                throws Exception {
             Path key = modelPath.toAbsolutePath().normalize();
             tech.kayys.aljabr.gguf.api.GgufBackend existing = javaBackends.get(key);
             if (existing != null) {
@@ -1851,8 +1877,7 @@ public final class GgufStandaloneRunner {
                 return existing;
             }
             daemonLog("java backend cache miss: " + key.getFileName());
-            tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
-                    new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
+            tech.kayys.aljabr.gguf.api.GgufBackendProvider provider = new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
             tech.kayys.aljabr.gguf.api.GgufBackend opened = provider.create(key, Map.of("backend", "java"));
             javaBackends.put(key, opened);
             return opened;
@@ -2463,7 +2488,8 @@ public final class GgufStandaloneRunner {
         return isMacOs() ? "launchctl" : "nohup";
     }
 
-    private static boolean startDetachedDaemonWithLaunchctl(List<String> command) throws IOException, InterruptedException {
+    private static boolean startDetachedDaemonWithLaunchctl(List<String> command)
+            throws IOException, InterruptedException {
         String launchctl = "/bin/launchctl";
         if (!Files.isExecutable(Path.of(launchctl))) {
             return false;
