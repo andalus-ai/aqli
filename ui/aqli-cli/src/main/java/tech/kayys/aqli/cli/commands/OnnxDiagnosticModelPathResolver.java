@@ -18,12 +18,12 @@ final class OnnxDiagnosticModelPathResolver {
 
     static Path resolve(String finalLocalPath, String modelId, Function<String, Path> existingPath) {
         for (String candidate : new String[] {finalLocalPath, modelId}) {
+            if (candidate == null || candidate.isBlank()) {
+                continue;
+            }
             Path direct = existingPath.apply(candidate);
             if (direct != null) {
                 return direct;
-            }
-            if (candidate == null || candidate.isBlank()) {
-                continue;
             }
             try {
                 Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(candidate, "onnx");
