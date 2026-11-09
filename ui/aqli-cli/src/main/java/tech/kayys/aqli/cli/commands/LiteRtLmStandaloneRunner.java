@@ -126,7 +126,7 @@ public final class LiteRtLmStandaloneRunner {
     static int run(String[] args) {
         try {
             LiteRTRunArguments parsed = LiteRTRunArguments.parse(args, System.getProperty("aqli.litert.fast_run.backend", "gpu"));
-            if (!parsed.supported()) {
+            if (!parsed.isSupportedRequest()) {
                 return FALLBACK_TO_FULL_CLI;
             }
             if (daemonEnabled()) {
@@ -163,7 +163,7 @@ public final class LiteRtLmStandaloneRunner {
             }
             String[] runArgs = prewarmRunArgs(args);
             LiteRTRunArguments parsed = LiteRTRunArguments.parse(runArgs, System.getProperty("aqli.litert.fast_run.backend", "gpu"));
-            if (!parsed.supported()) {
+            if (!parsed.isSupportedRequest()) {
                 printPrewarmUsage(System.err);
                 return 2;
             }
@@ -1590,7 +1590,7 @@ public final class LiteRtLmStandaloneRunner {
                 rawArgs[i] = readString(in);
             }
             LiteRTRunArguments parsed = LiteRTRunArguments.parse(rawArgs);
-            if (!parsed.supported()) {
+            if (!parsed.isSupportedRequest()) {
                 writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
