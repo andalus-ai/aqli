@@ -1340,7 +1340,7 @@ public class RunCommand implements Runnable {
             }
             // Propagate --java / --llamacpp / --engine into request metadata so that
             // GgufBackendSelection (Aljabr) can route to the correct GGUF backend
-            // in the full CDI path (not just the standalone GgufFastRun path).
+            // in the full CDI path (not just the standalone GgufStandaloneRunner path).
             String ggufEngineHint = requestedGgufEngine();
             if (ggufEngineHint != null && !ggufEngineHint.isBlank()) {
                 requestBuilder.metadata("gguf.backend", ggufEngineHint);
@@ -2829,13 +2829,12 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        System.out.println("ONNX diagnostics");
-        System.out.println("================");
-        System.out.println("Requested model: " + nullToDash(modelId));
-        System.out.println("Resolved path: " + nullToDash(finalLocalPath));
-
         Path diagnosticPath = resolveOnnxDiagnosticPath(modelId, finalLocalPath);
         if (diagnosticPath == null) {
+            System.out.println("ONNX diagnostics");
+            System.out.println("================");
+            System.out.println("Requested model: " + nullToDash(modelId));
+            System.out.println("Resolved path: " + nullToDash(finalLocalPath));
             System.err.println();
             System.err.println("Error: no local ONNX path was resolved for diagnostics.");
             System.err.println("Pull the model first or pass --modelDir /path/to/repository.");
@@ -2843,170 +2842,14 @@ public class RunCommand implements Runnable {
         }
 
         OnnxModelDiagnostics.Report report = OnnxModelDiagnostics.inspect(diagnosticPath);
-        System.out.println("Diagnostic path: " + displayPath(diagnosticPath));
-        System.out.println("Model directory: " + (report.modelDir() == null ? "-" : displayPath(report.modelDir())));
-        System.out.println("Pipeline: " + nullToDash(report.pipelineType()));
-        System.out.println("Model type: " + nullToDash(report.modelType()));
-        if (!report.architectures().isEmpty()) {
-            System.out.println("Architectures: " + String.join(", ", report.architectures()));
-        }
-        if (!report.capabilities().isEmpty()) {
-            System.out.println("Capabilities: " + String.join(", ", report.capabilities()));
-        }
-        if (report.genAiInfo() != null) {
-            printGenAiDiagnostics(report.genAiInfo());
-        }
-        int exitCode = report.graphs().isEmpty() ? 1 : 0;
-
-        System.out.println();
-        System.out.println("Graphs");
-        System.out.println("------");
-        if (report.graphs().isEmpty()) {
-            System.out.println("(none)");
-        } else {
-            for (OnnxModelDiagnostics.GraphInfo graph : report.graphs()) {
-                List<String> tags = new ArrayList<>();
-                tags.add(graph.role());
-                tags.add(graph.quantization());
-                if (graph.externalData()) {
-                    tags.add("external-data");
-                }
-                System.out.println("- " + graph.relativePath()
-                        + " [" + String.join(", ", tags) + ", " + formatBytes(graph.sizeBytes()) + "]");
-                printOnnxGraphIo(graph);
-            }
-        }
-
-        System.out.println();
-        System.out.println("Sidecars");
-        System.out.println("--------");
-        System.out.println(report.sidecars().isEmpty() ? "(none)" : formatDiagnosticList(report.sidecars(), 12));
-
+        int exitCode = OnnxModelReportRenderer.print(
+                report, modelId, finalLocalPath, diagnosticPath, this::displayPath, System.out);
         if (report.isPaddleOcrVl()) {
             exitCode = Math.max(exitCode, printPaddleOcrVlPreflight(report));
         }
-
-        if (!report.warnings().isEmpty()) {
-            System.out.println();
-            System.out.println("Warnings");
-            System.out.println("--------");
-            for (String warning : report.warnings()) {
-                System.out.println("- " + warning);
-            }
-        }
-
-        if (!report.recommendations().isEmpty()) {
-            System.out.println();
-            System.out.println("Next steps");
-            System.out.println("----------");
-            for (String recommendation : report.recommendations()) {
-                System.out.println("- " + recommendation);
-            }
-        }
-
         System.out.println();
         System.out.println(exitCode == 0 ? "Status: inspected" : "Status: attention needed");
         return exitCode;
-    }
-
-    private void printGenAiDiagnostics(OnnxModelDiagnostics.GenAiInfo info) {
-        List<String> details = new ArrayList<>();
-        if (info.type() != null && !info.type().isBlank()) {
-            details.add("type=" + info.type());
-        }
-        if (info.layers() > 0) {
-            details.add("layers=" + info.layers());
-        }
-        if (info.attentionHeads() > 0) {
-            details.add("heads=" + info.attentionHeads());
-        }
-        if (info.keyValueHeads() > 0) {
-            details.add("kv_heads=" + info.keyValueHeads());
-        }
-        if (info.headSize() > 0) {
-            details.add("head_size=" + info.headSize());
-        }
-        if (info.contextLength() > 0) {
-            details.add("ctx=" + info.contextLength());
-        }
-        if (info.vocabSize() > 0) {
-            details.add("vocab=" + info.vocabSize());
-        }
-        if (!details.isEmpty()) {
-            System.out.println("ORT GenAI: " + String.join(", ", details));
-        }
-        System.out.println("GenAI IO: inputs="
-                + info.inputIdsName() + ", " + info.attentionMaskName() + ", " + info.positionIdsName()
-                + "; kv=" + info.pastKeyNameTemplate() + " / " + info.pastValueNameTemplate()
-                + "; outputs=" + info.logitsName()
-                + ", " + info.presentKeyNameTemplate() + " / " + info.presentValueNameTemplate());
-    }
-
-    private void printOnnxGraphIo(OnnxModelDiagnostics.GraphInfo graph) {
-        String ioStatus = graph.ioStatus();
-        if (ioStatus != null && !ioStatus.isBlank() && !"parsed".equalsIgnoreCase(ioStatus)) {
-            System.out.println("  io: " + ioStatus);
-        }
-        if (!graph.inputs().isEmpty()) {
-            System.out.println("  inputs: " + formatTensorIoSummary(graph.inputs()));
-        }
-        if (!graph.outputs().isEmpty()) {
-            System.out.println("  outputs: " + formatTensorIoSummary(graph.outputs()));
-        }
-    }
-
-    private String formatTensorIoSummary(List<OnnxModelDiagnostics.TensorIoInfo> tensors) {
-        Map<String, List<OnnxModelDiagnostics.TensorIoInfo>> grouped = new LinkedHashMap<>();
-        List<OnnxModelDiagnostics.TensorIoInfo> direct = new ArrayList<>();
-        for (OnnxModelDiagnostics.TensorIoInfo tensor : tensors) {
-            String group = tensorIoGroup(tensor.name());
-            if (group == null) {
-                direct.add(tensor);
-            } else {
-                grouped.computeIfAbsent(group, ignored -> new ArrayList<>()).add(tensor);
-            }
-        }
-
-        List<String> parts = new ArrayList<>();
-        int maxDirect = grouped.isEmpty() ? 10 : 6;
-        int directLimit = Math.min(direct.size(), maxDirect);
-        for (int i = 0; i < directLimit; i++) {
-            parts.add(formatTensorIo(direct.get(i)));
-        }
-        if (direct.size() > directLimit) {
-            parts.add("+" + (direct.size() - directLimit) + " more tensors");
-        }
-        for (Map.Entry<String, List<OnnxModelDiagnostics.TensorIoInfo>> entry : grouped.entrySet()) {
-            List<OnnxModelDiagnostics.TensorIoInfo> values = entry.getValue();
-            if (values.isEmpty()) {
-                continue;
-            }
-            parts.add(entry.getKey()
-                    + " (" + values.size()
-                    + " tensors, e.g. " + formatTensorIo(values.get(0)) + ")");
-        }
-        return parts.isEmpty() ? "(none)" : String.join("; ", parts);
-    }
-
-    private String tensorIoGroup(String name) {
-        if (name == null) {
-            return null;
-        }
-        if (name.startsWith("past_key_values.")) {
-            return "past_key_values.*";
-        }
-        if (name.startsWith("present.")) {
-            return "present.*";
-        }
-        if (name.startsWith("past.")) {
-            return "past.*";
-        }
-        return null;
-    }
-
-    private String formatTensorIo(OnnxModelDiagnostics.TensorIoInfo tensor) {
-        String shape = tensor.shape().isEmpty() ? "[]" : "[" + String.join(",", tensor.shape()) + "]";
-        return tensor.name() + ":" + tensor.elementType() + shape;
     }
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
@@ -3391,30 +3234,7 @@ public class RunCommand implements Runnable {
     }
 
     private Path resolveOnnxDiagnosticPath(String modelId, String finalLocalPath) {
-        for (String candidate : List.of(finalLocalPath, modelId)) {
-            Path direct = existingCliPath(candidate);
-            if (direct != null) {
-                return direct;
-            }
-            if (candidate == null || candidate.isBlank()) {
-                continue;
-            }
-            try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(candidate, "onnx");
-                if (indexed.isEmpty()) {
-                    indexed = LocalModelIndex.find(candidate);
-                }
-                if (indexed.isPresent() && indexed.get().path != null) {
-                    Path indexedPath = existingCliPath(indexed.get().path);
-                    if (indexedPath != null) {
-                        return indexedPath;
-                    }
-                }
-            } catch (Exception ignored) {
-                // Continue with the next candidate.
-            }
-        }
-        return null;
+        return OnnxDiagnosticModelPathResolver.resolve(finalLocalPath, modelId, this::existingCliPath);
     }
 
     private List<String> normalizedInputImagePaths() {
@@ -4982,26 +4802,7 @@ public class RunCommand implements Runnable {
     }
 
     private String formatForLocalModelPath(Path modelPath) {
-        if (modelPath == null || modelPath.getFileName() == null) {
-            return null;
-        }
-        String name = modelPath.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".gguf")) {
-            return "gguf";
-        }
-        if (name.endsWith(".litertlm") || name.endsWith(".tflite") || name.endsWith(".task")) {
-            return "litert";
-        }
-        if (name.endsWith(".onnx")) {
-            return "onnx";
-        }
-        if (name.endsWith(".safetensors") || name.endsWith(".safetensor")) {
-            return "safetensors";
-        }
-        if (name.endsWith(".pt") || name.endsWith(".pth") || name.endsWith(".pts")) {
-            return "torchscript";
-        }
-        return null;
+        return ModelFormatResolver.formatForPath(modelPath);
     }
 
     private boolean shouldPreferOnnxResolution(String requestedModel, String requestedFormat, String requestedProvider) {
@@ -5027,7 +4828,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isOnnxProvider(String requestedProvider) {
-        return requestedProvider != null && "onnx".equalsIgnoreCase(requestedProvider.trim());
+        return ModelFormatResolver.isOnnxProvider(requestedProvider);
     }
 
     private boolean isOnnxFormat(String requestedFormat) {
@@ -5035,27 +4836,11 @@ public class RunCommand implements Runnable {
     }
 
     private String canonicalModelFormat(String requestedFormat) {
-        if (requestedFormat == null || requestedFormat.isBlank()) {
-            return null;
-        }
-        return switch (requestedFormat.trim().toLowerCase(Locale.ROOT)) {
-            case "onnx" -> "onnx";
-            case "safetensor", "safetensors" -> "safetensors";
-            case "litert", "tflite", "task", "litertlm" -> "litert";
-            case "gguf" -> "gguf";
-            case "torchscript", "pytorch", "pt", "pth", "pts" -> "torchscript";
-            default -> requestedFormat.trim().toLowerCase(Locale.ROOT);
-        };
+        return ModelFormatResolver.canonicalFormat(requestedFormat);
     }
 
     private boolean looksLikeOnnxModelRef(String requestedModel) {
-        String normalized = stripHfPrefix(requestedModel).toLowerCase(Locale.ROOT);
-        return normalized.startsWith("onnx-community/")
-                || normalized.endsWith("-onnx")
-                || normalized.endsWith("_onnx")
-                || normalized.contains("/onnx")
-                || normalized.contains("-onnx-")
-                || normalized.contains("_onnx_");
+        return ModelFormatResolver.looksLikeOnnxModelReference(requestedModel);
     }
 
     private String stripHfPrefix(String value) {
@@ -5121,37 +4906,19 @@ public class RunCommand implements Runnable {
     }
 
     private Optional<LocalModelIndex.Entry> findLocalIndexEntry(String repoId, String preferredFormat) {
-        for (String ref : List.of(repoId, "hf:" + repoId)) {
-            try {
-                Optional<LocalModelIndex.Entry> entry = preferredFormat == null
+        return LocalModelIndexResolver.find(
+                repoId,
+                preferredFormat,
+                (ref, format) -> format == null
                         ? LocalModelIndex.find(ref)
-                        : LocalModelIndex.find(ref, preferredFormat);
-                if (entry.isPresent() && entry.get().path != null && Files.exists(Path.of(entry.get().path))) {
-                    return entry;
-                }
-            } catch (Exception ignored) {
-                // Best effort lookup; caller will produce the final diagnostic.
-            }
-        }
-        return Optional.empty();
+                        : LocalModelIndex.find(ref, format));
     }
 
     private String hfRepoIdFromModelRef(String requestedModel) {
-        String value = stripHfPrefix(requestedModel);
-        if (value.isBlank()
-                || value.contains("://")
-                || value.startsWith("/")
-                || value.startsWith(".")
-                || value.startsWith("~")
-                || value.contains("\\")
-                || !value.contains("/")) {
-            return null;
-        }
-        String[] parts = value.split("/");
-        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-            return null;
-        }
-        return value;
+        ModelSourceResolver.Source source = ModelSourceResolver.classify(requestedModel);
+        return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
+                ? source.reference()
+                : null;
     }
 
     private boolean isCloudProviderName(String provider) {
@@ -5951,19 +5718,13 @@ public class RunCommand implements Runnable {
     }
 
     boolean shouldTryStandaloneLiteRtFastPath(String localPath) {
-        if (routeReportJson) {
-            return false;
-        }
-        if (!Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true"))) {
-            return false;
-        }
-        if (prompt == null || prompt.isBlank()) {
-            return false;
-        }
-        if (providerId != null && !providerId.isBlank() && !isLiteRtProviderAlias(providerId)) {
-            return false;
-        }
-        return looksLikeLiteRtLmPath(localPath) && isSimpleStandaloneTextRun();
+        return StandaloneFastRunPolicy.shouldTryLiteRt(
+                routeReportJson,
+                Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true")),
+                prompt,
+                providerId,
+                looksLikeLiteRtLmPath(localPath),
+                isSimpleStandaloneTextRun());
     }
 
     String[] buildStandaloneLiteRtFastRunArgs(String localPath) {
@@ -5990,8 +5751,8 @@ public class RunCommand implements Runnable {
         if (!shouldTryStandaloneLiteRtFastPath(localPath)) {
             return false;
         }
-        int status = LiteRtLmFastRun.run(buildStandaloneLiteRtFastRunArgs(localPath));
-        if (status == 42) {
+        int status = LiteRtLmStandaloneRunner.run(buildStandaloneLiteRtFastRunArgs(localPath));
+        if (StandaloneRunProtocol.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
@@ -6026,8 +5787,8 @@ public class RunCommand implements Runnable {
             return false;
         }
         providerId = selection.provider();
-        int status = LiteRtLmFastRun.run(buildStandaloneLiteRtFastRunArgs(selection.localPath()));
-        if (status == 42) {
+        int status = LiteRtLmStandaloneRunner.run(buildStandaloneLiteRtFastRunArgs(selection.localPath()));
+        if (StandaloneRunProtocol.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
@@ -6043,28 +5804,15 @@ public class RunCommand implements Runnable {
     }
 
     boolean shouldTryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit, String requestedProviderId) {
-        if (!Boolean.parseBoolean(System.getProperty("aqli.cli.enable_cached_gemma4_litert_fast_path", "true"))) {
-            return false;
-        }
-        if (modelId == null || modelId.isBlank()) {
-            return false;
-        }
-        if (modelFile != null && !modelFile.isBlank()) {
-            return false;
-        }
-        if (modelDir != null && !modelDir.isBlank()) {
-            return false;
-        }
-        if (modelPath != null && !modelPath.isEmpty()) {
-            return false;
-        }
-        if (requestedProviderId != null && !requestedProviderId.isBlank() && !isLiteRtProviderAlias(requestedProviderId)) {
-            return false;
-        }
-        if (providerExplicit && !isLiteRtProviderAlias(requestedProviderId)) {
-            return false;
-        }
-        return isSimpleStandaloneTextRun();
+        return StandaloneFastRunPolicy.shouldTryCachedGemma4LiteRt(
+                Boolean.parseBoolean(System.getProperty("aqli.cli.enable_cached_gemma4_litert_fast_path", "true")),
+                modelId,
+                modelFile,
+                modelDir,
+                modelPath,
+                requestedProviderId,
+                providerExplicit,
+                isSimpleStandaloneTextRun());
     }
 
     private Optional<LocalModelIndex.Entry> findSafetensorIndexEntry(String modelRef) {
@@ -6098,30 +5846,27 @@ public class RunCommand implements Runnable {
     }
 
     boolean shouldTryStandaloneGgufFastPath() {
-        if (routeReportJson) {
-            return false;
-        }
-        if (prompt == null || prompt.isBlank()) {
-            return false;
-        }
-        if (providerId != null && !providerId.isBlank() && !isGgufProviderAlias(providerId)) {
-            return false;
-        }
-        return isGgufProviderAlias(providerId)
-                || isGgufPluginAlias(pluginId)
-                || (hasExplicitGgufEngine() && (!requestsSafetensorModel() || explicitLlamaCppEngine()))
-                || forceGguf
-                || isGgufFormat(format)
-                || looksLikeGgufPath(modelFile)
-                || looksLikeGgufPath(modelPath)
-                || looksLikeGgufPath(modelId);
+        return StandaloneFastRunPolicy.shouldTryGguf(
+                routeReportJson,
+                prompt,
+                providerId,
+                isGgufProviderAlias(providerId),
+                isGgufPluginAlias(pluginId),
+                hasExplicitGgufEngine(),
+                requestsSafetensorModel(),
+                explicitLlamaCppEngine(),
+                forceGguf,
+                isGgufFormat(format),
+                looksLikeGgufPath(modelFile),
+                looksLikeGgufPath(modelPath),
+                looksLikeGgufPath(modelId));
     }
 
-    String[] buildStandaloneGgufFastRunArgs() {
-        return buildStandaloneGgufFastRunArgs(false);
+    String[] buildStandaloneGgufStandaloneRunnerArgs() {
+        return buildStandaloneGgufStandaloneRunnerArgs(false);
     }
 
-    String[] buildStandaloneGgufFastRunArgs(boolean suppressBanner) {
+    String[] buildStandaloneGgufStandaloneRunnerArgs(boolean suppressBanner) {
         List<String> args = new java.util.ArrayList<>();
         args.add("run");
         if (suppressBanner || noBanner) {
@@ -6187,13 +5932,13 @@ public class RunCommand implements Runnable {
         if (!shouldTryStandaloneGgufFastPath()) {
             return false;
         }
-        int status = GgufFastRun.run(buildStandaloneGgufFastRunArgs(suppressBanner));
-        if (GgufFastRun.isFallbackToFullCliStatus(status)) {
+        int status = GgufStandaloneRunner.run(buildStandaloneGgufStandaloneRunnerArgs(suppressBanner));
+        if (GgufStandaloneRunner.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
-            if (GgufFastRun.hardExitAfterRun()) {
-                GgufFastRun.hardExitProcess(0);
+            if (GgufStandaloneRunner.hardExitAfterRun()) {
+                GgufStandaloneRunner.hardExitProcess(0);
             }
             requestProcessExit();
             return true;
@@ -6467,7 +6212,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isGgufFormat(String value) {
-        return value != null && value.trim().equalsIgnoreCase("gguf");
+        return ModelFormatResolver.isGgufFormat(value);
     }
 
     private boolean looksLikeGgufPath(String value) {
@@ -6475,17 +6220,7 @@ public class RunCommand implements Runnable {
     }
 
     private String normalizeRequestedProvider(String rawProviderId) {
-        if (rawProviderId == null) {
-            return null;
-        }
-        String trimmed = rawProviderId.trim();
-        if (trimmed.isEmpty()) {
-            return trimmed;
-        }
-        return switch (trimmed.toLowerCase(Locale.ROOT)) {
-            case "torch", "torchscript", "pytorch" -> "libtorch";
-            default -> trimmed.toLowerCase(Locale.ROOT);
-        };
+        return ModelFormatResolver.normalizeProvider(rawProviderId);
     }
 
     private String inferProviderFromIndex(LocalModelIndex.Entry entry) {
@@ -6503,18 +6238,7 @@ public class RunCommand implements Runnable {
     }
 
     private String providerForFormat(String format) {
-        if (format == null) {
-            return null;
-        }
-        String normalized = format.trim().toLowerCase(java.util.Locale.ROOT);
-        return switch (normalized) {
-            case "gguf" -> "gguf";
-            case "safetensors", "safetensor" -> "safetensor";
-            case "litert", "task", "tflite" -> "litert";
-            case "onnx" -> "onnx";
-            case "torchscript", "pytorch" -> "libtorch";
-            default -> null;
-        };
+        return ModelFormatResolver.providerForFormat(format);
     }
 
     private record AudioQualityPreset(String format, Integer bitrateKbps, Integer flacCompression) {
@@ -6623,7 +6347,7 @@ public class RunCommand implements Runnable {
 
         try {
             Path originalPath = Path.of(localPath).toAbsolutePath().normalize();
-            Optional<Path> directArtifact = resolveDirectLibtorchArtifact(originalPath);
+            Optional<Path> directArtifact = ProviderArtifactResolver.resolveLibtorchArtifact(originalPath);
             if (directArtifact.isPresent()) {
                 Path resolved = directArtifact.get().toAbsolutePath().normalize();
                 if (!resolved.equals(originalPath)) {
@@ -6635,22 +6359,26 @@ public class RunCommand implements Runnable {
             // Fall through to registry-based lookup and explicit compatibility hint.
         }
 
-        Optional<ModelInfo> alternative = findLocalArtifactForProvider(requestedModelId, localPath, normalizedProvider);
+        Optional<Path> alternative;
+        try {
+            alternative = ProviderArtifactResolver.findLibtorchArtifact(
+                    sdk.listModels().stream()
+                            .map(model -> new ProviderArtifactResolver.Artifact(
+                                    model.getModelId(),
+                                    model.getShortId(),
+                                    extractModelPath(model),
+                                    model.getFormat()))
+                            .toList(),
+                    requestedModelId,
+                    localPath);
+        } catch (Exception ignored) {
+            alternative = Optional.empty();
+        }
         if (alternative.isPresent()) {
-            String candidatePath = extractModelPath(alternative.get());
-            if (candidatePath != null && !candidatePath.isBlank()) {
-                try {
-                    Optional<Path> resolved = resolveDirectLibtorchArtifact(Path.of(candidatePath));
-                    if (resolved.isPresent()) {
-                        Path artifactPath = resolved.get().toAbsolutePath().normalize();
-                        System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
-                                + artifactPath);
-                        return new ProviderLocalPathResolution(true, artifactPath.toString());
-                    }
-                } catch (Exception ignored) {
-                    // Keep the explicit error below if the candidate is not actually runnable.
-                }
-            }
+            Path artifactPath = alternative.get().toAbsolutePath().normalize();
+            System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
+                    + artifactPath);
+            return new ProviderLocalPathResolution(true, artifactPath.toString());
         }
 
         if (isSafetensorCheckpointDir(localPath) || isSafetensorWeightFile(localPath)) {
@@ -6662,119 +6390,6 @@ public class RunCommand implements Runnable {
                 + "(.pt, .pts, .pth, .bin).");
         System.err.println("Resolved local path: " + localPath);
         return new ProviderLocalPathResolution(false, localPath);
-    }
-
-    private Optional<ModelInfo> findLocalArtifactForProvider(
-            String requestedModelId,
-            String localPath,
-            String currentProvider) {
-        if (!"libtorch".equalsIgnoreCase(currentProvider)) {
-            return Optional.empty();
-        }
-        try {
-            List<ModelInfo> models = sdk.listModels();
-            if (models.isEmpty()) {
-                return Optional.empty();
-            }
-
-            String canonicalModelId = models.stream()
-                    .filter(model -> requestedModelId != null && (requestedModelId.equalsIgnoreCase(model.getModelId())
-                            || requestedModelId.equalsIgnoreCase(model.getShortId())))
-                    .map(ModelInfo::getModelId)
-                    .findFirst()
-                    .orElseGet(() -> models.stream()
-                            .filter(model -> {
-                                String candidatePath = extractModelPath(model);
-                                return candidatePath != null && candidatePath.equals(localPath);
-                            })
-                            .map(ModelInfo::getModelId)
-                            .findFirst()
-                            .orElse(requestedModelId));
-
-            return models.stream()
-                    .filter(model -> canonicalModelId != null && canonicalModelId.equalsIgnoreCase(model.getModelId()))
-                    .filter(model -> {
-                        String candidatePath = extractModelPath(model);
-                        if (candidatePath == null || candidatePath.equals(localPath)) {
-                            return false;
-                        }
-                        try {
-                            return resolveDirectLibtorchArtifact(Path.of(candidatePath)).isPresent();
-                        } catch (Exception ignored) {
-                            return false;
-                        }
-                    })
-                    .sorted((left, right) -> Integer.compare(
-                            libtorchArtifactPriority(extractModelPath(right), right.getFormat()),
-                            libtorchArtifactPriority(extractModelPath(left), left.getFormat())))
-                    .findFirst();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private Optional<Path> resolveDirectLibtorchArtifact(Path root) {
-        if (root == null || !Files.exists(root)) {
-            return Optional.empty();
-        }
-        if (Files.isRegularFile(root) && isLibtorchModelFile(root)) {
-            return Optional.of(root);
-        }
-        if (!Files.isDirectory(root)) {
-            return Optional.empty();
-        }
-        try (var paths = Files.walk(root, 3)) {
-            return paths
-                    .filter(Files::isRegularFile)
-                    .filter(this::isLibtorchModelFile)
-                    .sorted((left, right) -> Integer.compare(libtorchArtifactPriority(right, null),
-                            libtorchArtifactPriority(left, null)))
-                    .findFirst();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private boolean isLibtorchModelFile(Path path) {
-        if (path == null) {
-            return false;
-        }
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".pt")
-                || name.endsWith(".pts")
-                || name.endsWith(".pth")
-                || name.endsWith(".bin");
-    }
-
-    private int libtorchArtifactPriority(Path path, String format) {
-        if (path == null) {
-            return 0;
-        }
-        return libtorchArtifactPriority(path.toString(), format);
-    }
-
-    private int libtorchArtifactPriority(String path, String format) {
-        int score = 0;
-        String normalizedPath = path == null ? "" : path.toLowerCase(Locale.ROOT);
-        String normalizedFormat = format == null ? "" : format.toLowerCase(Locale.ROOT);
-        if (normalizedFormat.equals("torchscript")) {
-            score += 50;
-        } else if (normalizedFormat.equals("pytorch")) {
-            score += 20;
-        }
-        if (normalizedPath.contains("/libtorchscript/")) {
-            score += 40;
-        }
-        if (normalizedPath.endsWith(".pt")) {
-            score += 30;
-        } else if (normalizedPath.endsWith(".pts")) {
-            score += 25;
-        } else if (normalizedPath.endsWith(".pth")) {
-            score += 15;
-        } else if (normalizedPath.endsWith(".bin")) {
-            score += 10;
-        }
-        return score;
     }
 
     private boolean isSafetensorWeightFile(String localPath) {
@@ -6828,10 +6443,10 @@ public class RunCommand implements Runnable {
             System.out.println("--------------------------------------------------");
             System.out.println("[Decoded/Sanitized Output]:");
             System.out.println("--------------------------------------------------");
-            System.out.println(ChatUIRenderer.GREEN + GgufFastRun.stripThinkingChannels(response.getContent()) + ChatUIRenderer.RESET);
+            System.out.println(ChatUIRenderer.GREEN + GgufStandaloneRunner.stripThinkingChannels(response.getContent()) + ChatUIRenderer.RESET);
             System.out.println("--------------------------------------------------");
         } else {
-            System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufFastRun.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
+            System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufStandaloneRunner.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
         }
         if (response.getSessionId() != null && !response.getSessionId().isBlank()) {
             System.out.println(ChatUIRenderer.DIM + "Session: " + response.getSessionId() + ChatUIRenderer.RESET);
