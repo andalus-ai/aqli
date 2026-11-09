@@ -5663,23 +5663,8 @@ public class RunCommand implements Runnable {
     }
 
     String[] buildStandaloneLiteRtRunArgs(String localPath) {
-        List<String> args = new java.util.ArrayList<>();
-        args.add("run");
-        args.add("--modelFile");
-        args.add(localPath);
-        args.add("--prompt");
-        args.add(prompt);
-        args.add("--max-tokens");
-        args.add(Integer.toString(maxTokens));
-        args.add("--temperature");
-        args.add(Double.toString(temperature));
-        args.add("--top-k");
-        args.add(Integer.toString(topK));
-        args.add("--top-p");
-        args.add(Double.toString(topP));
-        args.add("--provider");
-        args.add("litert");
-        return args.toArray(String[]::new);
+        return LiteRtStandaloneRunArguments.toArgs(
+                localPath, prompt, maxTokens, temperature, topK, topP);
     }
 
     private boolean tryStandaloneLiteRtRun(String localPath) {
