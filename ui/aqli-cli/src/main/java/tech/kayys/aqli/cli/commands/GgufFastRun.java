@@ -2904,130 +2904,37 @@ public final class GgufFastRun {
         }
 
         static FastArgs parse(String[] args) {
-            FastArgs parsed = new FastArgs();
-            if (args.length == 0 || !"run".equals(args[0])) {
-                parsed.supported = false;
-                return parsed;
+            tech.kayys.aqli.inference.gguf.GgufRunArguments parsed =
+                    tech.kayys.aqli.inference.gguf.GgufRunArguments.parse(
+                            args,
+                            stringConfig("aqli.gguf.fast_run.backend", "metal"),
+                            firstNonBlank(
+                                    configValue("aqli.gguf.fast_run.engine"),
+                                    System.getenv("AQLI_GGUF_ENGINE"),
+                                    "auto"));
+            FastArgs result = new FastArgs();
+            result.model = parsed.model();
+            result.modelFile = parsed.modelFile();
+            result.prompt = parsed.prompt();
+            result.maxTokens = parsed.maxTokens();
+            result.temperature = parsed.temperature();
+            result.topP = parsed.topP();
+            result.topK = parsed.topK();
+            result.repeatPenalty = parsed.repeatPenalty();
+            result.provider = parsed.provider();
+            result.backend = parsed.backend();
+            result.engine = parsed.engine();
+            result.banner = parsed.banner();
+            result.noInfo = parsed.noInfo();
+            result.raw = parsed.raw();
+            result.debugPrompt = parsed.debugPrompt();
+            result.verbose = parsed.verbose();
+            result.supported = parsed.optionParsingSupported();
+            if (result.verbose) {
+                System.setProperty("aqli.verbose", "true");
+                System.setProperty("aljabr.metal.verbose", "true");
             }
-            for (int i = 1; i < args.length; i++) {
-                String arg = args[i];
-                String value = null;
-                int eq = arg.indexOf('=');
-                if (arg.startsWith("--") && eq > 0) {
-                    value = arg.substring(eq + 1);
-                    arg = arg.substring(0, eq);
-                }
-                switch (arg) {
-                    case "--model", "-m" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.model = next.value();
-                        i = next.index();
-                    }
-                    case "--modelFile", "--model-file", "--model-path" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.modelFile = next.value();
-                        i = next.index();
-                    }
-                    case "--prompt", "-p" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.prompt = next.value();
-                        i = next.index();
-                    }
-                    case "--provider" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.provider = next.value();
-                        i = next.index();
-                    }
-                    case "--backend", "--platform" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.backend = next.value();
-                        i = next.index();
-                    }
-                    case "--gguf-engine", "--engine" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.engine = next.value();
-                        i = next.index();
-                    }
-                    case "--java-native", "--java" -> parsed.engine = "java";
-                    case "--llamacpp", "--llama-cpp" -> parsed.engine = "llamacpp";
-                    case "--benchmark", "--bench" -> parsed.engine = "benchmark";
-                    case "--no-banner", "--suppress-banner" -> parsed.banner = false;
-                    case "-v", "--verbose" -> {
-                        parsed.verbose = true;
-                        System.setProperty("aqli.verbose", "true");
-                        System.setProperty("aljabr.metal.verbose", "true");
-                    }
-                    case "--no-info" -> parsed.noInfo = true;
-                    case "--raw" -> parsed.raw = true;
-                    case "--debug-prompt" -> parsed.debugPrompt = true;
-                    case "--only-text" -> { parsed.banner = false; parsed.noInfo = true; }
-                    case "--use-cpu" -> parsed.backend = "cpu";
-                    case "--max-tokens" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.maxTokens = parseInt(next.value(), parsed.maxTokens);
-                        i = next.index();
-                    }
-                    case "--temperature" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.temperature = parseDouble(next.value(), parsed.temperature);
-                        i = next.index();
-                    }
-                    case "--top-p" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.topP = parseDouble(next.value(), parsed.topP);
-                        i = next.index();
-                    }
-                    case "--top-k" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.topK = parseInt(next.value(), parsed.topK);
-                        i = next.index();
-                    }
-                    case "--repeat-penalty", "--repeat_penalty", "--repetition-penalty" -> {
-                        Value next = valueOrNext(value, args, i);
-                        parsed.repeatPenalty = parseDouble(next.value(), parsed.repeatPenalty);
-                        i = next.index();
-                    }
-                    default -> {
-                        if (arg.startsWith("--")) {
-                            parsed.supported = false;
-                        }
-                    }
-                }
-            }
-            parsed.maxTokens = Math.max(1, parsed.maxTokens);
-            parsed.topK = Math.max(1, parsed.topK);
-            parsed.topP = Math.max(0.0d, Math.min(1.0d, parsed.topP));
-            parsed.temperature = Math.max(0.0d, parsed.temperature);
-            return parsed;
-        }
-
-        private static Value valueOrNext(String value, String[] args, int index) {
-            if (value != null) {
-                return new Value(value, index);
-            }
-            if (index + 1 >= args.length) {
-                return new Value("", index);
-            }
-            return new Value(args[index + 1], index + 1);
-        }
-
-        private static int parseInt(String value, int fallback) {
-            try {
-                return Integer.parseInt(value);
-            } catch (Exception ignored) {
-                return fallback;
-            }
-        }
-
-        private static double parseDouble(String value, double fallback) {
-            try {
-                return Double.parseDouble(value);
-            } catch (Exception ignored) {
-                return fallback;
-            }
-        }
-
-        private record Value(String value, int index) {
+            return result;
         }
     }
 
