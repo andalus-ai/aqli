@@ -210,7 +210,7 @@ includeOptionalProject("runner:gguf:aqli-gguf-core", "runtime/runner/gguf/aqli-g
 includeOptionalProject("runner:gguf:aqli-runner-gguf", "runtime/runner/gguf/aqli-runner-gguf")
 includeOptionalProject("runner:gguf:aqli-runner-gguf-llamacpp", "runtime/runner/gguf/aqli-runner-gguf-llamacpp")
 includeOptionalProject("runner:gguf:aqli-plugin-runner-gguf-llamacpp", "runtime/runner/gguf/aqli-plugin-runner-gguf-llamacpp")
-includeOptionalProject("runner:gguf:aqli-gguf-feature-text", "runtime/runner/gguf/aqli-gguf-feature-text")
+includeOptionalProject("runner:gguf:aqli-gguf-feature-text-llamacpp", "runtime/runner/gguf/aqli-gguf-feature-text-llamacpp")
 includeOptionalProject("runner:litert:aqli-litert-core", "runtime/runner/litert/aqli-litert-core")
 includeOptionalProject("runner:litert:aqli-plugin-runner-litert", "runtime/runner/litert/aqli-plugin-runner-litert")
 includeOptionalProject("runner:litert:aqli-runner-litert", "runtime/runner/litert/aqli-runner-litert")
