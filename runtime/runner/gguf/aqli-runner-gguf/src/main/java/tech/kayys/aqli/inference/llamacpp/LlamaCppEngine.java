@@ -72,6 +72,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @ApplicationScoped
 public class LlamaCppEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
     @Override
+    public boolean supports(InferenceRequest request) {
+        return request != null && supports(request.getModel(), request);
+    }
+
+    @Override
     public String providerId() {
         return PROVIDER_ID;
     }

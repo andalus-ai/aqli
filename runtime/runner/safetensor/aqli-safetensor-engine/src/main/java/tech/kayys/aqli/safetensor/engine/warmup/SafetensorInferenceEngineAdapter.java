@@ -25,6 +25,18 @@ import tech.kayys.aljabr.spi.model.HealthStatus;
 public class SafetensorInferenceEngineAdapter
         implements tech.kayys.aqli.spi.inference.LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
     @Override
+    public boolean supports(tech.kayys.aqli.spi.inference.InferenceRequest request) {
+        if (request == null || backend == null || !backend.isResolvable()) {
+            return false;
+        }
+        try {
+            return backend.get().supports(toAljabr(request));
+        } catch (RuntimeException unsupportedRequest) {
+            return false;
+        }
+    }
+
+    @Override
     public String providerId() {
         return "safetensor";
     }

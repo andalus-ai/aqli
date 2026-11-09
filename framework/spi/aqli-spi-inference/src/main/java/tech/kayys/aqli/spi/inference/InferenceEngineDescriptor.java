@@ -14,6 +14,9 @@ public interface InferenceEngineDescriptor {
     /** Stable identifier used in configuration, diagnostics, and telemetry. */
     String providerId();
 
+    /** Whether this engine can execute the supplied model request. */
+    boolean supports(InferenceRequest request);
+
     /** Operations implemented by this engine beyond the base infer contract. */
     Set<Capability> capabilities();
 

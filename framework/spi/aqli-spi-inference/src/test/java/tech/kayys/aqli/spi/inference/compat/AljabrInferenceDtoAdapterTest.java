@@ -1,10 +1,12 @@
 package tech.kayys.aqli.spi.inference.compat;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,61 @@ class AljabrInferenceDtoAdapterTest {
         assertEquals(request.getPromptTokenCount(), restored.getPromptTokenCount());
         assertEquals(request.getMetadata(), restored.getMetadata());
         assertEquals(request.getAttachments().get(0).getUrl(), restored.getAttachments().get(0).getUrl());
+    }
+
+
+    @Test
+    void roundTripsMultimodalMessagesAndToolDefinitions() {
+        var toolCall = new tech.kayys.aqli.spi.tool.ToolCall(
+                "call-multimodal",
+                "lookup",
+                new tech.kayys.aqli.spi.tool.ToolCall.Function("lookup", "{\"query\":\"weather\"}"),
+                Map.of("query", "weather"),
+                tech.kayys.aqli.spi.tool.ToolDefinition.Type.MCP_TOOL);
+
+        var userMessage = Message.multiModal(Message.Role.USER, List.of(
+                Message.ContentPart.text("Describe this media"),
+                Message.ContentPart.imageUrl("https://example.test/image.png"),
+                Message.ContentPart.audioBase64("YXVkaW8=", "audio/wav")));
+        var assistantMessage = Message.assistantWithToolCalls("I will look that up.", List.of(toolCall));
+
+        var toolDefinition = tech.kayys.aqli.spi.tool.ToolDefinition.builder()
+                .name("lookup")
+                .type(tech.kayys.aqli.spi.tool.ToolDefinition.Type.MCP_TOOL)
+                .description("Look up information")
+                .parameters(Map.of("type", "object", "properties",
+                        Map.of("query", Map.of("type", "string"))))
+                .strict(true)
+                .metadata("origin", "adapter-test")
+                .build();
+
+        var request = InferenceRequest.builder()
+                .model("multimodal-model")
+                .message(userMessage)
+                .message(assistantMessage)
+                .tool(toolDefinition)
+                .build();
+
+        var restored = AljabrInferenceDtoAdapter.fromAljabr(
+                AljabrInferenceDtoAdapter.toAljabr(request));
+
+        assertEquals(request.getMessages(), restored.getMessages());
+        assertEquals(userMessage.getContentParts(), restored.getMessages().get(0).getContentParts());
+
+        var restoredCall = restored.getMessages().get(1).getToolCalls().get(0);
+        assertEquals(toolCall.getId(), restoredCall.getId());
+        assertEquals(toolCall.getType(), restoredCall.getType());
+        assertEquals(toolCall.getFunction().getName(), restoredCall.getFunction().getName());
+        assertEquals(toolCall.getFunction().getArguments(), restoredCall.getFunction().getArguments());
+        assertEquals(toolCall.getArguments(), restoredCall.getArguments());
+
+        var restoredDefinition = restored.getTools().get(0);
+        assertEquals(toolDefinition.getName(), restoredDefinition.getName());
+        assertEquals(toolDefinition.getType(), restoredDefinition.getType());
+        assertEquals(toolDefinition.getDescription(), restoredDefinition.getDescription());
+        assertEquals(toolDefinition.getParameters(), restoredDefinition.getParameters());
+        assertEquals(toolDefinition.isStrict(), restoredDefinition.isStrict());
+        assertEquals(toolDefinition.getMetadata(), restoredDefinition.getMetadata());
     }
 
     @Test
@@ -129,4 +186,30 @@ class AljabrInferenceDtoAdapterTest {
         assertEquals(chunk.toolName(), restored.toolName());
         assertEquals(chunk.toolInputDelta(), restored.toolInputDelta());
     }
+    @Test
+    void roundTripsEmbeddingRequestAndResponse() {
+        var request = new tech.kayys.aqli.spi.embedding.EmbeddingRequest(
+                "embedding-request", "embedding-model", List.of("hello", "world"), Map.of("normalize", true));
+
+        var canonicalRequest = AljabrInferenceDtoAdapter.toAljabr(request);
+        var restoredRequest = AljabrInferenceDtoAdapter.fromAljabr(canonicalRequest);
+
+        assertEquals(request.requestId(), restoredRequest.requestId());
+        assertEquals(request.model(), restoredRequest.model());
+        assertEquals(request.inputs(), restoredRequest.inputs());
+        assertEquals(request.parameters(), restoredRequest.parameters());
+
+        var response = new tech.kayys.aqli.spi.embedding.EmbeddingResponse(
+                "embedding-request", "embedding-model", List.of(new float[] { 0.1f, 0.2f }),
+                2, Map.of("provider", "java"));
+        var canonicalResponse = AljabrInferenceDtoAdapter.toAljabr(response);
+        var restoredResponse = AljabrInferenceDtoAdapter.fromAljabr(canonicalResponse);
+
+        assertEquals(response.requestId(), restoredResponse.requestId());
+        assertEquals(response.model(), restoredResponse.model());
+        assertEquals(response.dimension(), restoredResponse.dimension());
+        assertEquals(response.metadata(), restoredResponse.metadata());
+        assertArrayEquals(response.embeddings().get(0), restoredResponse.embeddings().get(0));
+    }
+
 }

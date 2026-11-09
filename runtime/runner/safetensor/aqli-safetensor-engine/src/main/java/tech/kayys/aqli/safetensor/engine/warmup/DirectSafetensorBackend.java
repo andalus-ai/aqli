@@ -170,6 +170,19 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
             String quantizeStrategy) {
     }
 
+    /**
+     * Returns whether the request points to a readable checkpoint profile.
+     * This performs metadata validation only; it does not load model weights.
+     */
+    public boolean supports(InferenceRequest request) {
+        try {
+            Path modelPath = resolveRequestCheckpoint(request);
+            return DirectSafetensorRunProfile.load(modelPath).config() != null;
+        } catch (RuntimeException failure) {
+            return false;
+        }
+    }
+
     Plan plan(InferenceRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");

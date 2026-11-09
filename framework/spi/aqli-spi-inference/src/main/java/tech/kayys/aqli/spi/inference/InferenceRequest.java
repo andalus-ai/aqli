@@ -343,6 +343,15 @@ public final class InferenceRequest {
         return attachments;
     }
 
+    /**
+     * Returns the legacy process-local native context handle.
+     *
+     * <p>Native handles are execution-scoped and should be supplied through the
+     * backend execution context, not transported in a portable inference request.
+     *
+     * @deprecated Use a backend-owned execution context for native resources.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = false)
     public Optional<MemorySegment> getNativeContextSegment() {
         return Optional.ofNullable(nativeContextSegment);
     }
@@ -661,6 +670,12 @@ public final class InferenceRequest {
             return this;
         }
 
+        /**
+         * Attaches a legacy process-local native context handle to this request.
+         *
+         * @deprecated Native handles belong in a backend-owned execution context.
+         */
+        @Deprecated(since = "0.2.0", forRemoval = false)
         public Builder nativeContextSegment(MemorySegment nativeContextSegment) {
             this.nativeContextSegment = nativeContextSegment;
             return this;

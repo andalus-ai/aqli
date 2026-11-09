@@ -45,6 +45,11 @@ import java.util.Set;
 @io.quarkus.arc.Unremovable
 public class OnnxEngine implements tech.kayys.aqli.spi.inference.LocalInferenceEngine, tech.kayys.aqli.spi.inference.InferenceEngineDescriptor {
     @Override
+    public boolean supports(InferenceRequest request) {
+        return request != null && supports(request.getModel(), request);
+    }
+
+    @Override
     public String providerId() {
         return PROVIDER_ID;
     }
