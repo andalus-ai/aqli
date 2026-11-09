@@ -167,3 +167,15 @@ This is not the desired final separation. AQLI may own runtime lifecycle, model/
 6. Prove the default Java-only CLI classpath has no llama.cpp native binding/module and that adding the optional provider enables explicit llama.cpp selection without changing the GGUF format integration.
 
 Until these steps are completed, the accurate status is: the AQLI GGUF runner module boundary is separated, but the CLI still has a legacy direct llama.cpp fast path and AQLI still duplicates low-level llama.cpp FFM classes. The architecture is not yet fully consolidated.
+
+
+### Aljabr provider integration is not ready to replace the AQLI runner
+
+The Aljabr llama.cpp provider currently has concrete correctness and contract gaps:
+
+- `LlamaCppGgufBackendProvider.create()` constructs `new LlamaCppRunner(binding, null, templateService)`. The runner constructor immediately dereferences `providerConfig.maxConcurrentRequests()`, so this path fails with a null-pointer exception.
+- The provider does not build a `ModelManifest` or call `runner.initialize(...)`. Even if a non-null configuration were supplied, the runner would remain uninitialized and inference would fail its initialization guard.
+- Aljabr's current `GgufBackend` contract exposes only synchronous `execute`. Its `GgufInferenceEngine.streamExecute` synthesizes a single final chunk rather than delegating to the underlying llama.cpp runner's token stream; `executeEmbedding` is currently unsupported even though `LlamaCppRunner` has streaming and embedding methods.
+- `LlamaCppProviderConfig` is a SmallRye `@ConfigMapping` interface in the Aljabr provider module, while the provider is instantiated through Java `ServiceLoader`. Framework-level backend creation should not assume a Quarkus CDI configuration context.
+
+Consequently, do not replace AQLI's current llama.cpp streaming/session implementation with Aljabr's `GgufInferenceEngine` yet. Before migration, Aljabr needs a plain Java provider-settings contract, correct model/runner initialization, and backend operations for streaming and embeddings (or a generic inference-engine provider contract that preserves those capabilities). Add provider integration tests that prove a backend can be created and execute, stream, close, and report unsupported capabilities accurately without requiring physical accelerator hardware.
