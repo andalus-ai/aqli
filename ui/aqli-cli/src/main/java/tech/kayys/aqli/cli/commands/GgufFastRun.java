@@ -565,16 +565,10 @@ public final class GgufFastRun {
                                 args.repeatPenalty);
 
                 long openStartNanos = System.nanoTime();
-                tech.kayys.aljabr.gguf.api.GgufBackend backend = null;
-                boolean shouldClose = false;
-                if (sessionCache != null) {
-                    backend = sessionCache.acquireJavaBackend(modelPath);
-                } else {
-                    tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
-                            new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
-                    backend = provider.create(modelPath, Map.of("backend", "java"));
-                    shouldClose = true;
-                }
+                tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession = sessionCache != null
+                        ? sessionCache.acquireJavaBackend(modelPath)
+                        : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(modelPath);
+                boolean shouldClose = sessionCache == null;
                 long openNanos = System.nanoTime() - openStartNanos;
                 long generateNanos;
                 long afterGenerateNanos;
@@ -583,14 +577,14 @@ public final class GgufFastRun {
 
                 try {
                     long generateStartNanos = System.nanoTime();
-                    response = backend.execute(inferenceRequest);
+                    response = backendSession.backend().execute(inferenceRequest);
                     afterGenerateNanos = System.nanoTime();
                     generateNanos = afterGenerateNanos - generateStartNanos;
 
                     text = response != null && response.getContent() != null ? response.getContent() : "";
                 } finally {
-                    if (shouldClose && backend != null) {
-                        backend.close();
+                    if (shouldClose) {
+                        backendSession.close();
                     }
                 }
 
@@ -735,9 +729,10 @@ public final class GgufFastRun {
             GgufSessionCache sessionCache) throws Throwable {
         long startNanos = System.nanoTime();
         long openStartNanos = System.nanoTime();
-        tech.kayys.aljabr.gguf.api.GgufBackend backend = sessionCache != null
+        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession = sessionCache != null
                 ? sessionCache.acquireJavaBackend(modelPath)
-                : new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider().create(modelPath, Map.of("backend", "java"));
+                : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(modelPath);
+        boolean shouldClose = sessionCache == null;
         long openNanos = System.nanoTime() - openStartNanos;
         String rawPrompt = (args.prompt != null && !args.prompt.isBlank()) ? args.prompt : "Hello";
         String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
@@ -748,7 +743,13 @@ public final class GgufFastRun {
                 .maxTokens(prewarmTokenCount())
                 .temperature(0.0);
         long genStartNanos = System.nanoTime();
-        backend.execute(reqBuilder.build());
+        try {
+            backendSession.backend().execute(reqBuilder.build());
+        } finally {
+            if (shouldClose) {
+                backendSession.close();
+            }
+        }
         long generateNanos = System.nanoTime() - genStartNanos;
         long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
         out.printf("Prewarmed Java-native GGUF daemon for %s (tokens=%d).%n",
@@ -1841,19 +1842,20 @@ public final class GgufFastRun {
 
     private static final class GgufSessionCache implements AutoCloseable {
         private final Map<SessionKey, NativeGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
-        private final Map<Path, tech.kayys.aljabr.gguf.api.GgufBackend> javaBackends = new LinkedHashMap<>(2, 0.75f, true);
+        private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends =
+                new LinkedHashMap<>(2, 0.75f, true);
 
-        private synchronized tech.kayys.aljabr.gguf.api.GgufBackend acquireJavaBackend(Path modelPath) throws Exception {
+        private synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
+                Path modelPath) throws Exception {
             Path key = modelPath.toAbsolutePath().normalize();
-            tech.kayys.aljabr.gguf.api.GgufBackend existing = javaBackends.get(key);
+            tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
             if (existing != null) {
                 daemonLog("java backend cache hit: " + key.getFileName());
                 return existing;
             }
             daemonLog("java backend cache miss: " + key.getFileName());
-            tech.kayys.aljabr.gguf.api.GgufBackendProvider provider =
-                    new tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider();
-            tech.kayys.aljabr.gguf.api.GgufBackend opened = provider.create(key, Map.of("backend", "java"));
+            tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
+                    tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
             javaBackends.put(key, opened);
             return opened;
         }
@@ -1981,9 +1983,9 @@ public final class GgufFastRun {
                 session.close();
             }
             sessions.clear();
-            for (tech.kayys.aljabr.gguf.api.GgufBackend backend : javaBackends.values()) {
+            for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
                 try {
-                    backend.close();
+                    backendSession.close();
                 } catch (Exception ignored) {
                 }
             }
