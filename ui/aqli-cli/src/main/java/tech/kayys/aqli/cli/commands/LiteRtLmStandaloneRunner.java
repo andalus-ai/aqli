@@ -1,6 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
-import tech.kayys.aqli.provider.litert.LiteRTModelIndexResolver;
+import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -277,82 +277,44 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static Optional<RouteMatch> resolveLiteRtLmRouteMatch(LiteRTRunArguments args) {
-        if (args.modelFile() != null) {
-            Optional<Path> explicit = resolvePath(Path.of(args.modelFile()));
-            if (explicit.isPresent()) {
-                return findLiteRtLmFromExplicitPath(explicit.get())
-                        .map(path -> new RouteMatch(path, "modelFile", false));
-            }
-        }
-        if (args.model() != null) {
-            Optional<Path> direct = resolvePath(Path.of(args.model()));
-            if (direct.isPresent()) {
-                Optional<Path> found = findLiteRtLmFromExplicitPath(direct.get());
-                if (found.isPresent()) {
-                    return Optional.of(new RouteMatch(found.get(), "model", false));
-                }
-            }
-            Optional<RouteMatch> fastIndexed = findIndexedLiteRtModelRoute(args.model());
-            if (fastIndexed.isPresent()) {
-                Optional<Path> found = findLiteRtLmFromExplicitPath(fastIndexed.get().path());
-                if (found.isPresent()) {
-                    return Optional.of(new RouteMatch(
-                            found.get(),
-                            fastIndexed.get().source(),
-                            fastIndexed.get().cacheHit()));
-                }
-            }
-            try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(args.model());
-                if (indexed.isPresent()
-                        && isLiteRtIndexEntry(indexed.get())
-                        && indexed.get().path != null
-                        && !indexed.get().path.isBlank()) {
-                    return findLiteRtLmFromExplicitPath(Path.of(indexed.get().path))
-                            .map(path -> new RouteMatch(path, "local-index-litert", true));
-                }
-                if (indexed.isPresent()
-                        && isSafetensorIndexEntry(indexed.get())
-                        && indexed.get().path != null
-                        && !indexed.get().path.isBlank()) {
-                    Optional<Path> cachedGemma4LiteRt = findCachedGemma4LiteRtModelPath(indexed.get().path);
-                    if (cachedGemma4LiteRt.isPresent()) {
-                        return Optional.of(new RouteMatch(
-                                cachedGemma4LiteRt.get(),
-                                "cached-gemma4-litert",
-                                true));
-                    }
-                }
-            } catch (Throwable ignored) {
-                // Full CLI has the complete resolver if the lightweight index read fails.
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<Path> resolvePath(Path path) {
-        try {
-            Path normalized = path.isAbsolute()
-                    ? path.toAbsolutePath().normalize()
-                    : Path.of("").toAbsolutePath().resolve(path).normalize();
-            if (Files.exists(normalized)) {
-                return Optional.of(normalized);
-            }
-        } catch (Exception ignored) {
-        }
-        return Optional.empty();
-    }
-
-    static Optional<Path> findIndexedLiteRtModelPath(String ref) {
-        return findIndexedLiteRtModelRoute(ref).map(RouteMatch::path);
-    }
-
-    static Optional<RouteMatch> findIndexedLiteRtModelRoute(String ref) {
-        return new LiteRTModelIndexResolver().resolve(
+        Optional<RouteMatch> resolved = new LiteRTRouteResolver()
+                .resolve(
+                        args.modelFile(),
+                        args.model(),
                         modelIndexPath(),
-                        ref,
                         equivalentLiteRtFastPathEnabled())
-                .map(match -> new RouteMatch(match.path(), match.source(), true));
+                .map(match -> new RouteMatch(match.path(), match.source(), match.cacheHit()));
+        if (resolved.isPresent() || args.model() == null) {
+            return resolved;
+        }
+
+        // Preserve AQLI's legacy index and cached Gemma alternate-runtime fallback.
+        // These policies depend on the CLI-owned LocalModelIndex and route policy.
+        try {
+            Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(args.model());
+            if (indexed.isPresent()
+                    && isLiteRtIndexEntry(indexed.get())
+                    && indexed.get().path != null
+                    && !indexed.get().path.isBlank()) {
+                return findLiteRtLmFromExplicitPath(Path.of(indexed.get().path))
+                        .map(path -> new RouteMatch(path, "local-index-litert", true));
+            }
+            if (indexed.isPresent()
+                    && isSafetensorIndexEntry(indexed.get())
+                    && indexed.get().path != null
+                    && !indexed.get().path.isBlank()) {
+                Optional<Path> cachedGemma4LiteRt = findCachedGemma4LiteRtModelPath(indexed.get().path);
+                if (cachedGemma4LiteRt.isPresent()) {
+                    return Optional.of(new RouteMatch(
+                            cachedGemma4LiteRt.get(),
+                            "cached-gemma4-litert",
+                            true));
+                }
+            }
+        } catch (Throwable ignored) {
+            // Full CLI has the complete resolver if the lightweight index read fails.
+        }
+        return Optional.empty();
     }
 
     static record RouteResolution(
@@ -422,47 +384,7 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static Optional<Path> findLiteRtLmFromExplicitPath(Path path) {
-        try {
-            if (Files.isRegularFile(path) && isLiteRtLm(path)) {
-                return Optional.of(path.toAbsolutePath().normalize());
-            }
-            if (Files.isRegularFile(path)) {
-                return Optional.empty();
-            }
-            Path searchDir = Files.isDirectory(path) ? path : path.getParent();
-            if (searchDir == null || !Files.isDirectory(searchDir)) {
-                return Optional.empty();
-            }
-            try (var stream = Files.list(searchDir)) {
-                return stream
-                        .filter(Files::isRegularFile)
-                        .filter(LiteRtLmStandaloneRunner::isLiteRtLm)
-                        .sorted((left, right) -> Integer.compare(
-                                liteRtLmPreference(left),
-                                liteRtLmPreference(right)))
-                        .findFirst()
-                        .map(candidate -> candidate.toAbsolutePath().normalize());
-            }
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private static boolean isLiteRtLm(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".litertlm");
-    }
-
-    private static int liteRtLmPreference(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        int score = 0;
-        if (name.contains("qualcomm")) {
-            score += 100;
-        }
-        if (!name.contains("gemma-4-e2b-it.litertlm")) {
-            score += 10;
-        }
-        return score;
+        return new LiteRTRouteResolver().resolveArtifact(path);
     }
 
     private static void generate(RouteResolution route, LiteRTRunArguments args) throws Exception {
