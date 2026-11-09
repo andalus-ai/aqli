@@ -1260,17 +1260,6 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            
-            if (executionProviderId != null && !ensureProviderHealthy(executionProviderId)) {
-                if ("litert".equalsIgnoreCase(executionProviderId)
-                        && finalLocalPath != null
-                        && !finalLocalPath.isBlank()
-                        && tryStandaloneLiteRtExecution(finalLocalPath, startTime)) {
-                    return;
-                }
-                return;
-            }
-            
             printCompatibilityHintBeforeInference();
 
             String requestModelTarget = shouldUseLocalModelPath(executionProviderId, finalLocalPath)
@@ -1534,9 +1523,6 @@ public class RunCommand implements Runnable {
                                 quantizeStrategy));
                 System.err.println("Generated response: '" + response.getContent() + "'");
                 printResponse(response, startTime);
-                requestProcessExit();
-            } else if (effectiveStream && shouldUseDirectLiteRtStreamPath(executionProviderId, finalLocalPath)) {
-                streamDirectWithProvider("litert", request, startTime);
                 requestProcessExit();
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
@@ -5402,10 +5388,6 @@ public class RunCommand implements Runnable {
                 resolveSafetensorCheckpointPath(localPath));
     }
 
-    private boolean shouldUseDirectLiteRtStreamPath(String currentProvider, String localPath) {
-        return DirectSafetensorRoutePolicy.shouldUseDirectLiteRtStreamPath(currentProvider, localPath);
-    }
-
     private Path resolveSafetensorCheckpointPath(String localPath) {
         if (localPath == null || localPath.isBlank()) {
             return null;
@@ -7761,22 +7743,6 @@ public class RunCommand implements Runnable {
         return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
 
-    private tech.kayys.aqli.spi.inference.InferenceResponse inferDirectWithProvider(String id, InferenceRequest request) { return null; }
-
-    private void streamDirectWithProvider(String id, InferenceRequest request, long startTime) { }
-
-    private Object buildDirectProviderRequest(InferenceRequest request, boolean streaming) { return null; }
-
-    private boolean shouldIgnoreDirectProviderError(Throwable error, int emittedTokens) {
-        if (error == null || emittedTokens <= 0) {
-            return false;
-        }
-        String message = error.getMessage();
-        return message != null && message.contains("Attempted to close a non-closeable session");
-    }
-
-    private boolean ensureProviderHealthy(String provider) { return true; }
-
     private void printCompatibilityHintBeforeInference() {
         if (providerId == null || modelId == null) return;
         String provider = providerId.toLowerCase();
@@ -7895,8 +7861,6 @@ public class RunCommand implements Runnable {
             }
         }
     }
-
-    private boolean tryStandaloneLiteRtExecution(String localPath, long startTime) { return false; }
 
     private void requestProcessExit() {
         requestProcessExit(0);
