@@ -734,7 +734,7 @@ public final class GgufStandaloneRunner {
         boolean shouldClose = sessionCache == null;
         long openNanos = System.nanoTime() - openStartNanos;
         try {
-            String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt : "Hello";
+            String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt() : "Hello";
             String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
             var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
                     .model(modelPath.getFileName().toString())
