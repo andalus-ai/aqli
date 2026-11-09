@@ -78,10 +78,11 @@ public final class LiteRTRouteResolver {
             if (Files.isRegularFile(path)) {
                 return isLiteRtLm(path) ? Optional.of(path.toAbsolutePath().normalize()) : Optional.empty();
             }
-            if (!Files.isDirectory(path)) {
+            Path searchDirectory = Files.isDirectory(path) ? path : path.getParent();
+            if (searchDirectory == null || !Files.isDirectory(searchDirectory)) {
                 return Optional.empty();
             }
-            try (var entries = Files.list(path)) {
+            try (var entries = Files.list(searchDirectory)) {
                 return entries.filter(Files::isRegularFile)
                         .filter(LiteRTRouteResolver::isLiteRtLm)
                         .sorted(Comparator.comparingInt(LiteRTRouteResolver::preference))
