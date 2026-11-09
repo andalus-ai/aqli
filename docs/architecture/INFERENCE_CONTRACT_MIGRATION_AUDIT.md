@@ -268,3 +268,39 @@ The current `InferencePhase` definition in Aljabr is misplaced at the framework 
 5. Add tests for defensive copying, empty/null inputs, accepted-token count consistency, target/prefix/draft shape constraints, and conversion compatibility before migrating callers.
 
 This audit classifies ownership and identifies design gaps. It does not authorize immediate deletion of duplicate public types or assert that the existing speculative verification path is complete.
+
+
+## Legacy convenience inference DTO parity
+
+A further normalized source comparison found four more byte-for-byte duplicate pairs in the AQLI and Aljabr inference SPI modules:
+
+| Contract | AQLI path | Aljabr path | Assessment |
+|---|---|---|---|
+| `ChatMessage` | `:framework/spi/aqli-spi-inference/.../inference/dto` | `:core/aljabr-spi-inference/.../inference/dto` | Minimal role/content convenience value; a strict subset of canonical `Message`. |
+| `InferenceContext` | same AQLI DTO package | same Aljabr DTO package | API key, request ID, tenant ID, trace ID only; overlaps a subset of `RequestContext` and has separate defaulting behavior. |
+| `PromptRequest` | same AQLI DTO package | same Aljabr DTO package | Simple chat prompt/options DTO; a strict subset of canonical `InferenceRequest` and lacks tools, multimodal attachments, full context, priority, and other request metadata. |
+| `InferenceResult` | same AQLI DTO package | same Aljabr DTO package | Simplified result DTO; a strict subset of canonical `InferenceResponse`. |
+
+### Ownership and consolidation recommendation
+
+These classes are not equivalent to the richer canonical contracts already established in the inference SPI. Their presence in both repositories creates a second, less expressive request/response vocabulary in addition to the package-duplicated canonical DTOs.
+
+- Keep `InferenceRequest`, `InferenceResponse`, `StreamingInferenceChunk`, and the canonical embedding contracts as the shared framework boundary.
+- Treat `PromptRequest` and `InferenceResult` as convenience/legacy shapes, not alternative engine contracts. If a high-level AQLI SDK needs a simple prompt API, implement it as an adapter that constructs the canonical request and maps the canonical response.
+- Treat `ChatMessage` as a convenience text-only input, not a replacement for multimodal `Message`.
+- Avoid treating `InferenceContext` as a second canonical context. Resolve its defaults and field mapping against the eventual portable request metadata / execution-context split before migration.
+- Do not add new provider or runner APIs that accept these convenience DTOs when canonical Aljabr request/response APIs already exist.
+
+### Compatibility and correctness notes
+
+- `PromptRequest` silently normalizes non-positive `maxTokens` to 256, non-positive `temperature` to 1.0, and invalid/non-positive `topP` to 1.0. These defaults differ from the semantics of a general inference parameter map and must be preserved only at an explicit convenience boundary, not silently injected into canonical requests.
+- `InferenceContext.Builder` creates a random request ID and defaults tenant ID to `default`; it also defaults trace ID to request ID. These are observable builder semantics that need compatibility tests if the DTO is deprecated or adapted.
+- `InferenceResult.extra`, `PromptRequest.messages/stop/extra`, and the token-list DTOs inspected above retain mutable collections. The records are shallowly immutable only; defensive copies and null policy should be designed at the canonical boundary.
+- The four AQLI/Aljabr pairs compare identical after package normalization, but no complete consumer inventory is available from remote code search. Do not delete either package's classes based on parity alone.
+
+### Migration sequence
+
+1. Inventory all constructors, builder calls, serializers, and SDK entry points for these four DTOs.
+2. Add explicit conversion tests from convenience DTOs to canonical requests and canonical responses to convenience results, including documented default behavior.
+3. Prefer SDK-level convenience builders/adapters over duplicate SPI DTOs.
+4. Deprecate duplicate SPI convenience types only after internal and downstream compatibility is understood; remove only in a deliberate breaking release.
