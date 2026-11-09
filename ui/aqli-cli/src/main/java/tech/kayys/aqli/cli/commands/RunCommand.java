@@ -5951,19 +5951,13 @@ public class RunCommand implements Runnable {
     }
 
     boolean shouldTryStandaloneLiteRtFastPath(String localPath) {
-        if (routeReportJson) {
-            return false;
-        }
-        if (!Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true"))) {
-            return false;
-        }
-        if (prompt == null || prompt.isBlank()) {
-            return false;
-        }
-        if (providerId != null && !providerId.isBlank() && !isLiteRtProviderAlias(providerId)) {
-            return false;
-        }
-        return looksLikeLiteRtLmPath(localPath) && isSimpleStandaloneTextRun();
+        return StandaloneFastRunPolicy.shouldTryLiteRt(
+                routeReportJson,
+                Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true")),
+                prompt,
+                providerId,
+                looksLikeLiteRtLmPath(localPath),
+                isSimpleStandaloneTextRun());
     }
 
     String[] buildStandaloneLiteRtFastRunArgs(String localPath) {
@@ -6043,28 +6037,15 @@ public class RunCommand implements Runnable {
     }
 
     boolean shouldTryCachedGemma4MobileQatLiteRtFastPath(boolean providerExplicit, String requestedProviderId) {
-        if (!Boolean.parseBoolean(System.getProperty("aqli.cli.enable_cached_gemma4_litert_fast_path", "true"))) {
-            return false;
-        }
-        if (modelId == null || modelId.isBlank()) {
-            return false;
-        }
-        if (modelFile != null && !modelFile.isBlank()) {
-            return false;
-        }
-        if (modelDir != null && !modelDir.isBlank()) {
-            return false;
-        }
-        if (modelPath != null && !modelPath.isEmpty()) {
-            return false;
-        }
-        if (requestedProviderId != null && !requestedProviderId.isBlank() && !isLiteRtProviderAlias(requestedProviderId)) {
-            return false;
-        }
-        if (providerExplicit && !isLiteRtProviderAlias(requestedProviderId)) {
-            return false;
-        }
-        return isSimpleStandaloneTextRun();
+        return StandaloneFastRunPolicy.shouldTryCachedGemma4LiteRt(
+                Boolean.parseBoolean(System.getProperty("aqli.cli.enable_cached_gemma4_litert_fast_path", "true")),
+                modelId,
+                modelFile,
+                modelDir,
+                modelPath,
+                requestedProviderId,
+                providerExplicit,
+                isSimpleStandaloneTextRun());
     }
 
     private Optional<LocalModelIndex.Entry> findSafetensorIndexEntry(String modelRef) {
@@ -6098,23 +6079,20 @@ public class RunCommand implements Runnable {
     }
 
     boolean shouldTryStandaloneGgufFastPath() {
-        if (routeReportJson) {
-            return false;
-        }
-        if (prompt == null || prompt.isBlank()) {
-            return false;
-        }
-        if (providerId != null && !providerId.isBlank() && !isGgufProviderAlias(providerId)) {
-            return false;
-        }
-        return isGgufProviderAlias(providerId)
-                || isGgufPluginAlias(pluginId)
-                || (hasExplicitGgufEngine() && (!requestsSafetensorModel() || explicitLlamaCppEngine()))
-                || forceGguf
-                || isGgufFormat(format)
-                || looksLikeGgufPath(modelFile)
-                || looksLikeGgufPath(modelPath)
-                || looksLikeGgufPath(modelId);
+        return StandaloneFastRunPolicy.shouldTryGguf(
+                routeReportJson,
+                prompt,
+                providerId,
+                isGgufProviderAlias(providerId),
+                isGgufPluginAlias(pluginId),
+                hasExplicitGgufEngine(),
+                requestsSafetensorModel(),
+                explicitLlamaCppEngine(),
+                forceGguf,
+                isGgufFormat(format),
+                looksLikeGgufPath(modelFile),
+                looksLikeGgufPath(modelPath),
+                looksLikeGgufPath(modelId));
     }
 
     String[] buildStandaloneGgufStandaloneRunnerArgs() {
