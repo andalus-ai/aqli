@@ -57,7 +57,9 @@ class LiteRTRouteResolverTest {
     @Test
     void ignoresNonLiteRtExplicitFileAndUnresolvedIndex() throws Exception {
         Path other = Files.writeString(tempDir.resolve("weights.safetensors"), "weights");
+        Files.writeString(tempDir.resolve("unrelated.litertlm"), "model");
         assertTrue(new LiteRTRouteResolver().resolve(other.toString(), null, null, false).isEmpty());
+        assertTrue(new LiteRTRouteResolver().resolve(tempDir.resolve("missing-model").toString(), null, null, false).isEmpty());
         assertTrue(new LiteRTRouteResolver().resolve(null, "missing", tempDir.resolve("missing.json"), false).isEmpty());
     }
 }
