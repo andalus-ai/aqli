@@ -317,31 +317,6 @@ public final class LiteRtLmStandaloneRunner {
         return Optional.empty();
     }
 
-    private static Optional<Path> resolvePath(Path path) {
-        try {
-            Path normalized = path.isAbsolute()
-                    ? path.toAbsolutePath().normalize()
-                    : Path.of("").toAbsolutePath().resolve(path).normalize();
-            if (Files.exists(normalized)) {
-                return Optional.of(normalized);
-            }
-        } catch (Exception ignored) {
-        }
-        return Optional.empty();
-    }
-
-    static Optional<Path> findIndexedLiteRtModelPath(String ref) {
-        return findIndexedLiteRtModelRoute(ref).map(RouteMatch::path);
-    }
-
-    static Optional<RouteMatch> findIndexedLiteRtModelRoute(String ref) {
-        return new LiteRTModelIndexResolver().resolve(
-                        modelIndexPath(),
-                        ref,
-                        equivalentLiteRtFastPathEnabled())
-                .map(match -> new RouteMatch(match.path(), match.source(), true));
-    }
-
     static record RouteResolution(
             Path path,
             String source,
@@ -409,47 +384,7 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static Optional<Path> findLiteRtLmFromExplicitPath(Path path) {
-        try {
-            if (Files.isRegularFile(path) && isLiteRtLm(path)) {
-                return Optional.of(path.toAbsolutePath().normalize());
-            }
-            if (Files.isRegularFile(path)) {
-                return Optional.empty();
-            }
-            Path searchDir = Files.isDirectory(path) ? path : path.getParent();
-            if (searchDir == null || !Files.isDirectory(searchDir)) {
-                return Optional.empty();
-            }
-            try (var stream = Files.list(searchDir)) {
-                return stream
-                        .filter(Files::isRegularFile)
-                        .filter(LiteRtLmStandaloneRunner::isLiteRtLm)
-                        .sorted((left, right) -> Integer.compare(
-                                liteRtLmPreference(left),
-                                liteRtLmPreference(right)))
-                        .findFirst()
-                        .map(candidate -> candidate.toAbsolutePath().normalize());
-            }
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private static boolean isLiteRtLm(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".litertlm");
-    }
-
-    private static int liteRtLmPreference(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        int score = 0;
-        if (name.contains("qualcomm")) {
-            score += 100;
-        }
-        if (!name.contains("gemma-4-e2b-it.litertlm")) {
-            score += 10;
-        }
-        return score;
+        return new LiteRTRouteResolver().resolveArtifact(path);
     }
 
     private static void generate(RouteResolution route, LiteRTRunArguments args) throws Exception {
