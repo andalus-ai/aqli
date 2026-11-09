@@ -63,7 +63,7 @@ import java.util.regex.Pattern;
  * short prompts do not pay the whole CLI/SDK startup tax.</p>
  */
 public final class LiteRtLmStandaloneRunner {
-    private static final int FALLBACK_TO_FULL_CLI = StandaloneFastRunProtocol.FALLBACK_TO_FULL_CLI;
+    private static final int FALLBACK_TO_FULL_CLI = StandaloneRunProtocol.FALLBACK_TO_FULL_CLI;
     private static final String DAEMON_MAGIC = "AQLI_LITERT_FAST_DAEMON_V1";
     private static final String DAEMON_PREWARM_MAGIC = "AQLI_LITERT_FAST_DAEMON_PREWARM_V1";
     private static final String DAEMON_STOP_MAGIC = "AQLI_LITERT_FAST_DAEMON_STOP_V1";
