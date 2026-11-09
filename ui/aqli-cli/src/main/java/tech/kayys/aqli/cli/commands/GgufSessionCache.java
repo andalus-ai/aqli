@@ -11,6 +11,15 @@ import java.util.function.IntSupplier;
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
  * Runtime configuration and logging remain supplied by the CLI boundary.
  */
+final class GgufSessionCache implements AutoCloseable {
+    private final IntSupplier maxSessionsSupplier;
+    private final Consumer<String> log;
+
+    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log) {
+        this.maxSessionsSupplier = maxSessionsSupplier;
+        this.log = log;
+    }
+
 private record SessionKey(
         Path modelPath,
         int context,
@@ -24,7 +33,7 @@ private record SessionKey(
         boolean swaFull) {
 }
 
-record SessionLease(
+private record SessionLease(
         LlamaCppGgufSession session,
         boolean reused,
         boolean closeOnClose,
@@ -61,14 +70,8 @@ record SessionLease(
     }
 }
 
-final class GgufSessionCache implements AutoCloseable {
-    private final IntSupplier maxSessionsSupplier;
-    private final Consumer<String> log;
 
-    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log) {
-        this.maxSessionsSupplier = maxSessionsSupplier;
-        this.log = log;
-    }
+
     private final Map<SessionKey, LlamaCppGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
     private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
@@ -78,10 +81,10 @@ final class GgufSessionCache implements AutoCloseable {
         Path key = modelPath.toAbsolutePath().normalize();
         tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
         if (existing != null) {
-            daemonLog("java backend cache hit: " + key.getFileName());
+            log.accept("java backend cache hit: " + key.getFileName());
             return existing;
         }
-        daemonLog("java backend cache miss: " + key.getFileName());
+        log.accept("java backend cache miss: " + key.getFileName());
         tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
                 tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
         javaBackends.put(key, opened);
@@ -112,7 +115,7 @@ final class GgufSessionCache implements AutoCloseable {
                 swaFull);
         LlamaCppGgufSession existing = sessions.get(key);
         if (existing != null) {
-            daemonLog("session cache hit: " + key.modelPath().getFileName()
+            log.accept("session cache hit: " + key.modelPath().getFileName()
                     + ", context=" + context
                     + ", gpuLayers=" + gpuLayers
                     + ", sessions=" + sessions.size());
@@ -122,7 +125,7 @@ final class GgufSessionCache implements AutoCloseable {
         if (compatible != null) {
             return compatible;
         }
-        daemonLog("session cache miss: " + key.modelPath().getFileName()
+        log.accept("session cache miss: " + key.modelPath().getFileName()
                 + ", context=" + context
                 + ", gpuLayers=" + gpuLayers
                 + ", sessions=" + sessions.size());
@@ -157,7 +160,7 @@ final class GgufSessionCache implements AutoCloseable {
         }
         SessionKey selected = best.getKey();
         LlamaCppGgufSession session = sessions.get(selected);
-        daemonLog("session cache compatible hit: " + selected.modelPath().getFileName()
+        log.accept("session cache compatible hit: " + selected.modelPath().getFileName()
                 + ", requestedContext=" + requested.context()
                 + ", warmContext=" + selected.context()
                 + ", requestedBatch=" + requested.batch()
@@ -197,7 +200,7 @@ final class GgufSessionCache implements AutoCloseable {
         while (sessions.size() > maxSessions) {
             Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
             sessions.remove(eldest.getKey());
-            daemonLog("session cache evict: " + eldest.getKey().modelPath().getFileName()
+            log.accept("session cache evict: " + eldest.getKey().modelPath().getFileName()
                     + ", context=" + eldest.getKey().context()
                     + ", gpuLayers=" + eldest.getKey().gpuLayers()
                     + ", maxSessions=" + maxSessions);
@@ -220,4 +223,3 @@ final class GgufSessionCache implements AutoCloseable {
         javaBackends.clear();
     }
 }
-
