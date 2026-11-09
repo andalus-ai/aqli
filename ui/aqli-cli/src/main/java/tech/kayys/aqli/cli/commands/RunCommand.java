@@ -37,7 +37,6 @@ import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
 import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRunner;
-import tech.kayys.aljabr.safetensor.generation.GenerationConfig;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
