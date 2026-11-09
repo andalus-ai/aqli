@@ -823,13 +823,13 @@ public final class GgufFastRun {
         long openStartNanos = System.nanoTime();
         boolean useMmap = booleanConfig("aqli.gguf.fast_run.mmap", true);
         boolean useMlock = booleanConfig("aqli.gguf.fast_run.mlock", false);
-        SessionLease opened = sessionCache == null
+        GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull)
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
-        try (SessionLease lease = opened) {
+        try (GgufSessionCache.SessionLease lease = opened) {
             LlamaCppGgufSession session = lease.session();
             int tokens = prewarmTokenCount();
             String sessionLabel = sessionReuseLabel(sessionCache != null, lease.reused(), lease.reuseKind());
@@ -892,13 +892,13 @@ public final class GgufFastRun {
         long openStartNanos = System.nanoTime();
         boolean useMmap = booleanConfig("aqli.gguf.fast_run.mmap", true);
         boolean useMlock = booleanConfig("aqli.gguf.fast_run.mlock", false);
-        SessionLease opened = sessionCache == null
-                ? SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
+        GgufSessionCache.SessionLease opened = sessionCache == null
+                ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull)
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
-        try (SessionLease lease = opened) {
+        try (GgufSessionCache.SessionLease lease = opened) {
             LlamaCppGgufSession session = lease.session();
             String sessionLabel = sessionReuseLabel(sessionCache != null, lease.reused(), lease.reuseKind());
             String warmSuffix = ", session=" + sessionLabel;
