@@ -227,3 +227,44 @@ AQLI should not need to import Aljabr's serving scheduler just to run an inferen
 5. Keep AQLI compatibility types during the transition and prevent the two copies from evolving independently.
 
 This is a focused parity and ownership pass, not a complete inventory of every duplicated SPI type. Additional overlapping types (including inference phase/pipeline, observer, validation, and verification contracts) still require classification.
+
+
+## Inference phase, pipeline, observer, validation, and verification contracts
+
+A direct source inspection of the remaining overlapping inference contracts found that identical definitions do not imply shared ownership. Several encode AQLI serving orchestration, while speculative-token verification is a model-execution capability.
+
+### Findings and ownership
+
+| Contract | Source comparison / dependency | Recommended owner | Decision |
+|---|---|---|---|
+| `InferencePhase` | Same enum and behavior in both repositories. Its phases include authorization, provider routing, audit, observability, and cleanup in addition to model processing. | AQLI | Treat as runtime orchestration vocabulary, not an Aljabr execution contract. |
+| `InferencePipeline` | Same interface, but its methods mutate and return `ExecutionContext`; it executes ordered runtime phases. | AQLI | Keep the pipeline in AQLI. Aljabr should expose model execution primitives, not the serving pipeline. |
+| `InferencePhasePlugin` | AQLI version extends `AqliPlugin`; Aljabr version is in `:core:aljabr-spi-plugin` and extends `AljabrPlugin`. Both depend on phase and execution-context concepts. | AQLI for serving phases | Do not treat them as interchangeable. AQLI phase plugins operate on mutable runtime state. Aljabr's generic plugin SPI may remain for framework/model extensions, but should not duplicate AQLI serving-phase semantics. |
+| `InferenceObserver` | Same lifecycle callbacks in both repositories; callbacks accept project-specific `ExecutionContext`, including phase lifecycle and stream events. AQLI's concrete observer records Micrometer metrics and W3C trace metadata. | AQLI | Keep serving lifecycle observation in AQLI. Aljabr telemetry, if needed, should use smaller framework execution events independent of AQLI runtime context. |
+| `ValidationContext` | Same record/builder, but it wraps `RequestContext` and supplies a community API-key fallback. | AQLI | This is request admission/authentication context, not tensor/model execution. Do not make API-key policy canonical in Aljabr. Split a pure model-input validation context only if an Aljabr validator needs it. |
+| `VerificationRequest` / `VerificationResponse` | Same token-list DTO definitions. They describe verification of draft tokens against a target model. | Aljabr | This is speculative decoding/model-execution data and should have one Aljabr canonical contract, with AQLI compatibility conversion only if AQLI callers exist. |
+
+### Compute stage versus serving phase
+
+Aljabr's `InferenceStage` describes PREFILL, DECODE, and COMBINED compute placement/execution. It is materially different from `InferencePhase`, whose enum includes authorization, routing, audit, observability, and cleanup. Do not collapse or rename these concepts as if they were equivalent.
+
+The current `InferencePhase` definition in Aljabr is misplaced at the framework inference boundary: most values are serving lifecycle concerns. AQLI should own that enum and its pipeline. Aljabr should retain compute-oriented concepts such as `InferenceStage` and define narrower model-execution events/stages where required.
+
+### Implementation evidence and gaps
+
+- AQLI's `InferencePhaseNodeAdapter` maps phase plugins into AQLI's visual node execution model and derives retry/critical-failure behavior from the phase. This is runtime workflow integration, not model math.
+- AQLI's `DefaultInferenceObserver` writes trace metadata into mutable `ExecutionContext`, records Micrometer request/stream durations, and cleans up runtime span state. This confirms serving/operational ownership.
+- AQLI's `ObservabilityPhasePlugin` consumes runtime response, error, tool-usage, and phase-latency variables.
+- AQLI also has a separate runtime `DraftVerificationStrategy` accepting `SpeculativeBatch` and a raw `MemorySegment` of target logits. Its current `greedy()` implementation is explicitly a placeholder returning zero. This is not equivalent to the token-list `VerificationRequest` / `VerificationResponse` pair and exposes a second speculative-verification shape.
+- The token-list verification DTOs retain caller-provided mutable lists and do not validate nulls, token ranges, or `numAccepted` consistency. The response derives `numAccepted` once from the supplied list. Canonicalization should include immutability and invariant tests, not just package conversion.
+- GitHub code search did not return indexed consumer results for these identifiers. The source tree confirms AQLI runtime implementations and adapters, but a full checked-out import/construction-site inventory remains unavailable through remote source inspection. No public types are removed by this audit.
+
+### Recommended migration sequence
+
+1. Keep `InferencePhase`, `InferencePipeline`, `InferenceObserver`, `ValidationContext`, and serving `InferencePhasePlugin` under AQLI ownership. Deprecate/remove the Aljabr duplicates only after implementation/consumer inventory and a compatibility window.
+2. Keep Aljabr `InferenceStage` as the compute-stage concept; do not import AQLI's serving phase enum into Aljabr's model execution path.
+3. Consolidate speculative verification around one Aljabr-owned, typed model-execution contract. First inspect actual speculative decoding implementations and tensor/logit representations in both repositories; do not promote raw `MemorySegment` into a portable DTO.
+4. Keep AQLI scheduling, speculative batch admission, draft/target model selection, and runtime lifecycle in AQLI. Delegate mathematical token acceptance/verification to Aljabr.
+5. Add tests for defensive copying, empty/null inputs, accepted-token count consistency, target/prefix/draft shape constraints, and conversion compatibility before migrating callers.
+
+This audit classifies ownership and identifies design gaps. It does not authorize immediate deletion of duplicate public types or assert that the existing speculative verification path is complete.
