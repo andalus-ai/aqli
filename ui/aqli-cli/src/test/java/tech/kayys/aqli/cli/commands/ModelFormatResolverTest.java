@@ -31,6 +31,7 @@ class ModelFormatResolverTest {
     @Test
     void recognizesOnnxRepositoryHintsIncludingHfPrefix() {
         assertTrue(ModelFormatResolver.looksLikeOnnxModelReference("hf:onnx-community/model"));
+        assertTrue(ModelFormatResolver.looksLikeOnnxModelReference("huggingface:onnx-community/model"));
         assertTrue(ModelFormatResolver.looksLikeOnnxModelReference("org/model-onnx"));
         assertFalse(ModelFormatResolver.looksLikeOnnxModelReference("org/model"));
         assertFalse(ModelFormatResolver.looksLikeOnnxModelReference(null));
