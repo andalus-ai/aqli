@@ -325,7 +325,7 @@ public final class DirectSafetensorRoutePolicy {
                 providerExplicit,
                 preferAlternateRuntime,
                 providerActive,
-                modelId -> Optional.empty());
+                null);
     }
 
     public static AlternateRuntimeSelection selectGemma4MobileQatAlternateRuntime(
@@ -878,7 +878,9 @@ public final class DirectSafetensorRoutePolicy {
 
     private static Optional<Path> findLocalGemma4GgufEquivalent(
             LocalModelResolver resolver, String requestedModelId, String localPath) {
-        if (resolver == null) return Optional.empty();
+        if (resolver == null) {
+            return Optional.empty();
+        }
         Set<String> requestedKeys = gemma4GgufTargetKeys(requestedModelId, localPath);
         if (requestedKeys.isEmpty()) {
             return Optional.empty();
