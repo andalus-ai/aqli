@@ -14,24 +14,24 @@ import java.util.Optional;
  * Runtime selection and daemon reuse policy remain in {@link GgufFastRun}.
  */
 final class LlamaCppGgufSession implements AutoCloseable {
-        private static final long ERROR_BUFFER_BYTES = 8192L;
+    private static final long ERROR_BUFFER_BYTES = 8192L;
     private static final int OUTPUT_BUFFER_RETRY_LIMIT = 2;
 
-        private final MemorySegment handle;
-        private final String backendName;
-        private final Arena scratchArena = Arena.ofShared();
-        private MemorySegment promptBuffer = MemorySegment.NULL;
-        private MemorySegment outputBuffer = MemorySegment.NULL;
-        private MemorySegment errorBuffer = MemorySegment.NULL;
-        private MemorySegment metricsBuffer = MemorySegment.NULL;
-        private long promptBufferCapacity;
-        private long outputBufferCapacity;
-        private long metricsBufferCapacity;
-        private int lastGeneratedTokens;
-        private int lastOutputBufferRetries;
-        private boolean closed;
+    private final MemorySegment handle;
+    private final String backendName;
+    private final Arena scratchArena = Arena.ofShared();
+    private MemorySegment promptBuffer = MemorySegment.NULL;
+    private MemorySegment outputBuffer = MemorySegment.NULL;
+    private MemorySegment errorBuffer = MemorySegment.NULL;
+    private MemorySegment metricsBuffer = MemorySegment.NULL;
+    private long promptBufferCapacity;
+    private long outputBufferCapacity;
+    private long metricsBufferCapacity;
+    private int lastGeneratedTokens;
+    private int lastOutputBufferRetries;
+    private boolean closed;
 
-        private LlamaCppGgufSession(MemorySegment handle, String backendName) {
+    private LlamaCppGgufSession(MemorySegment handle, String backendName) {
             this.handle = handle;
             this.backendName = backendName;
         }
@@ -193,7 +193,7 @@ final class LlamaCppGgufSession implements AutoCloseable {
             return metricsBuffer;
         }
 
-        private static long nextScratchCapacity(long requested) {
+    private static long nextScratchCapacity(long requested) {
             long capacity = 1024L;
             while (capacity < requested && capacity <= Long.MAX_VALUE / 2L) {
                 capacity <<= 1;
@@ -220,4 +220,9 @@ final class LlamaCppGgufSession implements AutoCloseable {
                 scratchArena.close();
             }
         }
+
+    private static boolean isNull(MemorySegment segment) {
+        return segment == null || segment.equals(MemorySegment.NULL) || segment.address() == 0L;
+    }
+
     }
