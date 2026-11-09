@@ -99,7 +99,14 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.withType<Test> {
+// This engine directly uses the incubating JDK Vector API. Keep the module
+// requirement local instead of imposing it on every AQLI subproject.
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("--add-modules=jdk.incubator.vector")
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgs("--add-modules=jdk.incubator.vector")
     useJUnitPlatform()
 }
 

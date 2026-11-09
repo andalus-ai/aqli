@@ -118,5 +118,12 @@ tasks.jar {
 }
 
 tasks.test {
+    jvmArgs("--add-modules=jdk.incubator.vector")
     useJUnitPlatform()
+}
+
+// The CLI composes the Safetensors engine, which uses the incubating Vector API.
+// Keep the runtime module requirement at this application boundary.
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs("--add-modules=jdk.incubator.vector")
 }
