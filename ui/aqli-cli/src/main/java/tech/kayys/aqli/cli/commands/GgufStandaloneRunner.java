@@ -5,8 +5,6 @@ import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
-
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -15,16 +13,10 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.common.AttributeKey;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.net.ConnectException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -1914,65 +1906,25 @@ public final class GgufStandaloneRunner {
     }
 
     private static OptionalInt sendDaemonRequestWithRetries(String[] rawArgs, String magic, long retryMillis) {
-        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0L, retryMillis));
-        while (true) {
-            OptionalInt status = sendDaemonRequest(rawArgs, magic);
-            if (status.isPresent()) {
-                return status;
-            }
-            if (readDaemonInfo().isEmpty() || System.nanoTime() >= deadlineNanos) {
-                return OptionalInt.empty();
-            }
-            try {
-                Thread.sleep(daemonRequestRetrySleepMillis());
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return OptionalInt.empty();
-            }
-        }
+        return daemonClient().sendWithRetries(rawArgs, magic, retryMillis);
     }
 
     private static OptionalInt sendDaemonRequest(String[] rawArgs, String magic) {
-        OptionalInt port = readDaemonPort();
-        if (port.isEmpty()) {
-            return OptionalInt.empty();
-        }
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port.getAsInt()),
-                    daemonConnectTimeoutMillis());
-            socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeoutMillis()));
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, magic);
-            out.writeInt(rawArgs.length);
-            for (String arg : rawArgs) {
-                writeString(out, arg);
-            }
-            out.writeBoolean(fastRunTiming());
-            out.flush();
-            while (true) {
-                int channel = in.read();
-                if (channel < 0) {
-                    return OptionalInt.empty();
-                }
-                int length = in.readInt();
-                if (channel == 0) {
-                    return OptionalInt.of(length);
-                }
-                byte[] payload = in.readNBytes(length);
-                PrintStream target = channel == 2 ? System.err : System.out;
-                target.write(payload);
-                target.flush();
-            }
-        } catch (ConnectException ignored) {
-            deleteDaemonPortFile();
-            return OptionalInt.empty();
-        } catch (Exception e) {
-            if (fastRunDebug()) {
-                System.err.println("GGUF daemon request failed: " + briefMessage(e));
-            }
-            return OptionalInt.empty();
-        }
+        return daemonClient().send(rawArgs, magic);
+    }
+
+    private static GgufDaemonClient daemonClient() {
+        return new GgufDaemonClient(
+                GgufStandaloneRunner::readDaemonPort,
+                GgufStandaloneRunner::daemonConnectTimeoutMillis,
+                () -> (int) Math.min(Integer.MAX_VALUE, timeoutMillis()),
+                GgufStandaloneRunner::daemonRequestRetrySleepMillis,
+                GgufStandaloneRunner::fastRunTiming,
+                GgufStandaloneRunner::fastRunDebug,
+                GgufStandaloneRunner::readDaemonInfoPresent,
+                GgufStandaloneRunner::deleteDaemonPortFile,
+                System.out,
+                System.err);
     }
 
     private static boolean startDaemon() {
@@ -2237,6 +2189,10 @@ public final class GgufStandaloneRunner {
 
     private static Optional<GgufDaemonInfoStore.DaemonInfo> readDaemonInfo() {
         return daemonInfoStore().read();
+    }
+
+    private static boolean readDaemonInfoPresent() {
+        return readDaemonInfo().isPresent();
     }
 
     private static void writeDaemonPort(int port) throws IOException {
