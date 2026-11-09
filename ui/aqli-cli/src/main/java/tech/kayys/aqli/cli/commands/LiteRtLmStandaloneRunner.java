@@ -1,5 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
+import tech.kayys.aqli.provider.litert.LiteRTModelIndexResolver;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -52,7 +53,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -71,7 +71,6 @@ public final class LiteRtLmStandaloneRunner {
     private static final int DEFAULT_MAX_NUM_TOKENS = 2048;
     private static final int DEFAULT_MAX_NUM_TOKENS_CEILING = 2048;
     private static final int DEFAULT_MAX_NUM_TOKENS_FLOOR = 256;
-    private static final Pattern JSON_OBJECT_PATTERN = Pattern.compile("\\{.*?}", Pattern.DOTALL);
     private static final Pattern BARE_QUESTION_PATTERN = Pattern.compile(
             "(?i)^(who|what|where|when|why|how|which|whom|whose|is|are|was|were|do|does|did|can|could|should|would|will|may|might)\\b.*[^.?!]$");
     private static final String SHORT_QUESTION_INSTRUCTION =
