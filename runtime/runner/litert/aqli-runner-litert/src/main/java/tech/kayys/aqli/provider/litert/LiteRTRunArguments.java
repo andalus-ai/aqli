@@ -19,6 +19,10 @@ public record LiteRTRunArguments(
         boolean supported,
         boolean banner) {
 
+    public static LiteRTRunArguments parse(String[] args) {
+        return parse(args, "gpu");
+    }
+
     public static LiteRTRunArguments parse(String[] args, String defaultBackend) {
         Builder parsed = new Builder(defaultBackend);
         if (args == null || args.length == 0 || !"run".equals(args[0])) {
