@@ -62,6 +62,42 @@ class LocalModelIndexResolverTest {
                 (ref, format) -> { throw new IllegalStateException("index unavailable"); }).isEmpty());
     }
 
+    @Test
+    void exactFormatLookupPreservesPreferredThenUnfilteredFallbackOrder() throws Exception {
+        Path artifact = Files.createFile(tempDir.resolve("model.safetensors"));
+        LocalModelIndex.Entry wrongFormat = entry(artifact);
+        wrongFormat.format = "gguf";
+        LocalModelIndex.Entry safetensor = entry(artifact);
+        safetensor.format = "safetensor";
+        List<String> lookups = new ArrayList<>();
+
+        Optional<LocalModelIndex.Entry> result = LocalModelIndexResolver.findExactFormat(
+                "org/model",
+                "safetensor",
+                (reference, format) -> {
+                    lookups.add(reference + ":" + format);
+                    return format == null ? Optional.of(safetensor) : Optional.of(wrongFormat);
+                });
+
+        assertTrue(result.isPresent());
+        assertSame(safetensor, result.orElseThrow());
+        assertEquals(List.of("org/model:safetensor", "org/model:null"), lookups);
+    }
+
+    @Test
+    void exactFormatLookupRejectsUnfilteredEntryOfAnotherFormat() throws Exception {
+        Path artifact = Files.createFile(tempDir.resolve("other.gguf"));
+        LocalModelIndex.Entry wrongFormat = entry(artifact);
+        wrongFormat.format = "gguf";
+
+        Optional<LocalModelIndex.Entry> result = LocalModelIndexResolver.findExactFormat(
+                "org/model",
+                "safetensor",
+                (reference, format) -> Optional.of(wrongFormat));
+
+        assertTrue(result.isEmpty());
+    }
+
     private static LocalModelIndex.Entry entry(Path path) {
         LocalModelIndex.Entry entry = new LocalModelIndex.Entry();
         entry.path = path.toString();
