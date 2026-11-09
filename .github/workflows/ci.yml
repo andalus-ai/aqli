@@ -85,6 +85,14 @@ jobs:
           set -euo pipefail
           ./scripts/check-product-boundaries.sh
 
+      - name: Validate local SDK composition
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx2G
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --stacktrace :sdk:aqli-sdk-local:test
+
       - name: Validate local model repository
         shell: bash
         env:
