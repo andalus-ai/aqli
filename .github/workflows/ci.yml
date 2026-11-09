@@ -120,6 +120,18 @@ jobs:
           fi
           ./scripts/check-no-local-paths.sh
 
+      - name: Validate GGUF provider modules
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx3G
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --stacktrace \
+            :runner:gguf:aqli-runner-gguf:test \
+            :runner:gguf:aqli-runner-gguf-llamacpp:test \
+            :runner:gguf:aqli-plugin-runner-gguf-llamacpp:build \
+            :runner:gguf:aqli-gguf-feature-text:build
+
       - name: Build Aqli CLI (JVM)
         shell: bash
         env:
