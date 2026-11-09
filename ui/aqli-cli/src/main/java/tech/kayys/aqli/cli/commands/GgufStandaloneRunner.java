@@ -50,10 +50,10 @@ import tech.kayys.aljabr.gguf.runtime.GgufRuntimeProfile;
 import tech.kayys.aljabr.gguf.runtime.GgufRuntimeProbe;
 
 /**
- * Small GGUF/llama.cpp fast path used by the local macOS shim for simple
+ * Standalone GGUF/llama.cpp runner used by the local macOS shim for simple
  * {@code aqli run} calls.
  */
-public final class GgufFastRun {
+public final class GgufStandaloneRunner {
     private static final int FALLBACK_TO_FULL_CLI = StandaloneFastRunProtocol.FALLBACK_TO_FULL_CLI;
     private static final int COMMAND_ERROR = 2;
     private static final String DAEMON_MAGIC = "AQLI_GGUF_FAST_DAEMON_V1";
@@ -79,7 +79,7 @@ public final class GgufFastRun {
         }
     }
 
-    private GgufFastRun() {
+    private GgufStandaloneRunner() {
     }
 
     static boolean isFallbackToFullCliStatus(int status) {
@@ -346,14 +346,14 @@ public final class GgufFastRun {
             return LocalModelIndex.entries().stream()
                     .filter(candidate -> candidate != null && candidate.path != null && !candidate.path.isBlank())
                     .filter(candidate -> !sameIndexPath(candidate, requested))
-                    .filter(GgufFastRun::isGgufIndexEntry)
+                    .filter(GgufStandaloneRunner::isGgufIndexEntry)
                     .filter(candidate -> compatibleArchitecture(requested, candidate))
                     .filter(candidate -> intersects(requestedKeys, canonicalModelKeys(candidate)))
                     .sorted((left, right) -> Integer.compare(
                             equivalentGgufPreference(left),
                             equivalentGgufPreference(right)))
                     .map(candidate -> Path.of(candidate.path))
-                    .map(GgufFastRun::findGguf)
+                    .map(GgufStandaloneRunner::findGguf)
                     .flatMap(Optional::stream)
                     .findFirst();
         } catch (Exception ignored) {
@@ -507,7 +507,7 @@ public final class GgufFastRun {
             try (var stream = Files.list(searchDir)) {
                 return stream
                         .filter(Files::isRegularFile)
-                        .filter(GgufFastRun::isGguf)
+                        .filter(GgufStandaloneRunner::isGguf)
                         .findFirst()
                         .map(candidate -> candidate.toAbsolutePath().normalize());
             }
@@ -2411,7 +2411,7 @@ public final class GgufFastRun {
             command.add("-Djava.library.path=" + System.getProperty("java.library.path", ""));
             command.add("-cp");
             command.add(System.getProperty("java.class.path"));
-            command.add(GgufFastRun.class.getName());
+            command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
             if (!startDetachedDaemon(command)) {
@@ -2730,7 +2730,7 @@ public final class GgufFastRun {
         return new GgufStaleDaemonLifecycle(
                 daemonInfoStore(),
                 GgufStaleDaemonLifecycle.systemProcesses(),
-                GgufFastRun::removeLaunchctlDaemon);
+                GgufStandaloneRunner::removeLaunchctlDaemon);
     }
 
     static boolean staleDaemonForceKill() {

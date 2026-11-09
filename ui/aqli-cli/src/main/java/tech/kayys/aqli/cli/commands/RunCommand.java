@@ -1340,7 +1340,7 @@ public class RunCommand implements Runnable {
             }
             // Propagate --java / --llamacpp / --engine into request metadata so that
             // GgufBackendSelection (Aljabr) can route to the correct GGUF backend
-            // in the full CDI path (not just the standalone GgufFastRun path).
+            // in the full CDI path (not just the standalone GgufStandaloneRunner path).
             String ggufEngineHint = requestedGgufEngine();
             if (ggufEngineHint != null && !ggufEngineHint.isBlank()) {
                 requestBuilder.metadata("gguf.backend", ggufEngineHint);
@@ -5990,8 +5990,8 @@ public class RunCommand implements Runnable {
         if (!shouldTryStandaloneLiteRtFastPath(localPath)) {
             return false;
         }
-        int status = LiteRtLmFastRun.run(buildStandaloneLiteRtFastRunArgs(localPath));
-        if (StandaloneFastRunProtocol.isFallbackToFullCliStatus(status)) {
+        int status = LiteRtLmStandaloneRunner.run(buildStandaloneLiteRtFastRunArgs(localPath));
+        if (StandaloneRunProtocol.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
@@ -6026,8 +6026,8 @@ public class RunCommand implements Runnable {
             return false;
         }
         providerId = selection.provider();
-        int status = LiteRtLmFastRun.run(buildStandaloneLiteRtFastRunArgs(selection.localPath()));
-        if (StandaloneFastRunProtocol.isFallbackToFullCliStatus(status)) {
+        int status = LiteRtLmStandaloneRunner.run(buildStandaloneLiteRtFastRunArgs(selection.localPath()));
+        if (StandaloneRunProtocol.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
@@ -6117,11 +6117,11 @@ public class RunCommand implements Runnable {
                 || looksLikeGgufPath(modelId);
     }
 
-    String[] buildStandaloneGgufFastRunArgs() {
-        return buildStandaloneGgufFastRunArgs(false);
+    String[] buildStandaloneGgufStandaloneRunnerArgs() {
+        return buildStandaloneGgufStandaloneRunnerArgs(false);
     }
 
-    String[] buildStandaloneGgufFastRunArgs(boolean suppressBanner) {
+    String[] buildStandaloneGgufStandaloneRunnerArgs(boolean suppressBanner) {
         List<String> args = new java.util.ArrayList<>();
         args.add("run");
         if (suppressBanner || noBanner) {
@@ -6187,13 +6187,13 @@ public class RunCommand implements Runnable {
         if (!shouldTryStandaloneGgufFastPath()) {
             return false;
         }
-        int status = GgufFastRun.run(buildStandaloneGgufFastRunArgs(suppressBanner));
-        if (GgufFastRun.isFallbackToFullCliStatus(status)) {
+        int status = GgufStandaloneRunner.run(buildStandaloneGgufStandaloneRunnerArgs(suppressBanner));
+        if (GgufStandaloneRunner.isFallbackToFullCliStatus(status)) {
             return false;
         }
         if (status == 0) {
-            if (GgufFastRun.hardExitAfterRun()) {
-                GgufFastRun.hardExitProcess(0);
+            if (GgufStandaloneRunner.hardExitAfterRun()) {
+                GgufStandaloneRunner.hardExitProcess(0);
             }
             requestProcessExit();
             return true;
@@ -6828,10 +6828,10 @@ public class RunCommand implements Runnable {
             System.out.println("--------------------------------------------------");
             System.out.println("[Decoded/Sanitized Output]:");
             System.out.println("--------------------------------------------------");
-            System.out.println(ChatUIRenderer.GREEN + GgufFastRun.stripThinkingChannels(response.getContent()) + ChatUIRenderer.RESET);
+            System.out.println(ChatUIRenderer.GREEN + GgufStandaloneRunner.stripThinkingChannels(response.getContent()) + ChatUIRenderer.RESET);
             System.out.println("--------------------------------------------------");
         } else {
-            System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufFastRun.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
+            System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufStandaloneRunner.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
         }
         if (response.getSessionId() != null && !response.getSessionId().isBlank()) {
             System.out.println(ChatUIRenderer.DIM + "Session: " + response.getSessionId() + ChatUIRenderer.RESET);

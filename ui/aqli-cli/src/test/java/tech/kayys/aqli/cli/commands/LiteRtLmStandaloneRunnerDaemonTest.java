@@ -20,15 +20,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LiteRtLmFastRunDaemonTest {
+class LiteRtLmStandaloneRunnerDaemonTest {
 
     @Test
     void runHeaderMatchesFullCliShapeForIndexedModels() {
-        LiteRtLmFastRun.FastArgs args = LiteRtLmFastRun.FastArgs.parse(
+        LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
                 new String[]{"run", "--model", "7c51c9", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-        LiteRtLmFastRun.printRunHeader(
+        LiteRtLmStandaloneRunner.printRunHeader(
                 Path.of("/tmp/gemma-4-E2B-it.litertlm"),
                 args,
                 new PrintStream(bytes, true, StandardCharsets.UTF_8));
@@ -43,11 +43,11 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void runHeaderDoesNotPrintResolvedLineForExplicitModelFile() {
-        LiteRtLmFastRun.FastArgs args = LiteRtLmFastRun.FastArgs.parse(
+        LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
                 new String[]{"run", "--modelFile", "/tmp/gemma-4-E2B-it.litertlm", "--prompt", "hello"});
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-        LiteRtLmFastRun.printRunHeader(
+        LiteRtLmStandaloneRunner.printRunHeader(
                 Path.of("/tmp/gemma-4-E2B-it.litertlm"),
                 args,
                 new PrintStream(bytes, true, StandardCharsets.UTF_8));
@@ -60,11 +60,11 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void runHeaderUsesConcreteLiteRtContainerFormat() {
-        assertEquals("litertlm", LiteRtLmFastRun.liteRtModelFormat(Path.of("/tmp/model.litertlm")));
-        assertEquals("tflite", LiteRtLmFastRun.liteRtModelFormat(Path.of("/tmp/model.tflite")));
-        assertEquals("tflite", LiteRtLmFastRun.liteRtModelFormat(Path.of("/tmp/model.tfl")));
-        assertEquals("task", LiteRtLmFastRun.liteRtModelFormat(Path.of("/tmp/model.task")));
-        assertEquals("litert", LiteRtLmFastRun.liteRtModelFormat(Path.of("/tmp/model.bin")));
+        assertEquals("litertlm", LiteRtLmStandaloneRunner.liteRtModelFormat(Path.of("/tmp/model.litertlm")));
+        assertEquals("tflite", LiteRtLmStandaloneRunner.liteRtModelFormat(Path.of("/tmp/model.tflite")));
+        assertEquals("tflite", LiteRtLmStandaloneRunner.liteRtModelFormat(Path.of("/tmp/model.tfl")));
+        assertEquals("task", LiteRtLmStandaloneRunner.liteRtModelFormat(Path.of("/tmp/model.task")));
+        assertEquals("litert", LiteRtLmStandaloneRunner.liteRtModelFormat(Path.of("/tmp/model.bin")));
     }
 
     @Test
@@ -127,10 +127,10 @@ class LiteRtLmFastRunDaemonTest {
     void executionRouteNamesDaemonAndDirectFastPath() {
         assertEquals(
                 "Execution route: litert (backend=GPU/Metal) [official_litert_lm_jvm_daemon]",
-                LiteRtLmFastRun.executionRouteLine("GPU/Metal", "daemon"));
+                LiteRtLmStandaloneRunner.executionRouteLine("GPU/Metal", "daemon"));
         assertEquals(
                 "Execution route: litert (backend=CPU) [official_litert_lm_jvm_fast_path]",
-                LiteRtLmFastRun.executionRouteLine("CPU", "fast path"));
+                LiteRtLmStandaloneRunner.executionRouteLine("CPU", "fast path"));
     }
 
     @Test
@@ -148,11 +148,11 @@ class LiteRtLmFastRunDaemonTest {
         System.setProperty("user.home", tempHome.toString());
         System.clearProperty("aqli.litert.fast_run.auto_equivalent");
         try {
-            LiteRtLmFastRun.FastArgs args = LiteRtLmFastRun.FastArgs.parse(
+            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
                     new String[]{"run", "--model", "97cbf2", "--prompt", "hello"});
-            LiteRtLmFastRun.RouteResolution route = LiteRtLmFastRun.resolveLiteRtLmRoute(args).orElseThrow();
+            LiteRtLmStandaloneRunner.RouteResolution route = LiteRtLmStandaloneRunner.resolveLiteRtLmRoute(args).orElseThrow();
 
-            assertEquals(litertFile.toAbsolutePath().normalize(), LiteRtLmFastRun.resolveLiteRtLmModel(args).orElseThrow());
+            assertEquals(litertFile.toAbsolutePath().normalize(), LiteRtLmStandaloneRunner.resolveLiteRtLmModel(args).orElseThrow());
             assertEquals(litertFile.toAbsolutePath().normalize(), route.path());
             assertEquals("fast-index-equivalent-litert", route.source());
             assertTrue(route.cacheHit());
@@ -186,9 +186,9 @@ class LiteRtLmFastRunDaemonTest {
         System.setProperty("user.home", tempHome.toString());
         System.clearProperty("aqli.litert.fast_run.auto_equivalent");
         try {
-            LiteRtLmFastRun.FastArgs args = LiteRtLmFastRun.FastArgs.parse(
+            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
                     new String[]{"run", "--model", "0576e9", "--prompt", "hello"});
-            LiteRtLmFastRun.RouteResolution route = LiteRtLmFastRun.resolveLiteRtLmRoute(args).orElseThrow();
+            LiteRtLmStandaloneRunner.RouteResolution route = LiteRtLmStandaloneRunner.resolveLiteRtLmRoute(args).orElseThrow();
 
             assertEquals(litertFile.toAbsolutePath().normalize(), route.path());
             assertEquals("fast-index-equivalent-litert", route.source());
@@ -215,10 +215,10 @@ class LiteRtLmFastRunDaemonTest {
         System.setProperty("user.home", tempHome.toString());
         System.setProperty("aqli.litert.fast_run.auto_equivalent", "false");
         try {
-            LiteRtLmFastRun.FastArgs args = LiteRtLmFastRun.FastArgs.parse(
+            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
                     new String[]{"run", "--model", "97cbf2", "--prompt", "hello"});
 
-            assertTrue(LiteRtLmFastRun.resolveLiteRtLmModel(args).isEmpty());
+            assertTrue(LiteRtLmStandaloneRunner.resolveLiteRtLmModel(args).isEmpty());
         } finally {
             restoreProperty("user.home", previousHome);
             restoreProperty("aqli.litert.fast_run.auto_equivalent", previousAutoEquivalent);
@@ -246,12 +246,12 @@ class LiteRtLmFastRunDaemonTest {
         System.clearProperty("aqli.litert.fast_run.auto_equivalent");
         System.clearProperty("aqli.litert.fast_run.daemon_route_cache");
         try {
-            LiteRtLmFastRun.FastArgs args = LiteRtLmFastRun.FastArgs.parse(
+            LiteRtLmStandaloneRunner.FastArgs args = LiteRtLmStandaloneRunner.FastArgs.parse(
                     new String[]{"run", "--model", "97cbf2", "--prompt", "hello"});
-            LiteRtLmFastRun.RouteResolutionCache cache = new LiteRtLmFastRun.RouteResolutionCache();
+            LiteRtLmStandaloneRunner.RouteResolutionCache cache = new LiteRtLmStandaloneRunner.RouteResolutionCache();
 
-            LiteRtLmFastRun.RouteResolution first = cache.resolve(args).orElseThrow();
-            LiteRtLmFastRun.RouteResolution hot = cache.resolve(args).orElseThrow();
+            LiteRtLmStandaloneRunner.RouteResolution first = cache.resolve(args).orElseThrow();
+            LiteRtLmStandaloneRunner.RouteResolution hot = cache.resolve(args).orElseThrow();
             assertEquals(litertFile.toAbsolutePath().normalize(), first.path());
             assertEquals(first.path(), hot.path());
             assertEquals("fast-index-equivalent-litert", hot.source());
@@ -259,7 +259,7 @@ class LiteRtLmFastRunDaemonTest {
 
             writeModelIndex(tempHome, safetensorDir, secondLiteRtDir);
 
-            LiteRtLmFastRun.RouteResolution invalidated = cache.resolve(args).orElseThrow();
+            LiteRtLmStandaloneRunner.RouteResolution invalidated = cache.resolve(args).orElseThrow();
             assertEquals(secondLiteRtFile.toAbsolutePath().normalize(), invalidated.path());
             assertEquals("fast-index-equivalent-litert", invalidated.source());
             assertEquals(1, cache.size());
@@ -275,7 +275,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_route_cache");
         System.setProperty("aqli.litert.fast_run.daemon_route_cache", "false");
         try {
-            assertFalse(LiteRtLmFastRun.daemonRouteCacheEnabled());
+            assertFalse(LiteRtLmStandaloneRunner.daemonRouteCacheEnabled());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_route_cache", previous);
         }
@@ -291,7 +291,7 @@ class LiteRtLmFastRunDaemonTest {
         long firstChunk = conversationReady + TimeUnit.MILLISECONDS.toNanos(125);
         long end = start + TimeUnit.MILLISECONDS.toNanos(1_000);
 
-        LiteRtLmFastRun.printFastRunStats(
+        LiteRtLmStandaloneRunner.printFastRunStats(
                 new PrintStream(bytes, true, StandardCharsets.UTF_8),
                 4,
                 8,
@@ -317,7 +317,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.stale_daemon_force_kill");
         System.clearProperty("aqli.litert.fast_run.stale_daemon_force_kill");
         try {
-            assertTrue(LiteRtLmFastRun.staleDaemonForceKill());
+            assertTrue(LiteRtLmStandaloneRunner.staleDaemonForceKill());
         } finally {
             restoreProperty("aqli.litert.fast_run.stale_daemon_force_kill", previous);
         }
@@ -328,7 +328,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.stale_daemon_force_kill");
         System.setProperty("aqli.litert.fast_run.stale_daemon_force_kill", "false");
         try {
-            assertFalse(LiteRtLmFastRun.staleDaemonForceKill());
+            assertFalse(LiteRtLmStandaloneRunner.staleDaemonForceKill());
         } finally {
             restoreProperty("aqli.litert.fast_run.stale_daemon_force_kill", previous);
         }
@@ -339,7 +339,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.stale_daemon_kill_wait_ms");
         System.setProperty("aqli.litert.fast_run.stale_daemon_kill_wait_ms", "1");
         try {
-            assertEquals(100L, LiteRtLmFastRun.staleDaemonKillWaitMillis());
+            assertEquals(100L, LiteRtLmStandaloneRunner.staleDaemonKillWaitMillis());
         } finally {
             restoreProperty("aqli.litert.fast_run.stale_daemon_kill_wait_ms", previous);
         }
@@ -347,8 +347,8 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void daemonProcessAliveRejectsInvalidAndCurrentPid() {
-        assertFalse(LiteRtLmFastRun.isDaemonProcessAlive(-1));
-        assertFalse(LiteRtLmFastRun.isDaemonProcessAlive(ProcessHandle.current().pid()));
+        assertFalse(LiteRtLmStandaloneRunner.isDaemonProcessAlive(-1));
+        assertFalse(LiteRtLmStandaloneRunner.isDaemonProcessAlive(ProcessHandle.current().pid()));
     }
 
     @Test
@@ -356,7 +356,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.strict_daemon_key");
         System.clearProperty("aqli.litert.fast_run.strict_daemon_key");
         try {
-            assertTrue(LiteRtLmFastRun.strictDaemonKey());
+            assertTrue(LiteRtLmStandaloneRunner.strictDaemonKey());
         } finally {
             restoreProperty("aqli.litert.fast_run.strict_daemon_key", previous);
         }
@@ -367,7 +367,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.strict_daemon_key");
         System.setProperty("aqli.litert.fast_run.strict_daemon_key", "false");
         try {
-            assertFalse(LiteRtLmFastRun.strictDaemonKey());
+            assertFalse(LiteRtLmStandaloneRunner.strictDaemonKey());
         } finally {
             restoreProperty("aqli.litert.fast_run.strict_daemon_key", previous);
         }
@@ -378,7 +378,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.verify_daemon_pid");
         System.clearProperty("aqli.litert.fast_run.verify_daemon_pid");
         try {
-            assertTrue(LiteRtLmFastRun.verifyDaemonPid());
+            assertTrue(LiteRtLmStandaloneRunner.verifyDaemonPid());
         } finally {
             restoreProperty("aqli.litert.fast_run.verify_daemon_pid", previous);
         }
@@ -389,7 +389,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.verify_daemon_pid");
         System.setProperty("aqli.litert.fast_run.verify_daemon_pid", "false");
         try {
-            assertFalse(LiteRtLmFastRun.verifyDaemonPid());
+            assertFalse(LiteRtLmStandaloneRunner.verifyDaemonPid());
         } finally {
             restoreProperty("aqli.litert.fast_run.verify_daemon_pid", previous);
         }
@@ -400,7 +400,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.keepalive_conversation");
         System.clearProperty("aqli.litert.fast_run.keepalive_conversation");
         try {
-            assertFalse(LiteRtLmFastRun.keepAliveConversationEnabled());
+            assertFalse(LiteRtLmStandaloneRunner.keepAliveConversationEnabled());
         } finally {
             restoreProperty("aqli.litert.fast_run.keepalive_conversation", previous);
         }
@@ -411,7 +411,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.keepalive_conversation");
         System.setProperty("aqli.litert.fast_run.keepalive_conversation", "true");
         try {
-            assertTrue(LiteRtLmFastRun.keepAliveConversationEnabled());
+            assertTrue(LiteRtLmStandaloneRunner.keepAliveConversationEnabled());
         } finally {
             restoreProperty("aqli.litert.fast_run.keepalive_conversation", previous);
         }
@@ -422,7 +422,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_launcher");
         System.clearProperty("aqli.litert.fast_run.daemon_launcher");
         try {
-            assertEquals("auto", LiteRtLmFastRun.daemonLauncherMode());
+            assertEquals("auto", LiteRtLmStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_launcher", previous);
         }
@@ -433,7 +433,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_launcher");
         System.setProperty("aqli.litert.fast_run.daemon_launcher", " auto ");
         try {
-            assertEquals("auto", LiteRtLmFastRun.daemonLauncherMode());
+            assertEquals("auto", LiteRtLmStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_launcher", previous);
         }
@@ -444,7 +444,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_launcher");
         System.setProperty("aqli.litert.fast_run.daemon_launcher", " launchctl ");
         try {
-            assertEquals("launchctl", LiteRtLmFastRun.daemonLauncherMode());
+            assertEquals("launchctl", LiteRtLmStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_launcher", previous);
         }
@@ -455,7 +455,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_launcher");
         System.setProperty("aqli.litert.fast_run.daemon_launcher", "bogus");
         try {
-            assertEquals("nohup", LiteRtLmFastRun.daemonLauncherMode());
+            assertEquals("nohup", LiteRtLmStandaloneRunner.daemonLauncherMode());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_launcher", previous);
         }
@@ -466,7 +466,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_request_retry_ms");
         System.clearProperty("aqli.litert.fast_run.daemon_request_retry_ms");
         try {
-            assertEquals(2_000L, LiteRtLmFastRun.daemonRequestRetryMillis());
+            assertEquals(2_000L, LiteRtLmStandaloneRunner.daemonRequestRetryMillis());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_request_retry_ms", previous);
         }
@@ -477,7 +477,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_request_retry_ms");
         System.setProperty("aqli.litert.fast_run.daemon_request_retry_ms", "-1");
         try {
-            assertEquals(0L, LiteRtLmFastRun.daemonRequestRetryMillis());
+            assertEquals(0L, LiteRtLmStandaloneRunner.daemonRequestRetryMillis());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_request_retry_ms", previous);
         }
@@ -488,7 +488,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.daemon_request_retry_sleep_ms");
         System.setProperty("aqli.litert.fast_run.daemon_request_retry_sleep_ms", "1");
         try {
-            assertEquals(10L, LiteRtLmFastRun.daemonRequestRetrySleepMillis());
+            assertEquals(10L, LiteRtLmStandaloneRunner.daemonRequestRetrySleepMillis());
         } finally {
             restoreProperty("aqli.litert.fast_run.daemon_request_retry_sleep_ms", previous);
         }
@@ -504,7 +504,7 @@ class LiteRtLmFastRunDaemonTest {
                         "--max-tokens", "10",
                         "--provider", "litert"
                 },
-                LiteRtLmFastRun.prewarmRunArgs(new String[] {"--model", "7c51c9"}));
+                LiteRtLmStandaloneRunner.prewarmRunArgs(new String[] {"--model", "7c51c9"}));
     }
 
     @Test
@@ -517,7 +517,7 @@ class LiteRtLmFastRunDaemonTest {
                         "--max-tokens", "64",
                         "--provider", "litert"
                 },
-                LiteRtLmFastRun.prewarmRunArgs(new String[] {
+                LiteRtLmStandaloneRunner.prewarmRunArgs(new String[] {
                         "--model", "7c51c9",
                         "--prompt", "what is jakarta",
                         "--max-tokens", "64",
@@ -535,7 +535,7 @@ class LiteRtLmFastRunDaemonTest {
                         "--max-tokens", "10",
                         "--provider", "litert"
                 },
-                LiteRtLmFastRun.prewarmRunArgs(new String[] {"prewarm", "--model", "7c51c9"}));
+                LiteRtLmStandaloneRunner.prewarmRunArgs(new String[] {"prewarm", "--model", "7c51c9"}));
     }
 
     @Test
@@ -543,7 +543,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.prewarm_tokens");
         System.clearProperty("aqli.litert.fast_run.prewarm_tokens");
         try {
-            assertEquals(0, LiteRtLmFastRun.prewarmTokenCount());
+            assertEquals(0, LiteRtLmStandaloneRunner.prewarmTokenCount());
         } finally {
             restoreProperty("aqli.litert.fast_run.prewarm_tokens", previous);
         }
@@ -554,7 +554,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.prewarm_tokens");
         System.setProperty("aqli.litert.fast_run.prewarm_tokens", "2");
         try {
-            assertEquals(2, LiteRtLmFastRun.prewarmTokenCount());
+            assertEquals(2, LiteRtLmStandaloneRunner.prewarmTokenCount());
         } finally {
             restoreProperty("aqli.litert.fast_run.prewarm_tokens", previous);
         }
@@ -565,7 +565,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.prewarm_tokens");
         System.setProperty("aqli.litert.fast_run.prewarm_tokens", "-1");
         try {
-            assertEquals(0, LiteRtLmFastRun.prewarmTokenCount());
+            assertEquals(0, LiteRtLmStandaloneRunner.prewarmTokenCount());
         } finally {
             restoreProperty("aqli.litert.fast_run.prewarm_tokens", previous);
         }
@@ -576,7 +576,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.prewarm_iterations");
         System.clearProperty("aqli.litert.fast_run.prewarm_iterations");
         try {
-            assertEquals(3, LiteRtLmFastRun.prewarmIterationCount());
+            assertEquals(3, LiteRtLmStandaloneRunner.prewarmIterationCount());
         } finally {
             restoreProperty("aqli.litert.fast_run.prewarm_iterations", previous);
         }
@@ -587,7 +587,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.prewarm_iterations");
         System.setProperty("aqli.litert.fast_run.prewarm_iterations", "0");
         try {
-            assertEquals(1, LiteRtLmFastRun.prewarmIterationCount());
+            assertEquals(1, LiteRtLmStandaloneRunner.prewarmIterationCount());
         } finally {
             restoreProperty("aqli.litert.fast_run.prewarm_iterations", previous);
         }
@@ -598,7 +598,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.dynamic_engine_tokens");
         System.clearProperty("aqli.litert.fast_run.dynamic_engine_tokens");
         try {
-            assertTrue(LiteRtLmFastRun.dynamicEngineTokensEnabled());
+            assertTrue(LiteRtLmStandaloneRunner.dynamicEngineTokensEnabled());
         } finally {
             restoreProperty("aqli.litert.fast_run.dynamic_engine_tokens", previous);
         }
@@ -609,7 +609,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.dynamic_engine_tokens");
         System.setProperty("aqli.litert.fast_run.dynamic_engine_tokens", "false");
         try {
-            assertFalse(LiteRtLmFastRun.dynamicEngineTokensEnabled());
+            assertFalse(LiteRtLmStandaloneRunner.dynamicEngineTokensEnabled());
         } finally {
             restoreProperty("aqli.litert.fast_run.dynamic_engine_tokens", previous);
         }
@@ -622,7 +622,7 @@ class LiteRtLmFastRunDaemonTest {
         System.clearProperty("aqli.litert.fast_run.min_engine_tokens");
         System.clearProperty("aqli.litert.fast_run.max_engine_tokens");
         try {
-            assertEquals(256, LiteRtLmFastRun.dynamicEngineTokenBudget("where is jakarta", 10));
+            assertEquals(256, LiteRtLmStandaloneRunner.dynamicEngineTokenBudget("where is jakarta", 10));
         } finally {
             restoreProperty("aqli.litert.fast_run.min_engine_tokens", previousMin);
             restoreProperty("aqli.litert.fast_run.max_engine_tokens", previousMax);
@@ -631,8 +631,8 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void approximateTokenStreamLimiterMatchesChunkedFastRunLimit() {
-        LiteRtLmFastRun.ApproximateTokenStreamLimiter limiter =
-                new LiteRtLmFastRun.ApproximateTokenStreamLimiter(3);
+        LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter limiter =
+                new LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter(3);
 
         String output = limiter.offer("hello ")
                 + limiter.offer("world\nfrom ")
@@ -645,8 +645,8 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void approximateTokenStreamLimiterDefersTrailingWhitespace() {
-        LiteRtLmFastRun.ApproximateTokenStreamLimiter limiter =
-                new LiteRtLmFastRun.ApproximateTokenStreamLimiter(2);
+        LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter limiter =
+                new LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter(2);
 
         assertEquals("hello", limiter.offer("hello "));
         assertEquals("", limiter.offer("\n"));
@@ -661,13 +661,13 @@ class LiteRtLmFastRunDaemonTest {
                 "Answer directly and concisely in one or two sentences. Do not ask a clarification question. "
                         + "If a term is ambiguous, answer the most common meaning first and mention common alternatives briefly.\n"
                         + "Question: Where is jakarta?",
-                LiteRtLmFastRun.promptForModel("where is jakarta"));
+                LiteRtLmStandaloneRunner.promptForModel("where is jakarta"));
     }
 
     @Test
     void promptNormalizationLeavesPunctuatedAndNonQuestionPromptsAlone() {
-        assertEquals("Where is Jakarta?", LiteRtLmFastRun.promptForModel("Where is Jakarta?"));
-        assertEquals("write a poem", LiteRtLmFastRun.promptForModel("write a poem"));
+        assertEquals("Where is Jakarta?", LiteRtLmStandaloneRunner.promptForModel("Where is Jakarta?"));
+        assertEquals("write a poem", LiteRtLmStandaloneRunner.promptForModel("write a poem"));
     }
 
     @Test
@@ -675,7 +675,7 @@ class LiteRtLmFastRunDaemonTest {
         String previous = System.getProperty("aqli.litert.fast_run.normalize_short_questions");
         System.setProperty("aqli.litert.fast_run.normalize_short_questions", "false");
         try {
-            assertEquals("where is jakarta", LiteRtLmFastRun.promptForModel("where is jakarta"));
+            assertEquals("where is jakarta", LiteRtLmStandaloneRunner.promptForModel("where is jakarta"));
         } finally {
             restoreProperty("aqli.litert.fast_run.normalize_short_questions", previous);
         }
@@ -683,7 +683,7 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void warmupStateTracksOnlyMissingIterations() {
-        LiteRtLmFastRun.WarmupState state = new LiteRtLmFastRun.WarmupState();
+        LiteRtLmStandaloneRunner.WarmupState state = new LiteRtLmStandaloneRunner.WarmupState();
 
         assertEquals(3, state.remainingIterations(3));
         state.markCompleted(1);
@@ -694,7 +694,7 @@ class LiteRtLmFastRunDaemonTest {
 
     @Test
     void warmupStateNeverRegresses() {
-        LiteRtLmFastRun.WarmupState state = new LiteRtLmFastRun.WarmupState();
+        LiteRtLmStandaloneRunner.WarmupState state = new LiteRtLmStandaloneRunner.WarmupState();
 
         state.markCompleted(3);
         state.markCompleted(1);

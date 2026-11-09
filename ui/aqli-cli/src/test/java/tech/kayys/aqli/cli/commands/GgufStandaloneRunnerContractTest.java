@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-class GgufFastRunContractTest {
+class GgufStandaloneRunnerContractTest {
 
     @AfterEach
     void clearPrewarmOverrides() {
@@ -28,7 +28,7 @@ class GgufFastRunContractTest {
                     "--provider", "gguf",
                     "--engine", "auto"
                 },
-                GgufFastRun.prewarmRunArgs(new String[] {"prewarm", "--model", "models/example.gguf"}));
+                GgufStandaloneRunner.prewarmRunArgs(new String[] {"prewarm", "--model", "models/example.gguf"}));
     }
 
     @Test
@@ -42,7 +42,7 @@ class GgufFastRunContractTest {
                     "--provider=java",
                     "--engine=java"
                 },
-                GgufFastRun.prewarmRunArgs(new String[] {
+                GgufStandaloneRunner.prewarmRunArgs(new String[] {
                     "prewarm",
                     "--model=models/example.gguf",
                     "--prompt=hello",
@@ -63,7 +63,7 @@ class GgufFastRunContractTest {
                     "--provider", "gguf",
                     "--llamacpp"
                 },
-                GgufFastRun.prewarmRunArgs(new String[] {
+                GgufStandaloneRunner.prewarmRunArgs(new String[] {
                     "warmup",
                     "--model", "models/example.gguf",
                     "-p", "hello",
@@ -75,7 +75,7 @@ class GgufFastRunContractTest {
 
     @Test
     void fallbackStatusIsDistinctFromCommandError() {
-        assertTrue(GgufFastRun.isFallbackToFullCliStatus(42));
-        assertFalse(GgufFastRun.isFallbackToFullCliStatus(2));
+        assertTrue(GgufStandaloneRunner.isFallbackToFullCliStatus(42));
+        assertFalse(GgufStandaloneRunner.isFallbackToFullCliStatus(2));
     }
 }
