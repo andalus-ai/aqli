@@ -1,11 +1,10 @@
 package tech.kayys.aqli.sdk.local;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import jakarta.inject.Inject;
 import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 
 /** CDI composition point for local SDK instances. */
