@@ -1837,48 +1837,13 @@ public class RunCommand implements Runnable {
     private boolean verifyAudioMetadataSidecar() {
         try {
             Path sidecarPath = Path.of(audioMetadataVerifyPath);
-            if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: audio metadata file not found: " + audioMetadataVerifyPath);
-                return false;
-            }
-            JsonNode root = new ObjectMapper().readTree(sidecarPath.toFile());
-            if (root == null || !root.isObject()) {
-                System.err.println("Error: invalid audio metadata file: " + audioMetadataVerifyPath);
-                return false;
-            }
-            String expectedSha256 = jsonText(root, "output_sha256");
-            if (expectedSha256 == null || expectedSha256.isBlank()) {
-                System.err.println("Error: metadata does not contain output_sha256; regenerate the sidecar with a newer Aqli build.");
-                return false;
-            }
-
-            Path audioPath = outputPathForMetadataVerification(sidecarPath, root, "audio");
-            if (!Files.isRegularFile(audioPath)) {
-                System.err.println("Error: audio output not found: " + audioPath);
-                return false;
-            }
-
-            long actualBytes = Files.size(audioPath);
-            Long expectedBytes = parseOptionalReplayLong(jsonText(root, "output_size_bytes"));
-            if (expectedBytes != null && expectedBytes != actualBytes) {
-                System.err.println("Audio metadata verification failed: byte size mismatch.");
-                System.err.println("  expected: " + expectedBytes);
-                System.err.println("  actual:   " + actualBytes);
-                return false;
-            }
-
-            String actualSha256 = sha256Hex(audioPath);
-            if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
-                System.err.println("Audio metadata verification failed: SHA-256 mismatch.");
-                System.err.println("  expected: " + expectedSha256);
-                System.err.println("  actual:   " + actualSha256);
-                return false;
-            }
-
+            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
+            AudioMetadataSidecarStore.VerificationResult result =
+                    AudioMetadataSidecarStore.verify(sidecarPath, outputOverride);
             System.out.println(ChatUIRenderer.GREEN + "✓ Audio metadata verified: " + ChatUIRenderer.RESET
-                    + audioPath.toAbsolutePath().normalize());
-            System.out.println(ChatUIRenderer.DIM + "Bytes: " + actualBytes
-                    + ", SHA-256: " + actualSha256
+                    + result.audioPath());
+            System.out.println(ChatUIRenderer.DIM + "Bytes: " + result.sizeBytes()
+                    + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
         } catch (Exception e) {
@@ -1890,41 +1855,15 @@ public class RunCommand implements Runnable {
     private boolean refreshAudioMetadataSidecar() {
         try {
             Path sidecarPath = Path.of(audioMetadataRefreshPath);
-            if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: audio metadata file not found: " + audioMetadataRefreshPath);
-                return false;
-            }
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode rootNode = mapper.readTree(sidecarPath.toFile());
-            if (rootNode == null || !rootNode.isObject()) {
-                System.err.println("Error: invalid audio metadata file: " + audioMetadataRefreshPath);
-                return false;
-            }
-
-            com.fasterxml.jackson.databind.node.ObjectNode root =
-                    (com.fasterxml.jackson.databind.node.ObjectNode) rootNode;
-            Path audioPath = outputPathForMetadataVerification(sidecarPath, root, "audio");
-            if (!Files.isRegularFile(audioPath)) {
-                System.err.println("Error: audio output not found: " + audioPath);
-                return false;
-            }
-
-            long sizeBytes = Files.size(audioPath);
-            String sha256 = sha256Hex(audioPath);
-            root.put("schema_version", 2);
-            root.put("refreshed_at", Instant.now().toString());
-            root.put("output_path", audioPath.toAbsolutePath().normalize().toString());
-            root.put("output_size_bytes", sizeBytes);
-            root.put("output_sha256", sha256);
-
-            String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
-            Files.writeString(sidecarPath, json);
+            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
+            AudioMetadataSidecarStore.RefreshResult result =
+                    AudioMetadataSidecarStore.refresh(sidecarPath, outputOverride);
             System.out.println(ChatUIRenderer.GREEN + "✓ Audio metadata refreshed: " + ChatUIRenderer.RESET
-                    + sidecarPath.toAbsolutePath().normalize());
+                    + result.sidecarPath());
             System.out.println(ChatUIRenderer.DIM + "Output: "
-                    + audioPath.toAbsolutePath().normalize()
-                    + ", bytes: " + sizeBytes
-                    + ", SHA-256: " + sha256
+                    + result.audioPath()
+                    + ", bytes: " + result.sizeBytes()
+                    + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
         } catch (Exception e) {
@@ -7086,8 +7025,8 @@ public class RunCommand implements Runnable {
                     ? Path.of(audioMetadataOutputPath)
                     : replaceExtension(audioPath, "json");
             List<String> replayArgs = audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata);
-            AudioMetadataSidecarWriter.Result result = AudioMetadataSidecarWriter.write(
-                    new AudioMetadataSidecarWriter.Request(
+            AudioMetadataSidecarStore.WriteResult result = AudioMetadataSidecarStore.write(
+                    new AudioMetadataSidecarStore.WriteRequest(
                             audioPath,
                             metadataPath,
                             modelId,
