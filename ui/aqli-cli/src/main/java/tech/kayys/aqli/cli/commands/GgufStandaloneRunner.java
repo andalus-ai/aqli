@@ -5,8 +5,6 @@ import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
-
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -1934,6 +1932,10 @@ public final class GgufStandaloneRunner {
                 System.err);
     }
 
+    private static GgufDaemonControlClient daemonControlClient() {
+        return new GgufDaemonControlClient();
+    }
+
     private static boolean startDaemon() {
         deleteDaemonPortFile();
         try {
@@ -2056,18 +2058,9 @@ public final class GgufStandaloneRunner {
             removeLaunchctlDaemon();
             return 0;
         }
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port.getAsInt()),
-                    daemonConnectTimeoutMillis());
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, DAEMON_STOP_MAGIC);
-            out.flush();
-            int channel = in.read();
-            int status = in.readInt();
-            return channel == 0 ? status : COMMAND_ERROR;
-        } catch (Exception ignored) {
-            return 0;
+        try {
+            return daemonControlClient().requestStop(
+                    port.getAsInt(), DAEMON_STOP_MAGIC, daemonConnectTimeoutMillis(), COMMAND_ERROR);
         } finally {
             deleteDaemonPortFile();
             removeLaunchctlDaemon();
