@@ -29,7 +29,7 @@ final class GgufDaemonLauncher {
         if ("launchctl".equals(mode)) {
             return macOs && launchWithLaunchctl(command, label, logFile, debug, nativePaths);
         }
-        if ("auto".equals(mode) && macOs && launchWithLaunchctl(command, label, logFile, debug)) {
+        if ("auto".equals(mode) && macOs && launchWithLaunchctl(command, label, logFile, debug, nativePaths)) {
             return true;
         }
         return launchWithNohup(command, logFile, nativePaths, macOs);
