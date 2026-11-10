@@ -1,7 +1,7 @@
 package tech.kayys.aqli.factory;
 
 import tech.kayys.aqli.sdk.config.SdkConfig;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.core.AqliSdkProvider;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import java.time.Duration;
