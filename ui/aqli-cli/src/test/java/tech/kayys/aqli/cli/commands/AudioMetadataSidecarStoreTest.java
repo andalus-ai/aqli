@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -60,8 +61,8 @@ class AudioMetadataSidecarStoreTest {
         Path audio = tempDir.resolve("generated.wav");
         Files.writeString(audio, "audio-bytes");
 
-        AudioMetadataSidecarStore.Result result = AudioMetadataSidecarStore.write(
-                new AudioMetadataSidecarStore.Request(
+        AudioMetadataSidecarStore.WriteResult result = AudioMetadataSidecarStore.write(
+                new AudioMetadataSidecarStore.WriteRequest(
                         audio, audio, "demo", "java", null, "hello", null,
                         "wav", List.of(), "", Map.of()));
 
@@ -76,9 +77,65 @@ class AudioMetadataSidecarStoreTest {
         Path sidecar = tempDir.resolve("nested/deeper/metadata.json");
         Files.writeString(audio, "audio-bytes");
 
-        AudioMetadataSidecarStore.write(new AudioMetadataSidecarStore.Request(
+        AudioMetadataSidecarStore.write(new AudioMetadataSidecarStore.WriteRequest(
                 audio, sidecar, null, null, null, null, null, "wav", List.of(), "", Map.of()));
 
         assertTrue(Files.isRegularFile(sidecar));
+    }
+
+    @Test
+    void verifiesOutputSizeAndDigestAndSupportsExplicitOutputOverride() throws Exception {
+        Path audio = tempDir.resolve("actual.wav");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(audio, "verified-audio");
+        Files.writeString(sidecar, """
+                {
+                  "type": "aqli_audio_metadata",
+                  "output_path": "missing.wav",
+                  "output_size_bytes": 14,
+                  "output_sha256": "%s"
+                }
+                """.formatted(MediaFileIntegrity.sha256Hex(audio)));
+
+        AudioMetadataSidecarStore.VerificationResult result =
+                AudioMetadataSidecarStore.verify(sidecar, audio);
+
+        assertEquals(audio.toAbsolutePath().normalize(), result.audioPath());
+        assertEquals(Files.size(audio), result.sizeBytes());
+        assertEquals(MediaFileIntegrity.sha256Hex(audio), result.sha256());
+    }
+
+    @Test
+    void rejectsVerificationWhenOutputDigestDoesNotMatch() throws Exception {
+        Path audio = tempDir.resolve("generated.wav");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(audio, "audio-bytes");
+        Files.writeString(sidecar, """
+                {"output_path":"generated.wav","output_sha256":"0000"}
+                """);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AudioMetadataSidecarStore.verify(sidecar, null));
+    }
+
+    @Test
+    void refreshesExistingSidecarIntegrityFields() throws Exception {
+        Path audio = tempDir.resolve("generated.wav");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(audio, "updated-audio");
+        Files.writeString(sidecar, """
+                {"type":"aqli_audio_metadata","schema_version":1,"output_path":"generated.wav"}
+                """);
+
+        AudioMetadataSidecarStore.RefreshResult result =
+                AudioMetadataSidecarStore.refresh(sidecar, null);
+
+        JsonNode payload = mapper.readTree(sidecar.toFile());
+        assertEquals(sidecar.toAbsolutePath().normalize(), result.sidecarPath());
+        assertEquals(audio.toAbsolutePath().normalize(), result.audioPath());
+        assertEquals(2, payload.path("schema_version").asInt());
+        assertTrue(payload.hasNonNull("refreshed_at"));
+        assertEquals(Files.size(audio), payload.path("output_size_bytes").asLong());
+        assertEquals(MediaFileIntegrity.sha256Hex(audio), payload.path("output_sha256").asText());
     }
 }
