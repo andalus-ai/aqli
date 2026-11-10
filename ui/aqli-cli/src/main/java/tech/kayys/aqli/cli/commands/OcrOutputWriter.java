@@ -15,10 +15,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import tech.kayys.aqli.cli.chat.ChatUIRenderer;
+
 import javax.imageio.ImageIO;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import tech.kayys.aljabr.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 /**
  * Builds and writes the CLI's PaddleOCR-VL result artifacts.

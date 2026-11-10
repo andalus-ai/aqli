@@ -264,6 +264,58 @@ public final class LiteRtLmStandaloneRunner {
         return resolveLiteRtLmRoute(args).map(RouteResolution::path);
     }
 
+    static Optional<Path> findIndexedLiteRtModelPath(String modelId) {
+        return new LiteRTRouteResolver()
+                .resolve(null, modelId, modelIndexPath(), equivalentLiteRtFastPathEnabled())
+                .map(match -> match.path());
+    }
+
+    static boolean equivalentLiteRtFastPathEnabled() {
+        String configured = System.getProperty("aqli.litert.fast_run.auto_equivalent");
+        return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
+    }
+
+    static String canonicalModelKey(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String leaf = lastPathSegment(value)
+                .replace("__", "/")
+                .replace('\\', '/')
+                .toLowerCase(Locale.ROOT);
+        int slash = leaf.lastIndexOf('/');
+        if (slash >= 0 && slash + 1 < leaf.length()) {
+            leaf = leaf.substring(slash + 1);
+        }
+        leaf = leaf
+                .replaceAll("\\.(litertlm|litert|tflite|tfl|task|gguf|safetensors?|bin)$", "")
+                .replaceAll("(?i)(-?litert-?lm|-?litertlm|-?tflite|-?safetensors?|\\.safetensors?)$", "");
+        StringBuilder key = new StringBuilder();
+        for (String token : leaf.split("[^a-z0-9]+")) {
+            if (!token.isBlank() && !isCanonicalNoiseToken(token)) {
+                key.append(token);
+            }
+        }
+        return key.toString();
+    }
+
+    private static String lastPathSegment(String value) {
+        String normalized = value == null ? "" : value.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        return slash >= 0 && slash + 1 < normalized.length()
+                ? normalized.substring(slash + 1)
+                : normalized;
+    }
+
+    private static boolean isCanonicalNoiseToken(String token) {
+        return switch (token) {
+            case "google", "litert", "community", "lm", "gguf", "safetensor", "safetensors",
+                    "qat", "mobile", "transformers",
+                    "q4", "q5", "q6", "q8", "k", "m", "f16", "fp16", "bf16" -> true;
+            default -> false;
+        };
+    }
+
     static Optional<RouteResolution> resolveLiteRtLmRoute(LiteRTRunArguments args) {
         long startNanos = System.nanoTime();
         Optional<RouteMatch> match = resolveLiteRtLmRouteMatch(args);
