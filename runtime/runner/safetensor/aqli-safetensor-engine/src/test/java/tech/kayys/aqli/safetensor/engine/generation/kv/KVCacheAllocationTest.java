@@ -9,6 +9,21 @@ import java.util.List;
 class KVCacheAllocationTest {
 
     @Test
+    void sessionsOwnIndependentBlockManagers() {
+        KVCacheManager manager = new KVCacheManager();
+
+        KVCacheManager.KVCacheSession first = manager.createSession(128);
+        KVCacheManager.KVCacheSession second = manager.createSession(128);
+
+        assertNotSame(first.blockManager(), second.blockManager());
+
+        first.close();
+        assertDoesNotThrow(() -> second.blockManager().initialize(
+                16, 1, 64, 8, BlockManager.KvStorageType.FP32));
+        second.close();
+    }
+
+    @Test
     void testProactiveAllocation() {
         KVCacheManager manager = new KVCacheManager();
         manager.globalBlockManager = bm;
