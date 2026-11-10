@@ -10,7 +10,6 @@ class KVCacheAllocationTest {
 
     @Test
     void testProactiveAllocation() {
-        BlockManager bm = new BlockManager();
         KVCacheManager manager = new KVCacheManager();
         manager.globalBlockManager = bm;
         
