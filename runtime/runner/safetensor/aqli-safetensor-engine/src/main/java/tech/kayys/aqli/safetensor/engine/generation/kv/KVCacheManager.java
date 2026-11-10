@@ -20,9 +20,6 @@ import jakarta.enterprise.context.ApplicationScoped;
  */
 @ApplicationScoped
 public class KVCacheManager {
-    @jakarta.inject.Inject
-    BlockManager globalBlockManager;
-
     public KVCacheSession createSession(int maxSeqLen) {
         return new KVCacheSession(maxSeqLen, new BlockManager());
     }

@@ -1,19 +1,18 @@
 plugins {
-    java
+    `java-library`
 }
 
-configurations.configureEach {
-    exclude(group = "tech.kayys.tafkir")
+group = "tech.kayys.aqli"
+version = "0.1.0-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
 }
 
 dependencies {
-    implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
-    implementation(project(":spi:aqli-spi-inference"))
-    implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
-    implementation(project(":spi:aqli-spi-multimodal"))
-    implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
-    implementation("io.smallrye.reactive:mutiny:2.5.5")
-    implementation("jakarta.enterprise:jakarta.enterprise.cdi-api:4.0.1")
-    implementation("jakarta.inject:jakarta.inject-api:2.0.1")
-    implementation("org.jboss.logging:jboss-logging:3.5.3.Final")
+    // Model metadata is owned by Aljabr; the SDK API only re-exports its
+    // stable model SPI and has no dependency on a runner or transport.
+    api("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
 }

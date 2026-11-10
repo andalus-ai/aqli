@@ -21,7 +21,6 @@ publishing {
 dependencies {
     implementation(project(":sdk:aqli-sdk"))
     implementation(project(":sdk:aqli-sdk-core"))
-    implementation(project(":sdk:aqli-sdk-api"))
     implementation("io.quarkus:quarkus-arc:3.32.2")
     implementation(project(":core:aqli-core"))
     implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
