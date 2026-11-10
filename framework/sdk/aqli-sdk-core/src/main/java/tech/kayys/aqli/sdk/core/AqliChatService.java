@@ -63,7 +63,7 @@ public final class AqliChatService {
     }
 
     public Uni<InferenceResponse> chat(
-            AqliSdk sdk, 
+            AqliRuntime sdk, 
             String modelId, 
             String systemPrompt,
             List<Message> history, 
