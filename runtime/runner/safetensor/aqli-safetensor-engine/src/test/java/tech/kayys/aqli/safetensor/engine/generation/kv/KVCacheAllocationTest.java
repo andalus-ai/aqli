@@ -26,7 +26,6 @@ class KVCacheAllocationTest {
     @Test
     void testProactiveAllocation() {
         KVCacheManager manager = new KVCacheManager();
-        manager.globalBlockManager = bm;
         
         KVCacheManager.KVCacheSession session = manager.createSession(128);
         
@@ -57,7 +56,6 @@ class KVCacheAllocationTest {
 
     @Test
     void testInt4KvAllocationUsesPackedBlocks() {
-        BlockManager bm = new BlockManager();
         KVCacheManager manager = new KVCacheManager();
         manager.globalBlockManager = bm;
 
