@@ -221,6 +221,84 @@ public final class GgufStandaloneRunner {
         }
     }
 
+    private static void printPrewarmUsage(PrintStream out) {
+        out.println("Usage: aqli prewarm --model MODEL [--prompt TEXT] [--max-tokens N] [--backend metal|cpu]");
+        out.println("       aqli warmup  --model MODEL [--prompt TEXT] [--max-tokens N] [--backend metal|cpu]");
+        out.println();
+        out.println("Preloads the local llama.cpp GGUF daemon and builds the first prompt cache so the next");
+        out.println("matching aqli run can reuse the Metal/CPU session instead of paying cold-start cost.");
+    }
+
+    private static boolean isHelpRequest(String[] args) {
+        for (String arg : args) {
+            if ("--help".equals(arg) || "-h".equals(arg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String[] prewarmRunArgs(String[] args) {
+        List<String> normalized = new ArrayList<>();
+        int startIndex = 0;
+        if (args.length > 0 && ("run".equals(args[0]) || isPrewarmCommand(args[0]))) {
+            startIndex = 1;
+        }
+        normalized.add("run");
+        boolean hasPrompt = false;
+        boolean hasMaxTokens = false;
+        boolean hasProvider = false;
+        boolean hasEngine = false;
+        for (int i = startIndex; i < args.length; i++) {
+            String arg = args[i];
+            normalized.add(arg);
+            String option = arg;
+            int eq = arg.indexOf('=');
+            if (arg.startsWith("--") && eq > 0) {
+                option = arg.substring(0, eq);
+            }
+            if (option.equals("--prompt") || option.equals("-p")) {
+                hasPrompt = true;
+            } else if (option.equals("--max-tokens")) {
+                hasMaxTokens = true;
+            } else if (option.equals("--provider")) {
+                hasProvider = true;
+            } else if (option.equals("--engine") || option.equals("--gguf-engine")
+                    || option.equals("--llamacpp") || option.equals("--llama-cpp")) {
+                hasEngine = true;
+            }
+        }
+        if (!hasPrompt) {
+            normalized.add("--prompt");
+            normalized.add(firstNonBlank(
+                    System.getProperty("aqli.gguf.fast_run.prewarm_prompt"),
+                    System.getenv("AQLI_GGUF_FAST_PREWARM_PROMPT"),
+                    "where is jakarta"));
+        }
+        if (!hasMaxTokens) {
+            normalized.add("--max-tokens");
+            normalized.add(firstNonBlank(
+                    System.getProperty("aqli.gguf.fast_run.prewarm_context_tokens"),
+                    System.getenv("AQLI_GGUF_FAST_PREWARM_CONTEXT_TOKENS"),
+                    "10"));
+        }
+        if (!hasProvider) {
+            normalized.add("--provider");
+            normalized.add("gguf");
+        }
+        if (!hasEngine) {
+            normalized.add("--engine");
+            normalized.add("auto");
+        }
+        return normalized.toArray(String[]::new);
+    }
+
+    private static boolean isPrewarmCommand(String arg) {
+        return "__gguf-daemon-prewarm".equals(arg)
+                || "prewarm".equals(arg)
+                || "warmup".equals(arg);
+    }
+
     private static boolean hasKnownNonGgufTarget(GgufRunArguments args) {
         return GgufModelResolver.hasKnownNonGgufTarget(args, equivalentGgufFastPathEnabled());
     }
