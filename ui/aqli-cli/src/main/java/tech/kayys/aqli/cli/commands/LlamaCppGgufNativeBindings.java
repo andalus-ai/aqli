@@ -30,7 +30,7 @@ final class LlamaCppGgufNativeBindings {
 
     private LlamaCppGgufNativeBindings() {
         try {
-            Path bridge = GgufFastRun.bridgePath();
+            Path bridge = GgufStandaloneRunner.bridgePath();
             if (!Files.isRegularFile(bridge)) {
                 throw new IOException("GGUF fast bridge is not installed at " + bridge);
             }
