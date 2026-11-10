@@ -281,7 +281,7 @@ public final class LiteRtLmStandaloneRunner {
         }
         String leaf = lastPathSegment(value)
                 .replace("__", "/")
-                .replace('\\\\', '/')
+                .replace('\\', '/')
                 .toLowerCase(Locale.ROOT);
         int slash = leaf.lastIndexOf('/');
         if (slash >= 0 && slash + 1 < leaf.length()) {
@@ -300,7 +300,7 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static String lastPathSegment(String value) {
-        String normalized = value == null ? "" : value.replace('\\\\', '/');
+        String normalized = value == null ? "" : value.replace('\\', '/');
         int slash = normalized.lastIndexOf('/');
         return slash >= 0 && slash + 1 < normalized.length()
                 ? normalized.substring(slash + 1)
