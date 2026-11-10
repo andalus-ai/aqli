@@ -1,6 +1,5 @@
 package tech.kayys.aqli.sdk.core;
 
-import io.smallrye.mutiny.Multi;
 
 import tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector;
 import tech.kayys.aqli.sdk.exception.SdkException;
@@ -10,18 +9,11 @@ import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.SystemInfo;
-import tech.kayys.aqli.spi.batch.BatchInferenceRequest;
-import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
-import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
 import tech.kayys.aqli.spi.inference.AsyncJobStatus;
-import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aljabr.spi.model.ModelRegistry;
-import tech.kayys.aljabr.spi.model.MultimodalRequest;
-import tech.kayys.aljabr.spi.model.MultimodalResponse;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.sdk.model.ModelListRequest;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import java.util.List;
@@ -30,7 +22,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * Core interface for the Aqli inference engine SDK — v0.1.4.
+ * Backward-compatible aggregate interface for the AQLI SDK runtime capabilities.\n *\n * <p>New consumers should depend on focused capability ports such as\n * {@link InferenceOperations} where possible. This aggregate remains the\n * compatibility entry point while the remaining runtime responsibilities are\n * separated into dedicated ports.</p>
  *
  * <h3>New in v0.1.4</h3>
  * <ul>
