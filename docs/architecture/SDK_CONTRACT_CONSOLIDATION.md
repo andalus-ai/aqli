@@ -7,7 +7,7 @@
 
 AQLI will expose one canonical public Java SDK contract. The SDK API is defined once, in one API module, and every supported connection style implements that contract.
 
-The canonical public entry point is **`tech.kayys.aqli.sdk.AqliClient`**. There must not be parallel public `AqliClient` or `AqliSdk` interfaces with different method sets in separate packages or modules.
+The canonical public entry point is **`tech.kayys.aqli.sdk.api.AqliClient`**, now housed in the dedicated `sdk:aqli-sdk-api` module. The older `tech.kayys.aqli.sdk.AqliClient` in the facade module remains a legacy surface to be migrated or deprecated after its consumers are audited. There must not be parallel public `AqliClient` or `AqliSdk` interfaces with different method sets in separate packages or modules.
 
 The SDK contract is a client-facing API. Server resources, server-side runtime composition, CLI presentation, and transport implementations are not alternate definitions of the SDK.
 
@@ -93,6 +93,11 @@ Do not mechanically rename types before auditing callers. For public types, prov
 
 ### Phase 1 — Establish a real API module and dependency graph
 
+- [x] Create `framework/sdk/aqli-sdk-api` with a dependency-light `java-library` build and the public `sdk.api.AqliClient` contract.
+- [x] Add the `AqliClientProvider` service-provider boundary so the API module does not instantiate implementation classes reflectively.
+- [x] Register the facade module's provider implementation and expose the API dependency transitively from `aqli-sdk`.
+- [x] Move the `sdk.api.DeploymentMode` compatibility enum to the API module and introduce the correctly named `ClientTransport` selection.
+- [x] Remove the placeholder `sdk.api.AqliClientImpl` that returned synthetic inference results.
 - Reconcile `settings.gradle.kts` with directories that actually exist.
 - Create/restore `framework/sdk/aqli-sdk-api` as the only home for public SDK types.
 - Move the canonical `AqliClient` contract and its builder/configuration/capability contracts into that module.
@@ -175,3 +180,12 @@ The old `sdk.api.AqliClientImpl` is not a valid production implementation: the i
 The server's `SdkProvider` consumes `sdk.core.AqliSdk`, and `LocalAqliSdk` implements it. The local implementation explicitly reports several operations as unsupported because the corresponding production runtime services are not composed. This confirms that the broad `AqliSdk` interface currently combines inference, embeddings, jobs, model catalog/registration, system information, plugin discovery and operational metrics. Those capabilities should be split into cohesive runtime/application ports; the public `AqliClient` should compose only the capabilities intended for SDK consumers. Do not expose unsupported operations as if all local and remote providers implement them.
 
 The two builder/provider systems also differ semantically: one selects a generic provider by name/priority; the other selects LOCAL/REMOTE mode and uses a different priority convention. Consolidation must preserve explicit provider selection, deterministic fallback behavior, and clear errors for missing optional providers. Do not merge them by simply renaming one interface.
+
+
+## Phase 1 implementation notes
+
+The first source migration establishes `sdk:aqli-sdk-api` and moves the `tech.kayys.aqli.sdk.api.AqliClient` contract into it. The API's static builder now resolves an optional `AqliClientProvider` using `ServiceLoader`; it no longer constructs an implementation class directly or falls back to the synthetic `AqliClientImpl`.
+
+The `aqli-sdk` facade registers the provider and implements the builder by delegating to the existing transport factory. The public builder adds `transport(ClientTransport)`; the old `mode(DeploymentMode)` remains deprecated for source compatibility. `aqli-sdk` exposes the API module as an `api` dependency, while SDK Core no longer depends on the client API module.
+
+This is deliberately an incremental migration, not the completed consolidation: the older root-package `tech.kayys.aqli.sdk.AqliClient`, the two `AqliSdk` interfaces, provider-discovery duplication for those interfaces, and server-side `SdkProvider` still require a call-site and behavior audit before removal.
