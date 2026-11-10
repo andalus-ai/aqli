@@ -12,19 +12,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Aggregate interface for AQLI runtime capabilities.\n *\n * <p>New consumers should depend on focused capability ports such as\n * {@link InferenceOperations} where possible. This aggregate remains the\n * compatibility entry point while the remaining runtime responsibilities are\n * separated into dedicated ports.</p>
+ * Aggregate interface for AQLI runtime capabilities.
  *
- * <h3>New in v0.1.4</h3>
+ * <p>New consumers should depend on focused capability ports where possible.
+ * This aggregate remains the compatibility entry point and composes inference,
+ * model catalogue, model lifecycle, and runtime-management operations.</p>
+ *
+ * <h3>Convenience operations</h3>
  * <ul>
  * <li>{@link #listModelsByFormat} — filter the model catalogue by format.</li>
- * <li>{@link #inferGguf} / {@link #inferSafeTensors} — convenience methods
- * that pre-set the format hint, skipping runtime detection.</li>
- * <li>{@link #streamGguf} / {@link #streamSafeTensors} — streaming
- * variants.</li>
+ * <li>{@link #inferGguf} / {@link #inferSafeTensors} — format-aware inference.</li>
+ * <li>{@link #streamGguf} / {@link #streamSafeTensors} — format-aware streaming.</li>
  * <li>{@link #embed} — embedding shortcut with a plain string input.</li>
- * <li>{@link #pullGgufModel} / {@link #pullSafeTensorsModel} — format-aware
- * model pull helpers.</li>
- * <li>{@link #getSystemInfo()} promoted to non-default.</li>
+ * <li>{@link #pullGgufModel} / {@link #pullSafeTensorsModel} — format-aware model pulls.</li>
  * </ul>
  */
 public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations, ModelLifecycleOperations {
@@ -106,16 +106,6 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
     default SdkMetricsCollector.ResourceSnapshot getResourceSnapshot() throws SdkException {
         return SdkMetricsCollector.ResourceSnapshot.unavailable();
     }
-
-    /**
-     * Get detailed statistics for a model (usage, versions, etc.)
-     */
-
-
-    /**
-     * Register a new model programmatically.
-     */
-
 
     /**
      * ML Kit-style feature entrypoint for face recognition, natural language, and
