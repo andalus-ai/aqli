@@ -1975,44 +1975,6 @@ public final class GgufStandaloneRunner {
         }
     }
 
-    private static boolean startDetachedDaemon(List<String> command) throws IOException, InterruptedException {
-        String launcher = daemonLauncherMode();
-        if (fastRunDebug()) {
-            System.err.println("GGUF daemon launcher: " + launcher);
-        }
-        if (launcher.equals("launchctl")) {
-            return isMacOs() && startDetachedDaemonWithLaunchctl(command);
-        }
-        if (launcher.equals("auto") && isMacOs() && startDetachedDaemonWithLaunchctl(command)) {
-            return true;
-        }
-        return startDetachedDaemonWithNohup(command);
-    }
-
-    static String daemonLauncherMode() {
-        return GgufDaemonLauncher.normalizeMode(
-                stringConfig("aqli.gguf.fast_run.daemon_launcher", defaultDaemonLauncherMode()),
-                defaultDaemonLauncherMode());
-    }
-
-    static String defaultDaemonLauncherMode() {
-        return isMacOs() ? "launchctl" : "nohup";
-    }
-
-    private static GgufDaemonLauncher daemonLauncher() {
-        return new GgufDaemonLauncher();
-    }
-
-    private static String launchctlLabel() {
-        return stringConfig("aqli.gguf.fast_run.daemon_launchctl_label",
-                "tech.kayys.aljabr.gguf-fast-daemon");
-    }
-
-    private static String daemonNativePaths() {
-        String home = System.getProperty("user.home");
-        return home + "/.aqli/libs" + File.pathSeparator + home + "/.aqli/libs/llama";
-    }
-
     private static int runDaemon() {
         int port = -1;
         try {
@@ -2550,29 +2512,6 @@ public final class GgufStandaloneRunner {
 
     private static boolean isMacOs() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
-    }
-
-    private static String launchctlLabel() {
-        return stringConfig("aqli.gguf.fast_run.daemon_launchctl_label",
-                "tech.kayys.aljabr.gguf-fast-daemon");
-    }
-
-    private static void removeLaunchctlDaemon() {
-        if (!isMacOs()) {
-            return;
-        }
-        try {
-            new ProcessBuilder("/bin/launchctl", "remove", launchctlLabel())
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start()
-                    .waitFor(2, TimeUnit.SECONDS);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private static String shellQuote(String value) {
-        return "'" + value.replace("'", "'\\''") + "'";
     }
 
     private static void deleteDaemonPortFile() {
