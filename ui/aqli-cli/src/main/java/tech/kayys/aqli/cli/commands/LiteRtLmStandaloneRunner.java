@@ -1198,8 +1198,8 @@ public final class LiteRtLmStandaloneRunner {
                 LiteRTDaemonProtocol.writeStatus(framed, 0);
                 return true;
             }
-            boolean prewarmRequest = DAEMON_PREWARM_MAGIC.equals(magic);
-            if (!DAEMON_MAGIC.equals(magic) && !prewarmRequest) {
+            boolean prewarmRequest = LiteRTDaemonProtocol.PREWARM_MAGIC.equals(magic);
+            if (!LiteRTDaemonProtocol.RUN_MAGIC.equals(magic) && !prewarmRequest) {
                 LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
