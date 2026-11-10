@@ -11,7 +11,7 @@ import java.util.Optional;
 /**
  * Owns one llama.cpp GGUF native session, including its FFM handle, scratch
  * memory, output-buffer retry policy, metrics access, and deterministic close.
- * Runtime selection and daemon reuse policy remain in {@link GgufFastRun}.
+ * Runtime selection and daemon reuse policy remain in {@link GgufStandaloneRunner}.
  */
 final class LlamaCppGgufSession implements AutoCloseable {
     private static final long ERROR_BUFFER_BYTES = 8192L;
@@ -50,7 +50,7 @@ final class LlamaCppGgufSession implements AutoCloseable {
         LlamaCppGgufNativeBindings binding = LlamaCppGgufNativeBindings.INSTANCE;
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment model = arena.allocateFrom(modelPath.toString(), StandardCharsets.UTF_8);
-            MemorySegment backendDir = arena.allocateFrom(GgufFastRun.llamaLibDir().toString(), StandardCharsets.UTF_8);
+            MemorySegment backendDir = arena.allocateFrom(GgufStandaloneRunner.llamaLibDir().toString(), StandardCharsets.UTF_8);
             MemorySegment error = arena.allocate(8192);
             MemorySegment handle = (MemorySegment) binding.open.invokeExact(
                     model,
@@ -87,7 +87,7 @@ final class LlamaCppGgufSession implements AutoCloseable {
         ensureOpen();
         MemorySegment promptSegment = promptSegment(prompt);
         MemorySegment error = errorSegment();
-        long requestedOutputBytes = GgufFastRun.outputBufferBytesForTokens(maxTokens);
+        long requestedOutputBytes = GgufStandaloneRunner.outputBufferBytesForTokens(maxTokens);
         int retries = 0;
         for (int attempt = 0; attempt <= OUTPUT_BUFFER_RETRY_LIMIT; ++attempt) {
             MemorySegment output = outputSegment(requestedOutputBytes);
@@ -109,12 +109,12 @@ final class LlamaCppGgufSession implements AutoCloseable {
                 return output.getString(0, StandardCharsets.UTF_8);
             }
             String message = error.getString(0);
-            if (!GgufFastRun.outputBufferTooSmall(generated, message) || attempt == OUTPUT_BUFFER_RETRY_LIMIT) {
+            if (!GgufStandaloneRunner.outputBufferTooSmall(generated, message) || attempt == OUTPUT_BUFFER_RETRY_LIMIT) {
                 lastOutputBufferRetries = retries;
                 throw new IllegalStateException(message);
             }
             retries++;
-            requestedOutputBytes = GgufFastRun.nextOutputBufferBytes(outputBufferCapacity);
+            requestedOutputBytes = GgufStandaloneRunner.nextOutputBufferBytes(outputBufferCapacity);
         }
         throw new IllegalStateException("GGUF generation failed");
     }
