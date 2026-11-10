@@ -7,7 +7,6 @@ import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aljabr.spi.model.ModelRegistry;
 
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -18,18 +17,6 @@ import java.util.function.Consumer;
  * are inherited from {@link ModelCatalogOperations}.</p>
  */
 public interface ModelLifecycleOperations extends ModelCatalogOperations {
-
-    /**
-     * Get quantization suggestion for a model based on its size.
-     * NEW in v1.2.5.
-     */
-    default Optional<tech.kayys.aqli.sdk.util.QuantSuggestionDetector.QuantSuggestion> suggestQuantization(
-            String modelId) throws SdkException {
-        return getModelInfo(modelId).flatMap(info -> tech.kayys.aqli.sdk.util.QuantSuggestionDetector
-                .detect(info.getModelId(), info.getSizeBytes()));
-    }
-
-
 
     /**
      * Resolve and pull a model if necessary. NEW in v1.2.1.
