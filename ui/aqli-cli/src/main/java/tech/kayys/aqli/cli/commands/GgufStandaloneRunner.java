@@ -1954,7 +1954,8 @@ public final class GgufStandaloneRunner {
             command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
-            if (!startDetachedDaemon(command)) {
+            if (!daemonLauncher().launch(command, daemonLauncherMode(), launchctlLabel(), daemonLogFile(),
+                    isMacOs(), fastRunDebug(), daemonNativePaths())) {
                 return false;
             }
 
@@ -1974,100 +1975,14 @@ public final class GgufStandaloneRunner {
         }
     }
 
-    private static boolean startDetachedDaemon(List<String> command) throws IOException, InterruptedException {
-        String launcher = daemonLauncherMode();
-        if (fastRunDebug()) {
-            System.err.println("GGUF daemon launcher: " + launcher);
-        }
-        if (launcher.equals("launchctl")) {
-            return isMacOs() && startDetachedDaemonWithLaunchctl(command);
-        }
-        if (launcher.equals("auto") && isMacOs() && startDetachedDaemonWithLaunchctl(command)) {
-            return true;
-        }
-        return startDetachedDaemonWithNohup(command);
-    }
-
     static String daemonLauncherMode() {
-        String defaultLauncher = defaultDaemonLauncherMode();
-        String launcher = stringConfig("aqli.gguf.fast_run.daemon_launcher", defaultLauncher)
-                .trim()
-                .toLowerCase(Locale.ROOT);
-        return switch (launcher) {
-            case "auto", "launchctl", "nohup" -> launcher;
-            default -> defaultLauncher;
-        };
+        return GgufDaemonLauncher.normalizeMode(
+                stringConfig("aqli.gguf.fast_run.daemon_launcher", defaultDaemonLauncherMode()),
+                defaultDaemonLauncherMode());
     }
 
     static String defaultDaemonLauncherMode() {
         return isMacOs() ? "launchctl" : "nohup";
-    }
-
-    private static boolean startDetachedDaemonWithLaunchctl(List<String> command)
-            throws IOException, InterruptedException {
-        String launchctl = "/bin/launchctl";
-        if (!Files.isExecutable(Path.of(launchctl))) {
-            return false;
-        }
-        removeLaunchctlDaemon();
-        Process launcher = new ProcessBuilder(
-                launchctl,
-                "submit",
-                "-l",
-                launchctlLabel(),
-                "--",
-                "/bin/sh",
-                "-c",
-                daemonShellCommand(command, false))
-                .redirectOutput(ProcessBuilder.Redirect.appendTo(daemonLogFile().toFile()))
-                .redirectError(ProcessBuilder.Redirect.appendTo(daemonLogFile().toFile()))
-                .start();
-        if (!launcher.waitFor(3, TimeUnit.SECONDS)) {
-            return true;
-        }
-        boolean launched = launcher.exitValue() == 0;
-        if (!launched && fastRunDebug()) {
-            System.err.println("GGUF launchctl daemon submit failed; falling back to nohup");
-        }
-        return launched;
-    }
-
-    private static boolean startDetachedDaemonWithNohup(List<String> command) throws IOException, InterruptedException {
-        Process launcher = new ProcessBuilder("/bin/sh", "-c", daemonShellCommand(command, true)).start();
-        launcher.waitFor(2, TimeUnit.SECONDS);
-        return true;
-    }
-
-    private static String daemonShellCommand(List<String> command, boolean useNohup) {
-        String home = System.getProperty("user.home");
-        String nativePaths = home + "/.aqli/libs" + File.pathSeparator + home + "/.aqli/libs/llama";
-        StringBuilder shellCommand = new StringBuilder();
-        shellCommand.append("export DYLD_LIBRARY_PATH=")
-                .append(shellQuote(nativePaths))
-                .append("${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}; ");
-        shellCommand.append("export DYLD_FALLBACK_LIBRARY_PATH=")
-                .append(shellQuote(nativePaths))
-                .append("${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}; ");
-        if (System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("mac")) {
-            shellCommand.append("export AQLI_GGUF_FAST_PROMPT_CACHE=\"${AQLI_GGUF_FAST_PROMPT_CACHE:-true}\"; ");
-        }
-        if (useNohup) {
-            shellCommand.append("nohup ");
-        } else {
-            shellCommand.append("exec ");
-        }
-        for (int i = 0; i < command.size(); i++) {
-            if (i > 0 || useNohup) {
-                shellCommand.append(' ');
-            }
-            shellCommand.append(shellQuote(command.get(i)));
-        }
-        shellCommand.append(" >> ").append(shellQuote(daemonLogFile().toString()))
-                .append(" 2>&1 < /dev/null");
-        if (useNohup) {
-            shellCommand.append(" &");
-        }
-        return shellCommand.toString();
     }
 
     private static int runDaemon() {
@@ -2308,22 +2223,13 @@ public final class GgufStandaloneRunner {
                 "tech.kayys.aljabr.gguf-fast-daemon");
     }
 
-    private static void removeLaunchctlDaemon() {
-        if (!isMacOs()) {
-            return;
-        }
-        try {
-            new ProcessBuilder("/bin/launchctl", "remove", launchctlLabel())
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start()
-                    .waitFor(2, TimeUnit.SECONDS);
-        } catch (Exception ignored) {
-        }
+    private static String daemonNativePaths() {
+        String home = System.getProperty("user.home");
+        return home + "/.aqli/libs" + File.pathSeparator + home + "/.aqli/libs/llama";
     }
 
-    private static String shellQuote(String value) {
-        return "'" + value.replace("'", "'\\''") + "'";
+    private static void removeLaunchctlDaemon() {
+        GgufDaemonLauncher.removeLaunchctl(launchctlLabel(), isMacOs());
     }
 
     private static void deleteDaemonPortFile() {
