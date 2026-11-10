@@ -27,7 +27,7 @@ import java.util.Map;
  * <li>{@link #getSystemInfo()} promoted to non-default.</li>
  * </ul>
  */
-public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations, ModelLifecycleOperations {
+public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations, ModelCatalogOperations, ModelLifecycleOperations {
 
     // ==================== Async Jobs ====================
 
