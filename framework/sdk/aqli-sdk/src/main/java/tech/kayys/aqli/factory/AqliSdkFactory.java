@@ -2,7 +2,7 @@ package tech.kayys.aqli.factory;
 
 import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-import tech.kayys.aqli.sdk.core.AqliSdkProvider;
+import tech.kayys.aqli.sdk.runtime.AqliRuntimeProvider;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import java.time.Duration;
 import java.util.Comparator;
@@ -38,7 +38,7 @@ import java.util.ServiceLoader;
  *         .buildRemote();
  *
  * // Or use the implementation modules directly without this factory:
- * // - LocalAqliRuntime (via CDI injection)
+ * // - LocalAqliSdk (via CDI injection)
  * // - AqliClient.builder().baseUrl("...").build()
  * }</pre>
  */
@@ -121,7 +121,7 @@ public class AqliSdkFactory {
      * @throws SdkException if SDK creation fails
      */
     public static AqliRuntime createLocalSdk(SdkConfig config) throws SdkException {
-        AqliSdkProvider provider = findProvider(AqliSdkProvider.Mode.LOCAL)
+        AqliRuntimeProvider provider = findProvider(AqliRuntimeProvider.Mode.LOCAL)
                 .orElseThrow(() -> new SdkException("SDK_ERR_INIT",
                         "No local SDK provider found. Add aqli-sdk-java-local to your classpath."));
         return provider.create(config);
@@ -152,7 +152,7 @@ public class AqliSdkFactory {
      */
     public static AqliRuntime createRemoteSdk(SdkConfig config) throws SdkException {
         Objects.requireNonNull(config, "config cannot be null");
-        AqliSdkProvider provider = findProvider(AqliSdkProvider.Mode.REMOTE)
+        AqliRuntimeProvider provider = findProvider(AqliRuntimeProvider.Mode.REMOTE)
                 .orElseThrow(() -> new SdkException("SDK_ERR_INIT",
                         "No remote SDK provider found. Add aqli-sdk-java-remote to your classpath."));
         return provider.create(config);
@@ -177,10 +177,10 @@ public class AqliSdkFactory {
      * @throws SdkException if no provider is found
      */
     public static AqliRuntime create(SdkConfig config) throws SdkException {
-        AqliSdkProvider provider = ServiceLoader.load(AqliSdkProvider.class)
+        AqliRuntimeProvider provider = ServiceLoader.load(AqliRuntimeProvider.class)
                 .stream()
                 .map(ServiceLoader.Provider::get)
-                .min(Comparator.comparingInt(AqliSdkProvider::priority))
+                .min(Comparator.comparingInt(AqliRuntimeProvider::priority))
                 .orElseThrow(() -> new SdkException("SDK_ERR_INIT",
                         "No SDK provider found. Add aqli-sdk-java-local or aqli-sdk-java-remote to your classpath."));
         return provider.create(config);
@@ -198,9 +198,9 @@ public class AqliSdkFactory {
     /**
      * Finds a provider for the given mode via ServiceLoader.
      */
-    private static Optional<AqliSdkProvider> findProvider(AqliSdkProvider.Mode mode) {
-        ServiceLoader<AqliSdkProvider> loader = ServiceLoader.load(AqliSdkProvider.class);
-        AqliSdkProvider best = null;
+    private static Optional<AqliRuntimeProvider> findProvider(AqliRuntimeProvider.Mode mode) {
+        ServiceLoader<AqliRuntimeProvider> loader = ServiceLoader.load(AqliRuntimeProvider.class);
+        AqliRuntimeProvider best = null;
         int bestPriority = Integer.MAX_VALUE;
         var it = loader.iterator();
         while (true) {
@@ -210,7 +210,7 @@ public class AqliSdkFactory {
                 // If hasNext fails, stop discovery to avoid ServiceLoader runtime crash
                 return Optional.ofNullable(best);
             }
-            AqliSdkProvider p = null;
+            AqliRuntimeProvider p = null;
             try {
                 p = it.next();
             } catch (Throwable t) {
