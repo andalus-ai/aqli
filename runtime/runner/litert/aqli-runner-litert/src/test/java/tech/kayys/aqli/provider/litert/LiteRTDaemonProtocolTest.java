@@ -52,7 +52,7 @@ class LiteRTDaemonProtocolTest {
         DataOutputStream out = new DataOutputStream(bytes);
         try (var stdout = new LiteRTDaemonProtocol.FramedOutputStream(out, 1);
              var stderr = new LiteRTDaemonProtocol.FramedOutputStream(out, 2)) {
-            stdout.write("hello\\n".getBytes(StandardCharsets.UTF_8));
+            stdout.write("hello\n".getBytes(StandardCharsets.UTF_8));
             stderr.write("warning".getBytes(StandardCharsets.UTF_8));
         }
         LiteRTDaemonProtocol.writeStatus(out, 42);
@@ -60,7 +60,7 @@ class LiteRTDaemonProtocolTest {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes.toByteArray()));
         assertEquals(1, in.readUnsignedByte());
         assertEquals(6, in.readInt());
-        assertEquals("hello\\n", new String(in.readNBytes(6), StandardCharsets.UTF_8));
+        assertEquals("hello\n", new String(in.readNBytes(6), StandardCharsets.UTF_8));
         assertEquals(2, in.readUnsignedByte());
         assertEquals(7, in.readInt());
         assertEquals("warning", new String(in.readNBytes(7), StandardCharsets.UTF_8));
