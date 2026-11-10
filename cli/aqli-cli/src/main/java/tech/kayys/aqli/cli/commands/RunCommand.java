@@ -72,6 +72,7 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
+import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -7157,40 +7158,30 @@ public class RunCommand implements Runnable {
     }
 
     private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
-        List<String> args = new ArrayList<>();
-        args.add("aqli");
-        args.add("run");
-        addReplayModelArgs(args, modelId);
-        addStringArg(args, "--provider", providerId);
-        addStringArg(args, "--runner", runner);
-        addStringArg(args, "--prompt", prompt);
-        addStringArg(args, "--voice", effectiveTtsVoiceSelector());
-        addStringArg(args, "--audio-format", audioDefaultExtension(metadata));
-        addStringArg(args, "--seed", replaySeed(metadata));
-        addStringArg(args, "--output", audioPath == null ? null : audioPath.toString());
-
-        addStringArg(args, "--audio-quality", audioQuality);
-        addStringArg(args, "--audio-bitrate", audioBitrateKbps);
-        addStringArg(args, "--audio-channels", audioChannels);
-        addStringArg(args, "--tts-codec-decode", ttsCodecDecode);
-        addStringArg(args, "--tts-max-frames", ttsMaxFrames);
-        addStringArg(args, "--tts-max-seconds", ttsMaxSeconds);
-        addStringArg(args, "--audio-gain-db", audioGainDb);
-        addStringArg(args, "--audio-peak-db", audioPeakDb);
-        addStringArg(args, "--audio-fade-ms", audioFadeMs);
-        addStringArg(args, "--audio-trim-db", audioTrimDbfs);
-        addStringArg(args, "--audio-trim-padding-ms", audioTrimPaddingMs);
-        addStringArg(args, "--flac-compression", flacCompression);
-        if (disableAudioPolish) {
-            args.add("--no-audio-polish");
-        }
-        if (disableAudioNormalize) {
-            args.add("--no-audio-normalize");
-        }
-        if (audioTrimSilence) {
-            args.add("--audio-trim-silence");
-        }
-        return args;
+        return AudioMetadataReplayCommandBuilder.build(new AudioMetadataReplayCommandBuilder.Request(
+                modelId,
+                providerId,
+                runner,
+                prompt,
+                effectiveTtsVoiceSelector(),
+                audioDefaultExtension(metadata),
+                replaySeed(metadata),
+                audioPath == null ? null : audioPath.toString(),
+                audioQuality,
+                audioBitrateKbps,
+                audioChannels,
+                ttsCodecDecode,
+                ttsMaxFrames,
+                ttsMaxSeconds,
+                audioGainDb,
+                audioPeakDb,
+                audioFadeMs,
+                audioTrimDbfs,
+                audioTrimPaddingMs,
+                flacCompression,
+                disableAudioPolish,
+                disableAudioNormalize,
+                audioTrimSilence));
     }
 
     private static void addReplayModelArgs(List<String> args, String modelValue) {
