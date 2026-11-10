@@ -43,11 +43,12 @@ class GgufInferenceRequestFactoryTest {
         }
 
         @Test
-        void leavesRepeatPenaltyUnsetForSamplingWhenNotSpecified() {
+        void usesDefaultRepeatPenaltyForSamplingWhenNotSpecified() {
                 InferenceRequest request = GgufInferenceRequestFactory.create(
                                 Path.of("gemma.gguf"), "formatted", "raw", 8, 0.5d, 1.0d, 1, Double.NaN);
 
-                assertEquals(Double.NaN, request.getRepeatPenalty());
+                assertEquals(1.1d, request.getRepeatPenalty());
+                assertEquals(false, request.getParameters().containsKey("repeat_penalty"));
         }
 
         @Test

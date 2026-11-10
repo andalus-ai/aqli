@@ -1,8 +1,8 @@
 package tech.kayys.aqli.factory;
 
 import tech.kayys.aqli.sdk.config.SdkConfig;
-import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.aqli.sdk.core.AqliSdkProvider;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.runtime.AqliRuntimeProvider;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import java.time.Duration;
 import java.util.Comparator;
@@ -21,18 +21,18 @@ import java.util.ServiceLoader;
  * <pre>{@code
  * // Local SDK (embedded in same JVM as engine)
  * // Requires aqli-sdk-java-local on the classpath
- * AqliSdk localSdk = AqliSdkFactory.createLocalSdk();
+ * AqliRuntime localSdk = AqliSdkFactory.createLocalSdk();
  *
  * // Local SDK with configuration
  * SdkConfig config = SdkConfig.builder()
  *         .apiKey("community")
  *         .preferredProvider("tech.kayys/ollama-provider")
  *         .build();
- * AqliSdk configuredSdk = AqliSdkFactory.createLocalSdk(config);
+ * AqliRuntime configuredSdk = AqliSdkFactory.createLocalSdk(config);
  *
  * // Remote SDK (communicates via HTTP)
  * // Requires aqli-sdk-java-remote on the classpath
- * AqliSdk remoteSdk = AqliSdkFactory.builder()
+ * AqliRuntime remoteSdk = AqliSdkFactory.builder()
  *         .baseUrl("https://aqli-spi.example.com")
  *         .apiKey("your-api-key")
  *         .buildRemote();
@@ -56,7 +56,7 @@ public class AqliSdkFactory {
      * @throws SdkException if SDK creation fails or no local provider is on the
      *                      classpath
      */
-    public static AqliSdk createLocalSdk() throws SdkException {
+    public static AqliRuntime createLocalSdk() throws SdkException {
         return createLocalSdk(null);
     }
 
@@ -66,7 +66,7 @@ public class AqliSdkFactory {
      * Create a local SDK instance pre-configured for GGUF (llama.cpp) inference.
      * Models are looked up in {@code $HOME/.aqli/models/gguf}.
      */
-    public static AqliSdk createForGguf() throws SdkException {
+    public static AqliRuntime createForGguf() throws SdkException {
         return createLocalSdk(SdkConfig.builder()
                 .preferredProvider("llamacpp")
                 .modelFormat("GGUF")
@@ -79,7 +79,7 @@ public class AqliSdkFactory {
      * @param ggufBasePath absolute path to the directory containing {@code .gguf}
      *                     files
      */
-    public static AqliSdk createForGguf(String ggufBasePath) throws SdkException {
+    public static AqliRuntime createForGguf(String ggufBasePath) throws SdkException {
         return createLocalSdk(SdkConfig.builder()
                 .preferredProvider("llamacpp")
                 .modelFormat("GGUF")
@@ -92,7 +92,7 @@ public class AqliSdkFactory {
      * inference.
      * Models are looked up in {@code $HOME/.aqli/models/safetensors}.
      */
-    public static AqliSdk createForSafeTensors() throws SdkException {
+    public static AqliRuntime createForSafeTensors() throws SdkException {
         return createLocalSdk(SdkConfig.builder()
                 .preferredProvider("safetensor")
                 .modelFormat("SAFETENSORS")
@@ -105,7 +105,7 @@ public class AqliSdkFactory {
      * @param safetensorsBasePath absolute path to the directory containing
      *                            checkpoints
      */
-    public static AqliSdk createForSafeTensors(String safetensorsBasePath) throws SdkException {
+    public static AqliRuntime createForSafeTensors(String safetensorsBasePath) throws SdkException {
         return createLocalSdk(SdkConfig.builder()
                 .preferredProvider("safetensor")
                 .modelFormat("SAFETENSORS")
@@ -120,8 +120,8 @@ public class AqliSdkFactory {
      * @return A local SDK instance
      * @throws SdkException if SDK creation fails
      */
-    public static AqliSdk createLocalSdk(SdkConfig config) throws SdkException {
-        AqliSdkProvider provider = findProvider(AqliSdkProvider.Mode.LOCAL)
+    public static AqliRuntime createLocalSdk(SdkConfig config) throws SdkException {
+        AqliRuntimeProvider provider = findProvider(AqliRuntimeProvider.Mode.LOCAL)
                 .orElseThrow(() -> new SdkException("SDK_ERR_INIT",
                         "No local SDK provider found. Add aqli-sdk-java-local to your classpath."));
         return provider.create(config);
@@ -136,7 +136,7 @@ public class AqliSdkFactory {
      * @return A remote SDK instance
      * @throws SdkException if SDK creation fails
      */
-    public static AqliSdk createRemoteSdk(String baseUrl, String apiKey) throws SdkException {
+    public static AqliRuntime createRemoteSdk(String baseUrl, String apiKey) throws SdkException {
         return builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
@@ -150,9 +150,9 @@ public class AqliSdkFactory {
      * @return A remote SDK instance
      * @throws SdkException if SDK creation fails
      */
-    public static AqliSdk createRemoteSdk(SdkConfig config) throws SdkException {
+    public static AqliRuntime createRemoteSdk(SdkConfig config) throws SdkException {
         Objects.requireNonNull(config, "config cannot be null");
-        AqliSdkProvider provider = findProvider(AqliSdkProvider.Mode.REMOTE)
+        AqliRuntimeProvider provider = findProvider(AqliRuntimeProvider.Mode.REMOTE)
                 .orElseThrow(() -> new SdkException("SDK_ERR_INIT",
                         "No remote SDK provider found. Add aqli-sdk-java-remote to your classpath."));
         return provider.create(config);
@@ -165,7 +165,7 @@ public class AqliSdkFactory {
      * @return An SDK instance
      * @throws SdkException if no provider is found
      */
-    public static AqliSdk create() throws SdkException {
+    public static AqliRuntime create() throws SdkException {
         return create(null);
     }
 
@@ -176,11 +176,11 @@ public class AqliSdkFactory {
      * @return An SDK instance
      * @throws SdkException if no provider is found
      */
-    public static AqliSdk create(SdkConfig config) throws SdkException {
-        AqliSdkProvider provider = ServiceLoader.load(AqliSdkProvider.class)
+    public static AqliRuntime create(SdkConfig config) throws SdkException {
+        AqliRuntimeProvider provider = ServiceLoader.load(AqliRuntimeProvider.class)
                 .stream()
                 .map(ServiceLoader.Provider::get)
-                .min(Comparator.comparingInt(AqliSdkProvider::priority))
+                .min(Comparator.comparingInt(AqliRuntimeProvider::priority))
                 .orElseThrow(() -> new SdkException("SDK_ERR_INIT",
                         "No SDK provider found. Add aqli-sdk-java-local or aqli-sdk-java-remote to your classpath."));
         return provider.create(config);
@@ -198,9 +198,9 @@ public class AqliSdkFactory {
     /**
      * Finds a provider for the given mode via ServiceLoader.
      */
-    private static Optional<AqliSdkProvider> findProvider(AqliSdkProvider.Mode mode) {
-        ServiceLoader<AqliSdkProvider> loader = ServiceLoader.load(AqliSdkProvider.class);
-        AqliSdkProvider best = null;
+    private static Optional<AqliRuntimeProvider> findProvider(AqliRuntimeProvider.Mode mode) {
+        ServiceLoader<AqliRuntimeProvider> loader = ServiceLoader.load(AqliRuntimeProvider.class);
+        AqliRuntimeProvider best = null;
         int bestPriority = Integer.MAX_VALUE;
         var it = loader.iterator();
         while (true) {
@@ -210,7 +210,7 @@ public class AqliSdkFactory {
                 // If hasNext fails, stop discovery to avoid ServiceLoader runtime crash
                 return Optional.ofNullable(best);
             }
-            AqliSdkProvider p = null;
+            AqliRuntimeProvider p = null;
             try {
                 p = it.next();
             } catch (Throwable t) {
@@ -315,7 +315,7 @@ public class AqliSdkFactory {
          * @return A configured local SDK instance
          * @throws SdkException if the local provider is not available
          */
-        public AqliSdk buildLocal() throws SdkException {
+        public AqliRuntime buildLocal() throws SdkException {
             return createLocalSdk(toConfig());
         }
 
@@ -326,7 +326,7 @@ public class AqliSdkFactory {
          * @throws SdkException if configuration is invalid or remote provider not
          *                      available
          */
-        public AqliSdk buildRemote() throws SdkException {
+        public AqliRuntime buildRemote() throws SdkException {
             if (baseUrl == null || baseUrl.isBlank()) {
                 throw new SdkException("SDK_ERR_CONFIG", "baseUrl is required for remote SDK");
             }
@@ -339,7 +339,7 @@ public class AqliSdkFactory {
          * @return A configured SDK instance
          * @throws SdkException if no provider is found
          */
-        public AqliSdk build() throws SdkException {
+        public AqliRuntime build() throws SdkException {
             return create(toConfig());
         }
     }
