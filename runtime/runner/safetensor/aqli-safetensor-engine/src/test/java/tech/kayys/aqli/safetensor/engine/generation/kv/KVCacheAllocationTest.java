@@ -4,7 +4,6 @@ import tech.kayys.aljabr.spi.model.ModelConfig;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.List;
 
 class KVCacheAllocationTest {
 
@@ -57,7 +56,6 @@ class KVCacheAllocationTest {
     @Test
     void testInt4KvAllocationUsesPackedBlocks() {
         KVCacheManager manager = new KVCacheManager();
-        manager.globalBlockManager = bm;
 
         KVCacheManager.KVCacheSession session = manager.createSession(128);
 
