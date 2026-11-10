@@ -160,3 +160,18 @@ Do not mechanically rename types before auditing callers. For public types, prov
 - [ ] Server API and CLI have no reverse dependency on SDK implementation internals.
 - [ ] Compatibility fixture and published-artifact consumer compile.
 - [ ] Relevant module tests and CI pass.
+
+
+## Additional findings from implementation inspection
+
+The duplicate SDKs also contain overlapping provider-discovery systems:
+
+- `sdk.api.AqliSdkBuilder` discovers `sdk.api.AqliSdkProvider` through `ServiceLoader` and selects by provider name/priority.
+- `sdk.core.AqliSdkProvider` defines a second provider SPI with a separate `Mode.LOCAL/REMOTE` and `SdkConfig`.
+- `AqliSdkFactory` discovers the second SPI, while `AqliSdkBuilder` discovers the first. These are separate registries and should be consolidated into one provider mechanism after their actual consumers and service descriptors are inventoried.
+
+The old `sdk.api.AqliClientImpl` is not a valid production implementation: the inspected implementation returns placeholder generation text and synthetic embeddings rather than invoking a runner or remote service. It must not become the canonical implementation merely because it implements the duplicate `AqliClient` interface. Keep it only as a clearly isolated test/demo fixture if existing tests need it; otherwise remove it after consumer audit.
+
+The server's `SdkProvider` consumes `sdk.core.AqliSdk`, and `LocalAqliSdk` implements it. The local implementation explicitly reports several operations as unsupported because the corresponding production runtime services are not composed. This confirms that the broad `AqliSdk` interface currently combines inference, embeddings, jobs, model catalog/registration, system information, plugin discovery and operational metrics. Those capabilities should be split into cohesive runtime/application ports; the public `AqliClient` should compose only the capabilities intended for SDK consumers. Do not expose unsupported operations as if all local and remote providers implement them.
+
+The two builder/provider systems also differ semantically: one selects a generic provider by name/priority; the other selects LOCAL/REMOTE mode and uses a different priority convention. Consolidation must preserve explicit provider selection, deterministic fallback behavior, and clear errors for missing optional providers. Do not merge them by simply renaming one interface.
