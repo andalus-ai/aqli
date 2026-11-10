@@ -80,12 +80,12 @@ public class PrewarmCommand implements Callable<Integer> {
             args.add("--use-cpu");
         }
         if (isLiteRtProvider(normalizedProvider)) {
-            return LiteRtLmFastRun.prewarm(args.toArray(String[]::new));
+            return LiteRtLmStandaloneRunner.prewarm(args.toArray(String[]::new));
         }
         if (isSafetensorProvider(normalizedProvider)) {
             return prewarmSafetensor();
         }
-        return GgufFastRun.prewarm(args.toArray(String[]::new));
+        return GgufStandaloneRunner.prewarm(args.toArray(String[]::new));
     }
 
     private static boolean isLiteRtProvider(String provider) {
