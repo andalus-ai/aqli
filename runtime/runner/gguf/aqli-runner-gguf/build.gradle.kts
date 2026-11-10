@@ -15,6 +15,8 @@ dependencies {
     implementation(project(":repository:aqli-model-repo-local"))
     
     // Aljabr owns generated llama.cpp/ggml FFM bindings and the reusable GGUF backend.
+    implementation("tech.kayys.aljabr:aljabr-gguf-api:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-gguf-java:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     

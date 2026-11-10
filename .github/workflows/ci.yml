@@ -149,7 +149,7 @@ jobs:
           export AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp"
           export AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch"
           export AQLI_LIBTORCH_LIB_PATH="$HOME/.aqli/source/vendor/libtorch/lib"
-          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:quarkusBuild -x test
+          ./gradlew --no-daemon --stacktrace :cli:aqli-cli:quarkusBuild -x test
 
   build-native:
     name: Build CLI (Native Smoke)
@@ -204,7 +204,7 @@ jobs:
           export AQLI_LLAMA_SOURCE_DIR="$HOME/.aqli/source/vendor/llama.cpp"
           export AQLI_LIBTORCH_SOURCE_DIR="$HOME/.aqli/source/vendor/libtorch"
           export AQLI_LIBTORCH_LIB_PATH="$HOME/.aqli/source/vendor/libtorch/lib"
-          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:buildNative -x test
+          ./gradlew --no-daemon --stacktrace :cli:aqli-cli:buildNative -x test
 
   publish-snapshot:
     name: Publish Snapshot to Maven Local

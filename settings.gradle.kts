@@ -163,7 +163,7 @@ includeOptionalProject("sdk:aqli-sdk-api", "framework/sdk/aqli-sdk-api")
 includeOptionalProject("sdk:aqli-sdk-core", "framework/sdk/aqli-sdk-core")
 includeOptionalProject("sdk:aqli-sdk-local", "runtime/sdk/aqli-sdk-local")
 // includeOptionalProject("sdk:aqli-sdk-remote", "framework/sdk/aqli-sdk-remote")
-includeOptionalProject("sdk:aqli-sdk-protobuf", "framework/sdk/aqli-sdk-protobuf")
+includeOptionalProject("sdk:aqli-sdk-protobuf", "framework/api/aqli-sdk-protobuf")
 includeOptionalProject("ui:aqli-sdk-protobuf", "ui/aqli-sdk-protobuf")
 if (file("framework/sdk/aqli-sdk-session").isDirectory) {
     include("sdk:aqli-sdk-session")
@@ -181,7 +181,7 @@ includeOptionalProject("spi:aqli-spi-runtime", "framework/spi/aqli-spi-runtime")
 
 // Optional UI
 includeOptionalProject("ui:aqli-api", "ui/aqli-api")
-includeOptionalProject("ui:aqli-cli", "ui/aqli-cli")
+includeOptionalProject("cli:aqli-cli", "cli/aqli-cli")
 
 // Optional backends
 includeOptionalProject("backend:blackwell:aqli-kernel-blackwell", "runtime/backend/blackwell/aqli-kernel-blackwell")
