@@ -17,6 +17,18 @@ import java.util.Optional;
 public interface ModelCatalogOperations {
 
     /**
+     * Get quantization suggestion for a model based on its size.
+     * NEW in v1.2.5.
+     */
+    default Optional<tech.kayys.aqli.sdk.util.QuantSuggestionDetector.QuantSuggestion> suggestQuantization(
+            String modelId) throws SdkException {
+        return getModelInfo(modelId).flatMap(info -> tech.kayys.aqli.sdk.util.QuantSuggestionDetector
+                .detect(info.getModelId(), info.getSizeBytes()));
+    }
+
+
+
+    /**
      * List models with filtering and pagination. NEW in v1.3.0.
      */
     default List<ModelInfo> listModels(ModelListRequest request) throws SdkException {
