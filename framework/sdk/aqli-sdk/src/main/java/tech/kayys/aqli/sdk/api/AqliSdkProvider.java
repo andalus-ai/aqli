@@ -6,7 +6,7 @@ import java.util.Map;
  * Service Provider Interface for resolving SDK instances.
  * <p>
  * Enables automatic discovery of inference providers via {@link java.util.ServiceLoader}.
- * Each provider registers itself under {@code META-INF/services/tech.kayys.aqli.sdk.api.AqliSdkProvider}.
+ * Each provider registers itself under {@code META-INF/services/tech.kayys.aqli.sdk.AqliSdkProvider}.
  *
  * <h3>Provider Priority</h3>
  * When multiple providers are available and no explicit preference is set,
@@ -24,7 +24,8 @@ import java.util.Map;
  * }
  * }</pre>
  */
-public interface AqliSdkProvider {
+@Deprecated(forRemoval = false)
+public interface AqliSdkProvider extends tech.kayys.aqli.sdk.AqliSdkProvider {
 
     /**
      * Creates a new instance of the Aqli SDK with the given configuration.
