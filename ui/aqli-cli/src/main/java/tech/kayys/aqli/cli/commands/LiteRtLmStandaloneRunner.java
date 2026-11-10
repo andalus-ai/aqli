@@ -873,7 +873,7 @@ public final class LiteRtLmStandaloneRunner {
         if (!startDaemon()) {
             return OptionalInt.empty();
         }
-        return sendDaemonRequestWithRetries(DAEMON_MAGIC, rawArgs, daemonStartTimeoutMillis());
+        return sendDaemonRequestWithRetries(LiteRTDaemonProtocol.RUN_MAGIC, rawArgs, daemonStartTimeoutMillis());
     }
 
     private static OptionalInt requestDaemonPrewarm(String[] rawArgs) {
@@ -884,7 +884,7 @@ public final class LiteRtLmStandaloneRunner {
         if (!startDaemon()) {
             return OptionalInt.empty();
         }
-        return sendDaemonRequestWithRetries(DAEMON_PREWARM_MAGIC, rawArgs, daemonStartTimeoutMillis());
+        return sendDaemonRequestWithRetries(LiteRTDaemonProtocol.PREWARM_MAGIC, rawArgs, daemonStartTimeoutMillis());
     }
 
     private static OptionalInt sendDaemonRequestWithRetries(String magic, String[] rawArgs, long retryMillis) {
