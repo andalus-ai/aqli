@@ -84,6 +84,13 @@ public interface AqliClient extends AutoCloseable {
         Builder maxTokens(int maxTokens);
         Builder temperature(float temperature);
         Builder backend(String backend);
+        /** Selects the client connection transport. */
+        Builder transport(ClientTransport transport);
+
+        /**
+         * @deprecated Use {@link #transport(ClientTransport)}.
+         */
+        @Deprecated(since = "0.2", forRemoval = false)
         Builder mode(DeploymentMode mode);
         AqliClient build();
     }
