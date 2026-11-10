@@ -1954,7 +1954,8 @@ public final class GgufStandaloneRunner {
             command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
-            if (!startDetachedDaemon(command)) {
+            if (!daemonLauncher().launch(command, daemonLauncherMode(), launchctlLabel(), daemonLogFile(),
+                    isMacOs(), fastRunDebug(), daemonNativePaths())) {
                 return false;
             }
 
@@ -1989,88 +1990,336 @@ public final class GgufStandaloneRunner {
     }
 
     static String daemonLauncherMode() {
-        String defaultLauncher = defaultDaemonLauncherMode();
-        String launcher = stringConfig("aqli.gguf.fast_run.daemon_launcher", defaultLauncher)
-                .trim()
-                .toLowerCase(Locale.ROOT);
-        return switch (launcher) {
-            case "auto", "launchctl", "nohup" -> launcher;
-            default -> defaultLauncher;
-        };
+        return GgufDaemonLauncher.normalizeMode(
+                stringConfig("aqli.gguf.fast_run.daemon_launcher", defaultDaemonLauncherMode()),
+                defaultDaemonLauncherMode());
     }
 
     static String defaultDaemonLauncherMode() {
         return isMacOs() ? "launchctl" : "nohup";
     }
 
-    private static boolean startDetachedDaemonWithLaunchctl(List<String> command)
-            throws IOException, InterruptedException {
-        String launchctl = "/bin/launchctl";
-        if (!Files.isExecutable(Path.of(launchctl))) {
-            return false;
-        }
-        removeLaunchctlDaemon();
-        Process launcher = new ProcessBuilder(
-                launchctl,
-                "submit",
-                "-l",
-                launchctlLabel(),
-                "--",
-                "/bin/sh",
-                "-c",
-                daemonShellCommand(command, false))
-                .redirectOutput(ProcessBuilder.Redirect.appendTo(daemonLogFile().toFile()))
-                .redirectError(ProcessBuilder.Redirect.appendTo(daemonLogFile().toFile()))
-                .start();
-        if (!launcher.waitFor(3, TimeUnit.SECONDS)) {
-            return true;
-        }
-        boolean launched = launcher.exitValue() == 0;
-        if (!launched && fastRunDebug()) {
-            System.err.println("GGUF launchctl daemon submit failed; falling back to nohup");
-        }
-        return launched;
+    private static GgufDaemonLauncher daemonLauncher() {
+        return new GgufDaemonLauncher();
     }
 
-    private static boolean startDetachedDaemonWithNohup(List<String> command) throws IOException, InterruptedException {
-        Process launcher = new ProcessBuilder("/bin/sh", "-c", daemonShellCommand(command, true)).start();
-        launcher.waitFor(2, TimeUnit.SECONDS);
-        return true;
+    private static String launchctlLabel() {
+        return stringConfig("aqli.gguf.fast_run.daemon_launchctl_label",
+                "tech.kayys.aljabr.gguf-fast-daemon");
     }
 
-    private static String daemonShellCommand(List<String> command, boolean useNohup) {
+    private static String daemonNativePaths() {
         String home = System.getProperty("user.home");
-        String nativePaths = home + "/.aqli/libs" + File.pathSeparator + home + "/.aqli/libs/llama";
-        StringBuilder shellCommand = new StringBuilder();
-        shellCommand.append("export DYLD_LIBRARY_PATH=")
-                .append(shellQuote(nativePaths))
-                .append("${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}; ");
-        shellCommand.append("export DYLD_FALLBACK_LIBRARY_PATH=")
-                .append(shellQuote(nativePaths))
-                .append("${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}; ");
-        if (System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("mac")) {
-            shellCommand.append("export AQLI_GGUF_FAST_PROMPT_CACHE=\"${AQLI_GGUF_FAST_PROMPT_CACHE:-true}\"; ");
-        }
-        if (useNohup) {
-            shellCommand.append("nohup ");
-        } else {
-            shellCommand.append("exec ");
-        }
-        for (int i = 0; i < command.size(); i++) {
-            if (i > 0 || useNohup) {
-                shellCommand.append(' ');
-            }
-            shellCommand.append(shellQuote(command.get(i)));
-        }
-        shellCommand.append(" >> ").append(shellQuote(daemonLogFile().toString()))
-                .append(" 2>&1 < /dev/null");
-        if (useNohup) {
-            shellCommand.append(" &");
-        }
-        return shellCommand.toString();
+        return home + "/.aqli/libs" + File.pathSeparator + home + "/.aqli/libs/llama";
     }
 
     private static int runDaemon() {
+        int port = -1;
+        try {
+            Files.createDirectories(daemonRunDir());
+            try (ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
+                    GgufSessionCache sessionCache = new GgufSessionCache(GgufStandaloneRunner::daemonMaxSessions,
+                            GgufStandaloneRunner::daemonLog)) {
+                port = server.getLocalPort();
+                writeDaemonPort(port);
+                long idleSeconds = longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
+                daemonLog("daemon started: pid=" + ProcessHandle.current().pid()
+                        + ", port=" + port
+                        + ", idleSeconds=" + idleSeconds);
+                GgufDaemonServerLoop.serve(
+                        server,
+                        idleSeconds,
+                        TimeUnit.SECONDS,
+                        socket -> handleDaemonClient(socket, sessionCache),
+                        () -> daemonLog("daemon idle timeout"),
+                        () -> daemonLog("daemon stopping"));
+                if (daemonHardExit()) {
+                    hardExitDaemon(0, port);
+                }
+            }
+            return 0;
+        } catch (Throwable throwable) {
+            System.err.println("GGUF daemon failed: " + briefMessage(throwable));
+            if (fastRunDebug()) {
+                throwable.printStackTrace(System.err);
+            }
+            return COMMAND_ERROR;
+        } finally {
+            deleteDaemonPortFileIfPort(port);
+        }
+    }
+
+    private static boolean handleDaemonClient(Socket socket, GgufSessionCache sessionCache) {
+        try {
+            socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeoutMillis()));
+            DataInputStream in = new DataInputStream(socket.getInputStream());
+            DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
+            GgufDaemonRequestDecoder.Request request = GgufDaemonRequestDecoder.read(
+                    in, DAEMON_MAGIC, DAEMON_PREWARM_MAGIC, DAEMON_STOP_MAGIC);
+            return GgufDaemonRequestDispatcher.dispatch(
+                    request,
+                    framed,
+                    FALLBACK_TO_FULL_CLI,
+                    () -> daemonLog("daemon stop requested"),
+                    (decoded, out, err) -> executeDaemonRequest(decoded, out, err, sessionCache));
+        } catch (Exception e) {
+            if (fastRunDebug()) {
+                System.err.println("GGUF daemon client failed: " + briefMessage(e));
+            }
+            return false;
+        }
+    }
+
+    private static int executeDaemonRequest(
+            GgufDaemonRequestDecoder.Request request,
+            PrintStream out,
+            PrintStream err,
+            GgufSessionCache sessionCache) {
+        return DAEMON_EXECUTION_HANDLER.execute(request, out, err, sessionCache);
+    }
+
+    private static int stopDaemon() {
+        OptionalInt port = readDaemonPort();
+        if (port.isEmpty()) {
+            removeLaunchctlDaemon();
+            return 0;
+        }
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port.getAsInt()),
+                    daemonConnectTimeoutMillis());
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+            DataInputStream in = new DataInputStream(socket.getInputStream());
+            writeString(out, DAEMON_STOP_MAGIC);
+            out.flush();
+            int channel = in.read();
+            int status = in.readInt();
+            return channel == 0 ? status : COMMAND_ERROR;
+        } catch (Exception ignored) {
+            return 0;
+        } finally {
+            deleteDaemonPortFile();
+            removeLaunchctlDaemon();
+        }
+    }
+
+    private static void copyAqliSystemProperties(List<String> command) {
+        Properties properties = System.getProperties();
+        for (String name : properties.stringPropertyNames()) {
+            if (name.startsWith("aqli.gguf.fast_run.")) {
+                command.add("-D" + name + "=" + properties.getProperty(name));
+            }
+        }
+        String envThreads = System.getenv("GGUF_THREADS");
+        if (envThreads != null && !envThreads.isBlank() && !properties.containsKey("aqli.gguf.fast_run.threads")) {
+            command.add("-Daqli.gguf.fast_run.threads=" + envThreads.trim());
+        }
+    }
+
+    private static Path daemonRunDir() {
+        return Path.of(System.getProperty("user.home"), ".aqli", "run");
+    }
+
+    private static Path daemonPortFile() {
+        return daemonRunDir().resolve("gguf-fast-daemon.port");
+    }
+
+    private static Path daemonLogFile() {
+        return Path.of(System.getProperty("user.home"), ".aqli", "logs", "gguf-fast-daemon.log");
+    }
+
+    private static OptionalInt readDaemonPort() {
+        boolean strictKey = strictDaemonKey();
+        return staleDaemonLifecycle().resolvePort(
+                readDaemonInfo(),
+                strictKey ? daemonKey() : null,
+                strictKey,
+                staleDaemonForceKill(),
+                staleDaemonKillWaitMillis());
+    }
+
+    private static Optional<GgufDaemonInfoStore.DaemonInfo> readDaemonInfo() {
+        return daemonInfoStore().read();
+    }
+
+    private static boolean readDaemonInfoPresent() {
+        return readDaemonInfo().isPresent();
+    }
+
+    private static void writeDaemonPort(int port) throws IOException {
+        daemonInfoStore().write(port, ProcessHandle.current().pid(), daemonKey());
+    }
+
+    private static GgufDaemonInfoStore daemonInfoStore() {
+        return new GgufDaemonInfoStore(daemonPortFile());
+    }
+
+    private static String daemonKey() {
+        return classPathKey(System.getProperty("java.class.path", ""))
+                + "|" + pathKey(bridgePath())
+                + "|" + pathKey(llamaLibDir());
+    }
+
+    private static String classPathKey(String classPath) {
+        if (classPath == null || classPath.isBlank()) {
+            return "";
+        }
+        String[] entries = classPath.split(java.util.regex.Pattern.quote(File.pathSeparator));
+        StringBuilder key = new StringBuilder();
+        for (int i = 0; i < entries.length; i++) {
+            if (i > 0) {
+                key.append(File.pathSeparator);
+            }
+            String entry = entries[i];
+            if (entry == null || entry.isBlank()) {
+                continue;
+            }
+            Path path = Path.of(entry);
+            key.append(Files.exists(path) ? pathKey(path) : entry);
+        }
+        return key.toString();
+    }
+
+    private static String pathKey(Path path) {
+        try {
+            long modified = Files.exists(path) ? Files.getLastModifiedTime(path).toMillis() : -1L;
+            long size = Files.isRegularFile(path) ? Files.size(path) : -1L;
+            return path.toAbsolutePath().normalize() + ":size=" + size + ":mtime=" + modified;
+        } catch (Exception ignored) {
+            return path.toAbsolutePath().normalize().toString();
+        }
+    }
+
+    private static GgufStaleDaemonLifecycle staleDaemonLifecycle() {
+        return new GgufStaleDaemonLifecycle(
+                daemonInfoStore(),
+                GgufStaleDaemonLifecycle.systemProcesses(),
+                GgufStandaloneRunner::removeLaunchctlDaemon);
+    }
+
+    static boolean staleDaemonForceKill() {
+        return booleanConfig("aqli.gguf.fast_run.stale_daemon_force_kill", true);
+    }
+
+    static long staleDaemonKillWaitMillis() {
+        return Math.max(100L, longConfig("aqli.gguf.fast_run.stale_daemon_kill_wait_ms", 2000L));
+    }
+
+    static boolean strictDaemonKey() {
+        return booleanConfig("aqli.gguf.fast_run.strict_daemon_key", false);
+    }
+
+    static boolean hardExitAfterRun() {
+        return booleanConfig("aqli.gguf.fast_run.hard_exit_after_run", true);
+    }
+
+    static boolean shouldHardExitAfterNativeRun(boolean daemonSession) {
+        return !daemonSession && hardExitAfterRun();
+    }
+
+    static void daemonLog(String message) {
+        System.err.printf("%tF %<tT [gguf-daemon] %s%n", System.currentTimeMillis(), message);
+    }
+
+    private static boolean daemonHardExit() {
+        return booleanConfig("aqli.gguf.fast_run.daemon_hard_exit", true);
+    }
+
+    private static void hardExitDaemon(int status, int port) {
+        deleteDaemonPortFileIfPort(port);
+        hardExitProcess(status);
+    }
+
+    static void hardExitProcess(int status) {
+        System.out.flush();
+        System.err.flush();
+        try {
+            MethodHandle hardExit = LlamaCppGgufNativeBindings.INSTANCE.hardExit;
+            if (hardExit != null) {
+                hardExit.invokeExact(status);
+            }
+        } catch (Throwable ignored) {
+        }
+        Runtime.getRuntime().halt(status);
+    }
+
+    private static boolean isMacOs() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
+    }
+
+    private static void deleteDaemonPortFile() {
+        daemonInfoStore().delete();
+    }
+
+    private static void deleteDaemonPortFileIfPort(int port) {
+        if (port <= 0) {
+            return;
+        }
+        OptionalInt current = readDaemonPort();
+        if (current.isPresent() && current.getAsInt() == port) {
+            deleteDaemonPortFile();
+        }
+    }
+
+    private static int daemonConnectTimeoutMillis() {
+        return intConfig("aqli.gguf.fast_run.daemon_connect_timeout_ms", 1000);
+    }
+
+    private static int daemonStartTimeoutMillis() {
+        return intConfig("aqli.gguf.fast_run.daemon_start_timeout_ms", 20_000);
+    }
+
+    static long daemonRequestRetryMillis() {
+        return Math.max(0L, longConfig("aqli.gguf.fast_run.daemon_request_retry_ms", 2_000L));
+    }
+
+    static long daemonRequestRetrySleepMillis() {
+        return Math.max(10L, longConfig("aqli.gguf.fast_run.daemon_request_retry_sleep_ms", 75L));
+    }
+
+    static int daemonMaxSessions() {
+        return Math.max(1, intConfig("aqli.gguf.fast_run.daemon_max_sessions", 2));
+    }
+
+    private static long timeoutMillis() {
+        return TimeUnit.SECONDS.toMillis(longConfig("aqli.gguf.fast_run.timeout_seconds", 180L));
+    }
+
+    static GgufRunArguments parseRunArguments(String[] args) {
+        GgufRunArguments parsed = GgufRunArguments.parse(
+                args,
+                stringConfig("aqli.gguf.fast_run.backend", "metal"),
+                firstNonBlank(
+                        configValue("aqli.gguf.fast_run.engine"),
+                        System.getenv("AQLI_GGUF_ENGINE"),
+                        "auto"));
+        if (parsed.verbose()) {
+            System.setProperty("aqli.verbose", "true");
+            System.setProperty("aljabr.metal.verbose", "true");
+        }
+        return parsed;
+    }
+
+    private static EngineMode engineMode(GgufRunArguments args) {
+        return EngineMode.effective(args.provider(), args.engine());
+    }
+
+    private static String firstNonBlank(String first, String fallback) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return fallback;
+    }
+
+    private static String firstNonBlank(String first, String second, String fallback) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        if (second != null && !second.isBlank()) {
+            return second;
+        }
+        return fallback;
+    }
+}    private static int runDaemon() {
         int port = -1;
         try {
             Files.createDirectories(daemonRunDir());
