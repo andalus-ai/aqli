@@ -33,6 +33,6 @@ public class CliLocalModelResolver implements LocalModelResolver {
 
     @Override
     public Optional<Path> resolveLiteRtModel(String modelId) {
-        return LiteRtLmStandaloneRunner.findIndexedLiteRtModelPath(modelId);
+        return LiteRtLmStandaloneRunner.resolveIndexedLiteRtModelPath(modelId);
     }
 }

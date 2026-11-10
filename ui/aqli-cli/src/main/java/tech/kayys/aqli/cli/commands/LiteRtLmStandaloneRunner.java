@@ -260,6 +260,21 @@ public final class LiteRtLmStandaloneRunner {
         return resolveLiteRtLmRoute(args).map(RouteResolution::path);
     }
 
+    /**
+     * Resolves a model-index reference to a runnable LiteRT-LM artifact.
+     * The runtime resolver owns format matching; the CLI supplies its index
+     * location and the existing equivalent-artifact preference.
+     */
+    static Optional<Path> resolveIndexedLiteRtModelPath(String ref) {
+        if (ref == null || ref.isBlank()) {
+            return Optional.empty();
+        }
+        return new LiteRTRouteResolver()
+                .resolve(null, ref, modelIndexPath(), equivalentLiteRtRouteEnabled())
+                .map(LiteRTRouteResolver.RouteMatch::path);
+    }
+
+    static String canonicalModelIdentityKey(String value) {
     static Optional<Path> findIndexedLiteRtModelPath(String modelId) {
         return new LiteRTRouteResolver()
                 .resolve(null, modelId, modelIndexPath(), equivalentLiteRtFastPathEnabled())
@@ -330,7 +345,7 @@ public final class LiteRtLmStandaloneRunner {
                         args.modelFile(),
                         args.model(),
                         modelIndexPath(),
-                        equivalentLiteRtFastPathEnabled())
+                        equivalentLiteRtRouteEnabled())
                 .map(match -> new RouteMatch(match.path(), match.source(), match.cacheHit()));
         if (resolved.isPresent() || args.model() == null) {
             return resolved;

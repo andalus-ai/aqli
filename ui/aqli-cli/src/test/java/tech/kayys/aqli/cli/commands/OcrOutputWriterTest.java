@@ -20,7 +20,7 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import tech.kayys.aljabr.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 class OcrOutputWriterTest {
 
