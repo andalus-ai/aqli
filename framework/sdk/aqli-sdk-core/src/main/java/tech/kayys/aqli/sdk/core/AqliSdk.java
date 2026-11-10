@@ -1,7 +1,5 @@
 package tech.kayys.aqli.sdk.core;
 
-import io.smallrye.mutiny.Multi;
-
 import tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
@@ -10,18 +8,11 @@ import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.SystemInfo;
-import tech.kayys.aqli.spi.batch.BatchInferenceRequest;
-import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
-import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
 import tech.kayys.aqli.spi.inference.AsyncJobStatus;
-import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aljabr.spi.model.ModelRegistry;
-import tech.kayys.aljabr.spi.model.MultimodalRequest;
-import tech.kayys.aljabr.spi.model.MultimodalResponse;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.sdk.model.ModelListRequest;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import java.util.List;
@@ -30,7 +21,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * Core interface for the Aqli inference engine SDK — v0.1.4.
+ * Backward-compatible aggregate interface for the AQLI SDK runtime capabilities.\n *\n * <p>New consumers should depend on focused capability ports such as\n * {@link InferenceOperations} where possible. This aggregate remains the\n * compatibility entry point while the remaining runtime responsibilities are\n * separated into dedicated ports.</p>
  *
  * <h3>New in v0.1.4</h3>
  * <ul>
@@ -45,86 +36,7 @@ import java.util.function.Consumer;
  * <li>{@link #getSystemInfo()} promoted to non-default.</li>
  * </ul>
  */
-public interface AqliSdk {
-
-    // ==================== Core Inference ====================
-
-    InferenceResponse createCompletion(InferenceRequest request) throws SdkException;
-
-    java.util.concurrent.CompletableFuture<InferenceResponse> createCompletionAsync(InferenceRequest request);
-
-    Multi<StreamingInferenceChunk> streamCompletion(InferenceRequest request);
-
-    // ==================== Format-Aware Inference (v0.1.4) ====================
-
-    /**
-     * Run inference on a GGUF model. Equivalent to setting
-     * {@code request.preferredProvider = "gguf"} and calling
-     * {@link #createCompletion}.
-     *
-     * @param modelId bare name, filename stem, or absolute path of the GGUF file
-     * @param request inference request (model field is overridden by
-     *                {@code modelId})
-     */
-    default InferenceResponse inferGguf(String modelId, InferenceRequest request) throws SdkException {
-        return createCompletion(request.toBuilder()
-                .model(modelId)
-                .preferredProvider("gguf")
-                .build());
-    }
-
-    /**
-     * Run inference on a SafeTensors checkpoint.
-     *
-     * @param modelId model directory name, alias, or absolute path
-     * @param request inference request
-     */
-    default InferenceResponse inferSafeTensors(String modelId, InferenceRequest request) throws SdkException {
-        return createCompletion(request.toBuilder()
-                .model(modelId)
-                .preferredProvider("safetensor")
-                .build());
-    }
-
-    /**
-     * Stream tokens from a GGUF model.
-     */
-    default Multi<StreamingInferenceChunk> streamGguf(String modelId, InferenceRequest request) {
-        return streamCompletion(request.toBuilder()
-                .model(modelId)
-                .preferredProvider("gguf")
-                .streaming(true)
-                .build());
-    }
-
-    /**
-     * Stream tokens from a SafeTensors model.
-     */
-    default Multi<StreamingInferenceChunk> streamSafeTensors(String modelId, InferenceRequest request) {
-        return streamCompletion(request.toBuilder()
-                .model(modelId)
-                .preferredProvider("safetensor")
-                .streaming(true)
-                .build());
-    }
-
-    // ==================== Embeddings ====================
-
-    EmbeddingResponse createEmbedding(EmbeddingRequest request) throws SdkException;
-
-    /**
-     * Convenience embedding — single text string, auto-routes to whatever
-     * provider handles {@code modelId}. NEW in v0.1.4.
-     *
-     * @param modelId model identifier (GGUF or SafeTensors)
-     * @param text    text to embed
-     */
-    default EmbeddingResponse embed(String modelId, String text) throws SdkException {
-        return createEmbedding(EmbeddingRequest.builder()
-                .model(modelId)
-                .input(text)
-                .build());
-    }
+public interface AqliSdk extends InferenceOperations {
 
     // ==================== Async Jobs ====================
 
@@ -135,7 +47,6 @@ public interface AqliSdk {
     AsyncJobStatus waitForJob(String jobId, java.time.Duration maxWaitTime, java.time.Duration pollInterval)
             throws SdkException;
 
-    List<InferenceResponse> batchInference(BatchInferenceRequest batchRequest) throws SdkException;
 
     // ==================== System Operations ====================
 
@@ -386,24 +297,6 @@ public interface AqliSdk {
      */
     default ModelManifest registerModel(ModelRegistry.ModelUploadRequest request) throws SdkException {
         throw new UnsupportedOperationException("Model registration not supported by this SDK implementation");
-    }
-
-    // ==================== Multimodal Operations (v0.1.5) ====================
-
-    /**
-     * Process a multimodal request (image captioning, VQA, classification,
-     * embedding).
-     * Routes to the appropriate multimodal processor based on model and task type.
-     *
-     * @param request the multimodal request containing inputs and task
-     *                specification
-     * @return multimodal response with outputs
-     * @throws SdkException if processing fails
-     */
-    default MultimodalResponse processMultimodal(MultimodalRequest request) throws SdkException {
-        throw new UnsupportedOperationException(
-                "Multimodal processing is not supported by this SDK implementation. "
-                        + "Ensure aqli-multimodal-core is on the classpath.");
     }
 
     /**
