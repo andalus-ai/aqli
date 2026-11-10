@@ -7,7 +7,6 @@ import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aljabr.spi.model.ModelRegistry;
 
-import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -15,9 +14,9 @@ import java.util.function.Consumer;
  *
  * <p>This port owns resolving/preparing models, downloading, importing,
  * registering, converting, and deleting model artifacts. Catalogue reads
- * are inherited from {@link ModelCatalogOperations}.</p>
+ * are exposed separately through {@link ModelCatalogOperations}.</p>
  */
-public interface ModelLifecycleOperations extends ModelCatalogOperations {
+public interface ModelLifecycleOperations {
 
     /**
      * Resolve and pull a model if necessary. NEW in v1.2.1.
@@ -54,11 +53,9 @@ public interface ModelLifecycleOperations extends ModelCatalogOperations {
     /**
      * Resolve and pull a model if necessary with explicit fallback candidates.
      */
-    default ModelResolution prepareModel(String modelId, String format, String plugin, boolean forceGguf,
+    ModelResolution prepareModel(String modelId, String format, String plugin, boolean forceGguf,
             String quantization, java.util.List<String> fallbackModelIds, Consumer<PullProgress> progressCallback)
-            throws SdkException {
-        return new ModelResolution(modelId, null, getModelInfo(modelId).orElse(null));
-    }
+            throws SdkException;
 
     /**
      * Explicitly convert a model (checkpoint/tensor) to GGUF format.
@@ -67,16 +64,6 @@ public interface ModelLifecycleOperations extends ModelCatalogOperations {
     default ModelResolution convertToGguf(ModelResolution source, String quantization,
             Consumer<PullProgress> progressCallback) throws SdkException {
         throw new UnsupportedOperationException("GGUF conversion not supported by this SDK implementation.");
-    }
-
-    /**
-     * Get quantization suggestion for a model based on its size.
-     * NEW in v1.2.5.
-     */
-    default Optional<tech.kayys.aqli.sdk.util.QuantSuggestionDetector.QuantSuggestion> suggestQuantization(
-            String modelId) throws SdkException {
-        return getModelInfo(modelId).flatMap(info -> tech.kayys.aqli.sdk.util.QuantSuggestionDetector
-                .detect(info.getModelId(), info.getSizeBytes()));
     }
 
     void pullModel(String modelSpec, Consumer<PullProgress> progressCallback) throws SdkException;
