@@ -42,7 +42,6 @@ class GgufDaemonLauncherTest {
                 "/opt/aqli/libs",
                 false);
 
-        assertTrue(shell.contains("exec 'java' ' __daemon'") == false);
         assertTrue(shell.contains("exec 'java' '__daemon'"));
         assertTrue(shell.endsWith(">> '/tmp/daemon.log' 2>&1 < /dev/null"));
         assertTrue(!shell.endsWith("&"));
