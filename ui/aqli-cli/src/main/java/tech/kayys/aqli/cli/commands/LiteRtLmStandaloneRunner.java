@@ -264,6 +264,65 @@ public final class LiteRtLmStandaloneRunner {
         return resolveLiteRtLmRoute(args).map(RouteResolution::path);
     }
 
+    /**
+     * Resolves a model-index reference to a runnable LiteRT-LM artifact.
+     * The runtime resolver owns format matching; the CLI supplies its index
+     * location and the existing equivalent-artifact preference.
+     */
+    static Optional<Path> resolveIndexedLiteRtModelPath(String ref) {
+        if (ref == null || ref.isBlank()) {
+            return Optional.empty();
+        }
+        return new LiteRTRouteResolver()
+                .resolve(null, ref, modelIndexPath(), equivalentLiteRtRouteEnabled())
+                .map(LiteRTRouteResolver.RouteMatch::path);
+    }
+
+    static String canonicalModelIdentityKey(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String leaf = lastPathSegment(value)
+                .replace("__", "/")
+                .replace('\\', '/')
+                .toLowerCase(Locale.ROOT);
+        int slash = leaf.lastIndexOf('/');
+        if (slash >= 0 && slash + 1 < leaf.length()) {
+            leaf = leaf.substring(slash + 1);
+        }
+        leaf = leaf
+                .replaceAll("\\.(litertlm|litert|tflite|tfl|task|gguf|safetensors?|bin)$", "")
+                .replaceAll("(?i)(-?litert-?lm|-?litertlm|-?tflite|-?safetensors?|\\.safetensors?)$", "");
+        StringBuilder key = new StringBuilder();
+        for (String token : leaf.split("[^a-z0-9]+")) {
+            if (!token.isBlank() && !isCanonicalNoiseToken(token)) {
+                key.append(token);
+            }
+        }
+        return key.toString();
+    }
+
+    private static String lastPathSegment(String value) {
+        String normalized = value.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        return slash >= 0 && slash + 1 < normalized.length()
+                ? normalized.substring(slash + 1)
+                : normalized;
+    }
+
+    private static boolean isCanonicalNoiseToken(String token) {
+        return switch (token) {
+            case "google", "litert", "community", "lm", "gguf", "safetensor", "safetensors",
+                    "qat", "mobile", "transformers", "q4", "q5", "q6", "q8", "k", "m", "f16", "fp16", "bf16" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean equivalentLiteRtRouteEnabled() {
+        String configured = System.getProperty("aqli.litert.fast_run.auto_equivalent");
+        return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
+    }
+
     static Optional<RouteResolution> resolveLiteRtLmRoute(LiteRTRunArguments args) {
         long startNanos = System.nanoTime();
         Optional<RouteMatch> match = resolveLiteRtLmRouteMatch(args);
@@ -282,7 +341,7 @@ public final class LiteRtLmStandaloneRunner {
                         args.modelFile(),
                         args.model(),
                         modelIndexPath(),
-                        equivalentLiteRtFastPathEnabled())
+                        equivalentLiteRtRouteEnabled())
                 .map(match -> new RouteMatch(match.path(), match.source(), match.cacheHit()));
         if (resolved.isPresent() || args.model() == null) {
             return resolved;
