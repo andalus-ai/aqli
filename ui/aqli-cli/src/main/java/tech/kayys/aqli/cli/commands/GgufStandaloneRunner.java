@@ -20,7 +20,6 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -56,6 +55,54 @@ public final class GgufStandaloneRunner {
     private static final long MIN_OUTPUT_BUFFER_BYTES = 64L * 1024L;
     private static final int OUTPUT_BUFFER_RETRY_LIMIT = 2;
     private static final ThreadLocal<Boolean> REQUEST_TIMING = new ThreadLocal<>();
+
+    private static final GgufDaemonExecutionHandler DAEMON_EXECUTION_HANDLER =
+            new GgufDaemonExecutionHandler(FALLBACK_TO_FULL_CLI, COMMAND_ERROR,
+                    new GgufDaemonExecutionHandler.Operations() {
+                        @Override
+                        public GgufRunArguments parseArguments(String[] arguments) {
+                            return parseRunArguments(arguments);
+                        }
+
+                        @Override
+                        public Optional<Path> resolveModel(GgufRunArguments arguments) {
+                            return resolveGgufModel(arguments);
+                        }
+
+                        @Override
+                        public int prewarm(Path modelPath, GgufRunArguments arguments,
+                                PrintStream out, PrintStream err, GgufSessionCache sessionCache) throws Throwable {
+                            return engineMode(arguments) == EngineMode.JAVA
+                                    ? prewarmWithJava(modelPath, arguments, out, err, sessionCache)
+                                    : prewarmWithLlamaCpp(modelPath, arguments, out, err, sessionCache);
+                        }
+
+                        @Override
+                        public int run(Path modelPath, GgufRunArguments arguments,
+                                PrintStream out, PrintStream err, GgufSessionCache sessionCache) throws Throwable {
+                            return generate(modelPath, arguments, out, err, sessionCache, "daemon");
+                        }
+
+                        @Override
+                        public void setRequestTiming(boolean enabled) {
+                            REQUEST_TIMING.set(enabled);
+                        }
+
+                        @Override
+                        public void clearRequestTiming() {
+                            REQUEST_TIMING.remove();
+                        }
+
+                        @Override
+                        public boolean debugEnabled() {
+                            return fastRunDebug();
+                        }
+
+                        @Override
+                        public String briefMessage(Throwable throwable) {
+                            return GgufStandaloneRunner.briefMessage(throwable);
+                        }
+                    });
 
     static {
         try {
@@ -421,7 +468,7 @@ public final class GgufStandaloneRunner {
     }
 
     private static void addCanonicalModelKey(List<String> keys, String value) {
-        String key = LiteRtLmStandaloneRunner.canonicalModelIdentityKey(value);
+        String key = LiteRtLmStandaloneRunner.canonicalModelKey(value);
         if (!key.isBlank() && !keys.contains(key)) {
             keys.add(key);
         }
@@ -1866,65 +1913,25 @@ public final class GgufStandaloneRunner {
     }
 
     private static OptionalInt sendDaemonRequestWithRetries(String[] rawArgs, String magic, long retryMillis) {
-        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0L, retryMillis));
-        while (true) {
-            OptionalInt status = sendDaemonRequest(rawArgs, magic);
-            if (status.isPresent()) {
-                return status;
-            }
-            if (readDaemonInfo().isEmpty() || System.nanoTime() >= deadlineNanos) {
-                return OptionalInt.empty();
-            }
-            try {
-                Thread.sleep(daemonRequestRetrySleepMillis());
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return OptionalInt.empty();
-            }
-        }
+        return daemonClient().sendWithRetries(rawArgs, magic, retryMillis);
     }
 
     private static OptionalInt sendDaemonRequest(String[] rawArgs, String magic) {
-        OptionalInt port = readDaemonPort();
-        if (port.isEmpty()) {
-            return OptionalInt.empty();
-        }
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port.getAsInt()),
-                    daemonConnectTimeoutMillis());
-            socket.setSoTimeout((int) Math.min(Integer.MAX_VALUE, timeoutMillis()));
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, magic);
-            out.writeInt(rawArgs.length);
-            for (String arg : rawArgs) {
-                writeString(out, arg);
-            }
-            out.writeBoolean(fastRunTiming());
-            out.flush();
-            while (true) {
-                int channel = in.read();
-                if (channel < 0) {
-                    return OptionalInt.empty();
-                }
-                int length = in.readInt();
-                if (channel == 0) {
-                    return OptionalInt.of(length);
-                }
-                byte[] payload = in.readNBytes(length);
-                PrintStream target = channel == 2 ? System.err : System.out;
-                target.write(payload);
-                target.flush();
-            }
-        } catch (ConnectException ignored) {
-            deleteDaemonPortFile();
-            return OptionalInt.empty();
-        } catch (Exception e) {
-            if (fastRunDebug()) {
-                System.err.println("GGUF daemon request failed: " + briefMessage(e));
-            }
-            return OptionalInt.empty();
-        }
+        return daemonClient().send(rawArgs, magic);
+    }
+
+    private static GgufDaemonClient daemonClient() {
+        return new GgufDaemonClient(
+                GgufStandaloneRunner::readDaemonPort,
+                GgufStandaloneRunner::daemonConnectTimeoutMillis,
+                () -> (int) Math.min(Integer.MAX_VALUE, timeoutMillis()),
+                GgufStandaloneRunner::daemonRequestRetrySleepMillis,
+                GgufStandaloneRunner::fastRunTiming,
+                GgufStandaloneRunner::fastRunDebug,
+                GgufStandaloneRunner::readDaemonInfoPresent,
+                GgufStandaloneRunner::deleteDaemonPortFile,
+                System.out,
+                System.err);
     }
 
     private static boolean startDaemon() {
@@ -2125,33 +2132,7 @@ public final class GgufStandaloneRunner {
             PrintStream out,
             PrintStream err,
             GgufSessionCache sessionCache) {
-        boolean prewarmRequest = request.kind() == GgufDaemonRequestDecoder.Kind.PREWARM;
-        REQUEST_TIMING.set(request.requestTiming());
-        try {
-            GgufRunArguments parsed = parseRunArguments(request.arguments());
-            if (!parsed.supported()) {
-                return FALLBACK_TO_FULL_CLI;
-            }
-            Optional<Path> modelPath = resolveGgufModel(parsed);
-            if (modelPath.isEmpty()) {
-                return FALLBACK_TO_FULL_CLI;
-            }
-            if (prewarmRequest) {
-                EngineMode engine = engineMode(parsed);
-                return engine == EngineMode.JAVA
-                        ? prewarmWithJava(modelPath.get(), parsed, out, err, sessionCache)
-                        : prewarmWithLlamaCpp(modelPath.get(), parsed, out, err, sessionCache);
-            }
-            return generate(modelPath.get(), parsed, out, err, sessionCache, "daemon");
-        } catch (Throwable throwable) {
-            err.println("GGUF daemon request failed: " + briefMessage(throwable));
-            if (fastRunDebug()) {
-                throwable.printStackTrace(err);
-            }
-            return COMMAND_ERROR;
-        } finally {
-            REQUEST_TIMING.remove();
-        }
+        return DAEMON_EXECUTION_HANDLER.execute(request, out, err, sessionCache);
     }
 
     private static int stopDaemon() {
@@ -2215,6 +2196,10 @@ public final class GgufStandaloneRunner {
 
     private static Optional<GgufDaemonInfoStore.DaemonInfo> readDaemonInfo() {
         return daemonInfoStore().read();
+    }
+
+    private static boolean readDaemonInfoPresent() {
+        return readDaemonInfo().isPresent();
     }
 
     private static void writeDaemonPort(int port) throws IOException {

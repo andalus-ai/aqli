@@ -1,6 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
 import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
+import tech.kayys.aqli.provider.litert.LiteRTDaemonProtocol;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -19,12 +20,10 @@ import com.google.ai.edge.litertlm.LogSeverity;
 import com.google.ai.edge.litertlm.MessageCallback;
 import com.google.ai.edge.litertlm.SamplerConfig;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.ConnectException;
 import java.net.InetAddress;
@@ -65,9 +64,6 @@ import java.util.regex.Pattern;
  */
 public final class LiteRtLmStandaloneRunner {
     private static final int FALLBACK_TO_FULL_CLI = StandaloneRunProtocol.FALLBACK_TO_FULL_CLI;
-    private static final String DAEMON_MAGIC = "AQLI_LITERT_FAST_DAEMON_V1";
-    private static final String DAEMON_PREWARM_MAGIC = "AQLI_LITERT_FAST_DAEMON_PREWARM_V1";
-    private static final String DAEMON_STOP_MAGIC = "AQLI_LITERT_FAST_DAEMON_STOP_V1";
     private static final int DEFAULT_MAX_NUM_TOKENS = 2048;
     private static final int DEFAULT_MAX_NUM_TOKENS_CEILING = 2048;
     private static final int DEFAULT_MAX_NUM_TOKENS_FLOOR = 256;
@@ -279,6 +275,18 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     static String canonicalModelIdentityKey(String value) {
+    static Optional<Path> findIndexedLiteRtModelPath(String modelId) {
+        return new LiteRTRouteResolver()
+                .resolve(null, modelId, modelIndexPath(), equivalentLiteRtFastPathEnabled())
+                .map(match -> match.path());
+    }
+
+    static boolean equivalentLiteRtFastPathEnabled() {
+        String configured = System.getProperty("aqli.litert.fast_run.auto_equivalent");
+        return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
+    }
+
+    static String canonicalModelKey(String value) {
         if (value == null || value.isBlank()) {
             return "";
         }
@@ -303,7 +311,7 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static String lastPathSegment(String value) {
-        String normalized = value.replace('\\', '/');
+        String normalized = value == null ? "" : value.replace('\\', '/');
         int slash = normalized.lastIndexOf('/');
         return slash >= 0 && slash + 1 < normalized.length()
                 ? normalized.substring(slash + 1)
@@ -313,14 +321,10 @@ public final class LiteRtLmStandaloneRunner {
     private static boolean isCanonicalNoiseToken(String token) {
         return switch (token) {
             case "google", "litert", "community", "lm", "gguf", "safetensor", "safetensors",
-                    "qat", "mobile", "transformers", "q4", "q5", "q6", "q8", "k", "m", "f16", "fp16", "bf16" -> true;
+                    "qat", "mobile", "transformers",
+                    "q4", "q5", "q6", "q8", "k", "m", "f16", "fp16", "bf16" -> true;
             default -> false;
         };
-    }
-
-    private static boolean equivalentLiteRtRouteEnabled() {
-        String configured = System.getProperty("aqli.litert.fast_run.auto_equivalent");
-        return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
     }
 
     static Optional<RouteResolution> resolveLiteRtLmRoute(LiteRTRunArguments args) {
@@ -925,7 +929,7 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static OptionalInt requestExistingDaemon(String[] rawArgs) {
-        return sendDaemonRequestWithRetries(DAEMON_MAGIC, rawArgs, daemonRequestRetryMillis());
+        return sendDaemonRequestWithRetries(LiteRTDaemonProtocol.RUN_MAGIC, rawArgs, daemonRequestRetryMillis());
     }
 
     private static OptionalInt requestDaemon(String[] rawArgs) {
@@ -936,18 +940,18 @@ public final class LiteRtLmStandaloneRunner {
         if (!startDaemon()) {
             return OptionalInt.empty();
         }
-        return sendDaemonRequestWithRetries(DAEMON_MAGIC, rawArgs, daemonStartTimeoutMillis());
+        return sendDaemonRequestWithRetries(LiteRTDaemonProtocol.RUN_MAGIC, rawArgs, daemonStartTimeoutMillis());
     }
 
     private static OptionalInt requestDaemonPrewarm(String[] rawArgs) {
-        OptionalInt status = sendDaemonRequestWithRetries(DAEMON_PREWARM_MAGIC, rawArgs, daemonRequestRetryMillis());
+        OptionalInt status = sendDaemonRequestWithRetries(LiteRTDaemonProtocol.PREWARM_MAGIC, rawArgs, daemonRequestRetryMillis());
         if (status.isPresent()) {
             return status;
         }
         if (!startDaemon()) {
             return OptionalInt.empty();
         }
-        return sendDaemonRequestWithRetries(DAEMON_PREWARM_MAGIC, rawArgs, daemonStartTimeoutMillis());
+        return sendDaemonRequestWithRetries(LiteRTDaemonProtocol.PREWARM_MAGIC, rawArgs, daemonStartTimeoutMillis());
     }
 
     private static OptionalInt sendDaemonRequestWithRetries(String magic, String[] rawArgs, long retryMillis) {
@@ -980,10 +984,10 @@ public final class LiteRtLmStandaloneRunner {
             socket.setSoTimeout((int) timeout().toMillis());
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, magic);
+            LiteRTDaemonProtocol.writeString(out, magic);
             out.writeInt(rawArgs.length);
             for (String arg : rawArgs) {
-                writeString(out, arg);
+                LiteRTDaemonProtocol.writeString(out, arg);
             }
             out.flush();
             while (true) {
@@ -1255,34 +1259,34 @@ public final class LiteRtLmStandaloneRunner {
         try {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
-            String magic = readString(in);
-            if (DAEMON_STOP_MAGIC.equals(magic)) {
+            String magic = LiteRTDaemonProtocol.readString(in);
+            if (LiteRTDaemonProtocol.STOP_MAGIC.equals(magic)) {
                 daemonLog("stop requested");
-                writeStatus(framed, 0);
+                LiteRTDaemonProtocol.writeStatus(framed, 0);
                 return true;
             }
-            boolean prewarmRequest = DAEMON_PREWARM_MAGIC.equals(magic);
-            if (!DAEMON_MAGIC.equals(magic) && !prewarmRequest) {
-                writeStatus(framed, FALLBACK_TO_FULL_CLI);
+            boolean prewarmRequest = LiteRTDaemonProtocol.PREWARM_MAGIC.equals(magic);
+            if (!LiteRTDaemonProtocol.RUN_MAGIC.equals(magic) && !prewarmRequest) {
+                LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
             int argCount = in.readInt();
             if (argCount < 0 || argCount > 256) {
-                writeStatus(framed, FALLBACK_TO_FULL_CLI);
+                LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
             String[] rawArgs = new String[argCount];
             for (int i = 0; i < argCount; i++) {
-                rawArgs[i] = readString(in);
+                rawArgs[i] = LiteRTDaemonProtocol.readString(in);
             }
             LiteRTRunArguments parsed = LiteRTRunArguments.parse(rawArgs);
             if (!parsed.isSupportedRequest()) {
-                writeStatus(framed, FALLBACK_TO_FULL_CLI);
+                LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
             Optional<RouteResolution> route = engineCache.resolveRoute(parsed);
             if (route.isEmpty()) {
-                writeStatus(framed, FALLBACK_TO_FULL_CLI);
+                LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
             daemonLog("%s request model=%s backend=%s maxTokens=%d",
@@ -1290,8 +1294,8 @@ public final class LiteRtLmStandaloneRunner {
                     route.get().path().getFileName(),
                     normalizedBackend(parsed.backend()),
                     parsed.maxTokens());
-            try (PrintStream out = new PrintStream(new FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
-                 PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8)) {
+            try (PrintStream out = new PrintStream(new LiteRTDaemonProtocol.FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
+                 PrintStream err = new PrintStream(new LiteRTDaemonProtocol.FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8)) {
                 if (prewarmRequest) {
                     prewarmEngine(route.get().path(), parsed, out, engineCache);
                 } else {
@@ -1300,14 +1304,14 @@ public final class LiteRtLmStandaloneRunner {
                 out.flush();
                 err.flush();
             }
-            writeStatus(framed, 0);
+            LiteRTDaemonProtocol.writeStatus(framed, 0);
         } catch (Throwable throwable) {
             daemonLog("request failed reason=%s", summarize(throwable));
             try {
                 DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
-                writeFrame(framed, 2, ("LiteRT-LM daemon request failed: " + summarize(throwable) + System.lineSeparator())
+                LiteRTDaemonProtocol.writeFrame(framed, 2, ("LiteRT-LM daemon request failed: " + summarize(throwable) + System.lineSeparator())
                         .getBytes(StandardCharsets.UTF_8));
-                writeStatus(framed, FALLBACK_TO_FULL_CLI);
+                LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
             } catch (IOException ignored) {
             }
         }
@@ -1438,7 +1442,7 @@ public final class LiteRtLmStandaloneRunner {
                     daemonConnectTimeoutMillis());
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, DAEMON_STOP_MAGIC);
+            LiteRTDaemonProtocol.writeString(out, LiteRTDaemonProtocol.STOP_MAGIC);
             out.flush();
             while (true) {
                 int channel = in.read();
@@ -1639,87 +1643,6 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private record DaemonInfo(int port, long pid, String key) {
-    }
-
-    private static void writeString(DataOutputStream out, String value) throws IOException {
-        byte[] bytes = (value == null ? "" : value).getBytes(StandardCharsets.UTF_8);
-        out.writeInt(bytes.length);
-        out.write(bytes);
-    }
-
-    private static String readString(DataInputStream in) throws IOException {
-        int length = in.readInt();
-        if (length < 0 || length > 16 * 1024 * 1024) {
-            throw new IOException("Invalid LiteRT-LM daemon string length: " + length);
-        }
-        byte[] bytes = in.readNBytes(length);
-        if (bytes.length != length) {
-            throw new IOException("Unexpected end of LiteRT-LM daemon string");
-        }
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    private static void writeStatus(DataOutputStream out, int status) throws IOException {
-        synchronized (out) {
-            out.writeByte(0);
-            out.writeInt(status);
-            out.flush();
-        }
-    }
-
-    private static void writeFrame(DataOutputStream out, int channel, byte[] payload) throws IOException {
-        synchronized (out) {
-            out.writeByte(channel);
-            out.writeInt(payload.length);
-            out.write(payload);
-            out.flush();
-        }
-    }
-
-    private static final class FramedOutputStream extends OutputStream {
-        private final DataOutputStream out;
-        private final int channel;
-        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(4096);
-
-        private FramedOutputStream(DataOutputStream out, int channel) {
-            this.out = out;
-            this.channel = channel;
-        }
-
-        @Override
-        public void write(int value) throws IOException {
-            buffer.write(value);
-            if (value == '\n' || buffer.size() >= 4096) {
-                flush();
-            }
-        }
-
-        @Override
-        public void write(byte[] bytes, int offset, int length) throws IOException {
-            if (length <= 0) {
-                return;
-            }
-            if (buffer.size() == 0 && length >= 4096) {
-                byte[] copy = new byte[length];
-                System.arraycopy(bytes, offset, copy, 0, length);
-                writeFrame(out, channel, copy);
-                return;
-            }
-            buffer.write(bytes, offset, length);
-            if (buffer.size() >= 4096 || bytes[offset + length - 1] == '\n') {
-                flush();
-            }
-        }
-
-        @Override
-        public void flush() throws IOException {
-            if (buffer.size() == 0) {
-                return;
-            }
-            byte[] payload = buffer.toByteArray();
-            buffer.reset();
-            writeFrame(out, channel, payload);
-        }
     }
 
     private static final class EngineLease implements AutoCloseable {

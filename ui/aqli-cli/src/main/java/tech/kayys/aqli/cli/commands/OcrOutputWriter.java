@@ -15,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import tech.kayys.aqli.cli.chat.ChatUIRenderer;
+
 import javax.imageio.ImageIO;
 
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
