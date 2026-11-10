@@ -7085,46 +7085,26 @@ public class RunCommand implements Runnable {
             Path metadataPath = explicitPath
                     ? Path.of(audioMetadataOutputPath)
                     : replaceExtension(audioPath, "json");
-            Path absoluteAudioPath = audioPath.toAbsolutePath().normalize();
-            Path absoluteMetadataPath = metadataPath.toAbsolutePath().normalize();
-            if (absoluteMetadataPath.equals(absoluteAudioPath)) {
+            List<String> replayArgs = audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata);
+            AudioMetadataSidecarWriter.Result result = AudioMetadataSidecarWriter.write(
+                    new AudioMetadataSidecarWriter.Request(
+                            audioPath,
+                            metadataPath,
+                            modelId,
+                            providerId,
+                            runner,
+                            prompt,
+                            effectiveTtsVoiceSelector(),
+                            audioDefaultExtension(metadata),
+                            replayArgs,
+                            shellCommand(replayArgs),
+                            metadata));
+            if (result.skippedBecausePathsMatch()) {
                 System.err.println("\nWarning: audio metadata path is the same as the audio output; metadata sidecar skipped.");
                 return;
             }
-            Path parent = absoluteMetadataPath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("type", "aqli_audio_metadata");
-            payload.put("schema_version", 2);
-            payload.put("created_at", Instant.now().toString());
-            payload.put("output_path", absoluteAudioPath.toString());
-            payload.put("output_size_bytes", Files.size(absoluteAudioPath));
-            payload.put("output_sha256", sha256Hex(absoluteAudioPath));
-            payload.put("model", modelId);
-            payload.put("provider", providerId);
-            if (runner != null && !runner.isBlank()) {
-                payload.put("runner", runner);
-            }
-            payload.put("prompt", prompt);
-            String voiceSelector = effectiveTtsVoiceSelector();
-            if (voiceSelector != null && !voiceSelector.isBlank()) {
-                payload.put("voice_selector", voiceSelector);
-            }
-            payload.put("audio_format", audioDefaultExtension(metadata));
-            List<String> replayArgs = audioMetadataReplayArgs(absoluteAudioPath, metadata);
-            payload.put("replay_args", replayArgs);
-            payload.put("replay_command", shellCommand(replayArgs));
-            payload.put("metadata", metadata == null ? Map.of() : new LinkedHashMap<>(metadata));
-
-            String json = new ObjectMapper()
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(payload);
-            Files.writeString(absoluteMetadataPath, json);
             System.out.println(ChatUIRenderer.DIM + "Audio metadata saved to: "
-                    + absoluteMetadataPath
+                    + result.sidecarPath()
                     + ChatUIRenderer.RESET);
         } catch (Exception e) {
             System.err.println("\nFailed to save audio metadata: " + e.getMessage());
@@ -7332,29 +7312,9 @@ public class RunCommand implements Runnable {
     }
 
     private static String sha256Hex(Path path) throws Exception {
-        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-        byte[] buffer = new byte[64 * 1024];
-        try (java.io.InputStream input = Files.newInputStream(path)) {
-            int read;
-            while ((read = input.read(buffer)) >= 0) {
-                if (read > 0) {
-                    digest.update(buffer, 0, read);
-                }
-            }
-        }
-        return hexLower(digest.digest());
+        return MediaFileIntegrity.sha256Hex(path);
     }
 
-    private static String hexLower(byte[] bytes) {
-        char[] table = "0123456789abcdef".toCharArray();
-        char[] out = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++) {
-            int value = bytes[i] & 0xff;
-            out[i * 2] = table[value >>> 4];
-            out[i * 2 + 1] = table[value & 0x0f];
-        }
-        return new String(out);
-    }
 
     private static Double audioDurationSeconds(Map<String, Object> metadata) {
         Double duration = metadataDouble(metadata, "audio_duration_seconds");
