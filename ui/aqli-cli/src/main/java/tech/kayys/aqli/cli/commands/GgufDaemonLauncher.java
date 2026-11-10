@@ -27,7 +27,7 @@ final class GgufDaemonLauncher {
             System.err.println("GGUF daemon launcher: " + mode);
         }
         if ("launchctl".equals(mode)) {
-            return macOs && launchWithLaunchctl(command, label, logFile, debug);
+            return macOs && launchWithLaunchctl(command, label, logFile, debug, nativePaths);
         }
         if ("auto".equals(mode) && macOs && launchWithLaunchctl(command, label, logFile, debug)) {
             return true;
@@ -79,7 +79,7 @@ final class GgufDaemonLauncher {
     }
 
     private static boolean launchWithLaunchctl(
-            List<String> command, String label, Path logFile, boolean debug)
+            List<String> command, String label, Path logFile, boolean debug, String nativePaths)
             throws IOException, InterruptedException {
         String launchctl = "/bin/launchctl";
         if (!Files.isExecutable(Path.of(launchctl))) {
@@ -94,7 +94,7 @@ final class GgufDaemonLauncher {
                 "--",
                 "/bin/sh",
                 "-c",
-                shellCommand(command, false, logFile, nativePaths(), true))
+                shellCommand(command, false, logFile, nativePaths, true))
                 .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()))
                 .redirectError(ProcessBuilder.Redirect.appendTo(logFile.toFile()))
                 .start();
