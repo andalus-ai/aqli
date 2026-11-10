@@ -304,11 +304,6 @@ final class GgufModelResolver {
         return score;
     }
 
-    static boolean equivalentFastPathEnabled {
-        String configured = configValue("aqli.gguf.fast_run.auto_equivalent");
-        return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
-    }
-
     private static Optional<Path> resolvePath(Path raw) {
         Path expanded = expandHome(raw);
         if (Files.exists(expanded)) {
@@ -340,7 +335,7 @@ final class GgufModelResolver {
             try (var stream = Files.list(searchDir)) {
                 return stream
                         .filter(Files::isRegularFile)
-                        .filter(GgufStandaloneRunner::isGguf)
+                        .filter(GgufModelResolver::isGguf)
                         .findFirst()
                         .map(candidate -> candidate.toAbsolutePath().normalize());
             }
