@@ -1228,7 +1228,7 @@ public final class LiteRtLmStandaloneRunner {
                     normalizedBackend(parsed.backend()),
                     parsed.maxTokens());
             try (PrintStream out = new PrintStream(new LiteRTDaemonProtocol.FramedOutputStream(framed, 1), true, StandardCharsets.UTF_8);
-                 PrintStream err = new PrintStream(new FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8)) {
+                 PrintStream err = new PrintStream(new LiteRTDaemonProtocol.FramedOutputStream(framed, 2), true, StandardCharsets.UTF_8)) {
                 if (prewarmRequest) {
                     prewarmEngine(route.get().path(), parsed, out, engineCache);
                 } else {
@@ -1375,7 +1375,7 @@ public final class LiteRtLmStandaloneRunner {
                     daemonConnectTimeoutMillis());
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
-            LiteRTDaemonProtocol.writeString(out, DAEMON_STOP_MAGIC);
+            LiteRTDaemonProtocol.writeString(out, LiteRTDaemonProtocol.STOP_MAGIC);
             out.flush();
             while (true) {
                 int channel = in.read();
@@ -1446,7 +1446,7 @@ public final class LiteRtLmStandaloneRunner {
     }
 
     private static void writeDaemonPort(int port) throws IOException {
-        Files.LiteRTDaemonProtocol.writeString(daemonPortFile(),
+        Files.writeString(daemonPortFile(),
                 port + System.lineSeparator()
                         + ProcessHandle.current().pid() + System.lineSeparator()
                         + daemonKey() + System.lineSeparator(),
