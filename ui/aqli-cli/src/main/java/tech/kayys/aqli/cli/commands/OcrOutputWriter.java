@@ -17,8 +17,10 @@ import java.util.Map;
 
 import javax.imageio.ImageIO;
 
+import tech.kayys.aqli.cli.chat.ChatUIRenderer;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import tech.kayys.aljabr.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 /**
  * Builds and writes the CLI's PaddleOCR-VL result artifacts.
