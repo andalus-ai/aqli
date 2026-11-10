@@ -1,6 +1,5 @@
 package tech.kayys.aqli.sdk.core;
 
-
 import tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
