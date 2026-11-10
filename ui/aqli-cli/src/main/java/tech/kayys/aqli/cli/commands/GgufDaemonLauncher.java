@@ -117,7 +117,10 @@ final class GgufDaemonLauncher {
         return true;
     }
 
-    private static void removeLaunchctl(String label) {
+    static void removeLaunchctl(String label, boolean macOs) {
+        if (!macOs) {
+            return;
+        }
         try {
             new ProcessBuilder("/bin/launchctl", "remove", label)
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD)
@@ -128,8 +131,4 @@ final class GgufDaemonLauncher {
         }
     }
 
-    private static String nativePaths() {
-        String home = System.getProperty("user.home");
-        return home + "/.aqli/libs" + java.io.File.pathSeparator + home + "/.aqli/libs/llama";
-    }
 }
