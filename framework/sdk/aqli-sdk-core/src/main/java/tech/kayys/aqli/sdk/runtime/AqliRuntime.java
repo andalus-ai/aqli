@@ -4,21 +4,12 @@ import tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
 import tech.kayys.aqli.sdk.mcp.McpRegistryManager;
-import tech.kayys.aljabr.spi.model.ModelInfo;
-import tech.kayys.aqli.sdk.model.ModelResolution;
-import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.SystemInfo;
 import tech.kayys.aqli.spi.inference.AsyncJobStatus;
-import tech.kayys.aljabr.spi.model.ModelManifest;
-import tech.kayys.aljabr.spi.model.ModelRegistry;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.sdk.model.ModelListRequest;
-import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.Consumer;
 
 /**
  * Aggregate interface for AQLI runtime capabilities.\n *\n * <p>New consumers should depend on focused capability ports such as\n * {@link InferenceOperations} where possible. This aggregate remains the\n * compatibility entry point while the remaining runtime responsibilities are\n * separated into dedicated ports.</p>
@@ -36,7 +27,7 @@ import java.util.function.Consumer;
  * <li>{@link #getSystemInfo()} promoted to non-default.</li>
  * </ul>
  */
-public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations {
+public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations, ModelLifecycleOperations {
 
     // ==================== Async Jobs ====================
 
@@ -66,17 +57,12 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
     /**
      * List models with filtering and pagination. NEW in v1.3.0.
      */
-    default List<ModelInfo> listModels(ModelListRequest request) throws SdkException {
-        return listModels(request.offset(), request.limit());
-    }
+
 
     /**
      * Resolve and pull a model if necessary. NEW in v1.2.1.
      */
-    default ModelResolution prepareModel(String modelId, boolean forceGguf, Consumer<PullProgress> progressCallback)
-            throws SdkException {
-        return prepareModel(modelId, forceGguf, "Q4_K_M", progressCallback);
-    }
+
 
     /**
      * Resolve and pull a model if necessary with quantization control.
@@ -88,65 +74,44 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
      * @param progressCallback Progress callback
      * @return Model resolution
      */
-    default ModelResolution prepareModel(String modelId, boolean forceGguf, String quantization,
-            Consumer<PullProgress> progressCallback) throws SdkException {
-        return prepareModel(modelId, null, null, forceGguf, quantization, java.util.List.of(), progressCallback);
-    }
+
 
     /**
      * Resolve and pull a model if necessary with explicit format and quantization.
      * NEW in v1.2.4.
      */
-    default ModelResolution prepareModel(String modelId, String format, String plugin, boolean forceGguf,
-            String quantization, Consumer<PullProgress> progressCallback) throws SdkException {
-        return prepareModel(modelId, format, plugin, forceGguf, quantization, java.util.List.of(), progressCallback);
-    }
+
 
     /**
      * Resolve and pull a model if necessary with explicit fallback candidates.
      */
-    default ModelResolution prepareModel(String modelId, String format, String plugin, boolean forceGguf,
-            String quantization, java.util.List<String> fallbackModelIds, Consumer<PullProgress> progressCallback)
-            throws SdkException {
-        return new ModelResolution(modelId, null, getModelInfo(modelId).orElse(null));
-    }
+
 
     /**
      * Explicitly convert a model (checkpoint/tensor) to GGUF format.
      * NEW in v1.2.3.
      */
-    default ModelResolution convertToGguf(ModelResolution source, String quantization,
-            Consumer<PullProgress> progressCallback) throws SdkException {
-        throw new UnsupportedOperationException("GGUF conversion not supported by this SDK implementation.");
-    }
+
 
     /**
      * Get quantization suggestion for a model based on its size.
      * NEW in v1.2.5.
      */
-    default Optional<tech.kayys.aqli.sdk.util.QuantSuggestionDetector.QuantSuggestion> suggestQuantization(
-            String modelId) throws SdkException {
-        return getModelInfo(modelId).flatMap(info -> tech.kayys.aqli.sdk.util.QuantSuggestionDetector
-                .detect(info.getModelId(), info.getSizeBytes()));
-    }
+
 
     /**
      * Resolve a default model if none specified. NEW in v1.2.1.
      */
-    default Optional<String> resolveDefaultModel() throws SdkException {
-        return listModels(0, 1).stream().findFirst().map(ModelInfo::getModelId);
-    }
 
-    List<ModelInfo> listModels() throws SdkException;
 
-    List<ModelInfo> listModels(int offset, int limit) throws SdkException;
+
+
+
 
     /**
      * Legacy method required by old agent-core.
      */
-    default List<String> listAvailableProviders() {
-        return List.of();
-    }
+
 
 
     /**
@@ -154,30 +119,22 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
      *
      * @param format GGUF, SAFETENSORS, etc. {@code null} = all formats.
      */
-    default List<ModelInfo> listModelsByFormat(String format) throws SdkException {
-        return listModels().stream()
-                .filter(m -> format == null || format.equalsIgnoreCase(m.getFormat()))
-                .toList();
-    }
 
-    Optional<ModelInfo> getModelInfo(String modelId) throws SdkException;
 
-    void pullModel(String modelSpec, Consumer<PullProgress> progressCallback) throws SdkException;
+
+
+
 
     /**
      * Pull a model with enhanced options. NEW in v1.3.0.
      */
-    default void pullModel(ModelPullRequest request, Consumer<PullProgress> progressCallback) throws SdkException {
-        pullModel(request.modelSpec(), request.revision(), request.format(), request.force(), progressCallback);
-    }
+
 
     /**
      * Import a local model file or directory into the SDK's managed repository.
      * NEW in v1.2.5.
      */
-    default ModelResolution importModel(java.nio.file.Path source, boolean move) throws SdkException {
-        throw new UnsupportedOperationException("Importing models not supported by this SDK implementation");
-    }
+
 
     /**
      * Pull a model with explicit revision and force options. NEW in v1.2.2.
@@ -187,27 +144,14 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
      * @param force            force re-download even if files exist
      * @param progressCallback progress updates
      */
-    default void pullModel(String modelSpec, String revision, boolean force, Consumer<PullProgress> progressCallback)
-            throws SdkException {
-        pullModel(modelSpec, revision, null, force, progressCallback);
-    }
+
 
     /**
      * Pull a model with explicit format, revision and force options. NEW in v1.2.4.
      */
-    default void pullModel(String modelSpec, String revision, String format, boolean force,
-            Consumer<PullProgress> progressCallback) throws SdkException {
-        // Default implementation for backward compatibility or implementations that
-        // don't support revision/force yet.
-        if (revision == null && format == null && !force) {
-            pullModel(modelSpec, progressCallback);
-        } else {
-            throw new SdkException("SDK_ERR_NOT_SUPPORTED",
-                    "This SDK implementation does not support explicit revision, format or force pull.");
-        }
-    }
 
-    void deleteModel(String modelId) throws SdkException;
+
+
 
     /**
      * Pull a GGUF model by name or HuggingFace repo. NEW in v0.1.4.
@@ -216,9 +160,7 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
      *                  {@code "tinyllama"} (resolved via Ollama registry)
      * @param callback  progress callback (nullable)
      */
-    default void pullGgufModel(String modelSpec, Consumer<PullProgress> callback) throws SdkException {
-        pullModel(modelSpec.startsWith("gguf:") ? modelSpec : "gguf:" + modelSpec, callback);
-    }
+
 
     /**
      * Pull a SafeTensors checkpoint from HuggingFace. NEW in v0.1.4.
@@ -226,9 +168,7 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
      * @param repoId   HuggingFace repo id, e.g. {@code "bert-base-uncased"}
      * @param callback progress callback (nullable)
      */
-    default void pullSafeTensorsModel(String repoId, Consumer<PullProgress> callback) throws SdkException {
-        pullModel("hf:" + repoId, callback);
-    }
+
 
     // ==================== MCP Operations ====================
 
@@ -288,16 +228,12 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
     /**
      * Get detailed statistics for a model (usage, versions, etc.)
      */
-    default Optional<ModelRegistry.ModelStats> getModelStats(String modelId) throws SdkException {
-        return Optional.empty();
-    }
+
 
     /**
      * Register a new model programmatically.
      */
-    default ModelManifest registerModel(ModelRegistry.ModelUploadRequest request) throws SdkException {
-        throw new UnsupportedOperationException("Model registration not supported by this SDK implementation");
-    }
+
 
     /**
      * ML Kit-style feature entrypoint for face recognition, natural language, and
