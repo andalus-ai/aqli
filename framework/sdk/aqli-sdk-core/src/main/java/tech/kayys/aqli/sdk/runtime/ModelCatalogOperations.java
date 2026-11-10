@@ -16,6 +16,9 @@ import java.util.Optional;
  */
 public interface ModelCatalogOperations {
 
+    /**
+     * List models with filtering and pagination. NEW in v1.3.0.
+     */
     default List<ModelInfo> listModels(ModelListRequest request) throws SdkException {
         return listModels(request.offset(), request.limit());
     }
@@ -24,10 +27,18 @@ public interface ModelCatalogOperations {
 
     List<ModelInfo> listModels(int offset, int limit) throws SdkException;
 
+    /**
+     * Legacy method required by old agent-core.
+     */
     default List<String> listAvailableProviders() {
         return List.of();
     }
 
+    /**
+     * List models filtered by format — NEW in v0.1.4.
+     *
+     * @param format GGUF, SAFETENSORS, etc. {@code null} = all formats.
+     */
     default List<ModelInfo> listModelsByFormat(String format) throws SdkException {
         return listModels().stream()
                 .filter(m -> format == null || format.equalsIgnoreCase(m.getFormat()))
@@ -36,10 +47,16 @@ public interface ModelCatalogOperations {
 
     Optional<ModelInfo> getModelInfo(String modelId) throws SdkException;
 
+    /**
+     * Resolve a default model if none specified. NEW in v1.2.1.
+     */
     default Optional<String> resolveDefaultModel() throws SdkException {
         return listModels(0, 1).stream().findFirst().map(ModelInfo::getModelId);
     }
 
+    /**
+     * Get detailed statistics for a model (usage, versions, etc.)
+     */
     default Optional<ModelRegistry.ModelStats> getModelStats(String modelId) throws SdkException {
         return Optional.empty();
     }
