@@ -80,7 +80,7 @@ public final class LiteRTDaemonProtocol {
         @Override
         public void write(int value) throws IOException {
             buffer.write(value);
-            if (value == '\\n' || buffer.size() >= 4096) {
+            if (value == '\n' || buffer.size() >= 4096) {
                 flush();
             }
         }
@@ -97,7 +97,7 @@ public final class LiteRTDaemonProtocol {
                 return;
             }
             buffer.write(bytes, offset, length);
-            if (buffer.size() >= 4096 || bytes[offset + length - 1] == '\\n') {
+            if (buffer.size() >= 4096 || bytes[offset + length - 1] == '\n') {
                 flush();
             }
         }
