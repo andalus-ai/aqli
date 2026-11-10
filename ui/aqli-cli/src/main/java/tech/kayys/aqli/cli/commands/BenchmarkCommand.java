@@ -91,14 +91,6 @@ public class BenchmarkCommand implements Runnable {
             // Keep the CLI's historical format alias while routing by the real SPI provider ID.
             return "gguf".equalsIgnoreCase(requested) ? "llamacpp" : requested;
         }
-    }
-
-    private String resolveProvider() {
-        if (provider != null && !provider.isBlank()) {
-            String requested = provider.trim();
-            // Keep the CLI's historical format alias while routing by the real SPI provider ID.
-            return "gguf".equalsIgnoreCase(requested) ? "llamacpp" : requested;
-        }
 
         String lower = modelPath.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".gguf")) {
