@@ -24,7 +24,8 @@ import java.util.Map;
  * }
  * }</pre>
  */
-public interface AqliSdkProvider {
+@Deprecated(forRemoval = false)
+public interface AqliSdkProvider extends tech.kayys.aqli.sdk.AqliSdkProvider {
 
     /**
      * Creates a new instance of the Aqli SDK with the given configuration.
