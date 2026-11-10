@@ -1,5 +1,7 @@
 package tech.kayys.aqli.sdk.core;
 
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.spi.Message;
@@ -31,7 +33,7 @@ public final class AqliChatService {
     }
 
     public Multi<StreamingInferenceChunk> streamChat(
-            AqliSdk sdk, 
+            AqliRuntime sdk, 
             String modelId, 
             String systemPrompt,
             List<Message> history, 
@@ -61,7 +63,7 @@ public final class AqliChatService {
     }
 
     public Uni<InferenceResponse> chat(
-            AqliSdk sdk, 
+            AqliRuntime sdk, 
             String modelId, 
             String systemPrompt,
             List<Message> history, 
