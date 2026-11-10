@@ -1955,25 +1955,30 @@ public final class GgufStandaloneRunner {
             command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
-            if (!daemonLauncher().launch(command, daemonLauncherMode(), launchctlLabel(), daemonLogFile(),
-                    isMacOs(), fastRunDebug(), daemonNativePaths())) {
-                return false;
-            }
-
-            long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(daemonStartTimeoutMillis());
-            while (System.nanoTime() < deadlineNanos) {
-                if (readDaemonPort().isPresent()) {
-                    return true;
-                }
-                Thread.sleep(100L);
-            }
-            return readDaemonPort().isPresent();
+            return daemonStartupCoordinator().start(
+                    command,
+                    daemonLauncherMode(),
+                    launchctlLabel(),
+                    daemonLogFile(),
+                    isMacOs(),
+                    fastRunDebug(),
+                    daemonNativePaths());
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon failed to start: " + briefMessage(e));
             }
             return false;
         }
+    }
+
+    private static GgufDaemonStartupCoordinator daemonStartupCoordinator() {
+        return new GgufDaemonStartupCoordinator(
+                new GgufDaemonLauncher()::launch,
+                GgufStandaloneRunner::readDaemonPort,
+                GgufStandaloneRunner::daemonStartTimeoutMillis,
+                System::nanoTime,
+                Thread::sleep,
+                100L);
     }
 
     static String daemonLauncherMode() {
