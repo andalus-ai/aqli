@@ -3321,11 +3321,11 @@ public class RunCommand implements Runnable {
         try {
             OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
             OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
-            List<CachePruneOperation> operations = pruneOperations(before, dryRun);
+            List<OptimizedCachePruner.Operation> operations = OptimizedCachePruner.prune(before, dryRun);
             int errors = 0;
             long affectedBytes = 0L;
             if (!dryRun) {
-                for (CachePruneOperation operation : operations) {
+                for (OptimizedCachePruner.Operation operation : operations) {
                     if (operation.error() != null && !operation.error().isBlank()) {
                         errors++;
                     } else if (operation.deleted()) {
@@ -3333,7 +3333,7 @@ public class RunCommand implements Runnable {
                     }
                 }
             } else {
-                for (CachePruneOperation operation : operations) {
+                for (OptimizedCachePruner.Operation operation : operations) {
                     affectedBytes += operation.sizeBytes();
                 }
             }
@@ -3388,45 +3388,6 @@ public class RunCommand implements Runnable {
         return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
 
-    private List<CachePruneOperation> pruneOperations(OptimizedCacheDirectoryScanner.Stats before, boolean dryRun) {
-        List<CachePruneOperation> operations = new ArrayList<>();
-        for (Path path : before.staleOptimizedGraphPaths()) {
-            long sizeBytes = safeSize(path);
-            if (dryRun) {
-                operations.add(new CachePruneOperation("optimized_graph", path, sizeBytes, false, true, null));
-                continue;
-            }
-            boolean deleted = false;
-            String error = null;
-            try {
-                deleted = Files.deleteIfExists(path);
-            } catch (Exception e) {
-                error = e.getMessage();
-            }
-            operations.add(new CachePruneOperation("optimized_graph", path, sizeBytes, deleted, false, error));
-        }
-        for (Path path : orphanSidecarPruneCandidates(before)) {
-            long sizeBytes = safeSize(path);
-            if (dryRun) {
-                operations.add(new CachePruneOperation("external_data_sidecar", path, sizeBytes, false, true, null));
-                continue;
-            }
-            boolean deleted = false;
-            String error = null;
-            try {
-                deleted = Files.deleteIfExists(path);
-            } catch (Exception e) {
-                error = e.getMessage();
-            }
-            operations.add(new CachePruneOperation("external_data_sidecar", path, sizeBytes, deleted, false, error));
-        }
-        return operations;
-    }
-
-    private List<Path> orphanSidecarPruneCandidates(OptimizedCacheDirectoryScanner.Stats before) {
-        return before.pruneableExternalDataSidecarPaths();
-    }
-
     private void printMossTtsCachePruneJson(
             String modelId,
             Path modelDir,
@@ -3435,7 +3396,7 @@ public class RunCommand implements Runnable {
             boolean dryRun,
             OptimizedCacheDirectoryScanner.Stats before,
             OptimizedCacheDirectoryScanner.Stats after,
-            List<CachePruneOperation> operations,
+            List<OptimizedCachePruner.Operation> operations,
             long affectedBytes,
             int errors) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -3453,7 +3414,7 @@ public class RunCommand implements Runnable {
         payload.put("errors", errors);
         payload.put("before", before.toJson());
         payload.put("after", after.toJson());
-        payload.put("operations", operations.stream().map(CachePruneOperation::toJson).toList());
+        payload.put("operations", operations.stream().map(OptimizedCachePruner.Operation::toJson).toList());
         printJsonPayload(payload);
     }
 
@@ -3464,7 +3425,7 @@ public class RunCommand implements Runnable {
             boolean dryRun,
             OptimizedCacheDirectoryScanner.Stats before,
             OptimizedCacheDirectoryScanner.Stats after,
-            List<CachePruneOperation> operations,
+            List<OptimizedCachePruner.Operation> operations,
             long affectedBytes,
             int errors) {
         System.out.println("MOSS TTS optimized cache prune");
@@ -3492,8 +3453,8 @@ public class RunCommand implements Runnable {
             System.out.println("Unrelated optimized graph files kept: "
                     + formatDiagnosticList(before.unrelatedOptimizedGraphFileNames(), 10));
         }
-        List<CachePruneOperation> graphOperations = operationsOfKind(operations, "optimized_graph");
-        List<CachePruneOperation> sidecarOperations = operationsOfKind(operations, "external_data_sidecar");
+        List<OptimizedCachePruner.Operation> graphOperations = operationsOfKind(operations, "optimized_graph");
+        List<OptimizedCachePruner.Operation> sidecarOperations = operationsOfKind(operations, "external_data_sidecar");
         if (graphOperations.isEmpty()) {
             System.out.println("Stale optimized graph files: none");
         } else {
@@ -3522,10 +3483,10 @@ public class RunCommand implements Runnable {
     }
 
     private void printCachePruneOperations(
-            List<CachePruneOperation> operations,
+            List<OptimizedCachePruner.Operation> operations,
             boolean dryRun,
             int limit) {
-        for (CachePruneOperation operation : operations.stream().limit(limit).toList()) {
+        for (OptimizedCachePruner.Operation operation : operations.stream().limit(limit).toList()) {
             String status = dryRun
                     ? "would delete"
                     : (operation.deleted() ? "deleted" : (operation.error() == null ? "missing" : "failed"));
@@ -3539,21 +3500,21 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private int countOperations(List<CachePruneOperation> operations, String kind) {
+    private int countOperations(List<OptimizedCachePruner.Operation> operations, String kind) {
         return (int) operations.stream()
                 .filter(operation -> kind.equals(operation.kind()))
                 .count();
     }
 
-    private long totalOperationBytes(List<CachePruneOperation> operations) {
+    private long totalOperationBytes(List<OptimizedCachePruner.Operation> operations) {
         long total = 0L;
-        for (CachePruneOperation operation : operations) {
+        for (OptimizedCachePruner.Operation operation : operations) {
             total += operation.sizeBytes();
         }
         return total;
     }
 
-    private List<CachePruneOperation> operationsOfKind(List<CachePruneOperation> operations, String kind) {
+    private List<OptimizedCachePruner.Operation> operationsOfKind(List<OptimizedCachePruner.Operation> operations, String kind) {
         return operations.stream()
                 .filter(operation -> kind.equals(operation.kind()))
                 .toList();
@@ -4166,28 +4127,6 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private record CachePruneOperation(
-            String kind,
-            Path path,
-            long sizeBytes,
-            boolean deleted,
-            boolean dryRun,
-            String error) {
-        private Map<String, Object> toJson() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("kind", kind);
-            value.put("path", path.toString());
-            value.put("file", path.getFileName().toString());
-            value.put("size_bytes", sizeBytes);
-            value.put("dry_run", dryRun);
-            value.put("deleted", deleted);
-            value.put("action", dryRun ? "would_delete" : (deleted ? "deleted" : (error == null ? "missing" : "failed")));
-            if (error != null && !error.isBlank()) {
-                value.put("error", error);
-            }
-            return value;
-        }
-    }
 
     private String ttsVoiceGroupSummary(JsonNode voices) {
         Map<String, Integer> counts = new LinkedHashMap<>();
