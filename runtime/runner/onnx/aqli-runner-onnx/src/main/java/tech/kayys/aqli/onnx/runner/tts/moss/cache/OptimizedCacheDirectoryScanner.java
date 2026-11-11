@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.onnx.runner.tts.moss.cache;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,11 +12,11 @@ import java.util.Set;
  * Scans the MOSS TTS optimized-graph cache and classifies its contents
  * against the optimized graph paths belonging to the current model.
  */
-final class OptimizedCacheDirectoryScanner {
+public final class OptimizedCacheDirectoryScanner {
     private OptimizedCacheDirectoryScanner() {
     }
 
-    static Stats scan(
+    public static Stats scan(
             Path cacheRoot,
             Set<Path> currentOptimizedPaths,
             Set<String> currentPrefixes) {
@@ -124,7 +124,7 @@ final class OptimizedCacheDirectoryScanner {
         return false;
     }
 
-    static long safeSize(Path path) {
+    public static long safeSize(Path path) {
         try {
             return Files.size(path);
         } catch (Exception ignored) {
@@ -132,7 +132,7 @@ final class OptimizedCacheDirectoryScanner {
         }
     }
 
-    record Stats(
+    public record Stats(
             Path path,
             boolean exists,
             int fileCount,
@@ -149,7 +149,7 @@ final class OptimizedCacheDirectoryScanner {
             List<Path> orphanExternalDataSidecarPaths,
             List<Path> unrelatedOptimizedGraphPaths,
             List<Path> staleOptimizedGraphPaths) {
-        Map<String, Object> toJson() {
+        public toJson() {
             Map<String, Object> value = new LinkedHashMap<>();
             value.put("path", path.toString());
             value.put("exists", exists);
@@ -198,23 +198,23 @@ final class OptimizedCacheDirectoryScanner {
             return value;
         }
 
-        List<String> staleOptimizedGraphFileNames() {
+        public staleOptimizedGraphFileNames() {
             return staleOptimizedGraphPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        List<String> unrelatedOptimizedGraphFileNames() {
+        public unrelatedOptimizedGraphFileNames() {
             return unrelatedOptimizedGraphPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        int orphanExternalDataSidecarFiles() {
+        public orphanExternalDataSidecarFiles() {
             return orphanExternalDataSidecarPaths.size();
         }
 
-        long orphanExternalDataSidecarSizeBytes() {
+        public orphanExternalDataSidecarSizeBytes() {
             long total = 0L;
             for (Path path : orphanExternalDataSidecarPaths) {
                 total += safeSize(path);
@@ -222,34 +222,34 @@ final class OptimizedCacheDirectoryScanner {
             return total;
         }
 
-        List<String> externalDataSidecarFileNames() {
+        public externalDataSidecarFileNames() {
             return externalDataSidecarPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        List<String> orphanExternalDataSidecarFileNames() {
+        public orphanExternalDataSidecarFileNames() {
             return orphanExternalDataSidecarPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        int optimizedGraphFilesAfterStalePrune() {
+        public optimizedGraphFilesAfterStalePrune() {
             return Math.max(0, optimizedGraphFiles - staleOptimizedGraphFiles);
         }
 
-        List<Path> pruneableExternalDataSidecarPaths() {
+        public pruneableExternalDataSidecarPaths() {
             if (externalDataSidecarPaths.isEmpty()) {
                 return List.of();
             }
             return optimizedGraphFilesAfterStalePrune() == 0 ? externalDataSidecarPaths : List.of();
         }
 
-        int pruneableExternalDataSidecarFiles() {
+        public pruneableExternalDataSidecarFiles() {
             return pruneableExternalDataSidecarPaths().size();
         }
 
-        long pruneableExternalDataSidecarSizeBytes() {
+        public pruneableExternalDataSidecarSizeBytes() {
             long total = 0L;
             for (Path path : pruneableExternalDataSidecarPaths()) {
                 total += safeSize(path);
@@ -257,13 +257,13 @@ final class OptimizedCacheDirectoryScanner {
             return total;
         }
 
-        List<String> pruneableExternalDataSidecarFileNames() {
+        public pruneableExternalDataSidecarFileNames() {
             return pruneableExternalDataSidecarPaths().stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        List<Path> retainedExternalDataSidecarPaths() {
+        public retainedExternalDataSidecarPaths() {
             if (externalDataSidecarPaths.isEmpty()) {
                 return List.of();
             }
@@ -280,11 +280,11 @@ final class OptimizedCacheDirectoryScanner {
                     .toList();
         }
 
-        int retainedExternalDataSidecarFiles() {
+        public retainedExternalDataSidecarFiles() {
             return retainedExternalDataSidecarPaths().size();
         }
 
-        long retainedExternalDataSidecarSizeBytes() {
+        public retainedExternalDataSidecarSizeBytes() {
             long total = 0L;
             for (Path path : retainedExternalDataSidecarPaths()) {
                 total += safeSize(path);
@@ -292,13 +292,13 @@ final class OptimizedCacheDirectoryScanner {
             return total;
         }
 
-        List<String> retainedExternalDataSidecarFileNames() {
+        public retainedExternalDataSidecarFileNames() {
             return retainedExternalDataSidecarPaths().stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        String externalDataSidecarPrunePolicy() {
+        public externalDataSidecarPrunePolicy() {
             if (externalDataSidecarPaths.isEmpty()) {
                 return "none";
             }
