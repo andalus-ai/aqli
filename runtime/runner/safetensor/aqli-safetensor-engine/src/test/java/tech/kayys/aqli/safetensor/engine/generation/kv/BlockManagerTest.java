@@ -79,6 +79,58 @@ class BlockManagerTest {
     }
 
     @Test
+    void allocatesPhysicalStorageOnlyForChunksThatContainLeasedBlocks() {
+        try (BlockManager manager = new BlockManager()) {
+            manager.initialize(16, 1, 8, 40);
+
+            assertEquals(0, manager.getAllocatedChunkCount());
+            assertEquals(0, manager.getAllocatedNativeBytes());
+
+            for (int i = 0; i < 16; i++) {
+                assertEquals(i, manager.allocateBlock());
+            }
+            assertEquals(1, manager.getAllocatedChunkCount());
+            assertEquals(16L * 16 * 1 * 8 * Float.BYTES * 2, manager.getAllocatedNativeBytes());
+
+            assertEquals(16, manager.allocateBlock());
+            assertEquals(2, manager.getAllocatedChunkCount());
+
+            for (int i = 0; i < 16; i++) {
+                manager.freeBlock(i);
+            }
+            assertEquals(1, manager.getAllocatedChunkCount());
+            assertThrows(IllegalStateException.class, () -> manager.getKBlock(0));
+        }
+    }
+
+    @Test
+    void allocatesQuantizationScaleChunksWithTheirDataChunks() {
+        try (BlockManager manager = new BlockManager()) {
+            manager.initialize(16, 2, 8, 17, BlockManager.KvStorageType.INT8);
+
+            assertEquals(0, manager.getAllocatedNativeBytes());
+            manager.allocateBlock();
+
+            long dataBytes = 16L * 16 * 2 * 8 * 2;
+            long scaleBytes = 16L * 2 * 16 * Float.BYTES * 2;
+            assertEquals(dataBytes + scaleBytes, manager.getAllocatedNativeBytes());
+            assertEquals(1, manager.getAllocatedChunkCount());
+            assertEquals(16L * 2 * 16 * Float.BYTES, manager.getKScaleBlock(0).byteSize());
+        }
+    }
+
+    @Test
+    void rawPoolAccessIsRejectedWhenCapacitySpansMultipleChunks() {
+        try (BlockManager manager = new BlockManager()) {
+            manager.initialize(16, 1, 8, 40);
+            manager.allocateBlock();
+
+            assertThrows(UnsupportedOperationException.class, manager::getRawKPool);
+            assertThrows(UnsupportedOperationException.class, manager::getRawVPool);
+        }
+    }
+
+    @Test
     void closeIsIdempotentAndRequiresReinitializationBeforeUse() {
         BlockManager manager = new BlockManager();
         manager.initialize(16, 1, 8, 1);
