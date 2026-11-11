@@ -1,20 +1,24 @@
+/*
+ * Aqli Inference Engine - SafeTensor Module
+ * Copyright (c) 2026 Kayys.tech
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package tech.kayys.aqli.safetensor.engine.generation.kv;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayDeque;
+import java.util.BitSet;
+import java.util.Objects;
 
 /**
- * Manages physical memory blocks for KV cache.
- * Refactored to use contiguous memory slabs for Metal compatibility.
- * 
- * Layout in slab: [maxBlocks, numHeads, tokensPerBlock, headDim]
- * This matches the expectation of the native Metal/MPS attention kernels.
+ * Owns the physical K/V storage for one generation session.
+ *
+ * <p>The pool is deliberately session-scoped. A block index is leased at most
+ * once at a time, and the arena must outlive every segment view obtained from
+ * this manager.
  */
-@ApplicationScoped
-public class BlockManager {
+public final class BlockManager implements AutoCloseable {
     public enum KvStorageType {
         FP32,
         INT8,
@@ -25,198 +29,272 @@ public class BlockManager {
     private MemorySegment vPoolSlab;
     private MemorySegment kScaleSlab;
     private MemorySegment vScaleSlab;
-    private int blockSizeBytes = 0;
-    private int tokensPerBlock = 0;
-    private int numHeads = 0;
-    private int headDim = 0;
-    private long headStride = 0;
-    private long tokenStride = 0;
-    private long scaleStride = 0;
-    private boolean initialized = false;
-    private int maxBlocks = 0;
+    private int blockSizeBytes;
+    private int tokensPerBlock;
+    private int numHeads;
+    private int headDim;
+    private long headStride;
+    private long tokenStride;
+    private long scaleStride;
+    private boolean initialized;
+    private int maxBlocks;
     private KvStorageType storageType = KvStorageType.FP32;
     private int bytesPerElement = Float.BYTES;
+    private Arena poolArena;
+    private final ArrayDeque<Integer> freeBlockIndices = new ArrayDeque<>();
+    private final BitSet allocatedBlocks = new BitSet();
 
-    private Arena poolArena = Arena.ofShared();
-    private final ConcurrentLinkedQueue<Integer> freeBlockIndices = new ConcurrentLinkedQueue<>();
-    private final AtomicInteger totalAllocatedBlocks = new AtomicInteger(0);
-
-    public synchronized void initialize(int tokensPerBlock, int numHeads, int headDim, int maxBlocks) {
+    public synchronized void initialize(
+            int tokensPerBlock, int numHeads, int headDim, int maxBlocks) {
         initialize(tokensPerBlock, numHeads, headDim, maxBlocks, KvStorageType.FP32);
     }
 
-    public synchronized void initialize(int tokensPerBlock, int numHeads, int headDim, int maxBlocks, KvStorageType storageType) {
-        boolean shapeChanged = this.tokensPerBlock != tokensPerBlock
-                || this.numHeads != numHeads
-                || this.headDim != headDim
-                || this.storageType != storageType;
-        boolean capacityInsufficient = this.maxBlocks < maxBlocks;
+    public synchronized void initialize(
+            int tokensPerBlock, int numHeads, int headDim, int maxBlocks, KvStorageType storageType) {
+        validateDimensions(tokensPerBlock, numHeads, headDim, maxBlocks);
+        Objects.requireNonNull(storageType, "storageType");
 
-        if (initialized && !shapeChanged && !capacityInsufficient) {
-            resetFreeList();
+        if (initialized
+                && this.tokensPerBlock == tokensPerBlock
+                && this.numHeads == numHeads
+                && this.headDim == headDim
+                && this.storageType == storageType
+                && this.maxBlocks == maxBlocks) {
             return;
         }
-
-        if (initialized) {
-            try {
-                poolArena.close();
-            } catch (Exception ignored) {
-            }
-            poolArena = Arena.ofShared();
+        if (initialized && !allocatedBlocks.isEmpty()) {
+            throw new IllegalStateException(
+                    "Cannot reinitialize KV storage while " + allocatedBlocks.cardinality() + " blocks are leased");
         }
 
+        long blockElements = Math.multiplyExact((long) numHeads,
+                Math.multiplyExact((long) tokensPerBlock, headDim));
+        long blockBytes = switch (storageType) {
+            case FP32 -> Math.multiplyExact(blockElements, Float.BYTES);
+            case INT8 -> blockElements;
+            case INT4 -> Math.addExact(blockElements, 1L) / 2L;
+        };
+        int newBlockSizeBytes = Math.toIntExact(blockBytes);
+        long totalBytes = Math.multiplyExact((long) maxBlocks, blockBytes);
+        long totalScaleBytes = storageType == KvStorageType.FP32
+                ? 0L
+                : Math.multiplyExact(Math.multiplyExact(
+                        Math.multiplyExact((long) maxBlocks, numHeads), tokensPerBlock), Float.BYTES);
+
+        Arena newArena = Arena.ofShared();
+        MemorySegment newK;
+        MemorySegment newV;
+        MemorySegment newKScale = null;
+        MemorySegment newVScale = null;
+        try {
+            newK = newArena.allocate(totalBytes, 64);
+            newV = newArena.allocate(totalBytes, 64);
+            if (storageType != KvStorageType.FP32) {
+                newKScale = newArena.allocate(totalScaleBytes, 64);
+                newVScale = newArena.allocate(totalScaleBytes, 64);
+            }
+        } catch (RuntimeException | Error failure) {
+            newArena.close();
+            throw failure;
+        }
+
+        closeArena();
+        this.poolArena = newArena;
+        this.kPoolSlab = newK;
+        this.vPoolSlab = newV;
+        this.kScaleSlab = newKScale;
+        this.vScaleSlab = newVScale;
         this.tokensPerBlock = tokensPerBlock;
         this.numHeads = numHeads;
         this.headDim = headDim;
         this.maxBlocks = maxBlocks;
         this.storageType = storageType;
         this.bytesPerElement = storageType == KvStorageType.FP32 ? Float.BYTES : Byte.BYTES;
-
-        // Layout: [head, token, dim] per block
+        this.blockSizeBytes = newBlockSizeBytes;
         this.tokenStride = headDim;
-        this.headStride = (long) tokensPerBlock * tokenStride;
-        this.scaleStride = (long) tokensPerBlock;
-        long blockElements = (long) numHeads * headStride;
-        this.blockSizeBytes = switch (storageType) {
-            case FP32 -> Math.toIntExact(blockElements * Float.BYTES);
-            case INT8 -> Math.toIntExact(blockElements);
-            case INT4 -> Math.toIntExact((blockElements + 1L) / 2L);
-        };
-
-        long totalBytes = (long) maxBlocks * blockSizeBytes;
-
-        // Allocate contiguous slabs for K and V
-        this.kPoolSlab = poolArena.allocate(totalBytes, 64);
-        this.vPoolSlab = poolArena.allocate(totalBytes, 64);
-        if (storageType != KvStorageType.FP32) {
-            long totalScaleBytes = (long) maxBlocks * numHeads * tokensPerBlock * Float.BYTES;
-            this.kScaleSlab = poolArena.allocate(totalScaleBytes, 64);
-            this.vScaleSlab = poolArena.allocate(totalScaleBytes, 64);
-        } else {
-            this.kScaleSlab = null;
-            this.vScaleSlab = null;
-        }
-
-        resetFreeList();
-
+        this.headStride = Math.multiplyExact((long) tokensPerBlock, tokenStride);
+        this.scaleStride = tokensPerBlock;
         this.initialized = true;
+        resetFreeList();
+    }
+
+    private static void validateDimensions(int tokensPerBlock, int numHeads, int headDim, int maxBlocks) {
+        if (tokensPerBlock <= 0 || numHeads <= 0 || headDim <= 0 || maxBlocks <= 0) {
+            throw new IllegalArgumentException("KV pool dimensions and capacity must all be positive"
+                    + " (tokensPerBlock=" + tokensPerBlock
+                    + ", numHeads=" + numHeads
+                    + ", headDim=" + headDim
+                    + ", maxBlocks=" + maxBlocks + ")");
+        }
     }
 
     private void resetFreeList() {
         freeBlockIndices.clear();
-        totalAllocatedBlocks.set(0);
+        allocatedBlocks.clear();
         for (int i = 0; i < maxBlocks; i++) {
-            freeBlockIndices.add(i);
+            freeBlockIndices.addLast(i);
         }
     }
 
-    public Integer allocateBlock() {
-        Integer index = freeBlockIndices.poll();
+    public synchronized Integer allocateBlock() {
+        ensureInitialized();
+        Integer index = freeBlockIndices.pollFirst();
         if (index != null) {
-            totalAllocatedBlocks.incrementAndGet();
+            allocatedBlocks.set(index);
         }
         return index;
     }
 
-    public void freeBlock(int index) {
-        freeBlockIndices.add(index);
-        totalAllocatedBlocks.decrementAndGet();
+    public synchronized void freeBlock(int index) {
+        ensureInitialized();
+        checkBlockIndex(index);
+        if (!allocatedBlocks.get(index)) {
+            throw new IllegalStateException("KV block " + index + " is not currently allocated");
+        }
+        allocatedBlocks.clear(index);
+        freeBlockIndices.addLast(index);
     }
 
-    public MemorySegment getKBlock(int blockIndex) {
-        if (blockIndex < 0) {
-            throw new IllegalStateException("Invalid KV block index for K cache: " + blockIndex);
-        }
+    public synchronized MemorySegment getKBlock(int blockIndex) {
+        ensureInitialized();
+        checkBlockIndex(blockIndex);
         return kPoolSlab.asSlice((long) blockIndex * blockSizeBytes, blockSizeBytes);
     }
 
-    public MemorySegment getVBlock(int blockIndex) {
-        if (blockIndex < 0) {
-            throw new IllegalStateException("Invalid KV block index for V cache: " + blockIndex);
-        }
+    public synchronized MemorySegment getVBlock(int blockIndex) {
+        ensureInitialized();
+        checkBlockIndex(blockIndex);
         return vPoolSlab.asSlice((long) blockIndex * blockSizeBytes, blockSizeBytes);
     }
 
-    public MemorySegment getRawKPool() {
+    public synchronized MemorySegment getRawKPool() {
+        ensureInitialized();
         return kPoolSlab;
     }
 
-    public MemorySegment getRawVPool() {
+    public synchronized MemorySegment getRawVPool() {
+        ensureInitialized();
         return vPoolSlab;
     }
 
-    public int getBlockSizeBytes() {
+    public synchronized int getBlockSizeBytes() {
+        ensureInitialized();
         return blockSizeBytes;
     }
 
-    public int getTokensPerBlock() {
+    public synchronized int getTokensPerBlock() {
+        ensureInitialized();
         return tokensPerBlock;
     }
 
-    public long getHeadStride() {
+    public synchronized long getHeadStride() {
+        ensureInitialized();
         return headStride;
     }
 
-    public long getTokenStride() {
+    public synchronized long getTokenStride() {
+        ensureInitialized();
         return tokenStride;
     }
 
-    public long getScaleStride() {
+    public synchronized long getScaleStride() {
+        ensureInitialized();
         return scaleStride;
     }
 
-    public KvStorageType getStorageType() {
+    public synchronized KvStorageType getStorageType() {
+        ensureInitialized();
         return storageType;
     }
 
-    public boolean isInt8Quantized() {
+    public synchronized boolean isInt8Quantized() {
+        ensureInitialized();
         return storageType == KvStorageType.INT8;
     }
 
-    public boolean isInt4Quantized() {
+    public synchronized boolean isInt4Quantized() {
+        ensureInitialized();
         return storageType == KvStorageType.INT4;
     }
 
-    public boolean isQuantized() {
+    public synchronized boolean isQuantized() {
+        ensureInitialized();
         return storageType != KvStorageType.FP32;
     }
 
-    public int getBytesPerElement() {
+    public synchronized int getBytesPerElement() {
+        ensureInitialized();
         return bytesPerElement;
     }
 
-    public MemorySegment getKScaleBlock(int blockIndex) {
+    public synchronized MemorySegment getKScaleBlock(int blockIndex) {
+        ensureInitialized();
+        checkBlockIndex(blockIndex);
         if (kScaleSlab == null) {
             return null;
         }
         long scaleBlockBytes = (long) numHeads * tokensPerBlock * Float.BYTES;
-        return kScaleSlab.asSlice(blockIndex * scaleBlockBytes, scaleBlockBytes);
+        return kScaleSlab.asSlice((long) blockIndex * scaleBlockBytes, scaleBlockBytes);
     }
 
-    public MemorySegment getVScaleBlock(int blockIndex) {
+    public synchronized MemorySegment getVScaleBlock(int blockIndex) {
+        ensureInitialized();
+        checkBlockIndex(blockIndex);
         if (vScaleSlab == null) {
             return null;
         }
         long scaleBlockBytes = (long) numHeads * tokensPerBlock * Float.BYTES;
-        return vScaleSlab.asSlice(blockIndex * scaleBlockBytes, scaleBlockBytes);
+        return vScaleSlab.asSlice((long) blockIndex * scaleBlockBytes, scaleBlockBytes);
     }
 
-    public synchronized void close() {
-        if (!initialized) {
-            return;
+    public synchronized int getAllocatedBlockCount() {
+        return allocatedBlocks.cardinality();
+    }
+
+    public synchronized int getCapacity() {
+        ensureInitialized();
+        return maxBlocks;
+    }
+
+    private void checkBlockIndex(int blockIndex) {
+        if (blockIndex < 0 || blockIndex >= maxBlocks) {
+            throw new IndexOutOfBoundsException(
+                    "KV block index " + blockIndex + " outside [0, " + maxBlocks + ")");
         }
-        try {
+    }
+
+    private void ensureInitialized() {
+        if (!initialized || poolArena == null || !poolArena.scope().isAlive()) {
+            throw new IllegalStateException("KV block storage is not initialized");
+        }
+    }
+
+    private void closeArena() {
+        if (poolArena != null && poolArena.scope().isAlive()) {
             poolArena.close();
-        } catch (Exception ignored) {
         }
-        poolArena = Arena.ofShared();
+    }
+
+    @Override
+    public synchronized void close() {
+        closeArena();
+        poolArena = null;
         kPoolSlab = null;
         vPoolSlab = null;
         kScaleSlab = null;
         vScaleSlab = null;
         freeBlockIndices.clear();
-        totalAllocatedBlocks.set(0);
+        allocatedBlocks.clear();
         initialized = false;
         maxBlocks = 0;
+        blockSizeBytes = 0;
+        tokensPerBlock = 0;
+        numHeads = 0;
+        headDim = 0;
+        headStride = 0;
+        tokenStride = 0;
+        scaleStride = 0;
+        bytesPerElement = Float.BYTES;
+        storageType = KvStorageType.FP32;
     }
 }

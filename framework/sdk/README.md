@@ -14,14 +14,14 @@ Contains the core interfaces and shared models that define the contract for the 
 - Core exception hierarchy
 - Factory for creating SDK instances
 
-### 2. aqli-sdk-java-local
+### 2. aqli-sdk
 A local implementation of the SDK that runs within the same JVM as the inference engine.
 
 - Direct access to internal services without HTTP overhead
 - Optimized for performance when running embedded
 - Uses CDI for dependency injection
 
-### 3. aqli-sdk-java-remote
+### 3. aqli-sdk-remote
 A remote implementation of the SDK that communicates with the inference engine via HTTP API.
 
 - Communicates with the engine over HTTP/HTTPS
