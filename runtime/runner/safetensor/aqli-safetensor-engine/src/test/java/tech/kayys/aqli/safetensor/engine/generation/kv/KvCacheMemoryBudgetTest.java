@@ -90,7 +90,7 @@ class KvCacheMemoryBudgetTest {
 
         KvCacheMemoryBudget budget = new KvCacheMemoryBudget(estimate.totalBytes());
         KVCacheManager.KVCacheSession session =
-                new KVCacheManager.KVCacheSession(128, new BlockManager(budget));
+                new KVCacheManager.KVCacheSession(128, new BlockManager(budget), budget);
         session.allocate(config, generationConfig);
         assertEquals(session.blockManager().getAllocatedNativeBytes(), budget.reservedBytes());
         assertTrue(budget.reservedBytes() < estimate.totalBytes(),
@@ -100,7 +100,7 @@ class KvCacheMemoryBudgetTest {
 
         KvCacheMemoryBudget insufficient = new KvCacheMemoryBudget(1);
         KVCacheManager.KVCacheSession rejected =
-                new KVCacheManager.KVCacheSession(128, new BlockManager(insufficient));
+                new KVCacheManager.KVCacheSession(128, new BlockManager(insufficient), insufficient);
         assertThrows(IllegalStateException.class, () -> rejected.allocate(config, generationConfig));
         assertEquals(0, insufficient.reservedBytes());
         rejected.close();
