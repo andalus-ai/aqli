@@ -454,17 +454,9 @@ public final class GgufStandaloneRunner {
             GgufSessionCache sessionCache,
             String runnerName) throws Throwable {
         long startNanos = System.nanoTime();
-        String requestedBackend = normalizedBackend(args.backend());
-        int nGpuLayers = "cpu".equals(requestedBackend)
-                ? 0
-                : CONFIG.intValue("aqli.gguf.fast_run.gpu_layers", -1);
-        int threads = Math.max(1, CONFIG.intValue("aqli.gguf.fast_run.threads", defaultThreads()));
-        int batchThreads = Math.max(1, CONFIG.intValue("aqli.gguf.fast_run.batch_threads", threads));
         String prompt = formatPromptForModel(args.prompt(), modelPath);
-        int context = fastRunContext(prompt, args.maxTokens());
-        int batch = boundedBatch("aqli.gguf.fast_run.batch", Math.min(context, 1024), context);
-        int microBatch = boundedBatch("aqli.gguf.fast_run.ubatch", Math.min(batch, 512), batch);
-        boolean swaFull = fastRunSwaFull();
+        GgufLlamaCppRunOptions options = GgufLlamaCppRunOptions.resolve(
+                normalizedBackend(args.backend()), prompt, args.maxTokens(), false, defaultThreads(), CONFIG);
         printRunHeader(modelPath, args, out);
 
         try {
@@ -473,13 +465,7 @@ public final class GgufStandaloneRunner {
                     args,
                     benchmarkMode,
                     startNanos,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    nGpuLayers,
-                    swaFull,
+                    options,
                     prompt,
                     false,
                     out,
@@ -487,7 +473,7 @@ public final class GgufStandaloneRunner {
                     sessionCache,
                     runnerName);
         } catch (Throwable throwable) {
-            if (nGpuLayers == 0 || !fastRunCpuFallback()) {
+            if (options.gpuLayers() == 0 || !fastRunCpuFallback()) {
                 throw throwable;
             }
             err.printf("WARN: GGUF Metal fast path failed (%s); retrying with CPU fallback.%n",
@@ -497,13 +483,7 @@ public final class GgufStandaloneRunner {
                     args,
                     benchmarkMode,
                     startNanos,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    0,
-                    swaFull,
+                    options.withGpuLayers(0),
                     prompt,
                     true,
                     out,
@@ -562,17 +542,9 @@ public final class GgufStandaloneRunner {
             PrintStream err,
             GgufSessionCache sessionCache) throws Throwable {
         long startNanos = System.nanoTime();
-        String requestedBackend = normalizedBackend(args.backend());
-        int nGpuLayers = "cpu".equals(requestedBackend)
-                ? 0
-                : CONFIG.intValue("aqli.gguf.fast_run.gpu_layers", -1);
-        int threads = Math.max(1, CONFIG.intValue("aqli.gguf.fast_run.threads", defaultThreads()));
-        int batchThreads = Math.max(1, CONFIG.intValue("aqli.gguf.fast_run.batch_threads", threads));
         String prompt = formatPromptForModel(args.prompt(), modelPath);
-        int context = fastRunPrewarmContext(prompt, args.maxTokens());
-        int batch = boundedBatch("aqli.gguf.fast_run.batch", Math.min(context, 1024), context);
-        int microBatch = boundedBatch("aqli.gguf.fast_run.ubatch", Math.min(batch, 512), batch);
-        boolean swaFull = fastRunSwaFull();
+        GgufLlamaCppRunOptions options = GgufLlamaCppRunOptions.resolve(
+                normalizedBackend(args.backend()), prompt, args.maxTokens(), true, defaultThreads(), CONFIG);
 
         try {
             prewarmWithLlamaCppSession(
@@ -622,21 +594,22 @@ public final class GgufStandaloneRunner {
             Path modelPath,
             GgufRunArguments args,
             long startNanos,
-            int context,
-            int batch,
-            int microBatch,
-            int threads,
-            int batchThreads,
-            int nGpuLayers,
-            boolean swaFull,
+            GgufLlamaCppRunOptions options,
             String prompt,
             boolean cpuFallback,
             PrintStream out,
             PrintStream err,
             GgufSessionCache sessionCache) throws Throwable {
+        int context = options.context();
+        int batch = options.batch();
+        int microBatch = options.microBatch();
+        int threads = options.threads();
+        int batchThreads = options.batchThreads();
+        int nGpuLayers = options.gpuLayers();
+        boolean swaFull = options.swaFull();
+        boolean useMmap = options.useMmap();
+        boolean useMlock = options.useMlock();
         long openStartNanos = System.nanoTime();
-        boolean useMmap = CONFIG.booleanValue("aqli.gguf.fast_run.mmap", true);
-        boolean useMlock = CONFIG.booleanValue("aqli.gguf.fast_run.mlock", false);
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
                         nGpuLayers,
@@ -1098,36 +1071,15 @@ public final class GgufStandaloneRunner {
     }
 
     static int boundedBatch(String property, int defaultValue, int maxValue) {
-        int requested = CONFIG.intValue(property, defaultValue);
-        int upperBound = Math.max(1, maxValue);
-        return Math.max(1, Math.min(requested, upperBound));
+        return GgufLlamaCppRunOptions.boundedBatch(property, defaultValue, maxValue, CONFIG);
     }
 
     static int fastRunContext(String prompt, int maxTokens) {
-        String configured = CONFIG.value("aqli.gguf.fast_run.context");
-        if (configured != null && !configured.isBlank() && !configured.trim().equalsIgnoreCase("auto")) {
-            return GgufStandaloneConfiguration.parsePositiveInt(configured, 2048);
-        }
-
-        int maxAutoContext = fastRunMaxAutoContext();
-        int promptBytes = prompt == null ? 0 : prompt.getBytes(StandardCharsets.UTF_8).length;
-        int requested = (int) Math.min(Integer.MAX_VALUE, (long) promptBytes + Math.max(1, maxTokens) + 128L);
-        // Lower bound of 512: empirically, Metal FA kernel iterates over the full
-        // allocated
-        // KV buffer (not just used slots), so larger contexts hurt short-query
-        // performance.
-        // 512 is the sweet spot for typical short-to-medium queries on M4.
-        return nextPowerOfTwoBounded(requested, 512, maxAutoContext);
+        return GgufLlamaCppRunOptions.context(prompt, maxTokens, CONFIG);
     }
 
     static int fastRunPrewarmContext(String prompt, int maxTokens) {
-        String configured = CONFIG.value("aqli.gguf.fast_run.context");
-        if (configured != null && !configured.isBlank() && !configured.trim().equalsIgnoreCase("auto")) {
-            return GgufStandaloneConfiguration.parsePositiveInt(configured, 2048);
-        }
-        int maxAutoContext = fastRunMaxAutoContext();
-        int requested = Math.max(fastRunContext(prompt, maxTokens), fastRunPrewarmMinContext(maxAutoContext));
-        return nextPowerOfTwoBounded(requested, 512, maxAutoContext);
+        return GgufLlamaCppRunOptions.prewarmContext(prompt, maxTokens, CONFIG);
     }
 
     static int fastRunPrewarmMinContext(int maxAutoContext) {
@@ -1138,17 +1090,6 @@ public final class GgufStandaloneRunner {
 
     private static int fastRunMaxAutoContext() {
         return CONFIG.positiveInt("aqli.gguf.fast_run.max_auto_context", 4096);
-    }
-
-    private static int nextPowerOfTwoBounded(int value, int minimum, int maximum) {
-        int lowerBound = Math.max(1, minimum);
-        int upperBound = Math.max(lowerBound, maximum);
-        int context = lowerBound;
-        int target = Math.max(lowerBound, value);
-        while (context < target && context < upperBound) {
-            context = Math.min(context << 1, upperBound);
-        }
-        return context;
     }
 
     static boolean fastRunSwaFull() {
