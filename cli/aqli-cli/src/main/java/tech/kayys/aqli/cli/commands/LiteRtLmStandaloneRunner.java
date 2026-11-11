@@ -3,6 +3,8 @@ import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
 import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
 import tech.kayys.aqli.provider.litert.LiteRTDaemonProtocol;
 import tech.kayys.aqli.provider.litert.LiteRTTokenStreamLimiter;
+import tech.kayys.aqli.provider.litert.LiteRTEngineCache;
+import tech.kayys.aqli.provider.litert.LiteRTEngineLease;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -459,7 +461,7 @@ public final class LiteRtLmStandaloneRunner {
             LiteRTRunArguments args,
             PrintStream out,
             PrintStream err,
-            EngineCache engineCache,
+            LiteRTEngineCache<Engine> engineCache,
             String runnerName) throws Exception {
         Path modelPath = route.path();
         long startNanos = System.nanoTime();
@@ -472,22 +474,22 @@ public final class LiteRtLmStandaloneRunner {
         }
         long beforeEngineInitNanos = System.nanoTime();
         String requestedBackend = normalizedBackend(args.backend());
-        try (EngineLease lease = engineCache == null
+        try (LiteRTEngineLease<Engine> lease = engineCache == null
                 ? openEngine(modelPath, requestedBackend, engineMaxNumTokens, true, false)
-                : engineCache.acquire(modelPath, requestedBackend, engineMaxNumTokens)) {
+                : acquireCachedEngine(engineCache, modelPath, requestedBackend, engineMaxNumTokens)) {
             long afterEngineInitNanos = System.nanoTime();
-            String warmSuffix = engineCache == null ? "" : ", warmEngine=" + lease.reused;
+            String warmSuffix = engineCache == null ? "" : ", warmEngine=" + lease.reused();
             if (args.banner()) {
                 printExecutionRoute(out, lease, runnerName);
                 out.printf("Using official LiteRT-LM JVM %s for %s (backend=%s, speculativeDecoding=%s, engineMaxNumTokens=%d%s).%n",
                         runnerName,
                         modelPath.getFileName(),
-                        lease.backendName,
-                        lease.speculativeDecoding,
+                        lease.backendName(),
+                        lease.speculativeDecoding(),
                         engineMaxNumTokens,
                         warmSuffix);
             }
-            if (lease.fallbackReason != null && args.banner()) {
+            if (lease.fallbackReason() != null && args.banner()) {
                 err.printf("LiteRT-LM GPU backend failed; using official CPU fallback instead: %s%n",
                         lease.fallbackReason);
             }
@@ -505,7 +507,7 @@ public final class LiteRtLmStandaloneRunner {
                     false,
                     null,
                     Map.of());
-            try (Conversation conversation = lease.engine.createConversation(conversationConfig)) {
+            try (Conversation conversation = lease.engine().createConversation(conversationConfig)) {
                 long afterConversationCreateNanos = System.nanoTime();
                 CountDownLatch done = new CountDownLatch(1);
                 AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -717,7 +719,7 @@ public final class LiteRtLmStandaloneRunner {
         }
     }
 
-    private static EngineLease openEngine(
+    private static LiteRTEngineLease<Engine> openEngine(
             Path modelPath,
             String requestedBackend,
             int engineMaxNumTokens,
@@ -735,7 +737,7 @@ public final class LiteRtLmStandaloneRunner {
                 cacheDir().toString());
 
         try {
-            return new EngineLease(
+            return new LiteRTEngineLease<>(
                     initializeEngine(engineConfig),
                     backendName(requestedBackend),
                     speculativeDecoding,
@@ -1213,7 +1215,8 @@ public final class LiteRtLmStandaloneRunner {
         AtomicBoolean stop = new AtomicBoolean(false);
         int port = -1;
         try (ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
-             EngineCache engineCache = new EngineCache()) {
+             LiteRTEngineCache<Engine> engineCache = new LiteRTEngineCache<>();
+             RouteResolutionCache routeCache = new RouteResolutionCache()) {
             port = server.getLocalPort();
             writeDaemonPort(port);
             final int daemonPort = port;
@@ -1232,7 +1235,7 @@ public final class LiteRtLmStandaloneRunner {
             while (!stop.get()) {
                 try (Socket socket = server.accept()) {
                     lastRequestNanos = System.nanoTime();
-                    boolean shouldStop = handleDaemonClient(socket, engineCache);
+                    boolean shouldStop = handleDaemonClient(socket, engineCache, routeCache);
                     stop.set(shouldStop);
                     daemonLog("request complete port=%d stop=%s", port, shouldStop);
                 } catch (SocketTimeoutException ignored) {
@@ -1284,7 +1287,7 @@ public final class LiteRtLmStandaloneRunner {
                 LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
             }
-            Optional<RouteResolution> route = engineCache.resolveRoute(parsed);
+            Optional<RouteResolution> route = routeCache.resolve(parsed);
             if (route.isEmpty()) {
                 LiteRTDaemonProtocol.writeStatus(framed, FALLBACK_TO_FULL_CLI);
                 return false;
@@ -1645,123 +1648,6 @@ public final class LiteRtLmStandaloneRunner {
     private record DaemonInfo(int port, long pid, String key) {
     }
 
-    private static final class EngineLease implements AutoCloseable {
-        private final Engine engine;
-        private final String backendName;
-        private final boolean speculativeDecoding;
-        private final String fallbackReason;
-        private final boolean closeOnClose;
-        private final boolean reused;
-        private final WarmupState warmupState;
-        private Conversation keepAliveConversation;
-
-        private EngineLease(
-                Engine engine,
-                String backendName,
-                boolean speculativeDecoding,
-                String fallbackReason,
-                boolean closeOnClose,
-                boolean reused) {
-            this(engine, backendName, speculativeDecoding, fallbackReason, closeOnClose, reused, new WarmupState());
-        }
-
-        private EngineLease(
-                Engine engine,
-                String backendName,
-                boolean speculativeDecoding,
-                String fallbackReason,
-                boolean closeOnClose,
-                boolean reused,
-                WarmupState warmupState) {
-            this.engine = engine;
-            this.backendName = backendName;
-            this.speculativeDecoding = speculativeDecoding;
-            this.fallbackReason = fallbackReason;
-            this.closeOnClose = closeOnClose;
-            this.reused = reused;
-            this.warmupState = warmupState;
-        }
-
-        private EngineLease asBorrowed(boolean reused) {
-            EngineLease borrowed = new EngineLease(
-                    engine,
-                    backendName,
-                    speculativeDecoding,
-                    fallbackReason,
-                    false,
-                    reused,
-                    warmupState);
-            borrowed.keepAliveConversation = keepAliveConversation;
-            return borrowed;
-        }
-
-        private void ensureKeepAliveConversation() {
-            if (!keepAliveConversationEnabled() || keepAliveConversation != null) {
-                return;
-            }
-            try {
-                keepAliveConversation = engine.createConversation(daemonKeepAliveConversationConfig());
-                daemonLog("engine keepalive conversation opened backend=%s", backendName);
-            } catch (Throwable throwable) {
-                daemonLog("engine keepalive conversation unavailable backend=%s reason=%s",
-                        backendName,
-                        summarize(throwable));
-            }
-        }
-
-        private int remainingPrewarmIterations(int targetIterations) {
-            return warmupState.remainingIterations(targetIterations);
-        }
-
-        private void markPrewarmed(int completedIterations) {
-            warmupState.markCompleted(completedIterations);
-        }
-
-        @Override
-        public void close() {
-            if (!closeOnClose) {
-                return;
-            }
-            closeKeepAliveConversation();
-            try {
-                engine.close();
-            } catch (Throwable ignored) {
-            }
-        }
-
-        private void forceClose() {
-            closeKeepAliveConversation();
-            try {
-                engine.close();
-            } catch (Throwable ignored) {
-            }
-        }
-
-        private void closeKeepAliveConversation() {
-            Conversation keepAlive = keepAliveConversation;
-            keepAliveConversation = null;
-            if (keepAlive == null) {
-                return;
-            }
-            try {
-                keepAlive.close();
-            } catch (Throwable ignored) {
-            }
-        }
-    }
-
-    static final class WarmupState {
-        private int prewarmIterationsCompleted;
-
-        synchronized int remainingIterations(int targetIterations) {
-            return Math.max(0, targetIterations - prewarmIterationsCompleted);
-        }
-
-        synchronized void markCompleted(int completedIterations) {
-            prewarmIterationsCompleted = Math.max(prewarmIterationsCompleted, completedIterations);
-        }
-    }
-
     static final class RouteResolutionCache {
         private final Map<String, RouteResolution> routes = new HashMap<>();
         private String modelIndexFingerprint = "";
@@ -1806,45 +1692,46 @@ public final class LiteRtLmStandaloneRunner {
         }
     }
 
-    private static final class EngineCache implements AutoCloseable {
-        private final RouteResolutionCache routeCache = new RouteResolutionCache();
-        private final Map<String, EngineLease> engines = new HashMap<>();
-
-        private Optional<RouteResolution> resolveRoute(LiteRTRunArguments args) {
-            return routeCache.resolve(args);
-        }
-
-        private synchronized EngineLease acquire(Path modelPath, String requestedBackend, int engineMaxNumTokens) {
-            String key = engineCacheKey(modelPath, requestedBackend, engineMaxNumTokens);
-            String label = engineCacheLabel(modelPath, requestedBackend, engineMaxNumTokens);
-            EngineLease existing = engines.get(key);
-            if (existing != null) {
-                daemonLog("engine cache hit %s", label);
-                return existing.asBorrowed(true);
-            }
-            daemonLog("engine cache miss %s", label);
-            try {
-                EngineLease created = openEngine(modelPath, requestedBackend, engineMaxNumTokens, false, false);
-                created.ensureKeepAliveConversation();
-                engines.put(key, created);
+    private static LiteRTEngineLease<Engine> acquireCachedEngine(
+            LiteRTEngineCache<Engine> engineCache,
+            Path modelPath,
+            String requestedBackend,
+            int engineMaxNumTokens) {
+        String key = engineCacheKey(modelPath, requestedBackend, engineMaxNumTokens);
+        String label = engineCacheLabel(modelPath, requestedBackend, engineMaxNumTokens);
+        try {
+            LiteRTEngineLease<Engine> lease = engineCache.acquire(key, () -> {
+                daemonLog("engine cache miss %s", label);
+                LiteRTEngineLease<Engine> created =
+                        openEngine(modelPath, requestedBackend, engineMaxNumTokens, false, false);
+                attachKeepAliveConversation(created);
                 daemonLog("engine cache stored %s resolvedBackend=%s speculativeDecoding=%s",
                         label,
-                        created.backendName,
-                        created.speculativeDecoding);
-                return created.asBorrowed(false);
-            } catch (Throwable throwable) {
-                daemonLog("engine cache open failed %s reason=%s", label, summarize(throwable));
-                throw throwable;
+                        created.backendName(),
+                        created.speculativeDecoding());
+                return created;
+            });
+            if (lease.reused()) {
+                daemonLog("engine cache hit %s", label);
             }
+            return lease;
+        } catch (Throwable throwable) {
+            daemonLog("engine cache open failed %s reason=%s", label, summarize(throwable));
+            throw throwable;
         }
+    }
 
-        @Override
-        public synchronized void close() {
-            daemonLog("closing engine cache count=%d", engines.size());
-            for (EngineLease engine : engines.values()) {
-                engine.forceClose();
-            }
-            engines.clear();
+    private static void attachKeepAliveConversation(LiteRTEngineLease<Engine> lease) {
+        if (!keepAliveConversationEnabled()) {
+            return;
+        }
+        try {
+            lease.attachKeepAlive(lease.engine().createConversation(daemonKeepAliveConversationConfig()));
+            daemonLog("engine keepalive conversation opened backend=%s", lease.backendName());
+        } catch (Throwable throwable) {
+            daemonLog("engine keepalive conversation unavailable backend=%s reason=%s",
+                    lease.backendName(),
+                    summarize(throwable));
         }
     }
 
