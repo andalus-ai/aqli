@@ -3320,7 +3320,7 @@ public class RunCommand implements Runnable {
         Path cacheRoot = onnxOptimizedCacheRoot();
         try {
             OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
-            OptimizedCacheDirectoryStats before = optimizedCacheDirectoryStats(cacheRoot, cacheScope);
+            OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
             List<CachePruneOperation> operations = pruneOperations(before, dryRun);
             int errors = 0;
             long affectedBytes = 0L;
@@ -3337,9 +3337,9 @@ public class RunCommand implements Runnable {
                     affectedBytes += operation.sizeBytes();
                 }
             }
-            OptimizedCacheDirectoryStats after = dryRun
+            OptimizedCacheDirectoryScanner.Stats after = dryRun
                     ? before
-                    : optimizedCacheDirectoryStats(cacheRoot, cacheScope);
+                    : OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
             if (jsonMode) {
                 printMossTtsCachePruneJson(
                         modelId,
@@ -3388,7 +3388,7 @@ public class RunCommand implements Runnable {
         return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
 
-    private List<CachePruneOperation> pruneOperations(OptimizedCacheDirectoryStats before, boolean dryRun) {
+    private List<CachePruneOperation> pruneOperations(OptimizedCacheDirectoryScanner.Stats before, boolean dryRun) {
         List<CachePruneOperation> operations = new ArrayList<>();
         for (Path path : before.staleOptimizedGraphPaths()) {
             long sizeBytes = safeSize(path);
@@ -3423,7 +3423,7 @@ public class RunCommand implements Runnable {
         return operations;
     }
 
-    private List<Path> orphanSidecarPruneCandidates(OptimizedCacheDirectoryStats before) {
+    private List<Path> orphanSidecarPruneCandidates(OptimizedCacheDirectoryScanner.Stats before) {
         return before.pruneableExternalDataSidecarPaths();
     }
 
@@ -3433,8 +3433,8 @@ public class RunCommand implements Runnable {
             Path codecPath,
             Path cacheRoot,
             boolean dryRun,
-            OptimizedCacheDirectoryStats before,
-            OptimizedCacheDirectoryStats after,
+            OptimizedCacheDirectoryScanner.Stats before,
+            OptimizedCacheDirectoryScanner.Stats after,
             List<CachePruneOperation> operations,
             long affectedBytes,
             int errors) {
@@ -3462,8 +3462,8 @@ public class RunCommand implements Runnable {
             Path codecPath,
             Path cacheRoot,
             boolean dryRun,
-            OptimizedCacheDirectoryStats before,
-            OptimizedCacheDirectoryStats after,
+            OptimizedCacheDirectoryScanner.Stats before,
+            OptimizedCacheDirectoryScanner.Stats after,
             List<CachePruneOperation> operations,
             long affectedBytes,
             int errors) {
@@ -3662,7 +3662,7 @@ public class RunCommand implements Runnable {
                 payload.put("graph_error", e.getMessage());
             }
         }
-        payload.put("cache_directory", optimizedCacheDirectoryStats(cacheRoot, cacheScope).toJson());
+        payload.put("cache_directory", OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()).toJson());
 
         payload.put("session_cache", Map.of(
                 "enabled", cacheBoolean(
@@ -3727,7 +3727,7 @@ public class RunCommand implements Runnable {
                 System.out.println("Optimized graph files: unavailable (" + e.getMessage() + ")");
             }
         }
-        printOptimizedCacheDirectoryStats(optimizedCacheDirectoryStats(cacheRoot, cacheScope));
+        printOptimizedCacheDirectoryScanner.Stats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
 
         boolean sessionCacheEnabled = cacheBoolean(
                 MOSS_SESSION_CACHE_ENABLED_PROPERTY,
@@ -3838,116 +3838,7 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private OptimizedCacheDirectoryStats optimizedCacheDirectoryStats(
-            Path cacheRoot,
-            OptimizedCacheScope scope) {
-        Path root = cacheRoot.toAbsolutePath().normalize();
-        if (!Files.isDirectory(root)) {
-            return new OptimizedCacheDirectoryStats(
-                    root,
-                    false,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0L,
-                    0L,
-                    0L,
-                    0L,
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of());
-        }
-        Set<Path> currentOptimizedPaths = scope.currentPaths();
-        Set<String> currentPrefixes = scope.currentPrefixes();
-        int fileCount = 0;
-        int optimizedGraphFiles = 0;
-        int currentOptimizedGraphFiles = 0;
-        int staleOptimizedGraphFiles = 0;
-        int unrelatedOptimizedGraphFiles = 0;
-        int externalDataSidecarFiles = 0;
-        long sizeBytes = 0L;
-        long staleBytes = 0L;
-        long unrelatedBytes = 0L;
-        long externalDataSidecarBytes = 0L;
-        List<Path> externalDataSidecarPaths = new ArrayList<>();
-        List<Path> stalePaths = new ArrayList<>();
-        List<Path> unrelatedPaths = new ArrayList<>();
-        try (var stream = Files.list(root)) {
-            for (Path file : stream.toList()) {
-                if (!Files.isRegularFile(file)) {
-                    continue;
-                }
-                fileCount++;
-                try {
-                    sizeBytes += Files.size(file);
-                } catch (Exception ignored) {
-                }
-                String filename = file.getFileName().toString();
-                if (filename.endsWith(".data")) {
-                    externalDataSidecarFiles++;
-                    externalDataSidecarBytes += safeSize(file);
-                    externalDataSidecarPaths.add(file.toAbsolutePath().normalize());
-                }
-                if (!filename.endsWith(".optimized.onnx")) {
-                    continue;
-                }
-                optimizedGraphFiles++;
-                Path normalized = file.toAbsolutePath().normalize();
-                if (currentOptimizedPaths.contains(normalized)) {
-                    currentOptimizedGraphFiles++;
-                } else if (hasOptimizedCachePrefix(filename, currentPrefixes)) {
-                    staleOptimizedGraphFiles++;
-                    staleBytes += safeSize(file);
-                    stalePaths.add(file.toAbsolutePath().normalize());
-                } else {
-                    unrelatedOptimizedGraphFiles++;
-                    unrelatedBytes += safeSize(file);
-                    unrelatedPaths.add(file.toAbsolutePath().normalize());
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        stalePaths.sort((left, right) -> left.getFileName().toString().compareTo(right.getFileName().toString()));
-        unrelatedPaths.sort((left, right) -> left.getFileName().toString().compareTo(right.getFileName().toString()));
-        externalDataSidecarPaths.sort((left, right) -> left.getFileName().toString()
-                .compareTo(right.getFileName().toString()));
-        List<Path> orphanSidecars = optimizedGraphFiles == 0 ? externalDataSidecarPaths : List.of();
-        return new OptimizedCacheDirectoryStats(
-                root,
-                true,
-                fileCount,
-                optimizedGraphFiles,
-                currentOptimizedGraphFiles,
-                staleOptimizedGraphFiles,
-                unrelatedOptimizedGraphFiles,
-                externalDataSidecarFiles,
-                sizeBytes,
-                staleBytes,
-                unrelatedBytes,
-                externalDataSidecarBytes,
-                externalDataSidecarPaths,
-                orphanSidecars,
-                unrelatedPaths,
-                stalePaths);
-    }
-
-    private boolean hasOptimizedCachePrefix(String filename, Set<String> prefixes) {
-        if (prefixes == null || prefixes.isEmpty()) {
-            return false;
-        }
-        for (String prefix : prefixes) {
-            if (filename.startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryStats stats) {
+    private void printOptimizedCacheDirectoryScanner.Stats(OptimizedCacheDirectoryScanner.Stats stats) {
         if (!stats.exists()) {
             System.out.println("Cache directory files: not created yet");
             return;
@@ -3984,11 +3875,7 @@ public class RunCommand implements Runnable {
     }
 
     private static long safeSize(Path path) {
-        try {
-            return Files.size(path);
-        } catch (Exception ignored) {
-            return 0L;
-        }
+        return OptimizedCacheDirectoryScanner.safeSize(path);
     }
 
     private Path onnxOptimizedCacheRoot() {
@@ -4099,7 +3986,7 @@ public class RunCommand implements Runnable {
     private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
     }
 
-    private record OptimizedCacheDirectoryStats(
+    private record OptimizedCacheDirectoryScanner.Stats(
             Path path,
             boolean exists,
             int fileCount,
