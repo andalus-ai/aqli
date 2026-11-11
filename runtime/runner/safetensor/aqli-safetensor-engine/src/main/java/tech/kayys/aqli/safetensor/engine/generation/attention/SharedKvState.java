@@ -135,7 +135,7 @@ public class SharedKvState implements AutoCloseable {
             SharedKvBufferOps.copyTokenMajorRange(keyBuffer, newKey, lengthTokens, numHeads, headDim);
             SharedKvBufferOps.copyTokenMajorRange(valueBuffer, newValue, lengthTokens, numHeads, headDim);
 
-            if (newPackedLease != null) {
+            if (growPacked) {
                 newPackedKey = AccelTensor.zeros(batch, numHeads, newCapacity, headDim);
                 newPackedValue = AccelTensor.zeros(batch, numHeads, newCapacity, headDim);
                 SharedKvBufferOps.copyHeadMajorRange(
