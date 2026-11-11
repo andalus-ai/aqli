@@ -73,6 +73,7 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
@@ -6500,106 +6501,9 @@ public class RunCommand implements Runnable {
     }
 
     private void printAudioDetails(Map<String, Object> metadata) {
-        if (metadata == null || metadata.isEmpty()) {
-            return;
-        }
-        List<String> parts = new ArrayList<>();
-
-        Double durationSeconds = audioDurationSeconds(metadata);
-        if (durationSeconds != null) {
-            parts.add(String.format(Locale.ROOT, "%.2fs", durationSeconds));
-        }
-        Double sampleRate = metadataDouble(metadata, "audio_sample_rate");
-        if (sampleRate != null && sampleRate > 0.0) {
-            parts.add(String.format(Locale.ROOT, "%d Hz", Math.round(sampleRate)));
-        }
-        Double channels = metadataDouble(metadata, "audio_channels");
-        if (channels != null && channels > 0.0) {
-            parts.add(Math.round(channels) + "ch");
-        }
-        Double bitrateKbps = metadataDouble(metadata, "audio_bitrate_kbps");
-        if (bitrateKbps != null && bitrateKbps > 0.0) {
-            parts.add(Math.round(bitrateKbps) + " kbps");
-        }
-        String channelMode = metadataText(metadata, "audio_channel_mode");
-        if ("stereo_dual_mono".equalsIgnoreCase(channelMode)) {
-            parts.add("dual-mono");
-        } else if ("mono_collapsed_duplicate".equalsIgnoreCase(channelMode)) {
-            parts.add("mono collapsed");
-        }
-        if ("true".equalsIgnoreCase(metadataText(metadata, "audio_processing"))) {
-            String peak = metadataText(metadata, "audio_processing_peak_after_dbfs");
-            parts.add(peak == null || peak.isBlank() ? "polished" : "polished peak " + peak + " dBFS");
-        }
-        if ("true".equalsIgnoreCase(metadataText(metadata, "audio_processing_trim_silence"))) {
-            String removed = metadataText(metadata, "audio_processing_trim_removed_ms");
-            parts.add(removed == null || removed.isBlank() ? "trimmed silence" : "trimmed " + removed + " ms");
-        }
-        Double frames = metadataDouble(metadata, "tts_frames");
-        if (frames != null && frames > 0.0) {
-            long count = Math.round(frames);
-            String frameDetail = count + " " + (count == 1 ? "frame" : "frames");
-            String stopReason = metadataText(metadata, "tts_stop_reason");
-            if ("max_frames".equalsIgnoreCase(stopReason)) {
-                frameDetail += " (frame cap)";
-            } else if ("max_seconds".equalsIgnoreCase(stopReason)) {
-                frameDetail += " (duration cap)";
-            } else if ("max_tokens".equalsIgnoreCase(stopReason)) {
-                frameDetail += " (token cap)";
-            } else if ("manifest_limit".equalsIgnoreCase(stopReason)) {
-                frameDetail += " (model cap)";
-            } else if ("stop_token".equalsIgnoreCase(stopReason)) {
-                frameDetail += " (natural stop)";
-            }
-            parts.add(frameDetail);
-        }
-        String onnxCacheDetail = onnxOptimizedCacheDetail(metadata);
-        if (onnxCacheDetail != null) {
-            parts.add(onnxCacheDetail);
-        }
-        String onnxSessionCacheDetail = onnxSessionCacheDetail(metadata);
-        if (onnxSessionCacheDetail != null) {
-            parts.add(onnxSessionCacheDetail);
-        }
-        String onnxAssetCacheDetail = onnxAssetCacheDetail(metadata);
-        if (onnxAssetCacheDetail != null) {
-            parts.add(onnxAssetCacheDetail);
-        }
-        String voice = metadataText(metadata, "tts_voice");
-        if (voice != null && !voice.isBlank()) {
-            String voiceDetail = "voice " + voice;
-            String voiceMode = metadataText(metadata, "tts_voice_mode");
-            String voiceLanguage = metadataText(metadata, "tts_voice_language");
-            if ("auto".equalsIgnoreCase(voiceMode)) {
-                voiceDetail += voiceLanguage == null || voiceLanguage.isBlank()
-                        ? " (auto)"
-                        : " (auto " + voiceLanguage + ")";
-            } else if ("language".equalsIgnoreCase(voiceMode)) {
-                voiceDetail += voiceLanguage == null || voiceLanguage.isBlank()
-                        ? " (language)"
-                        : " (" + voiceLanguage + " alias)";
-            } else if ("selector".equalsIgnoreCase(voiceMode)) {
-                voiceDetail += voiceLanguage == null || voiceLanguage.isBlank()
-                        ? " (selector)"
-                        : " (" + voiceLanguage + " selector)";
-            }
-            parts.add(voiceDetail);
-        }
-        String ttsSeed = metadataText(metadata, "tts_seed");
-        if (ttsSeed != null && !ttsSeed.isBlank()) {
-            String seedSource = metadataText(metadata, "tts_seed_source");
-            parts.add("seed " + ttsSeed
-                    + ("generated".equalsIgnoreCase(seedSource) ? " (generated)" : ""));
-        }
-        String embeddedMetadata = metadataText(metadata, "audio_metadata_embedded");
-        if ("true".equalsIgnoreCase(embeddedMetadata)) {
-            parts.add("metadata embedded");
-        }
-
-        if (!parts.isEmpty()) {
-            System.out.println(ChatUIRenderer.DIM + "Audio details: "
-                    + String.join(", ", parts)
-                    + ChatUIRenderer.RESET);
+        String details = AudioDetailsFormatter.format(metadata);
+        if (details != null) {
+            System.out.println(ChatUIRenderer.DIM + "Audio details: " + details + ChatUIRenderer.RESET);
         }
     }
 
