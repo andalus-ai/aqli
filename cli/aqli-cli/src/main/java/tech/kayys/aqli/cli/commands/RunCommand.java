@@ -25,6 +25,7 @@ import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.MossTtsOnnxGraphCatalog;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
@@ -3371,9 +3372,9 @@ public class RunCommand implements Runnable {
             Path cacheRoot) throws Exception {
         Set<Path> currentPaths = new java.util.HashSet<>();
         Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (MossTtsOnnxGraphResolver.Graph graph : MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecPath)) {
-            currentPaths.add(MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
-            currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+        for (MossTtsOnnxGraphCatalog.Graph graph : MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecPath)) {
+            currentPaths.add(MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
+            currentPrefixes.add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
         }
         return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
