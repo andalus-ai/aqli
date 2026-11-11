@@ -149,7 +149,7 @@ public final class OptimizedCacheDirectoryScanner {
             List<Path> orphanExternalDataSidecarPaths,
             List<Path> unrelatedOptimizedGraphPaths,
             List<Path> staleOptimizedGraphPaths) {
-        public toJson() {
+        public Map<String, Object> toJson() {
             Map<String, Object> value = new LinkedHashMap<>();
             value.put("path", path.toString());
             value.put("exists", exists);
@@ -198,23 +198,23 @@ public final class OptimizedCacheDirectoryScanner {
             return value;
         }
 
-        public staleOptimizedGraphFileNames() {
+        public List<String> staleOptimizedGraphFileNames() {
             return staleOptimizedGraphPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        public unrelatedOptimizedGraphFileNames() {
+        public List<String> unrelatedOptimizedGraphFileNames() {
             return unrelatedOptimizedGraphPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        public orphanExternalDataSidecarFiles() {
+        public int orphanExternalDataSidecarFiles() {
             return orphanExternalDataSidecarPaths.size();
         }
 
-        public orphanExternalDataSidecarSizeBytes() {
+        public long orphanExternalDataSidecarSizeBytes() {
             long total = 0L;
             for (Path path : orphanExternalDataSidecarPaths) {
                 total += safeSize(path);
@@ -222,34 +222,34 @@ public final class OptimizedCacheDirectoryScanner {
             return total;
         }
 
-        public externalDataSidecarFileNames() {
+        public List<String> externalDataSidecarFileNames() {
             return externalDataSidecarPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        public orphanExternalDataSidecarFileNames() {
+        public List<String> orphanExternalDataSidecarFileNames() {
             return orphanExternalDataSidecarPaths.stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        public optimizedGraphFilesAfterStalePrune() {
+        public int optimizedGraphFilesAfterStalePrune() {
             return Math.max(0, optimizedGraphFiles - staleOptimizedGraphFiles);
         }
 
-        public pruneableExternalDataSidecarPaths() {
+        public List<Path> pruneableExternalDataSidecarPaths() {
             if (externalDataSidecarPaths.isEmpty()) {
                 return List.of();
             }
             return optimizedGraphFilesAfterStalePrune() == 0 ? externalDataSidecarPaths : List.of();
         }
 
-        public pruneableExternalDataSidecarFiles() {
+        public int pruneableExternalDataSidecarFiles() {
             return pruneableExternalDataSidecarPaths().size();
         }
 
-        public pruneableExternalDataSidecarSizeBytes() {
+        public long pruneableExternalDataSidecarSizeBytes() {
             long total = 0L;
             for (Path path : pruneableExternalDataSidecarPaths()) {
                 total += safeSize(path);
@@ -257,13 +257,13 @@ public final class OptimizedCacheDirectoryScanner {
             return total;
         }
 
-        public pruneableExternalDataSidecarFileNames() {
+        public List<String> pruneableExternalDataSidecarFileNames() {
             return pruneableExternalDataSidecarPaths().stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        public retainedExternalDataSidecarPaths() {
+        public List<Path> retainedExternalDataSidecarPaths() {
             if (externalDataSidecarPaths.isEmpty()) {
                 return List.of();
             }
@@ -280,11 +280,11 @@ public final class OptimizedCacheDirectoryScanner {
                     .toList();
         }
 
-        public retainedExternalDataSidecarFiles() {
+        public int retainedExternalDataSidecarFiles() {
             return retainedExternalDataSidecarPaths().size();
         }
 
-        public retainedExternalDataSidecarSizeBytes() {
+        public long retainedExternalDataSidecarSizeBytes() {
             long total = 0L;
             for (Path path : retainedExternalDataSidecarPaths()) {
                 total += safeSize(path);
@@ -292,13 +292,13 @@ public final class OptimizedCacheDirectoryScanner {
             return total;
         }
 
-        public retainedExternalDataSidecarFileNames() {
+        public List<String> retainedExternalDataSidecarFileNames() {
             return retainedExternalDataSidecarPaths().stream()
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
 
-        public externalDataSidecarPrunePolicy() {
+        public String externalDataSidecarPrunePolicy() {
             if (externalDataSidecarPaths.isEmpty()) {
                 return "none";
             }
