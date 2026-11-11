@@ -40,7 +40,9 @@ final class FlashAttentionMetalFa4GatheredAttention {
         AccelTensor out = FlashAttentionContextOutputBuffer.viewOrAllocate(attentionContextBuffer, q);
         boolean success = false;
         try {
-            long gatherBytes = (long) totalTokens * numKVHeads * headDim * Float.BYTES;
+            long gatherBytes = Math.multiplyExact(
+                    Math.multiplyExact(Math.multiplyExact((long) totalTokens, numKVHeads), headDim),
+                    (long) Float.BYTES);
             MemorySegment kGathered = arena.allocate(gatherBytes, 64);
             MemorySegment vGathered = arena.allocate(gatherBytes, 64);
             PagedKvCacheIO.gather(blockManager, kvSession, kvLayerIdx, totalTokens, numKVHeads, headDim,
