@@ -34,14 +34,14 @@ public class ConversationExecutionStateResolver {
         return sessions().probe(normalizedSessionId, modelKey);
     }
 
-    public java.util.Optional<ConversationSessionManager.SessionLease> acquireActiveSession(
+    public java.util.Optional<ConversationSessionManager.ConversationSession> findActiveSession(
             PreparedTextModel model,
             String requestedSessionId) {
         String normalizedSessionId = normalizeSessionId(requestedSessionId);
         if (normalizedSessionId == null) {
             return java.util.Optional.empty();
         }
-        return sessions().acquire(normalizedSessionId, resolveModelKey(model));
+        return sessions().find(normalizedSessionId, resolveModelKey(model));
     }
 
     private String resolveModelKey(PreparedTextModel model) {
