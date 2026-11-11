@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.cli.commands.audio;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

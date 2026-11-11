@@ -1,4 +1,6 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.cli.commands.audio;
+
+import tech.kayys.aqli.cli.commands.MediaFileIntegrity;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,14 +16,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Reads and writes audio metadata sidecars and validates their referenced output artifacts.
  * CLI option interpretation and presentation remain in the command layer.
  */
-final class AudioMetadataSidecarStore {
+public final class AudioMetadataSidecarStore {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private AudioMetadataSidecarStore() {
     }
 
-    static WriteResult write(WriteRequest request) throws Exception {
+    public static WriteResult write(WriteRequest request) throws Exception {
         Path audioPath = request.audioPath().toAbsolutePath().normalize();
         Path sidecarPath = request.sidecarPath().toAbsolutePath().normalize();
         if (audioPath.equals(sidecarPath)) {
@@ -58,7 +60,7 @@ final class AudioMetadataSidecarStore {
         return new WriteResult(sidecarPath, false);
     }
 
-    static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
+    public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "audio metadata file not found: ");
         JsonNode root = readObject(sidecarPath, "invalid audio metadata file: ");
 
@@ -86,7 +88,7 @@ final class AudioMetadataSidecarStore {
         return new VerificationResult(audioPath.toAbsolutePath().normalize(), actualBytes, actualSha256);
     }
 
-    static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
+    public static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "audio metadata file not found: ");
         JsonNode rootNode = readObject(sidecarPath, "invalid audio metadata file: ");
         ObjectNode root = (ObjectNode) rootNode;
@@ -154,7 +156,7 @@ final class AudioMetadataSidecarStore {
         }
     }
 
-    record WriteRequest(
+    public record WriteRequest(
             Path audioPath,
             Path sidecarPath,
             String model,
@@ -168,12 +170,12 @@ final class AudioMetadataSidecarStore {
             Map<String, Object> metadata) {
     }
 
-    record WriteResult(Path sidecarPath, boolean skippedBecausePathsMatch) {
+    public record WriteResult(Path sidecarPath, boolean skippedBecausePathsMatch) {
     }
 
-    record VerificationResult(Path audioPath, long sizeBytes, String sha256) {
+    public record VerificationResult(Path audioPath, long sizeBytes, String sha256) {
     }
 
-    record RefreshResult(Path sidecarPath, Path audioPath, long sizeBytes, String sha256) {
+    public record RefreshResult(Path sidecarPath, Path audioPath, long sizeBytes, String sha256) {
     }
 }

@@ -6,12 +6,12 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 
 /** Shared file-integrity operations for generated media artifacts and their sidecars. */
-final class MediaFileIntegrity {
+public final class MediaFileIntegrity {
 
     private MediaFileIntegrity() {
     }
 
-    static String sha256Hex(Path path) throws Exception {
+    public static String sha256Hex(Path path) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] buffer = new byte[64 * 1024];
         try (InputStream input = Files.newInputStream(path)) {
