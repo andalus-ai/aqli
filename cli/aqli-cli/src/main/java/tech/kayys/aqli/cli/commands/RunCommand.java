@@ -888,7 +888,7 @@ public class RunCommand implements Runnable {
                                     System.out.println("Model ready at: " + displayPath(Path.of(finalLocalPath)));
                                 }
                             } else if (ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
-                        requestedModelRef, providerId, isMcpProvider())) {
+                                    requestedModelRef, providerId, isMcpProvider())) {
                                 return;
                             }
                         }

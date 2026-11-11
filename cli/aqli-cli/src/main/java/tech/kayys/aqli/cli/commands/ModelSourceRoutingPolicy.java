@@ -27,7 +27,8 @@ final class ModelSourceRoutingPolicy {
             String requestedModel,
             String requestedProvider,
             boolean mcpProvider) {
-        return ModelSourceResolver.huggingFaceRepositoryId(requestedModel) != null
+        return ModelSourceResolver.classify(requestedModel).kind()
+                == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
                 && !isRemoteProvider(requestedProvider)
                 && !mcpProvider;
     }
