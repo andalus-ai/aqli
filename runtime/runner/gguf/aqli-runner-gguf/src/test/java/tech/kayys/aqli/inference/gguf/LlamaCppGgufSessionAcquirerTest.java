@@ -23,13 +23,14 @@ class LlamaCppGgufSessionAcquirerTest {
                 new GgufSessionCache.SessionLease(session, true, false, "compatible");
         LlamaCppGgufSessionParameters parameters = new LlamaCppGgufSessionParameters(
                 4096, 1024, 512, 8, 4, 32, true, false, true);
-        when(cache.acquire(modelPath, parameters)).thenReturn(expected);
+        when(cache.acquire(modelPath, 4096, 1024, 512, 8, 4, 32, true, false, true))
+                .thenReturn(expected);
 
         GgufSessionCache.SessionLease actual =
                 new LlamaCppGgufSessionAcquirer(libraryPaths)
                         .acquire(modelPath, parameters, Optional.of(cache));
 
         assertSame(expected, actual);
-        verify(cache).acquire(modelPath, parameters);
+        verify(cache).acquire(modelPath, 4096, 1024, 512, 8, 4, 32, true, false, true);
     }
 }

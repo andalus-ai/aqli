@@ -28,9 +28,30 @@ public final class LlamaCppGgufSessionAcquirer {
         Objects.requireNonNull(sessionCache, "sessionCache");
 
         if (sessionCache.isPresent()) {
-            return sessionCache.get().acquire(modelPath, parameters);
+            return sessionCache.get().acquire(
+                    modelPath,
+                    parameters.context(),
+                    parameters.batch(),
+                    parameters.microBatch(),
+                    parameters.threads(),
+                    parameters.batchThreads(),
+                    parameters.gpuLayers(),
+                    parameters.useMmap(),
+                    parameters.useMlock(),
+                    parameters.swaFull());
         }
 
-        return GgufSessionCache.SessionLease.open(modelPath, parameters, libraryPaths);
+        return GgufSessionCache.SessionLease.open(
+                modelPath,
+                parameters.context(),
+                parameters.batch(),
+                parameters.microBatch(),
+                parameters.threads(),
+                parameters.batchThreads(),
+                parameters.gpuLayers(),
+                parameters.useMmap(),
+                parameters.useMlock(),
+                parameters.swaFull(),
+                libraryPaths);
     }
 }
