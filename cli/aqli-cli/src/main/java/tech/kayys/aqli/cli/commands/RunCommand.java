@@ -72,7 +72,6 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
-import tech.kayys.aqli.media.output.MediaOutputPathResolver;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
@@ -3811,43 +3810,11 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return value == null || value.isBlank() ? "-" : value;
     }
 
-    private Optional<Path> resolveMossTtsDirectory(String finalLocalPath, String modelId) {
-        for (String candidate : new String[] { finalLocalPath, modelId }) {
-            if (candidate == null || candidate.isBlank()) {
-                continue;
-            }
-            Path path;
-            try {
-                path = Paths.get(candidate);
-            } catch (Exception ignored) {
-                continue;
-            }
-            Optional<Path> resolved = mossTtsDirectoryFrom(path);
-            if (resolved.isPresent()) {
-                return resolved;
-            }
-        }
-        return Optional.empty();
-    }
 
-    private Optional<Path> mossTtsDirectoryFrom(Path path) {
-        if (path == null) {
-            return Optional.empty();
-        }
-        if (isMossTtsDirectory(path)) {
-            return Optional.of(path);
-        }
-        Path parent = path.getParent();
-        if (parent != null && isMossTtsDirectory(parent)) {
-            return Optional.of(parent);
-        }
-        return Optional.empty();
-    }
 
-    private boolean isMossTtsDirectory(Path path) {
-        return Files.isRegularFile(path.resolve("browser_poc_manifest.json"))
-                && Files.isRegularFile(path.resolve("tts_browser_onnx_meta.json"));
-    }
+
+
+
 
     private boolean allowsPromptlessExtensionRun(String modelId, String finalLocalPath) {
         return looksLikeWebWorldReference(modelId) || looksLikeWebWorldReference(finalLocalPath);
