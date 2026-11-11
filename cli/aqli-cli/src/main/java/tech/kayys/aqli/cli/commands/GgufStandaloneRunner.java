@@ -551,13 +551,7 @@ public final class GgufStandaloneRunner {
                     modelPath,
                     args,
                     startNanos,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    nGpuLayers,
-                    swaFull,
+                    options,
                     prompt,
                     false,
                     out,
@@ -574,13 +568,7 @@ public final class GgufStandaloneRunner {
                     modelPath,
                     args,
                     startNanos,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    0,
-                    swaFull,
+                    options.withGpuLayers(0),
                     prompt,
                     true,
                     out,
@@ -664,22 +652,23 @@ public final class GgufStandaloneRunner {
             GgufRunArguments args,
             boolean benchmarkMode,
             long startNanos,
-            int context,
-            int batch,
-            int microBatch,
-            int threads,
-            int batchThreads,
-            int nGpuLayers,
-            boolean swaFull,
+            GgufLlamaCppRunOptions options,
             String prompt,
             boolean cpuFallback,
             PrintStream out,
             PrintStream err,
             GgufSessionCache sessionCache,
             String runnerName) throws Throwable {
+        int context = options.context();
+        int batch = options.batch();
+        int microBatch = options.microBatch();
+        int threads = options.threads();
+        int batchThreads = options.batchThreads();
+        int nGpuLayers = options.gpuLayers();
+        boolean swaFull = options.swaFull();
+        boolean useMmap = options.useMmap();
+        boolean useMlock = options.useMlock();
         long openStartNanos = System.nanoTime();
-        boolean useMmap = CONFIG.booleanValue("aqli.gguf.fast_run.mmap", true);
-        boolean useMlock = CONFIG.booleanValue("aqli.gguf.fast_run.mlock", false);
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
                         nGpuLayers,
