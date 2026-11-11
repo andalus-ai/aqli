@@ -67,7 +67,7 @@ public class KVCacheManager {
         private Object mambaState;
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
-            this(maxSeqLen, blockManager, KvCacheMemoryBudget.unbounded());
+            this(maxSeqLen, Objects.requireNonNull(blockManager, "blockManager"), blockManager.memoryBudget());
         }
 
         KVCacheSession(int maxSeqLen, BlockManager blockManager, KvCacheMemoryBudget memoryBudget) {
