@@ -55,7 +55,7 @@ final class GgufSessionCache implements AutoCloseable {
             boolean useMmap,
             boolean useMlock,
             boolean swaFull,
-            LlamaCppGgufLibraryPaths libraryPaths) throws Throwable {
+            LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
         return new SessionLease(LlamaCppGgufSession.open(
                 modelPath,
                 context,
@@ -109,7 +109,7 @@ final class GgufSessionCache implements AutoCloseable {
             int gpuLayers,
             boolean useMmap,
             boolean useMlock,
-            boolean swaFull) throws Throwable {
+            boolean swaFull) throws Exception {
         SessionKey key = new SessionKey(
                 modelPath.toAbsolutePath().normalize(),
                 context,
