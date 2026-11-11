@@ -25,6 +25,8 @@ import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
+import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLocator;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
@@ -4173,39 +4175,22 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
     }
 
     private Optional<Path> findInstalledMossAudioCodecDir() {
+        List<Path> indexedPaths = new ArrayList<>();
         for (String ref : List.of(MOSS_AUDIO_TOKENIZER_REPOSITORY, MOSS_AUDIO_TOKENIZER_MODEL_SPEC)) {
             try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(ref);
-                if (indexed.isPresent() && indexed.get().path != null) {
-                    Optional<Path> dir = MossAudioTokenizerModelLayout.directoryFrom(Path.of(indexed.get().path));
-                    if (dir.isPresent()) {
-                        return dir;
-                    }
-                }
+                LocalModelIndex.find(ref)
+                        .map(entry -> entry.path)
+                        .filter(path -> path != null && !path.isBlank())
+                        .map(Path::of)
+                        .ifPresent(indexedPaths::add);
             } catch (Exception ignored) {
-                // Fall back to scanning the model directory.
+                // Fall back to the model repository scan.
             }
         }
-
-        Path modelsRoot = AqliHome.path("models");
-        if (!Files.isDirectory(modelsRoot)) {
-            return Optional.empty();
-        }
-        try (Stream<Path> walk = Files.walk(modelsRoot, 8)) {
-            List<Path> codecDirs = walk.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals(MOSS_CODEC_META_FILE))
-                    .map(Path::getParent)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .sorted((left, right) -> left.toString().compareToIgnoreCase(right.toString()))
-                    .toList();
-            Optional<Path> official = codecDirs.stream()
-                    .filter(path -> MossAudioTokenizerModelLayout.looksLikeRepository(path, MOSS_AUDIO_TOKENIZER_REPOSITORY))
-                    .findFirst();
-            return official.isPresent() ? official : codecDirs.stream().findFirst();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
+        return MossAudioTokenizerModelLocator.findInstalled(
+                AqliHome.path("models"),
+                indexedPaths,
+                MOSS_AUDIO_TOKENIZER_REPOSITORY);
     }
 
 
