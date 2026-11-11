@@ -97,6 +97,7 @@ public final class LlamaCppGgufSession implements AutoCloseable {
             double temperature,
             int topK,
             double topP) throws Exception {
+        try {
         ensureOpen();
         MemorySegment promptSegment = promptSegment(prompt);
         MemorySegment error = errorSegment();
@@ -130,6 +131,10 @@ public final class LlamaCppGgufSession implements AutoCloseable {
             requestedOutputBytes = nextOutputBufferBytes(outputBufferCapacity);
         }
         throw new IllegalStateException("GGUF generation failed");
+    
+        } catch (Throwable throwable) {
+            throw nativeFailure(throwable);
+        }
     }
 
     public String backendName() {
@@ -145,6 +150,7 @@ public final class LlamaCppGgufSession implements AutoCloseable {
     }
 
     public synchronized Optional<String> metrics(boolean warmSession, String reuseKind) throws Exception {
+        try {
         ensureOpen();
         if (bindings.metrics == null) {
             return Optional.empty();
@@ -159,6 +165,10 @@ public final class LlamaCppGgufSession implements AutoCloseable {
                 + ", sessionReuse=" + metricToken(reuseKind, warmSession ? "warm" : "cold")
                 + ", javaOutputBufferBytes=" + outputBufferCapacity
                 + ", javaOutputRetries=" + lastOutputBufferRetries);
+    
+        } catch (Throwable throwable) {
+            throw nativeFailure(throwable);
+        }
     }
 
     private static Exception nativeFailure(Throwable throwable) {
