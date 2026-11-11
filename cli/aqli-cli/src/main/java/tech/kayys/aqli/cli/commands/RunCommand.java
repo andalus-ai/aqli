@@ -3515,50 +3515,21 @@ public class RunCommand implements Runnable {
         } else if (!snapshot.graphsAvailable()) {
             System.out.println("Optimized graph files: unavailable (" + snapshot.graphError() + ")");
         } else {
-            try {
-                List<MossTtsOnnxGraphResolver.Graph> graphs = MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecDir.get());
-                long present = 0L;
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
-                    cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
-                    if (Files.isRegularFile(optimizedPath)) {
-                        present++;
-                    }
-                }
-                System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
-                System.out.println("Optimized graph files: " + present + "/" + graphs.size()
-                        + (graphCacheEnabled ? " present" : " present but cache disabled"));
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
-                    String status = Files.isRegularFile(optimizedPath) ? "warm" : "cold";
-                    int sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(graph.path()).size();
-                    System.out.println("  " + graph.label() + ": " + status
-                            + " -> " + optimizedPath.getFileName()
-                            + (sidecars > 0 ? " (" + sidecars + " external data sidecars)" : ""));
-                }
-            } catch (Exception e) {
-                System.out.println("Optimized graph files: unavailable (" + e.getMessage() + ")");
+            List<MossTtsOnnxCacheDiagnostics.GraphStatus> graphs = snapshot.graphs();
+            System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
+            System.out.println("Optimized graph files: " + snapshot.warmGraphCount() + "/" + graphs.size()
+                    + (settings.optimizedGraphCacheEnabled() ? " present" : " present but cache disabled"));
+            for (MossTtsOnnxCacheDiagnostics.GraphStatus graph : graphs) {
+                System.out.println("  " + graph.graph().label() + ": "
+                        + (graph.warm() ? "warm" : "cold")
+                        + " -> " + graph.optimizedPath().getFileName()
+                        + (graph.externalDataSidecars() > 0
+                                ? " (" + graph.externalDataSidecars() + " external data sidecars)"
+                                : ""));
             }
         }
-        printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
+        printOptimizedCacheDirectoryStats(snapshot.cacheDirectory());
 
-        boolean sessionCacheEnabled = cacheBoolean(
-                MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                MOSS_SESSION_CACHE_ENABLED_ENV,
-                true);
-        int sessionCacheMax = cacheInt(
-                MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                2);
-        boolean assetCacheEnabled = cacheBoolean(
-                MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                MOSS_ASSET_CACHE_ENABLED_ENV,
-                true);
-        int assetCacheMax = cacheInt(
-                MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                4);
         System.out.println("Session cache: "
                 + (settings.sessionCacheEnabled() && settings.sessionCacheMaxEntries() > 0 ? "enabled" : "disabled")
                 + " (max entries " + settings.sessionCacheMaxEntries() + ", in-process)");
