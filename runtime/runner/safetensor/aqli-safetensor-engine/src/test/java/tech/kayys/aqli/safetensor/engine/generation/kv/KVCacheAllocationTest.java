@@ -4,15 +4,27 @@ import tech.kayys.aljabr.spi.model.ModelConfig;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.List;
 
 class KVCacheAllocationTest {
 
     @Test
-    void testProactiveAllocation() {
-        BlockManager bm = new BlockManager();
+    void sessionsOwnIndependentBlockManagers() {
         KVCacheManager manager = new KVCacheManager();
-        manager.globalBlockManager = bm;
+
+        KVCacheManager.KVCacheSession first = manager.createSession(128);
+        KVCacheManager.KVCacheSession second = manager.createSession(128);
+
+        assertNotSame(first.blockManager(), second.blockManager());
+
+        first.close();
+        assertDoesNotThrow(() -> second.blockManager().initialize(
+                16, 1, 64, 8, BlockManager.KvStorageType.FP32));
+        second.close();
+    }
+
+    @Test
+    void testProactiveAllocation() {
+        KVCacheManager manager = new KVCacheManager();
         
         KVCacheManager.KVCacheSession session = manager.createSession(128);
         
@@ -43,9 +55,7 @@ class KVCacheAllocationTest {
 
     @Test
     void testInt4KvAllocationUsesPackedBlocks() {
-        BlockManager bm = new BlockManager();
         KVCacheManager manager = new KVCacheManager();
-        manager.globalBlockManager = bm;
 
         KVCacheManager.KVCacheSession session = manager.createSession(128);
 
