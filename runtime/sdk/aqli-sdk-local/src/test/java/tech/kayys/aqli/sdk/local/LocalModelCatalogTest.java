@@ -66,9 +66,22 @@ class LocalModelCatalogTest {
     }
 
     @Test
+    void exposesMalformedManifestDiagnostics() throws Exception {
+        ManifestStore store = mock(ManifestStore.class);
+        ManifestStore.ManifestReadIssue issue =
+                new ManifestStore.ManifestReadIssue("broken.json", "invalid JSON");
+        when(store.listAllWithDiagnostics()).thenReturn(
+                new ManifestStore.ManifestListing(List.of(), List.of(issue)));
+
+        LocalModelCatalog catalog = new LocalModelCatalog(store);
+
+        assertEquals(List.of(issue), catalog.listReadIssues());
+    }
+
+    @Test
     void wrapsManifestStoreFailuresAsSdkErrors() {
         ManifestStore store = mock(ManifestStore.class);
-        when(store.listAll()).thenThrow(new IllegalStateException("disk unavailable"));
+        when(store.listAllWithDiagnostics()).thenThrow(new IllegalStateException("disk unavailable"));
         LocalModelCatalog catalog = new LocalModelCatalog(store);
 
         SdkException error = assertThrows(SdkException.class, () -> catalog.listModels(0, 10));
