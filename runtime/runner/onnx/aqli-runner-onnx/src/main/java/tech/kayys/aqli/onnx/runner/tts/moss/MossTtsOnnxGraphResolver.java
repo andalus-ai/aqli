@@ -25,6 +25,11 @@ public final class MossTtsOnnxGraphResolver {
                 modelDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME).toFile());
         JsonNode codecMeta = new ObjectMapper().readTree(
                 codecDir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME).toFile());
+        return resolveGraphs(modelDir, codecDir, ttsMeta, codecMeta);
+    }
+
+    static List<Graph> resolveGraphs(
+            Path modelDir, Path codecDir, JsonNode ttsMeta, JsonNode codecMeta) {
         JsonNode ttsFiles = ttsMeta.path("files");
         JsonNode codecFiles = codecMeta.path("files");
         return List.of(
