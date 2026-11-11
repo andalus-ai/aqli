@@ -120,19 +120,23 @@ final class FlashAttentionMetalDenseSharedAttention {
                 } else {
                     kContiguous = k.contiguous();
                     vContiguous = v.contiguous();
-                    long blockElements = (long) maxBlocks * numKVHeads * blockSize * headDim;
-                    packedK = arena.allocate(batch * blockElements * Float.BYTES, 64);
-                    packedV = arena.allocate(batch * blockElements * Float.BYTES, 64);
+                    long blockElements = Math.multiplyExact(
+                            Math.multiplyExact(Math.multiplyExact((long) maxBlocks, numKVHeads), blockSize), headDim);
+                    long packedBytes = Math.multiplyExact(Math.multiplyExact(batch, blockElements), (long) Float.BYTES);
+                    packedK = arena.allocate(packedBytes, 64);
+                    packedV = arena.allocate(packedBytes, 64);
                     PagedKvCacheMaterializer.packDenseSharedKvIntoTemporaryPagedPool(kContiguous, vContiguous,
                             numKVHeads, headDim, packedK, packedV);
                 }
 
-                MemorySegment blockTable = arena.allocate(batch * maxBlocks * Integer.BYTES, Integer.BYTES);
+                long blockTableBytes = Math.multiplyExact(Math.multiplyExact(batch, maxBlocks), (long) Integer.BYTES);
+                MemorySegment blockTable = arena.allocate(blockTableBytes, Integer.BYTES);
                 for (int b = 0; b < batch; b++) {
                     blockTable.setAtIndex(ValueLayout.JAVA_INT, b * maxBlocks, b);
                 }
 
-                MemorySegment contextLens = arena.allocate(batch * Integer.BYTES, Integer.BYTES);
+                long contextLensBytes = Math.multiplyExact(batch, (long) Integer.BYTES);
+                MemorySegment contextLens = arena.allocate(contextLensBytes, Integer.BYTES);
                 for (int b = 0; b < batch; b++) {
                     contextLens.setAtIndex(ValueLayout.JAVA_INT, b, totalTokens);
                 }
