@@ -109,11 +109,6 @@ import tech.kayys.suling.audio.Suling;
 @Unremovable
 @Command(name = "run", description = "Run inference using a specified model")
 public class RunCommand implements Runnable {
-    private static final String MOSS_AUDIO_TOKENIZER_REPOSITORY =
-            "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
-    private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
-            "hf:" + MOSS_AUDIO_TOKENIZER_REPOSITORY;
-    private static final String MOSS_CODEC_META_FILE = MossAudioTokenizerModelLayout.METADATA_FILE_NAME;
     private Map<String, Object> forcedExecutionRouteMetadata = Map.of();
 
     @ParentCommand
@@ -2945,7 +2940,7 @@ public class RunCommand implements Runnable {
         if (codecDir.isPresent()) {
             Path dir = codecDir.get().toAbsolutePath().normalize();
             System.out.println("Codec directory: " + displayPath(dir));
-            System.out.println("Codec metadata: " + diagnosticFileStatus(dir.resolve(MOSS_CODEC_META_FILE)));
+            System.out.println("Codec metadata: " + diagnosticFileStatus(dir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME)));
         } else {
             exitCode = 1;
             System.out.println("Codec directory: missing");
@@ -2958,7 +2953,7 @@ public class RunCommand implements Runnable {
             } else {
                 System.out.println("Auto pull: enabled for generation");
             }
-            System.out.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.out.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
         }
 
         System.out.println();
@@ -3088,10 +3083,10 @@ public class RunCommand implements Runnable {
             Path dir = codecDir.get().toAbsolutePath().normalize();
             codec.put("present", true);
             codec.put("directory", dir.toString());
-            codec.put("metadata", diagnosticFileJson(dir.resolve(MOSS_CODEC_META_FILE)));
+            codec.put("metadata", diagnosticFileJson(dir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME)));
         } else {
             codec.put("present", false);
-            codec.put("install_command", "aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            codec.put("install_command", "aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             exitCode = 1;
         }
         payload.put("codec", codec);
@@ -3153,7 +3148,7 @@ public class RunCommand implements Runnable {
                 return 1;
             }
             System.err.println("Error: MOSS TTS companion codec is not installed.");
-            System.err.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return 1;
         }
 
@@ -3235,7 +3230,7 @@ public class RunCommand implements Runnable {
                 return 1;
             }
             System.err.println("Error: MOSS TTS companion codec is not installed.");
-            System.err.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return 1;
         }
 
@@ -3962,16 +3957,16 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
         if (offline) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and --offline/--local disables automatic downloads.");
-            System.err.println("Run once online: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Run once online: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
         if (disableTtsAutoCodec) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and automatic codec pull is disabled.");
-            System.err.println("Pull it with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Pull it with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
 
-        System.out.println("MOSS TTS companion codec not found; pulling " + MOSS_AUDIO_TOKENIZER_REPOSITORY + "...");
+        System.out.println("MOSS TTS companion codec not found; pulling " + MossAudioTokenizerModelLayout.REPOSITORY_ID + "...");
         try {
             pullMossAudioCodecRepository();
             LocalModelIndex.refreshFromDisk();
@@ -3980,7 +3975,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             if (e.getCause() != null && e.getCause().getMessage() != null) {
                 System.err.println("Detail: " + e.getCause().getMessage());
             }
-            System.err.println("You can also run manually: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("You can also run manually: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
 
@@ -3990,14 +3985,14 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             return true;
         }
 
-        System.err.println("Error: Codec pull finished, but " + MOSS_CODEC_META_FILE + " was not found.");
-        System.err.println("Try manually: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+        System.err.println("Error: Codec pull finished, but " + MossAudioTokenizerModelLayout.METADATA_FILE_NAME + " was not found.");
+        System.err.println("Try manually: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
         return false;
     }
 
     private Optional<Path> findInstalledMossAudioCodecDir() {
         List<Path> indexedPaths = new ArrayList<>();
-        for (String ref : List.of(MOSS_AUDIO_TOKENIZER_REPOSITORY, MOSS_AUDIO_TOKENIZER_MODEL_SPEC)) {
+        for (String ref : List.of(MossAudioTokenizerModelLayout.REPOSITORY_ID, MossAudioTokenizerModelLayout.MODEL_SPEC)) {
             try {
                 LocalModelIndex.find(ref)
                         .map(entry -> entry.path)
@@ -4011,7 +4006,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return MossAudioTokenizerModelLocator.findInstalled(
                 AqliHome.path("models"),
                 indexedPaths,
-                MOSS_AUDIO_TOKENIZER_REPOSITORY);
+                MossAudioTokenizerModelLayout.REPOSITORY_ID);
     }
 
 
@@ -4029,7 +4024,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
         try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(0)) {
             huggingFaceRepository.get().pullRepository(
-                    MOSS_AUDIO_TOKENIZER_REPOSITORY,
+                    MossAudioTokenizerModelLayout.REPOSITORY_ID,
                     "main",
                     null,
                     "moss-audio-tokenizer",

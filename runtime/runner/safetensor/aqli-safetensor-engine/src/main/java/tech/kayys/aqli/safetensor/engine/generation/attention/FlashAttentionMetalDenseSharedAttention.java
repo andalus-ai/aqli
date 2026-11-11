@@ -10,8 +10,8 @@ import tech.kayys.aljabr.metal.binding.MetalFlashAttentionBinding;
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aqli.safetensor.engine.generation.kv.AttentionScratchMemoryBudget;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.function.BooleanSupplier;
@@ -45,7 +45,8 @@ final class FlashAttentionMetalDenseSharedAttention {
     AccelTensor compute(AccelTensor q, AccelTensor k, AccelTensor v,
             SharedKvState sharedKvState, ModelConfig config, FlashAttentionModelPolicy modelPolicy,
             int layerIdx, int startPos, int numQHeads, int numKVHeads, int headDim,
-            float scale, boolean causal, float softCap, MemorySegment attentionContextBuffer) {
+            float scale, boolean causal, float softCap, MemorySegment attentionContextBuffer,
+            AttentionScratchMemoryBudget scratchMemoryBudget) {
         if (!canUseMetal.getAsBoolean()) {
             return null;
         }
@@ -85,7 +86,7 @@ final class FlashAttentionMetalDenseSharedAttention {
         AccelTensor kContiguous = null;
         AccelTensor vContiguous = null;
         AccelTensor out = null;
-        try (Arena arena = Arena.ofConfined()) {
+        try (BudgetedAttentionArena arena = new BudgetedAttentionArena(scratchMemoryBudget)) {
             out = FlashAttentionContextOutputBuffer.viewOrAllocate(attentionContextBuffer, q);
 
             if (useFa4) {
@@ -119,19 +120,23 @@ final class FlashAttentionMetalDenseSharedAttention {
                 } else {
                     kContiguous = k.contiguous();
                     vContiguous = v.contiguous();
-                    long blockElements = (long) maxBlocks * numKVHeads * blockSize * headDim;
-                    packedK = arena.allocate(batch * blockElements * Float.BYTES, 64);
-                    packedV = arena.allocate(batch * blockElements * Float.BYTES, 64);
+                    long blockElements = Math.multiplyExact(
+                            Math.multiplyExact(Math.multiplyExact((long) maxBlocks, numKVHeads), blockSize), headDim);
+                    long packedBytes = Math.multiplyExact(Math.multiplyExact(batch, blockElements), (long) Float.BYTES);
+                    packedK = arena.allocate(packedBytes, 64);
+                    packedV = arena.allocate(packedBytes, 64);
                     PagedKvCacheMaterializer.packDenseSharedKvIntoTemporaryPagedPool(kContiguous, vContiguous,
                             numKVHeads, headDim, packedK, packedV);
                 }
 
-                MemorySegment blockTable = arena.allocate(batch * maxBlocks * Integer.BYTES, Integer.BYTES);
+                long blockTableBytes = Math.multiplyExact(Math.multiplyExact(batch, maxBlocks), (long) Integer.BYTES);
+                MemorySegment blockTable = arena.allocate(blockTableBytes, Integer.BYTES);
                 for (int b = 0; b < batch; b++) {
                     blockTable.setAtIndex(ValueLayout.JAVA_INT, b * maxBlocks, b);
                 }
 
-                MemorySegment contextLens = arena.allocate(batch * Integer.BYTES, Integer.BYTES);
+                long contextLensBytes = Math.multiplyExact(batch, (long) Integer.BYTES);
+                MemorySegment contextLens = arena.allocate(contextLensBytes, Integer.BYTES);
                 for (int b = 0; b < batch; b++) {
                     contextLens.setAtIndex(ValueLayout.JAVA_INT, b, totalTokens);
                 }

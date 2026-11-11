@@ -2300,16 +2300,13 @@ public class MossTtsOnnxRunner {
                 JsonNode ttsMeta,
                 JsonNode codecMeta,
                 int threads) throws OrtException {
-            JsonNode ttsFiles = ttsMeta.path("files");
-            JsonNode codecFiles = codecMeta.path("files");
-            Path prefillPath = ttsDir.resolve(ttsFiles.path("prefill").asText("moss_tts_prefill.onnx"));
-            Path decodePath = ttsDir.resolve(ttsFiles.path("decode_step").asText("moss_tts_decode_step.onnx"));
-            Path localFixedSampledFramePath = ttsDir.resolve(ttsFiles.path("local_fixed_sampled_frame")
-                    .asText("moss_tts_local_fixed_sampled_frame.onnx"));
-            Path codecDecodePath = codecDir.resolve(codecFiles.path("decode_full")
-                    .asText("moss_audio_tokenizer_decode_full.onnx"));
-            Path codecDecodeStepPath = codecDir.resolve(codecFiles.path("decode_step")
-                    .asText("moss_audio_tokenizer_decode_step.onnx"));
+            List<MossTtsOnnxGraphResolver.Graph> graphs =
+                    MossTtsOnnxGraphResolver.resolveGraphs(ttsDir, codecDir, ttsMeta, codecMeta);
+            Path prefillPath = graphs.get(0).path();
+            Path decodePath = graphs.get(1).path();
+            Path localFixedSampledFramePath = graphs.get(2).path();
+            Path codecDecodePath = graphs.get(3).path();
+            Path codecDecodeStepPath = graphs.get(4).path();
             SessionOpen prefill = createSession(env, prefillPath, threads);
             SessionOpen decode = createSession(env, decodePath, threads);
             SessionOpen localFixedSampledFrame = createSession(env, localFixedSampledFramePath, threads);
@@ -2334,17 +2331,11 @@ public class MossTtsOnnxRunner {
                 JsonNode ttsMeta,
                 JsonNode codecMeta,
                 int threads) {
-            JsonNode ttsFiles = ttsMeta.path("files");
-            JsonNode codecFiles = codecMeta.path("files");
-            List<Path> paths = List.of(
-                    ttsDir.resolve(ttsFiles.path("prefill").asText("moss_tts_prefill.onnx")),
-                    ttsDir.resolve(ttsFiles.path("decode_step").asText("moss_tts_decode_step.onnx")),
-                    ttsDir.resolve(ttsFiles.path("local_fixed_sampled_frame")
-                            .asText("moss_tts_local_fixed_sampled_frame.onnx")),
-                    codecDir.resolve(codecFiles.path("decode_full")
-                            .asText("moss_audio_tokenizer_decode_full.onnx")),
-                    codecDir.resolve(codecFiles.path("decode_step")
-                            .asText("moss_audio_tokenizer_decode_step.onnx")));
+            List<Path> paths = MossTtsOnnxGraphResolver
+                    .resolveGraphs(ttsDir, codecDir, ttsMeta, codecMeta)
+                    .stream()
+                    .map(MossTtsOnnxGraphResolver.Graph::path)
+                    .toList();
             try {
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 digest.update(("threads=" + Math.max(1, threads) + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
