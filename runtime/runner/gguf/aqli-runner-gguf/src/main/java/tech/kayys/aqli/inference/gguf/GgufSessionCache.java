@@ -1,6 +1,5 @@
 package tech.kayys.aqli.inference.gguf;
 
-
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,7 +9,7 @@ import java.util.function.IntSupplier;
 /**
  * Owns daemon-scoped GGUF sessions and Java backend sessions. It centralizes
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
- * Runtime configuration and logging remain supplied by the CLI boundary.
+ * Session limits, library paths, and logging are supplied by the application boundary.
  */
 public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
@@ -42,7 +41,7 @@ public final class GgufSessionCache implements AutoCloseable {
         boolean reused,
         boolean closeOnClose,
         String reuseKind) implements AutoCloseable {
-        public static SessionLease open(
+    public static SessionLease open(
             Path modelPath,
             int context,
             int batch,
@@ -54,21 +53,21 @@ public final class GgufSessionCache implements AutoCloseable {
             boolean useMlock,
             boolean swaFull,
             LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
-        return new SessionLease(LlamaCppGgufSession.open(
-                modelPath,
-                context,
-                batch,
-                microBatch,
-                threads,
-                batchThreads,
-                gpuLayers,
-                useMmap,
-                useMlock,
-                swaFull,
-                libraryPaths), false, true, "cold");
-    }
+                return new SessionLease(LlamaCppGgufSession.open(
+                    modelPath,
+                    context,
+                    batch,
+                    microBatch,
+                    threads,
+                    batchThreads,
+                    gpuLayers,
+                    useMmap,
+                    useMlock,
+                    swaFull,
+                    libraryPaths), false, true, "cold");
+        }
 
-    @Override
+        @Override
     public void close() {
         if (closeOnClose) {
             session.close();
@@ -85,7 +84,7 @@ public final class GgufSessionCache implements AutoCloseable {
     public synchronized GgufJavaBackendSession acquireJavaBackend(
             Path modelPath) throws Exception {
         Path key = modelPath.toAbsolutePath().normalize();
-        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
+        GgufJavaBackendSession existing = javaBackends.get(key);
         if (existing != null) {
             log.accept("java backend cache hit: " + key.getFileName());
             return existing;
