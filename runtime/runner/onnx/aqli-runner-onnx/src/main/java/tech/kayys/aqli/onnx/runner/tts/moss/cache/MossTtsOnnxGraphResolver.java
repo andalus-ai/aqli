@@ -59,6 +59,15 @@ public final class MossTtsOnnxGraphResolver {
         }
     }
 
+    public static void updateGraphIdentityDigest(MessageDigest digest, Path modelPath) throws Exception {
+        updateFileIdentityDigest(digest, "onnx", modelPath);
+        List<Path> sidecars = externalDataSidecars(modelPath);
+        updateDigestLine(digest, "external_data_sidecars=" + sidecars.size());
+        for (Path sidecar : sidecars) {
+            updateFileIdentityDigest(digest, "data", sidecar);
+        }
+    }
+
     private static String optimizedModelFingerprint(Path modelPath) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         updateDigestLine(digest, "os=" + System.getProperty("os.name", ""));
@@ -66,12 +75,7 @@ public final class MossTtsOnnxGraphResolver {
         updateDigestLine(digest, "runtime=ort-java");
         updateDigestLine(digest, "optimization=all-opt");
         updateDigestLine(digest, "backend=cpu");
-        updateFileIdentityDigest(digest, "onnx", modelPath);
-        List<Path> sidecars = externalDataSidecars(modelPath);
-        updateDigestLine(digest, "external_data_sidecars=" + sidecars.size());
-        for (Path sidecar : sidecars) {
-            updateFileIdentityDigest(digest, "data", sidecar);
-        }
+        updateGraphIdentityDigest(digest, modelPath);
         return HexFormat.of().formatHex(digest.digest());
     }
 
