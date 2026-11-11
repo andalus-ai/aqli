@@ -22,20 +22,24 @@ final class PagedKvCacheIO {
 
     static void updateCache(AccelTensor key, AccelTensor value, KVCacheManager.KVCacheSession kvSession, int layerIdx,
             int startPos, int seqLen, int numHeads, int headDim) {
+        if (startPos < 0 || seqLen < 0) {
+            throw new IllegalArgumentException("startPos and seqLen must not be negative");
+        }
+        int endPos = Math.addExact(startPos, seqLen);
         BlockManager blockManager = kvSession.blockManager();
         MemorySegment keySeg = key.dataPtr();
         MemorySegment valueSeg = value.dataPtr();
 
         // Writes happen before kvCache.advance(...), so we must provision the
         // backing block tables for the whole write span up front.
-        kvSession.ensureCapacity(startPos + seqLen);
+        kvSession.ensureCapacity(endPos);
 
         int tokensPerBlock = kvSession.tokensPerBlock();
         PagedKvCacheLayout layout = PagedKvCacheLayout.source(blockManager, numHeads, headDim, tokensPerBlock);
 
         BlockManager.KvStorageType storageType = blockManager.getStorageType();
         for (int s = 0; s < seqLen; s++) {
-            int absolutePos = startPos + s;
+            int absolutePos = Math.addExact(startPos, s);
             int blockIdx = kvSession.getBlockForToken(layerIdx, absolutePos);
             if (blockIdx < 0) {
                 throw new IllegalStateException(

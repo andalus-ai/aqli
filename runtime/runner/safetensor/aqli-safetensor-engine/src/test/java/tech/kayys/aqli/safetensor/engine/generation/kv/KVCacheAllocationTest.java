@@ -82,6 +82,46 @@ class KVCacheAllocationTest {
     }
 
     @Test
+    void ensureCapacityRejectsRequestsBeyondConfiguredSequenceLimitWithoutMutation() {
+        try (KVCacheManager.KVCacheSession session = new KVCacheManager().createSession(32)) {
+            session.allocate(modelConfig(), tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults());
+            int allocatedBefore = session.blockManager().getAllocatedBlockCount();
+            List<Integer> tableBefore = List.copyOf(session.getBlockTable(0));
+
+            assertThrows(IllegalArgumentException.class, () -> session.ensureCapacity(33));
+
+            assertEquals(allocatedBefore, session.blockManager().getAllocatedBlockCount());
+            assertEquals(tableBefore, session.getBlockTable(0));
+        }
+    }
+
+    @Test
+    void advanceRejectsSequenceOverflowWithoutChangingPosition() {
+        try (KVCacheManager.KVCacheSession session = new KVCacheManager().createSession(32)) {
+            session.allocate(modelConfig(), tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults());
+            session.advance(24);
+            int allocatedBefore = session.blockManager().getAllocatedBlockCount();
+            List<Integer> tableBefore = List.copyOf(session.getBlockTable(0));
+
+            assertThrows(IllegalArgumentException.class, () -> session.advance(9));
+
+            assertEquals(24, session.currentPos());
+            assertEquals(allocatedBefore, session.blockManager().getAllocatedBlockCount());
+            assertEquals(tableBefore, session.getBlockTable(0));
+        }
+    }
+
+    @Test
+    void getBlockForTokenRejectsTokenOutsideConfiguredSequenceLimit() {
+        try (KVCacheManager.KVCacheSession session = new KVCacheManager().createSession(32)) {
+            session.allocate(modelConfig(), tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults());
+
+            assertThrows(IllegalArgumentException.class, () -> session.getBlockForToken(0, 32));
+            assertEquals(1, session.getBlockTable(0).size());
+        }
+    }
+
+    @Test
     void testInt4KvAllocationUsesPackedBlocks() {
         try (KVCacheManager.KVCacheSession session = new KVCacheManager().createSession(128)) {
             var cfg = tech.kayys.aljabr.safetensor.generation.GenerationConfig.builder()
