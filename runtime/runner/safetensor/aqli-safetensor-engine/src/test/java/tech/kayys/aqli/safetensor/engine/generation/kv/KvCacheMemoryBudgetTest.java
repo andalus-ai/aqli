@@ -90,15 +90,17 @@ class KvCacheMemoryBudgetTest {
 
         KvCacheMemoryBudget budget = new KvCacheMemoryBudget(estimate.totalBytes());
         KVCacheManager.KVCacheSession session =
-                new KVCacheManager.KVCacheSession(128, new BlockManager(), budget);
+                new KVCacheManager.KVCacheSession(128, new BlockManager(budget));
         session.allocate(config, generationConfig);
-        assertEquals(estimate.totalBytes(), budget.reservedBytes());
+        assertEquals(session.blockManager().getAllocatedNativeBytes(), budget.reservedBytes());
+        assertTrue(budget.reservedBytes() < estimate.totalBytes(),
+                "lazy allocation should reserve only chunks currently materialized");
         session.close();
         assertEquals(0, budget.reservedBytes());
 
-        KvCacheMemoryBudget insufficient = new KvCacheMemoryBudget(estimate.totalBytes() - 1);
+        KvCacheMemoryBudget insufficient = new KvCacheMemoryBudget(1);
         KVCacheManager.KVCacheSession rejected =
-                new KVCacheManager.KVCacheSession(128, new BlockManager(), insufficient);
+                new KVCacheManager.KVCacheSession(128, new BlockManager(insufficient));
         assertThrows(IllegalStateException.class, () -> rejected.allocate(config, generationConfig));
         assertEquals(0, insufficient.reservedBytes());
         rejected.close();
