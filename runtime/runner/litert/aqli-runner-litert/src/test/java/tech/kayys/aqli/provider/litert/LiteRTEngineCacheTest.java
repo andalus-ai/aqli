@@ -70,6 +70,20 @@ class LiteRTEngineCacheTest {
     }
 
     @Test
+    void directLeaseCloseClosesKeepAliveAndEngine() {
+        LiteRTEngineLease<TrackedResource> lease =
+                new LiteRTEngineLease<>(new TrackedResource(), "CPU", false, null, true, false);
+        AtomicInteger keepAliveClosed = new AtomicInteger();
+        lease.attachKeepAlive(keepAliveClosed::incrementAndGet);
+
+        lease.close();
+        lease.close();
+
+        assertEquals(1, keepAliveClosed.get());
+        assertEquals(1, lease.engine().closeCount.get());
+    }
+
+    @Test
     void rejectsAcquisitionAfterCacheClose() {
         LiteRTEngineCache<TrackedResource> cache = new LiteRTEngineCache<>();
         cache.close();
