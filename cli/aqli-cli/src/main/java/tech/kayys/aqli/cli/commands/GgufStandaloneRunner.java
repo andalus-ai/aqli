@@ -594,15 +594,17 @@ public final class GgufStandaloneRunner {
             int tokens = prewarmTokenCount();
             String sessionLabel = sessionReuseLabel(sessionCache != null, lease.reused(), lease.reuseKind());
             String coverage = sessionCoverageSummary(context, batch, microBatch);
-            long generateStartNanos = System.nanoTime();
-            session.generate(prompt, tokens, 0.0d, 1, 1.0d);
-            long generateNanos = System.nanoTime() - generateStartNanos;
+            tech.kayys.aqli.inference.gguf.LlamaCppGgufExecutionStrategy.Execution execution =
+                    new tech.kayys.aqli.inference.gguf.LlamaCppGgufExecutionStrategy().execute(
+                            session, prompt, tokens, 0.0d, 1, 1.0d,
+                            sessionCache != null && lease.reused(), lease.reuseKind());
+            long generateNanos = execution.executionNanos();
             long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
             out.printf("Prewarmed llama.cpp GGUF daemon for %s "
                     + "(backend=%s, nGpuLayers=%d, threads=%d, context=%d, batch=%d, ubatch=%d, "
                     + "tokens=%d, session=%s, coverage=%s, cpuFallback=%s).%n",
                     modelPath.getFileName(),
-                    session.backendName(),
+                    execution.backendName(),
                     nGpuLayers,
                     threads,
                     context,
@@ -614,7 +616,7 @@ public final class GgufStandaloneRunner {
                     cpuFallback);
             out.printf("[GGUF daemon prewarm, Duration: %.2fs]%n", durationMs / 1000.0d);
             if (fastRunTiming()) {
-                String nativeMetrics = session.metrics().map(metrics -> ", native={" + metrics + "}").orElse("");
+                String nativeMetrics = execution.nativeMetrics().map(metrics -> ", native={" + metrics + "}").orElse("");
                 err.printf("GGUF timing: open=%.3fms, generateCall=%.3fms%s%n",
                         openNanos / 1_000_000.0d,
                         generateNanos / 1_000_000.0d,
@@ -691,10 +693,13 @@ public final class GgufStandaloneRunner {
                 }
                 out.println("--------------------------------------------------");
             }
-            long generateStartNanos = System.nanoTime();
-            String output = session.generate(prompt, args.maxTokens(), args.temperature(), args.topK(), args.topP());
-            long afterGenerateNanos = System.nanoTime();
-            long generateNanos = afterGenerateNanos - generateStartNanos;
+            tech.kayys.aqli.inference.gguf.LlamaCppGgufExecutionStrategy.Execution execution =
+                    new tech.kayys.aqli.inference.gguf.LlamaCppGgufExecutionStrategy().execute(
+                            session, prompt, args.maxTokens(), args.temperature(), args.topK(), args.topP(),
+                            sessionCache != null && lease.reused(), lease.reuseKind());
+            String output = execution.output();
+            long afterGenerateNanos = execution.completedAtNanos();
+            long generateNanos = execution.executionNanos();
             if (args.debugPrompt()) {
                 out.println("[Raw Output (From LLM Before Decode/Strip)]:");
                 out.println("--------------------------------------------------");
@@ -714,10 +719,7 @@ public final class GgufStandaloneRunner {
                 out.print(args.raw() ? output : stripThinkingChannels(output));
             }
             String label = benchmarkMode ? "llama.cpp fallback" : "Fast GGUF";
-            Optional<String> nativeMetrics = safeMetrics(
-                    session,
-                    sessionCache != null && lease.reused(),
-                    lease.reuseKind());
+            Optional<String> nativeMetrics = execution.nativeMetrics();
             if (!fastRunQuiet() && !args.noInfo()) {
                 printFastRunStats(out, label, session.lastGeneratedTokens(), startNanos, openNanos, generateNanos,
                         afterGenerateNanos, nativeMetrics);
