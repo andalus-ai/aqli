@@ -64,9 +64,9 @@ class GgufLlamaCppRunOptionsTest {
                 4,
                 configuration(Map.of(
                         "aqli.gguf.fast_run.max_auto_context", "2048",
-                        "aqli.gguf.fast_run.prewarm_min_context", "1024")));
+                        "aqli.gguf.fast_run.prewarm_min_context", "4096")));
 
-        assertEquals(1024, options.context());
+        assertEquals(2048, options.context());
     }
 
     @Test
