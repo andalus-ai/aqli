@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.media.metadata;
 
 import tech.kayys.aqli.media.integrity.MediaFileIntegrity;
 
@@ -17,13 +17,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Persists image metadata sidecars and validates the integrity of their output artifacts.
  * CLI option interpretation and presentation remain in the command layer.
  */
-final class ImageMetadataSidecarStore {
+public final class ImageMetadataSidecarStore {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private ImageMetadataSidecarStore() {
     }
 
-    static WriteResult write(WriteRequest request) throws Exception {
+    public static WriteResult write(WriteRequest request) throws Exception {
         Path imagePath = request.imagePath().toAbsolutePath().normalize();
         Path sidecarPath = request.sidecarPath().toAbsolutePath().normalize();
         if (imagePath.equals(sidecarPath)) {
@@ -63,13 +63,13 @@ final class ImageMetadataSidecarStore {
         return new WriteResult(sidecarPath, false);
     }
 
-    static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
+    public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "Error: image metadata file not found: ");
         JsonNode root = readObject(sidecarPath, "Error: invalid image metadata file: ");
 
         String expectedSha256 = text(root, "output_sha256");
         if (expectedSha256 == null || expectedSha256.isBlank()) {
-            throw new UserMessageException(
+            throw new ImageMetadataSidecarException(
                     "Error: metadata does not contain output_sha256; refresh the sidecar with --image-metadata-refresh.");
         }
 
@@ -93,7 +93,7 @@ final class ImageMetadataSidecarStore {
         return new VerificationResult(imagePath.toAbsolutePath().normalize(), actualBytes, actualSha256);
     }
 
-    static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
+    public static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "image metadata file not found: ");
         JsonNode rootNode = readObject(sidecarPath, "invalid image metadata file: ");
         ObjectNode root = (ObjectNode) rootNode;
@@ -168,7 +168,7 @@ final class ImageMetadataSidecarStore {
         }
     }
 
-    record WriteRequest(
+    public record WriteRequest(
             Path imagePath,
             Path sidecarPath,
             String model,
@@ -186,25 +186,21 @@ final class ImageMetadataSidecarStore {
             java.util.Map<String, Object> metadata) {
     }
 
-    static final class UserMessageException extends IllegalArgumentException {
+    public static final class ImageMetadataSidecarException extends IllegalArgumentException {
         private final String presentation;
 
-        UserMessageException(String presentation) {
+        public ImageMetadataSidecarException(String presentation) {
             super(presentation);
             this.presentation = presentation;
         }
-
-        String presentation() {
-            return presentation;
-        }
     }
 
-    record WriteResult(Path sidecarPath, boolean skippedBecausePathsMatch) {
+    public record WriteResult(Path sidecarPath, boolean skippedBecausePathsMatch) {
     }
 
-    record VerificationResult(Path imagePath, long sizeBytes, String sha256) {
+    public record VerificationResult(Path imagePath, long sizeBytes, String sha256) {
     }
 
-    record RefreshResult(Path sidecarPath, Path imagePath, long sizeBytes, String sha256) {
+    public record RefreshResult(Path sidecarPath, Path imagePath, long sizeBytes, String sha256) {
     }
 }
