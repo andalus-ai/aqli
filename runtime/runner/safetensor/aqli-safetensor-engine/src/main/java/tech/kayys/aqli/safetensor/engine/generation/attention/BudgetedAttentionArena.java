@@ -20,13 +20,14 @@ import java.util.Objects;
  * lifetime of the segments even when a dispatch tries more than one kernel.
  */
 final class BudgetedAttentionArena implements AutoCloseable {
-    private final Arena arena = Arena.ofConfined();
+    private final Arena arena;
     private final AttentionScratchMemoryBudget budget;
     private final List<AttentionScratchMemoryBudget.Lease> leases = new ArrayList<>();
     private boolean closed;
 
     BudgetedAttentionArena(AttentionScratchMemoryBudget budget) {
         this.budget = Objects.requireNonNull(budget, "budget");
+        this.arena = Arena.ofConfined();
     }
 
     synchronized MemorySegment allocate(long bytes, long alignment) {
