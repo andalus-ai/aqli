@@ -75,6 +75,19 @@ class ImageMetadataSidecarStoreIntegrityTest {
     }
 
     @Test
+    void rejectsOutputSizeMismatchEvenWhenDigestMatches() throws Exception {
+        Path image = tempDir.resolve("image.png");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(image, "image-bytes");
+        Files.writeString(sidecar, """
+                {"output_path":"image.png","output_size_bytes":1,"output_sha256":"%s"}
+                """.formatted(MediaFileIntegrity.sha256Hex(image)));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> ImageMetadataSidecarStore.verify(sidecar, null));
+    }
+
+    @Test
     void refreshesIntegrityFieldsWithoutDiscardingExistingMetadata() throws Exception {
         Path image = tempDir.resolve("image.png");
         Path sidecar = tempDir.resolve("metadata.json");

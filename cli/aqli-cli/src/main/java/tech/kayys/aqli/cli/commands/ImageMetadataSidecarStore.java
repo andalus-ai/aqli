@@ -62,29 +62,31 @@ final class ImageMetadataSidecarStore {
     }
 
     static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
-        requireRegularFile(sidecarPath, "image metadata file not found: ");
-        JsonNode root = readObject(sidecarPath, "invalid image metadata file: ");
+        requireRegularFile(sidecarPath, "Error: image metadata file not found: ");
+        JsonNode root = readObject(sidecarPath, "Error: invalid image metadata file: ");
 
         String expectedSha256 = text(root, "output_sha256");
         if (expectedSha256 == null || expectedSha256.isBlank()) {
-            throw new IllegalArgumentException(
-                    "metadata does not contain output_sha256; refresh the sidecar with --image-metadata-refresh.");
+            throw new UserMessageException(
+                    "Error: metadata does not contain output_sha256; refresh the sidecar with --image-metadata-refresh.");
         }
 
         Path imagePath = resolveOutputPath(sidecarPath, root, outputOverride);
-        requireRegularFile(imagePath, "image output not found: ");
+        requireRegularFile(imagePath, "Error: image output not found: ");
 
         long actualBytes = Files.size(imagePath);
         Long expectedBytes = optionalLong(text(root, "output_size_bytes"));
         if (expectedBytes != null && expectedBytes != actualBytes) {
-            throw new IllegalArgumentException("Image metadata verification failed: byte size mismatch. "
-                    + "expected: " + expectedBytes + ", actual: " + actualBytes);
+            throw new UserMessageException("Image metadata verification failed: byte size mismatch.\n"
+                    + "  expected: " + expectedBytes + "\n"
+                    + "  actual:   " + actualBytes);
         }
 
         String actualSha256 = MediaFileIntegrity.sha256Hex(imagePath);
         if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
-            throw new IllegalArgumentException("Image metadata verification failed: SHA-256 mismatch. "
-                    + "expected: " + expectedSha256 + ", actual: " + actualSha256);
+            throw new UserMessageException("Image metadata verification failed: SHA-256 mismatch.\n"
+                    + "  expected: " + expectedSha256 + "\n"
+                    + "  actual:   " + actualSha256);
         }
         return new VerificationResult(imagePath.toAbsolutePath().normalize(), actualBytes, actualSha256);
     }
@@ -114,7 +116,7 @@ final class ImageMetadataSidecarStore {
     private static JsonNode readObject(Path sidecarPath, String errorPrefix) throws Exception {
         JsonNode root = MAPPER.readTree(sidecarPath.toFile());
         if (root == null || !root.isObject()) {
-            throw new IllegalArgumentException(errorPrefix + sidecarPath);
+            throw new UserMessageException(errorPrefix + sidecarPath);
         }
         return root;
     }
@@ -138,7 +140,7 @@ final class ImageMetadataSidecarStore {
 
     private static void requireRegularFile(Path path, String errorPrefix) {
         if (!Files.isRegularFile(path)) {
-            throw new IllegalArgumentException(errorPrefix + path);
+            throw new UserMessageException(errorPrefix + path);
         }
     }
 
@@ -180,6 +182,19 @@ final class ImageMetadataSidecarStore {
             List<String> replayArgs,
             String replayCommand,
             java.util.Map<String, Object> metadata) {
+    }
+
+    static final class UserMessageException extends IllegalArgumentException {
+        private final String presentation;
+
+        UserMessageException(String presentation) {
+            super(presentation);
+            this.presentation = presentation;
+        }
+
+        String presentation() {
+            return presentation;
+        }
     }
 
     record WriteResult(Path sidecarPath, boolean skippedBecausePathsMatch) {
