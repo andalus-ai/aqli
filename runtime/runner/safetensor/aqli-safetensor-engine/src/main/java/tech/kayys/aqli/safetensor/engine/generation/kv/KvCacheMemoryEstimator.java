@@ -13,7 +13,6 @@ package tech.kayys.aqli.safetensor.engine.generation.kv;
  * includes the session's per-layer block capacity and fixed allocator margin.
  */
 public final class KvCacheMemoryEstimator {
-    public static final int DEFAULT_TOKENS_PER_BLOCK = 16;
     public static final int DEFAULT_EXTRA_BLOCKS = 64;
 
     private KvCacheMemoryEstimator() {
