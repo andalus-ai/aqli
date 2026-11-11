@@ -104,20 +104,6 @@ public class RunCommand implements Runnable {
     private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
             "hf:" + MOSS_AUDIO_TOKENIZER_REPOSITORY;
     private static final String MOSS_CODEC_META_FILE = "codec_browser_onnx_meta.json";
-    private static final String ONNX_OPTIMIZED_CACHE_ENABLED_PROPERTY = "aqli.onnx.optimized-model-cache.enabled";
-    private static final String ONNX_OPTIMIZED_CACHE_ENABLED_ENV = "AQLI_ONNX_OPTIMIZED_MODEL_CACHE";
-    private static final String ONNX_OPTIMIZED_CACHE_DIR_PROPERTY = "aqli.onnx.optimized-model-cache.dir";
-    private static final String ONNX_OPTIMIZED_CACHE_DIR_ENV = "AQLI_ONNX_OPTIMIZED_MODEL_CACHE_DIR";
-    private static final String MOSS_SESSION_CACHE_ENABLED_PROPERTY = "aqli.onnx.moss-tts.session-cache.enabled";
-    private static final String MOSS_SESSION_CACHE_ENABLED_ENV = "AQLI_ONNX_MOSS_TTS_SESSION_CACHE";
-    private static final String MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY = "aqli.onnx.moss-tts.session-cache.max-entries";
-    private static final String MOSS_SESSION_CACHE_MAX_ENTRIES_ENV = "AQLI_ONNX_MOSS_TTS_SESSION_CACHE_MAX_ENTRIES";
-    private static final String MOSS_ASSET_CACHE_ENABLED_PROPERTY = "aqli.onnx.moss-tts.asset-cache.enabled";
-    private static final String MOSS_ASSET_CACHE_ENABLED_ENV = "AQLI_ONNX_MOSS_TTS_ASSET_CACHE";
-    private static final String MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY = "aqli.onnx.moss-tts.asset-cache.max-entries";
-    private static final String MOSS_ASSET_CACHE_MAX_ENTRIES_ENV = "AQLI_ONNX_MOSS_TTS_ASSET_CACHE_MAX_ENTRIES";
-    private static final String ONNX_LOG_LEVEL_PROPERTY = "aqli.onnx.log-level";
-    private static final String ONNX_LOG_LEVEL_ENV = "AQLI_ONNX_LOG_LEVEL";
     private Map<String, Object> forcedExecutionRouteMetadata = Map.of();
 
     @ParentCommand
@@ -3579,14 +3565,11 @@ public class RunCommand implements Runnable {
 
     private Map<String, Object> ttsOnnxCacheDiagnosticsJson(Path modelDir, Optional<Path> codecDir) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        boolean graphCacheEnabled = cacheBoolean(
-                ONNX_OPTIMIZED_CACHE_ENABLED_PROPERTY,
-                ONNX_OPTIMIZED_CACHE_ENABLED_ENV,
-                true);
-        Path cacheRoot = onnxOptimizedCacheRoot();
-        payload.put("optimized_graph_cache_enabled", graphCacheEnabled);
+        MossTtsCacheSettings settings = MossTtsCacheSettings.load();
+        Path cacheRoot = settings.optimizedGraphCacheRoot();
+        payload.put("optimized_graph_cache_enabled", settings.optimizedGraphCacheEnabled());
         payload.put("graph_cache_root", cacheRoot.toString());
-        payload.put("onnx_runtime_log_level", onnxLogLevelName());
+        payload.put("onnx_runtime_log_level", settings.onnxRuntimeLogLevel());
         OptimizedCacheScope cacheScope = new OptimizedCacheScope(new java.util.HashSet<>(), new java.util.HashSet<>());
 
         if (codecDir.isEmpty()) {
@@ -3626,37 +3609,23 @@ public class RunCommand implements Runnable {
         payload.put("cache_directory", OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()).toJson());
 
         payload.put("session_cache", Map.of(
-                "enabled", cacheBoolean(
-                        MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                        MOSS_SESSION_CACHE_ENABLED_ENV,
-                        true),
-                "max_entries", cacheInt(
-                        MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                        MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                        2),
+                "enabled", settings.sessionCacheEnabled(),
+                "max_entries", settings.sessionCacheMaxEntries(),
                 "scope", "in-process"));
         payload.put("asset_cache", Map.of(
-                "enabled", cacheBoolean(
-                        MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                        MOSS_ASSET_CACHE_ENABLED_ENV,
-                        true),
-                "max_entries", cacheInt(
-                        MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                        MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                        4),
+                "enabled", settings.assetCacheEnabled(),
+                "max_entries", settings.assetCacheMaxEntries(),
                 "scope", "in-process"));
         return payload;
     }
 
     private void printTtsOnnxCacheDiagnostics(Path modelDir, Optional<Path> codecDir) {
-        boolean graphCacheEnabled = cacheBoolean(
-                ONNX_OPTIMIZED_CACHE_ENABLED_PROPERTY,
-                ONNX_OPTIMIZED_CACHE_ENABLED_ENV,
-                true);
-        Path cacheRoot = onnxOptimizedCacheRoot();
-        System.out.println("Optimized graph cache: " + (graphCacheEnabled ? "enabled" : "disabled"));
+        MossTtsCacheSettings settings = MossTtsCacheSettings.load();
+        Path cacheRoot = settings.optimizedGraphCacheRoot();
+        System.out.println("Optimized graph cache: "
+                + (settings.optimizedGraphCacheEnabled() ? "enabled" : "disabled"));
         System.out.println("Graph cache root: " + displayPath(cacheRoot));
-        System.out.println("ONNX Runtime log level: " + onnxLogLevelName());
+        System.out.println("ONNX Runtime log level: " + settings.onnxRuntimeLogLevel());
         OptimizedCacheScope cacheScope = new OptimizedCacheScope(new java.util.HashSet<>(), new java.util.HashSet<>());
 
         if (codecDir.isEmpty()) {
@@ -3690,28 +3659,12 @@ public class RunCommand implements Runnable {
         }
         printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
 
-        boolean sessionCacheEnabled = cacheBoolean(
-                MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                MOSS_SESSION_CACHE_ENABLED_ENV,
-                true);
-        int sessionCacheMax = cacheInt(
-                MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                2);
-        boolean assetCacheEnabled = cacheBoolean(
-                MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                MOSS_ASSET_CACHE_ENABLED_ENV,
-                true);
-        int assetCacheMax = cacheInt(
-                MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                4);
         System.out.println("Session cache: "
-                + (sessionCacheEnabled && sessionCacheMax > 0 ? "enabled" : "disabled")
-                + " (max entries " + Math.max(0, sessionCacheMax) + ", in-process)");
+                + (settings.sessionCacheEnabled() && settings.sessionCacheMaxEntries() > 0 ? "enabled" : "disabled")
+                + " (max entries " + settings.sessionCacheMaxEntries() + ", in-process)");
         System.out.println("Asset cache: "
-                + (assetCacheEnabled && assetCacheMax > 0 ? "enabled" : "disabled")
-                + " (max entries " + Math.max(0, assetCacheMax) + ", in-process)");
+                + (settings.assetCacheEnabled() && settings.assetCacheMaxEntries() > 0 ? "enabled" : "disabled")
+                + " (max entries " + settings.assetCacheMaxEntries() + ", in-process)");
     }
 
     private void printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.Stats stats) {
@@ -3752,42 +3705,6 @@ public class RunCommand implements Runnable {
 
     private static long safeSize(Path path) {
         return OptimizedCacheDirectoryScanner.safeSize(path);
-    }
-
-    private Path onnxOptimizedCacheRoot() {
-        String root = firstNonBlank(
-                System.getProperty(ONNX_OPTIMIZED_CACHE_DIR_PROPERTY),
-                System.getenv(ONNX_OPTIMIZED_CACHE_DIR_ENV));
-        return root.isBlank()
-                ? Path.of(System.getProperty("user.home"), ".aqli", "cache", "onnx", "optimized", "moss-tts")
-                : Path.of(root).resolve("moss-tts");
-    }
-
-    private boolean cacheBoolean(String property, String env, boolean fallback) {
-        String raw = firstNonBlank(System.getProperty(property), System.getenv(env), String.valueOf(fallback));
-        return !Set.of("0", "false", "no", "off", "disable", "disabled")
-                .contains(raw.trim().toLowerCase(Locale.ROOT));
-    }
-
-    private int cacheInt(String property, String env, int fallback) {
-        String raw = firstNonBlank(System.getProperty(property), System.getenv(env), String.valueOf(fallback));
-        try {
-            return Math.max(0, Integer.parseInt(raw.trim()));
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
-
-    private String onnxLogLevelName() {
-        String raw = firstNonBlank(
-                System.getProperty(ONNX_LOG_LEVEL_PROPERTY),
-                System.getenv(ONNX_LOG_LEVEL_ENV),
-                "error");
-        String normalized = raw.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "verbose", "info", "warning", "warn", "error", "fatal" -> normalized;
-            default -> "error";
-        };
     }
 
     private static String sanitizeCacheFilename(String value) {
