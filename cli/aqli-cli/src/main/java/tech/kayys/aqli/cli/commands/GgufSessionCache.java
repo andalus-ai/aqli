@@ -1,5 +1,8 @@
 package tech.kayys.aqli.cli.commands;
 
+import tech.kayys.aqli.inference.gguf.LlamaCppGgufLibraryPaths;
+import tech.kayys.aqli.inference.gguf.LlamaCppGgufSession;
+
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -14,10 +17,13 @@ import java.util.function.IntSupplier;
 final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
     private final Consumer<String> log;
+    private final LlamaCppGgufLibraryPaths libraryPaths;
 
-    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log) {
+    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
+            LlamaCppGgufLibraryPaths libraryPaths) {
         this.maxSessionsSupplier = maxSessionsSupplier;
         this.log = log;
+        this.libraryPaths = libraryPaths;
     }
 
     private record SessionKey(
@@ -48,7 +54,8 @@ final class GgufSessionCache implements AutoCloseable {
             int gpuLayers,
             boolean useMmap,
             boolean useMlock,
-            boolean swaFull) throws Throwable {
+            boolean swaFull,
+            LlamaCppGgufLibraryPaths libraryPaths) throws Throwable {
         return new SessionLease(LlamaCppGgufSession.open(
                 modelPath,
                 context,
@@ -59,7 +66,8 @@ final class GgufSessionCache implements AutoCloseable {
                 gpuLayers,
                 useMmap,
                 useMlock,
-                swaFull), false, true, "cold");
+                swaFull,
+                libraryPaths), false, true, "cold");
     }
 
     @Override
@@ -139,7 +147,8 @@ final class GgufSessionCache implements AutoCloseable {
                 gpuLayers,
                 useMmap,
                 useMlock,
-                swaFull);
+                swaFull,
+                libraryPaths);
         sessions.put(key, opened);
         evictOverflowSessions();
         return new SessionLease(opened, false, false, "cold");
