@@ -57,7 +57,7 @@ class AudioMetadataReplayParserTest {
     @Test
     void rejectsMalformedTypedArguments() throws Exception {
         Path sidecar = tempDir.resolve("invalid-number.json");
-        Files.writeString(sidecar, """{"replay_args":["--audio-bitrate","not-a-number"]}""");
+        Files.writeString(sidecar, "{\"replay_args\":[\"--audio-bitrate\",\"not-a-number\"]}");
         assertThrows(IllegalArgumentException.class, () -> new AudioMetadataReplayParser().parse(sidecar));
     }
 

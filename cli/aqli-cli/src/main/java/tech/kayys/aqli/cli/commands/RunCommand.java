@@ -74,6 +74,9 @@ import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
+import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
+import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -2006,7 +2009,6 @@ public class RunCommand implements Runnable {
                 System.err.println("Error: invalid audio metadata replay file: " + audioMetadataReplayPath);
                 return false;
             }
-
             boolean outputExplicit = outputPath != null && !outputPath.isBlank();
             applyAudioMetadataReplayPlan(plan);
             if (!outputExplicit && (outputPath == null || outputPath.isBlank())) {
@@ -2121,31 +2123,6 @@ public class RunCommand implements Runnable {
         modelId = value;
     }
 
-    private static boolean replayFlagTakesValue(String flag) {
-        return Set.of(
-                "--model", "--modelDir", "--modelFile", "--model-path", "--provider", "--runner", "--prompt",
-                "--voice", "--tts-voice", "--audio-format", "--tts-audio-format", "--seed", "--output", "-o",
-                "--audio-quality", "--tts-audio-quality", "--audio-bitrate", "--audio-bitrate-kbps",
-                "--tts-bitrate", "--tts-bitrate-kbps", "--audio-channels", "--tts-audio-channels",
-                "--tts-codec-decode", "--codec-decode", "--tts-max-frames", "--max-frames",
-                "--tts-max-seconds", "--max-seconds", "--tts-duration", "--audio-gain-db", "--tts-gain-db",
-                "--audio-peak-db", "--audio-peak-dbfs", "--tts-peak-db", "--audio-fade-ms", "--tts-fade-ms",
-                "--audio-trim-db", "--audio-trim-dbfs", "--tts-trim-db", "--audio-trim-padding-ms",
-                "--tts-trim-padding-ms", "--flac-compression")
-                .contains(flag);
-    }
-
-    private static String replayArgValue(JsonNode replayArgs, int index, String flag) {
-        if (index >= replayArgs.size()) {
-            throw new IllegalArgumentException("missing value for " + flag);
-        }
-        String value = jsonNodeText(replayArgs.get(index));
-        if (value == null) {
-            throw new IllegalArgumentException("missing value for " + flag);
-        }
-        return value;
-    }
-
     private static String jsonText(JsonNode node, String field) {
         if (node == null || field == null) {
             return null;
@@ -2160,14 +2137,6 @@ public class RunCommand implements Runnable {
         return node.asText();
     }
 
-    private static Long parseReplayLong(String option, String value) {
-        try {
-            return Long.parseLong(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
     private static Long parseOptionalReplayLong(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -2179,62 +2148,8 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private static Integer parseReplayInt(String option, String value) {
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
-    private static Double parseReplayDouble(String option, String value) {
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
     private String defaultAudioReplayOutputPath(String originalOutputPath, String replayAudioFormat) {
-        String ext = normalizeExtension(replayAudioFormat);
-        Path originalPath = originalOutputPath == null || originalOutputPath.isBlank()
-                ? Path.of("output." + (ext.isBlank() ? "wav" : ext))
-                : Path.of(originalOutputPath);
-        Path replayPath = appendReplaySuffix(originalPath, ext);
-        return uniquifyPath(replayPath).toString();
-    }
-
-    private Path appendReplaySuffix(Path path, String fallbackExt) {
-        String filename = path.getFileName() == null ? "output" : path.getFileName().toString();
-        String ext = pathExtension(path);
-        if (ext.isBlank()) {
-            ext = normalizeExtension(fallbackExt);
-        }
-        String base = filename;
-        if (!ext.isBlank() && filename.toLowerCase(Locale.ROOT).endsWith("." + ext.toLowerCase(Locale.ROOT))) {
-            base = filename.substring(0, filename.length() - ext.length() - 1);
-        }
-        String replayFilename = base + "-replay" + (ext.isBlank() ? "" : "." + ext);
-        return path.resolveSibling(replayFilename);
-    }
-
-    private Path uniquifyPath(Path path) {
-        if (!Files.exists(path)) {
-            return path;
-        }
-        String filename = path.getFileName() == null ? "output" : path.getFileName().toString();
-        String ext = pathExtension(path);
-        String base = filename;
-        if (!ext.isBlank() && filename.toLowerCase(Locale.ROOT).endsWith("." + ext.toLowerCase(Locale.ROOT))) {
-            base = filename.substring(0, filename.length() - ext.length() - 1);
-        }
-        for (int i = 2; i < 1000; i++) {
-            Path candidate = path.resolveSibling(base + "-" + i + (ext.isBlank() ? "" : "." + ext));
-            if (!Files.exists(candidate)) {
-                return candidate;
-            }
-        }
-        return path;
+        return AudioReplayOutputPathResolver.resolve(originalOutputPath, replayAudioFormat).toString();
     }
 
     private boolean validateTtsAudioCliOptions() {
@@ -6903,7 +6818,7 @@ public class RunCommand implements Runnable {
                             effectiveTtsVoiceSelector(),
                             audioDefaultExtension(metadata),
                             replayArgs,
-                            shellCommand(replayArgs),
+                            ReplayShellCommandFormatter.format(replayArgs),
                             metadata));
             if (result.skippedBecausePathsMatch()) {
                 System.err.println("\nWarning: audio metadata path is the same as the audio output; metadata sidecar skipped.");
@@ -6927,76 +6842,44 @@ public class RunCommand implements Runnable {
                     ? Path.of(imageMetadataOutputPath)
                     : replaceExtension(imagePath, "json");
             Path absoluteImagePath = imagePath.toAbsolutePath().normalize();
-            Path absoluteMetadataPath = metadataPath.toAbsolutePath().normalize();
-            if (absoluteMetadataPath.equals(absoluteImagePath)) {
+            List<String> replayArgs = ImageMetadataReplayCommandBuilder.build(
+                    new ImageMetadataReplayCommandBuilder.Request(
+                            modelId,
+                            providerId,
+                            runner,
+                            prompt,
+                            imageReplaySeed(metadata),
+                            steps,
+                            guidanceScale,
+                            width,
+                            height,
+                            absoluteImagePath.toString()));
+            ImageMetadataSidecarStore.WriteResult result = ImageMetadataSidecarStore.write(
+                    new ImageMetadataSidecarStore.WriteRequest(
+                            absoluteImagePath,
+                            metadataPath,
+                            modelId,
+                            providerId,
+                            runner,
+                            prompt,
+                            imageOutputExtension(absoluteImagePath, metadata),
+                            imageReplaySeed(metadata),
+                            steps,
+                            guidanceScale,
+                            width,
+                            height,
+                            replayArgs,
+                            ReplayShellCommandFormatter.format(replayArgs),
+                            metadata));
+            if (result.skippedBecausePathsMatch()) {
                 System.err.println("\nWarning: image metadata path is the same as the image output; metadata sidecar skipped.");
                 return;
             }
-            Path parent = absoluteMetadataPath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("type", "aqli_image_metadata");
-            payload.put("schema_version", 1);
-            payload.put("created_at", Instant.now().toString());
-            payload.put("output_path", absoluteImagePath.toString());
-            payload.put("output_size_bytes", Files.size(absoluteImagePath));
-            payload.put("output_sha256", sha256Hex(absoluteImagePath));
-            payload.put("model", modelId);
-            payload.put("provider", providerId);
-            if (runner != null && !runner.isBlank()) {
-                payload.put("runner", runner);
-            }
-            payload.put("prompt", prompt);
-            payload.put("image_format", imageOutputExtension(absoluteImagePath, metadata));
-            addImageParameter(payload, "seed", imageReplaySeed(metadata));
-            addImageParameter(payload, "steps", steps);
-            addImageParameter(payload, "guidance_scale", guidanceScale);
-            addImageParameter(payload, "width", width);
-            addImageParameter(payload, "height", height);
-            List<String> replayArgs = imageMetadataReplayArgs(absoluteImagePath, metadata);
-            payload.put("replay_args", replayArgs);
-            payload.put("replay_command", shellCommand(replayArgs));
-            payload.put("metadata", metadata == null ? Map.of() : new LinkedHashMap<>(metadata));
-
-            String json = new ObjectMapper()
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(payload);
-            Files.writeString(absoluteMetadataPath, json);
             System.out.println(ChatUIRenderer.DIM + "Image metadata saved to: "
-                    + absoluteMetadataPath
+                    + result.sidecarPath()
                     + ChatUIRenderer.RESET);
         } catch (Exception e) {
             System.err.println("\nFailed to save image metadata: " + e.getMessage());
-        }
-    }
-
-    private List<String> imageMetadataReplayArgs(Path imagePath, Map<String, Object> metadata) {
-        List<String> args = new ArrayList<>();
-        args.add("aqli");
-        args.add("run");
-        addReplayModelArgs(args, modelId);
-        addStringArg(args, "--provider", providerId);
-        addStringArg(args, "--runner", runner);
-        addStringArg(args, "--prompt", prompt);
-        addStringArg(args, "--seed", imageReplaySeed(metadata));
-        addStringArg(args, "--steps", steps);
-        addStringArg(args, "--guidance-scale", guidanceScale);
-        addStringArg(args, "--width", width);
-        addStringArg(args, "--height", height);
-        addStringArg(args, "--output", imagePath == null ? null : imagePath.toString());
-        return args;
-    }
-
-    private static void addImageParameter(Map<String, Object> payload, String key, Object value) {
-        if (value == null) {
-            return;
-        }
-        String text = String.valueOf(value);
-        if (!text.isBlank()) {
-            payload.put(key, value);
         }
     }
 
@@ -7050,25 +6933,6 @@ public class RunCommand implements Runnable {
                 audioTrimSilence));
     }
 
-    private static void addReplayModelArgs(List<String> args, String modelValue) {
-        if (modelValue == null || modelValue.isBlank()) {
-            return;
-        }
-        try {
-            Path path = Path.of(modelValue);
-            if (Files.isDirectory(path)) {
-                addStringArg(args, "--modelDir", modelValue);
-                return;
-            }
-            if (Files.isRegularFile(path)) {
-                addStringArg(args, "--modelFile", modelValue);
-                return;
-            }
-        } catch (Exception ignored) {
-        }
-        addStringArg(args, "--model", modelValue);
-    }
-
     private String replaySeed(Map<String, Object> metadata) {
         String metadataSeed = metadataText(metadata, "tts_seed");
         if (metadataSeed != null && !metadataSeed.isBlank()) {
@@ -7087,24 +6951,6 @@ public class RunCommand implements Runnable {
         }
         args.add(flag);
         args.add(text);
-    }
-
-    private static String shellCommand(List<String> args) {
-        List<String> quoted = new ArrayList<>();
-        for (String arg : args) {
-            quoted.add(shellQuote(arg));
-        }
-        return String.join(" ", quoted);
-    }
-
-    private static String shellQuote(String value) {
-        if (value == null || value.isEmpty()) {
-            return "''";
-        }
-        if (value.matches("[A-Za-z0-9_@%+=:,./-]+")) {
-            return value;
-        }
-        return "'" + value.replace("'", "'\"'\"'") + "'";
     }
 
     private static String sha256Hex(Path path) throws Exception {
