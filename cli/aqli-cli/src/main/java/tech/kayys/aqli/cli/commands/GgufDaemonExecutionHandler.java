@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufRunArguments;
+import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
