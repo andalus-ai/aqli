@@ -107,6 +107,28 @@ class KvCacheMemoryBudgetTest {
     }
 
     @Test
+    void sessionBudgetGrowsOnlyWhenAdditionalPhysicalChunksAreMaterialized() throws Exception {
+        ModelConfig config = modelConfig();
+        var generationConfig = tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults();
+        long oneChunkBytes = 16L * 16 * 1 * 64 * Float.BYTES * 2;
+        KvCacheMemoryBudget budget = new KvCacheMemoryBudget(oneChunkBytes * 2);
+        KVCacheManager.KVCacheSession session =
+                new KVCacheManager.KVCacheSession(512, new BlockManager(budget));
+
+        session.allocate(config, generationConfig);
+        assertEquals(oneChunkBytes, budget.reservedBytes());
+        assertEquals(1, session.blockManager().getAllocatedChunkCount());
+
+        session.ensureCapacity(257);
+
+        assertEquals(oneChunkBytes * 2, budget.reservedBytes());
+        assertEquals(2, session.blockManager().getAllocatedChunkCount());
+
+        session.close();
+        assertEquals(0, budget.reservedBytes());
+    }
+
+    @Test
     void estimatorRejectsOverflowAndInvalidDimensions() {
         assertThrows(IllegalArgumentException.class, () -> KvCacheMemoryEstimator.estimate(
                 0, 1, 1, 1, 16, BlockManager.KvStorageType.FP32, 0));
