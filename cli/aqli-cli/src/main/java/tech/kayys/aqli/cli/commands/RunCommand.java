@@ -24,7 +24,7 @@ import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
-import tech.kayys.aqli.onnx.runner.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
 import tech.kayys.aqli.onnx.runner.MossTtsOnnxGraphCatalog;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;

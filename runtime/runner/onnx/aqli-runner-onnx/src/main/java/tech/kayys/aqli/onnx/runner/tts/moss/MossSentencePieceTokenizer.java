@@ -1,4 +1,4 @@
-package tech.kayys.aqli.onnx.runner;
+package tech.kayys.aqli.onnx.runner.tts.moss;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
