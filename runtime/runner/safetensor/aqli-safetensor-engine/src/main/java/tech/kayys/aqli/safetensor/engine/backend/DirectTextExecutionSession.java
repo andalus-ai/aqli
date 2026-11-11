@@ -116,7 +116,7 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
 
     @Override
     public Uni<InferenceResponse> generate() {
-        return generateInternal();
+        return generateInternal().onTermination().invoke(this::close);
     }
 
     private Uni<InferenceResponse> generateInternal() {
@@ -182,7 +182,7 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
 
     @Override
     public Multi<InferenceResponse> generateStream() {
-        return generateStreamInternal();
+        return generateStreamInternal().onTermination().invoke(this::close);
     }
 
     private Multi<InferenceResponse> generateStreamInternal() {
