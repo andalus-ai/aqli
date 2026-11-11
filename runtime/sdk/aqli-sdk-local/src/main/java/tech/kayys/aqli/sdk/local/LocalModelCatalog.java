@@ -2,7 +2,6 @@ package tech.kayys.aqli.sdk.local;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,7 +50,7 @@ public class LocalModelCatalog {
                     "Model catalogue offset must be >= 0 and limit must be > 0.");
         }
 
-        List<AqliManifest> ordered = manifests.listAll().stream()
+        List<AqliManifest> ordered = readManifests().stream()
                 .filter(LocalModelCatalog::hasIdentity)
                 .sorted(CATALOG_ORDER)
                 .toList();
@@ -71,7 +70,7 @@ public class LocalModelCatalog {
         }
 
         String requested = identifier.trim();
-        List<AqliManifest> all = manifests.listAll().stream()
+        List<AqliManifest> all = readManifests().stream()
                 .filter(LocalModelCatalog::hasIdentity)
                 .toList();
 
@@ -117,6 +116,15 @@ public class LocalModelCatalog {
         return Optional.of(toModelInfo(newestRevision(nameMatches)));
     }
 
+    private List<AqliManifest> readManifests() throws SdkException {
+        try {
+            return manifests.listAll();
+        } catch (RuntimeException e) {
+            throw new SdkException("SDK_ERR_MODEL_CATALOG",
+                    "Unable to read the local model catalogue: " + e.getMessage(), e);
+        }
+    }
+
     private static AqliManifest requireUnambiguousPrefix(String prefix, List<AqliManifest> matches)
             throws SdkException {
         if (matches.size() > 1) {
@@ -157,7 +165,7 @@ public class LocalModelCatalog {
                 .modelId(modelId)
                 .shortId(manifest.getShortId())
                 .name(name)
-                .version(manifest.getRevision())
+                .version(revision(manifest))
                 .architecture(blankToNull(manifest.getArchitecture()))
                 .format(blankToNull(manifest.getFormat()))
                 .sizeBytes(sizeBytes > 0 ? sizeBytes : null)
@@ -187,7 +195,7 @@ public class LocalModelCatalog {
     }
 
     private static String revision(AqliManifest manifest) {
-        return manifest.getRevision() == null ? "" : manifest.getRevision();
+        return manifest.getRevision() == null || manifest.getRevision().isBlank() ? "main" : manifest.getRevision();
     }
 
     private static String manifestId(AqliManifest manifest) {
