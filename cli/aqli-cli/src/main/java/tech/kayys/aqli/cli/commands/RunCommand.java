@@ -71,7 +71,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
-import tech.kayys.aqli.cli.commands.audio.LivePcmAudioPlayer;
+import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
