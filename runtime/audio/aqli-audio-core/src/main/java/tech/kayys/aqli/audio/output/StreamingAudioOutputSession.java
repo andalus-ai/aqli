@@ -46,13 +46,24 @@ public final class StreamingAudioOutputSession implements AutoCloseable {
      */
     public Output finish() throws IOException {
         ensureOpen();
-        finished = true;
-        if (fileWriter != null) {
-            Path path = fileWriter.finish();
-            fileWriter = null;
-            return new FileOutput(path);
+        if (fileWriter == null) {
+            finished = true;
+            return new BufferedOutput(memory.toByteArray());
         }
-        return new BufferedOutput(memory.toByteArray());
+
+        try {
+            return new FileOutput(fileWriter.finish());
+        } catch (IOException | RuntimeException failure) {
+            try {
+                fileWriter.abort();
+            } catch (IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
+        } finally {
+            fileWriter = null;
+            finished = true;
+        }
     }
 
     private void ensureFileWriter(Path targetPath) throws IOException {
