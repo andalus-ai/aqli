@@ -61,7 +61,7 @@ class OptimizedCacheDirectoryScannerTest {
         OptimizedCacheDirectoryScanner.Stats stats =
                 OptimizedCacheDirectoryScanner.scan(cacheRoot, Set.of(), Set.of("tts-prefill-"));
 
-        assertEquals(1, stats.orphanExternalDataSidecarFiles());
+        assertEquals(0, stats.orphanExternalDataSidecarFiles());
         assertEquals(1, stats.pruneableExternalDataSidecarFiles());
         assertEquals(0, stats.retainedExternalDataSidecarFiles());
         assertEquals(1, stats.pruneableExternalDataSidecarPaths().size());

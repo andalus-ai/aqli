@@ -40,7 +40,7 @@ final class OptimizedCacheDirectoryScanner {
                     List.of(),
                     List.of());
         }
-                int fileCount = 0;
+        int fileCount = 0;
         int optimizedGraphFiles = 0;
         int currentOptimizedGraphFiles = 0;
         int staleOptimizedGraphFiles = 0;
@@ -93,7 +93,7 @@ final class OptimizedCacheDirectoryScanner {
         externalDataSidecarPaths.sort((left, right) -> left.getFileName().toString()
                 .compareTo(right.getFileName().toString()));
         List<Path> orphanSidecars = optimizedGraphFiles == 0 ? externalDataSidecarPaths : List.of();
-        return new OptimizedCacheDirectoryStats(
+        return new Stats(
                 root,
                 true,
                 fileCount,
