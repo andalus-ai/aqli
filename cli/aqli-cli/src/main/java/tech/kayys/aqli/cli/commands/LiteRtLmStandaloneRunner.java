@@ -274,7 +274,6 @@ public final class LiteRtLmStandaloneRunner {
                 .map(LiteRTRouteResolver.RouteMatch::path);
     }
 
-    static String canonicalModelIdentityKey(String value) {
     static Optional<Path> findIndexedLiteRtModelPath(String modelId) {
         return new LiteRTRouteResolver()
                 .resolve(null, modelId, modelIndexPath(), equivalentLiteRtFastPathEnabled())
