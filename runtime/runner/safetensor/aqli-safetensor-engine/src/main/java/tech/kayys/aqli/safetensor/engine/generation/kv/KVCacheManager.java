@@ -8,6 +8,7 @@ package tech.kayys.aqli.safetensor.engine.generation.kv;
 import tech.kayys.aqli.safetensor.engine.generation.attention.SharedKvState;
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aljabr.spi.model.ModelConfig;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,7 +32,10 @@ public class KVCacheManager {
             CLOSED
         }
 
+        private static final int MAX_PREALLOCATED_TOKENS = 4096;
+
         private final int maxSeqLen;
+        private final int maxSupportedTokens;
         private final BlockManager blockManager;
         private final Map<Integer, List<Integer>> blockTables = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -53,6 +57,7 @@ public class KVCacheManager {
                 throw new IllegalArgumentException("maxSeqLen must be positive");
             }
             this.maxSeqLen = maxSeqLen;
+            this.maxSupportedTokens = Math.min(maxSeqLen, MAX_PREALLOCATED_TOKENS);
             this.blockManager = Objects.requireNonNull(blockManager, "blockManager");
         }
 
@@ -82,10 +87,12 @@ public class KVCacheManager {
                             case NONE -> BlockManager.KvStorageType.FP32;
                         };
 
-                // Keep the initial reservation bounded; growth is handled by ensureCapacity.
-                int safeMaxTokens = Math.min(maxSeqLen, 4096);
+                // The current pool is one fixed reservation. Do not expose a larger
+                // token limit than this reservation can support.
                 int initialBlocks = Math.addExact(
-                        Math.multiplyExact(safeMaxTokens / tokensPerBlock, numLayers), 64);
+                        Math.multiplyExact(
+                                (maxSupportedTokens + tokensPerBlock - 1) / tokensPerBlock, numLayers),
+                        64);
 
                 blockManager.initialize(tokensPerBlock, numKVHeads, headDim, initialBlocks, storageType);
 
@@ -126,6 +133,46 @@ public class KVCacheManager {
             blockTables.get(layerIdx).add(block);
         }
 
+        private void growBlockTables(int requiredBlocks) {
+            List<BlockLease> acquired = new ArrayList<>();
+            try {
+                for (int layer = 0; layer < numLayers; layer++) {
+                    List<Integer> table = blockTables.get(layer);
+                    while (table.size() < requiredBlocks) {
+                        Integer block = blockManager.allocateBlock();
+                        if (block == null) {
+                            throw new IllegalStateException("KVCache: Out of physical blocks!");
+                        }
+                        table.add(block);
+                        acquired.add(new BlockLease(layer, block));
+                    }
+                }
+            } catch (RuntimeException | Error failure) {
+                for (int i = acquired.size() - 1; i >= 0; i--) {
+                    BlockLease lease = acquired.get(i);
+                    blockTables.get(lease.layer()).remove(Integer.valueOf(lease.block()));
+                    try {
+                        blockManager.freeBlock(lease.block());
+                    } catch (RuntimeException | Error rollbackFailure) {
+                        failure.addSuppressed(rollbackFailure);
+                    }
+                }
+                throw failure;
+            }
+        }
+
+        private void requireWithinCapacity(int requestedTokens) {
+            if (requestedTokens > maxSupportedTokens) {
+                throw new IllegalArgumentException(
+                        "Requested KV capacity " + requestedTokens + " exceeds session limit "
+                                + maxSupportedTokens + " tokens (configured maxSeqLen=" + maxSeqLen
+                                + ", current pool limit=" + MAX_PREALLOCATED_TOKENS + ")");
+            }
+        }
+
+        private record BlockLease(int layer, int block) {
+        }
+
         public synchronized List<Integer> getBlockTable(int layerIdx) {
             ensureNotClosed("getBlockTable");
             return blockTables.get(layerIdx);
@@ -138,14 +185,10 @@ public class KVCacheManager {
                 return;
             }
 
+            requireWithinCapacity(totalTokensNeeded);
             long required = ((long) totalTokensNeeded + tokensPerBlock - 1) / tokensPerBlock;
             int requiredBlocks = Math.toIntExact(required);
-            for (int layer = 0; layer < numLayers; layer++) {
-                List<Integer> table = blockTables.get(layer);
-                while (table.size() < requiredBlocks) {
-                    appendBlock(layer);
-                }
-            }
+            growBlockTables(requiredBlocks);
         }
 
         public synchronized void advance(int seqLen) {
@@ -154,20 +197,10 @@ public class KVCacheManager {
                 throw new IllegalArgumentException("seqLen must not be negative");
             }
 
-            int previousPosition = currentPos;
             int nextPosition = Math.addExact(currentPos, seqLen);
-            long previousBlocks = ((long) previousPosition + tokensPerBlock - 1) / tokensPerBlock;
-            long nextBlocks = ((long) nextPosition + tokensPerBlock - 1) / tokensPerBlock;
-
+            requireWithinCapacity(nextPosition);
+            ensureCapacity(nextPosition);
             currentPos = nextPosition;
-            for (int layer = 0; layer < numLayers; layer++) {
-                List<Integer> table = blockTables.get(layer);
-                for (long block = previousBlocks; block < nextBlocks; block++) {
-                    if (block >= table.size()) {
-                        appendBlock(layer);
-                    }
-                }
-            }
         }
 
         public synchronized int currentPos() {
@@ -206,10 +239,12 @@ public class KVCacheManager {
             if (table == null || tokenIdx < 0) {
                 return -1;
             }
-            int blockIndex = tokenIdx / tokensPerBlock;
-            while (blockIndex >= table.size()) {
-                appendBlock(layerIdx);
+            if (tokenIdx >= maxSupportedTokens) {
+                throw new IllegalArgumentException(
+                        "Token index " + tokenIdx + " exceeds KV session capacity " + maxSupportedTokens);
             }
+            ensureCapacity(Math.addExact(tokenIdx, 1));
+            int blockIndex = tokenIdx / tokensPerBlock;
             return table.get(blockIndex);
         }
 
