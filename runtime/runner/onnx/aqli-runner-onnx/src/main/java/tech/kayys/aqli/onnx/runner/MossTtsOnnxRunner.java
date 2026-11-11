@@ -2352,7 +2352,7 @@ public class MossTtsOnnxRunner {
                 digest.update(("arch=" + System.getProperty("os.arch", "") + "\n")
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 for (Path path : paths) {
-                    updateGraphIdentityDigest(digest, path.toAbsolutePath().normalize());
+                    MossTtsOnnxGraphResolver.updateGraphIdentityDigest(digest, path.toAbsolutePath().normalize());
                 }
                 return HexFormat.of().formatHex(digest.digest()).substring(0, 24);
             } catch (Exception e) {
