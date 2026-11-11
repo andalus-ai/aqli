@@ -2237,7 +2237,7 @@ public class RunCommand implements Runnable {
             return 1;
         }
 
-        Path manifestPath = ttsDir.get().resolve("browser_poc_manifest.json");
+        Path manifestPath = ttsDir.get().resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
         try {
             JsonNode manifest = new ObjectMapper().readTree(manifestPath.toFile());
             JsonNode voices = manifest.path("builtin_voices");
@@ -2900,14 +2900,15 @@ public class RunCommand implements Runnable {
         if (ttsDir.isEmpty()) {
             System.err.println();
             System.err.println("Error: resolved model is not a local MOSS TTS ONNX directory.");
-            System.err.println("Expected files: browser_poc_manifest.json and tts_browser_onnx_meta.json");
+            System.err.println("Expected files: " + MossTtsModelLayout.MANIFEST_FILE_NAME + " and "
+                    + MossTtsModelLayout.METADATA_FILE_NAME);
             return 1;
         }
 
         Path modelDir = ttsDir.get().toAbsolutePath().normalize();
         System.out.println("TTS directory: " + displayPath(modelDir));
-        Path manifestPath = modelDir.resolve("browser_poc_manifest.json");
-        Path ttsMetaPath = modelDir.resolve("tts_browser_onnx_meta.json");
+        Path manifestPath = modelDir.resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
+        Path ttsMetaPath = modelDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME);
         System.out.println("Manifest: " + diagnosticFileStatus(manifestPath));
         System.out.println("TTS metadata: " + diagnosticFileStatus(ttsMetaPath));
 
@@ -3046,8 +3047,8 @@ public class RunCommand implements Runnable {
         }
 
         Path modelDir = ttsDir.get().toAbsolutePath().normalize();
-        Path manifestPath = modelDir.resolve("browser_poc_manifest.json");
-        Path ttsMetaPath = modelDir.resolve("tts_browser_onnx_meta.json");
+        Path manifestPath = modelDir.resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
+        Path ttsMetaPath = modelDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME);
         Map<String, Object> tts = new LinkedHashMap<>();
         tts.put("directory", modelDir.toString());
         tts.put("manifest", diagnosticFileJson(manifestPath));

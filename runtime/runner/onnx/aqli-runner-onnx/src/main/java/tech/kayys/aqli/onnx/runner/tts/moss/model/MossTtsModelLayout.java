@@ -6,6 +6,8 @@ import java.util.Optional;
 
 /** Resolves and validates the on-disk layout of a local MOSS TTS ONNX model. */
 public final class MossTtsModelLayout {
+    public static final String MANIFEST_FILE_NAME = "browser_poc_manifest.json";
+    public static final String METADATA_FILE_NAME = "tts_browser_onnx_meta.json";
     private MossTtsModelLayout() {
     }
 
@@ -44,7 +46,7 @@ public final class MossTtsModelLayout {
 
     public static boolean isModelDirectory(Path path) {
         return path != null
-                && Files.isRegularFile(path.resolve("browser_poc_manifest.json"))
-                && Files.isRegularFile(path.resolve("tts_browser_onnx_meta.json"));
+                && Files.isRegularFile(path.resolve(MANIFEST_FILE_NAME))
+                && Files.isRegularFile(path.resolve(METADATA_FILE_NAME));
     }
 }
