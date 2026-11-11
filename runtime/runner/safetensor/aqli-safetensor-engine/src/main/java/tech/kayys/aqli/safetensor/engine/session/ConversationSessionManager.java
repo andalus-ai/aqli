@@ -55,7 +55,6 @@ package tech.kayys.aqli.safetensor.engine.session;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import io.quarkus.arc.Arc;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager.KVCacheSession;
 import tech.kayys.aqli.safetensor.engine.generation.paged.PagedKVSessionRegistry;
@@ -116,8 +115,9 @@ public class ConversationSessionManager {
     @Inject
     PagedKVSessionRegistry sessionRegistry;
 
-    /** Process-local shared conversation state. */
-    private static final ConcurrentHashMap<String, ConversationSession> SHARED_SESSIONS = new ConcurrentHashMap<>();
+    /** Sessions owned by this application-scoped manager instance. */
+    private final ConcurrentHashMap<String, ConversationSession> sessions = new ConcurrentHashMap<>();
+    private final Object lifecycleLock = new Object();
 
     private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "aqli-session-cleaner");
@@ -125,8 +125,8 @@ public class ConversationSessionManager {
         return t;
     });
 
-    private static final AtomicInteger TOTAL_CREATED = new AtomicInteger(0);
-    private static final AtomicInteger TOTAL_EXPIRED = new AtomicInteger(0);
+    private final AtomicInteger totalCreated = new AtomicInteger(0);
+    private final AtomicInteger totalExpired = new AtomicInteger(0);
 
     private PagedKVSessionRegistry sessionRegistry() {
         if (sessionRegistry != null) {
@@ -140,9 +140,6 @@ public class ConversationSessionManager {
                 }
             }
         } catch (Exception ignored) {
-        }
-        if (sessionRegistry == null) {
-            throw new IllegalStateException("PagedKVSessionRegistry is not available");
         }
         return sessionRegistry;
     }
@@ -162,7 +159,7 @@ public class ConversationSessionManager {
     @PreDestroy
     void stop() {
         cleaner.shutdownNow();
-        SHARED_SESSIONS.values().forEach(ConversationSession::close);
+        sessions.values().forEach(ConversationSession::close);
         SHARED_SESSIONS.clear();
     }
 
@@ -177,25 +174,58 @@ public class ConversationSessionManager {
      * @param modelKey  key identifying which model is loaded
      * @return the session if found, valid, and for the same model
      */
+    @Deprecated(forRemoval = false)
     public Optional<ConversationSession> find(String sessionId, String modelKey) {
-        if (sessionId == null || sessionId.isBlank())
-            return Optional.empty();
-        ConversationSession s = SHARED_SESSIONS.get(sessionId);
-        if (s == null)
-            return Optional.empty();
-        if (!s.modelKey().equals(modelKey)) {
-            log.debugf("Session %s found but model changed — discarding", sessionId);
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
+        if (sessionId == null || sessionId.isBlank()) {
             return Optional.empty();
         }
-        if (isExpired(s)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.get(sessionId);
+            if (session == null) {
+                return Optional.empty();
+            }
+            if (!session.modelKey().equals(modelKey) || isExpired(session) || session.isClosed()) {
+                if (sessions.remove(sessionId, session)) {
+                    session.close();
+                    if (!session.modelKey().equals(modelKey)) {
+                        log.debugf("Session %s found but model changed — discarding", sessionId);
+                    }
+                }
+                return Optional.empty();
+            }
+            session.touch();
+            return Optional.of(session);
+        }
+    }
+
+    /**
+     * Acquire a use lease that keeps the underlying KV cache alive until the
+     * caller closes the lease. Eviction removes the session from lookup
+     * immediately, but defers native KV release while leases remain active.
+     */
+    public Optional<SessionLease> acquire(String sessionId, String modelKey) {
+        if (sessionId == null || sessionId.isBlank()) {
             return Optional.empty();
         }
-        s.touch();
-        return Optional.of(s);
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.get(sessionId);
+            if (session == null) {
+                return Optional.empty();
+            }
+            if (!session.modelKey().equals(modelKey) || isExpired(session) || session.isClosed()) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                }
+                return Optional.empty();
+            }
+            SessionLease lease = session.tryAcquire();
+            if (lease == null) {
+                return Optional.empty();
+            }
+            session.touch();
+            return Optional.of(lease);
+        }
     }
 
     /**
@@ -206,47 +236,50 @@ public class ConversationSessionManager {
         if (sessionId == null || sessionId.isBlank()) {
             return ConversationExecutionState.noneRequested();
         }
-
-        ConversationSession s = SHARED_SESSIONS.get(sessionId);
-        if (s == null) {
-            return ConversationExecutionState.miss(
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.get(sessionId);
+            if (session == null) {
+                return ConversationExecutionState.miss(
+                        sessionId,
+                        modelKey,
+                        "No cached conversation execution state was found for the requested session");
+            }
+            if (!session.modelKey().equals(modelKey)) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                }
+                return ConversationExecutionState.modelMismatch(
+                        sessionId,
+                        modelKey,
+                        session.modelKey(),
+                        session.totalTokens(),
+                        toLongArray(session.tokenIds()),
+                        "Conversation session exists, but it belongs to a different model");
+            }
+            if (isExpired(session) || session.isClosed()) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                    totalExpired.incrementAndGet();
+                }
+                return ConversationExecutionState.expired(
+                        sessionId,
+                        modelKey,
+                        session.totalTokens(),
+                        toLongArray(session.tokenIds()),
+                        "Conversation session existed, but its cached execution state expired");
+            }
+            session.touch();
+            return ConversationExecutionState.hit(
                     sessionId,
                     modelKey,
-                    "No cached conversation execution state was found for the requested session");
+                    session.totalTokens(),
+                    toLongArray(session.tokenIds()),
+                    session.pendingReplayTokenId(),
+                    session.kvCache() != null,
+                    "Conversation session has active cached execution state");
         }
-
-        if (!s.modelKey().equals(modelKey)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
-            return ConversationExecutionState.modelMismatch(
-                    sessionId,
-                    modelKey,
-                    s.modelKey(),
-                    s.totalTokens(),
-                    toLongArray(s.tokenIds()),
-                    "Conversation session exists, but it belongs to a different model");
-        }
-
-        if (isExpired(s)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
-            return ConversationExecutionState.expired(
-                    sessionId,
-                    modelKey,
-                    s.totalTokens(),
-                    toLongArray(s.tokenIds()),
-                    "Conversation session existed, but its cached execution state expired");
-        }
-
-        s.touch();
-        return ConversationExecutionState.hit(
-                sessionId,
-                modelKey,
-                s.totalTokens(),
-                toLongArray(s.tokenIds()),
-                s.pendingReplayTokenId(),
-                s.kvCache() != null && !s.isClosed(),
-                "Conversation session has active cached execution state");
     }
 
     /**
@@ -261,21 +294,31 @@ public class ConversationSessionManager {
     public ConversationSession create(String sessionId, String modelKey,
             int[] prefixTokens,
             KVCacheSession kvCache) {
-        int sessionLimit = resolvedMaxSessions();
-        if (SHARED_SESSIONS.size() >= sessionLimit) {
-            evictOldest(SHARED_SESSIONS.size() - sessionLimit + 1);
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId must not be blank");
         }
+        Objects.requireNonNull(modelKey, "modelKey");
+        Objects.requireNonNull(prefixTokens, "prefixTokens");
+        synchronized (lifecycleLock) {
+            int sessionLimit = resolvedMaxSessions();
+            if (sessions.size() >= sessionLimit && !sessions.containsKey(sessionId)) {
+                evictOldestLocked(sessions.size() - sessionLimit + 1);
+            }
 
-        ConversationSession session = new ConversationSession(
-                sessionId, modelKey, prefixTokens, kvCache, Instant.now());
-        SHARED_SESSIONS.put(sessionId, session);
-        sessionRegistry().register(sessionId, null,
-                PagedKVSessionRegistry.SessionPriority.NORMAL);
-        TOTAL_CREATED.incrementAndGet();
+            ConversationSession session = new ConversationSession(
+                    sessionId, modelKey, prefixTokens, kvCache, Instant.now());
+            ConversationSession displaced = sessions.put(sessionId, session);
+            if (displaced != null) {
+                displaced.close();
+                deregister(sessionId);
+            }
+            register(sessionId);
+            totalCreated.incrementAndGet();
 
-        log.debugf("ConversationSession created: id=%s model=%s tokens=%d",
-                sessionId, modelKey, prefixTokens.length);
-        return session;
+            log.debugf("ConversationSession created: id=%s model=%s tokens=%d",
+                    sessionId, modelKey, prefixTokens.length);
+            return session;
+        }
     }
 
     /**
@@ -291,27 +334,28 @@ public class ConversationSessionManager {
             String sessionId,
             String modelKey,
             int[] allTokens,
-            KVCacheSession kvCache) {
-        return recordSnapshot(sessionId, modelKey, allTokens, kvCache, null);
-    }
-
-    public ConversationSession recordSnapshot(
-            String sessionId,
-            String modelKey,
-            int[] allTokens,
             KVCacheSession kvCache,
             Integer pendingReplayTokenId) {
-        ConversationSession existing = SHARED_SESSIONS.get(sessionId);
-        if (existing != null) {
-            existing.replaceTokens(allTokens);
-            existing.replaceKvCache(kvCache);
-            existing.replacePendingReplayTokenId(pendingReplayTokenId);
-            existing.touch();
-            return existing;
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId must not be blank");
         }
-        ConversationSession created = create(sessionId, modelKey, allTokens, kvCache);
-        created.replacePendingReplayTokenId(pendingReplayTokenId);
-        return created;
+        synchronized (lifecycleLock) {
+            ConversationSession existing = sessions.get(sessionId);
+            if (existing != null && existing.modelKey().equals(modelKey) && !existing.isClosed()) {
+                existing.replaceTokens(allTokens);
+                existing.replaceKvCache(kvCache);
+                existing.replacePendingReplayTokenId(pendingReplayTokenId);
+                existing.touch();
+                return existing;
+            }
+            if (existing != null && sessions.remove(sessionId, existing)) {
+                existing.close();
+                deregister(sessionId);
+            }
+            ConversationSession created = create(sessionId, modelKey, allTokens, kvCache);
+            created.replacePendingReplayTokenId(pendingReplayTokenId);
+            return created;
+        }
     }
 
     /**
@@ -321,80 +365,112 @@ public class ConversationSessionManager {
      * @param newTokens token IDs generated this turn (assistant + user combined)
      */
     public void extend(String sessionId, int[] newTokens) {
-        ConversationSession s = SHARED_SESSIONS.get(sessionId);
-        if (s == null)
-            return;
-
-        int maxTokens = resolvedMaxTokensPerSession();
-        if (s.totalTokens() + newTokens.length > maxTokens) {
-            log.infof("Session %s exceeded max tokens (%d) — truncating prefix",
-                    sessionId, maxTokens);
-            // Sliding window: drop oldest half of the context
-            s.truncateToHalf();
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.get(sessionId);
+            if (session == null || session.isClosed()) {
+                return;
+            }
+            int maxTokens = resolvedMaxTokensPerSession();
+            if (session.totalTokens() + newTokens.length > maxTokens) {
+                log.infof("Session %s exceeded max tokens (%d) — truncating prefix",
+                        sessionId, maxTokens);
+                session.truncateToHalf();
+            }
+            session.extend(newTokens);
+            session.touch();
         }
-
-        s.extend(newTokens);
-        s.touch();
     }
 
     /**
      * Explicitly close and remove a session.
      */
     public void close(String sessionId) {
-        ConversationSession s = SHARED_SESSIONS.remove(sessionId);
-        if (s != null) {
-            sessionRegistry().deregister(sessionId);
-            s.close();
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.remove(sessionId);
+            if (session != null) {
+                deregister(sessionId);
+                session.close();
+            }
         }
     }
 
     /** Number of active sessions. */
     public int activeSessions() {
-        return SHARED_SESSIONS.size();
+        return sessions.size();
     }
 
     /** Total sessions created since startup. */
     public int totalCreated() {
-        return TOTAL_CREATED.get();
+        return totalCreated.get();
     }
 
     /** Total sessions expired/evicted since startup. */
     public int totalExpired() {
-        return TOTAL_EXPIRED.get();
+        return totalExpired.get();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
 
     private void evictExpired() {
-        Instant cutoff = expirationCutoff();
-        int evicted = 0;
-        Iterator<Map.Entry<String, ConversationSession>> it = SHARED_SESSIONS.entrySet().iterator();
-        while (it.hasNext()) {
-            ConversationSession s = it.next().getValue();
-            if (s.lastAccessTime().isBefore(cutoff)) {
-                it.remove();
-                sessionRegistry().deregister(s.sessionId());
-                s.close();
-                evicted++;
+        synchronized (lifecycleLock) {
+            Instant cutoff = expirationCutoff();
+            int evicted = 0;
+            for (Map.Entry<String, ConversationSession> entry : sessions.entrySet()) {
+                ConversationSession session = entry.getValue();
+                if (session.lastAccessTime().isBefore(cutoff)
+                        && sessions.remove(entry.getKey(), session)) {
+                    deregister(entry.getKey());
+                    session.close();
+                    evicted++;
+                }
             }
-        }
-        if (evicted > 0) {
-            TOTAL_EXPIRED.addAndGet(evicted);
-            log.infof("ConversationSessionManager: evicted %d expired sessions", evicted);
+            if (evicted > 0) {
+                totalExpired.addAndGet(evicted);
+                log.infof("ConversationSessionManager: evicted %d expired sessions", evicted);
+            }
         }
     }
 
     private void evictOldest(int count) {
-        SHARED_SESSIONS.entrySet().stream()
+        synchronized (lifecycleLock) {
+            evictOldestLocked(count);
+        }
+    }
+
+    private void evictOldestLocked(int count) {
+        if (count <= 0) {
+            return;
+        }
+        int evicted = 0;
+        List<Map.Entry<String, ConversationSession>> oldest = sessions.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue(
                         Comparator.comparing(ConversationSession::lastAccessTime)))
                 .limit(count)
-                .forEach(e -> {
-                    SHARED_SESSIONS.remove(e.getKey());
-                    sessionRegistry().deregister(e.getKey());
-                    e.getValue().close();
-                });
-        TOTAL_EXPIRED.addAndGet(count);
+                .toList();
+        for (Map.Entry<String, ConversationSession> entry : oldest) {
+            if (sessions.remove(entry.getKey(), entry.getValue())) {
+                deregister(entry.getKey());
+                entry.getValue().close();
+                evicted++;
+            }
+        }
+        if (evicted > 0) {
+            totalExpired.addAndGet(evicted);
+        }
+    }
+
+    private void register(String sessionId) {
+        PagedKVSessionRegistry registry = sessionRegistry;
+        if (registry != null) {
+            registry.register(sessionId, null, PagedKVSessionRegistry.SessionPriority.NORMAL);
+        }
+    }
+
+    private void deregister(String sessionId) {
+        PagedKVSessionRegistry registry = sessionRegistry;
+        if (registry != null) {
+            registry.deregister(sessionId);
+        }
     }
 
     private boolean isExpired(ConversationSession s) {
@@ -425,6 +501,38 @@ public class ConversationSessionManager {
         return out;
     }
 
+    /**
+     * A temporary pin on a retained conversation session. Closing the manager
+     * entry does not release its native KV allocation until the final lease ends.
+     */
+    public static final class SessionLease implements AutoCloseable {
+        private final ConversationSession session;
+        private boolean released;
+
+        private SessionLease(ConversationSession session) {
+            this.session = session;
+        }
+
+        public ConversationSession session() {
+            synchronized (session) {
+                if (released) {
+                    throw new IllegalStateException("Conversation session lease is closed");
+                }
+                return session;
+            }
+        }
+
+        @Override
+        public void close() {
+            synchronized (session) {
+                if (!released) {
+                    released = true;
+                    session.releaseLease();
+                }
+            }
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // ConversationSession value type
     // ─────────────────────────────────────────────────────────────────────────
@@ -444,6 +552,10 @@ public class ConversationSessionManager {
         private volatile int[] tokenIds; // cumulative token IDs
         private volatile Integer pendingReplayTokenId;
         private volatile boolean closed = false;
+        private int activeLeases;
+        private boolean closeRequested;
+        private KVCacheSession pendingKvCache;
+        private boolean hasPendingKvCache;
 
         ConversationSession(String sessionId, String modelKey,
                 int[] initialTokens,
@@ -506,16 +618,42 @@ public class ConversationSessionManager {
             this.pendingReplayTokenId = pendingReplayTokenId;
         }
 
+        synchronized SessionLease tryAcquire() {
+            if (closeRequested) {
+                return null;
+            }
+            activeLeases++;
+            return new SessionLease(this);
+        }
+
+        synchronized void releaseLease() {
+            if (activeLeases <= 0) {
+                throw new IllegalStateException("Conversation session lease underflow");
+            }
+            activeLeases--;
+            if (activeLeases == 0) {
+                if (closeRequested) {
+                    closeKvCache();
+                } else if (hasPendingKvCache) {
+                    closeCurrentKvCache();
+                    kvCache = pendingKvCache;
+                    pendingKvCache = null;
+                    hasPendingKvCache = false;
+                }
+            }
+        }
+
         synchronized void replaceKvCache(KVCacheSession replacement) {
             if (this.kvCache == replacement) {
                 return;
             }
-            if (this.kvCache != null) {
-                try {
-                    this.kvCache.close();
-                } catch (Exception ignored) {
-                }
+            if (activeLeases > 0) {
+                // Do not invalidate a cache currently used by an inference turn.
+                pendingKvCache = replacement;
+                hasPendingKvCache = true;
+                return;
             }
+            closeCurrentKvCache();
             this.kvCache = replacement;
         }
 
@@ -542,21 +680,41 @@ public class ConversationSessionManager {
 
         @Override
         public synchronized void close() {
-            if (!closed) {
-                closed = true;
-                if (kvCache != null) {
-                    try {
-                        kvCache.close();
-                    } catch (Exception ignored) {
-                }
-                kvCache = null;
-                pendingReplayTokenId = null;
+            closeRequested = true;
+            if (activeLeases == 0) {
+                closeKvCache();
             }
         }
+
+        private void closeKvCache() {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            closeCurrentKvCache();
+            if (pendingKvCache != null && pendingKvCache != kvCache) {
+                try {
+                    pendingKvCache.close();
+                } catch (Exception ignored) {
+                }
+            }
+            pendingKvCache = null;
+            hasPendingKvCache = false;
+            pendingReplayTokenId = null;
         }
 
-        public boolean isClosed() {
-            return closed;
+        private void closeCurrentKvCache() {
+            if (kvCache != null) {
+                try {
+                    kvCache.close();
+                } catch (Exception ignored) {
+                }
+                kvCache = null;
+            }
+        }
+
+        public synchronized boolean isClosed() {
+            return closeRequested || closed;
         }
     }
 }
