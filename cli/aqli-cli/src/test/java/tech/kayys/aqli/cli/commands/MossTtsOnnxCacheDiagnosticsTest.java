@@ -31,7 +31,9 @@ class MossTtsOnnxCacheDiagnosticsTest {
     void collectsGraphWarmthSidecarsAndCurrentCacheInventory() throws Exception {
         Path modelDir = Files.createDirectories(tempDir.resolve("model"));
         Path codecDir = Files.createDirectories(tempDir.resolve("codec"));
-        Path cacheRoot = Files.createDirectories(tempDir.resolve("cache"));
+        Path configuredCacheRoot = tempDir.resolve("cache");
+        var cacheSettings = settings(configuredCacheRoot);
+        Path cacheRoot = Files.createDirectories(cacheSettings.optimizedGraphCacheRoot());
         write(modelDir, "tts_browser_onnx_meta.json",
                 """
                 {"files":{"prefill":"prefill.onnx","decode_step":"decode.onnx","local_fixed_sampled_frame":"sampler.onnx"}}
@@ -53,7 +55,7 @@ class MossTtsOnnxCacheDiagnosticsTest {
         Files.writeString(optimized, "optimized");
 
         var snapshot = MossTtsOnnxCacheDiagnostics.inspect(
-                modelDir, Optional.of(codecDir), settings(cacheRoot));
+                modelDir, Optional.of(codecDir), cacheSettings);
 
         assertTrue(snapshot.graphsAvailable());
         assertEquals(5, snapshot.graphs().size());
