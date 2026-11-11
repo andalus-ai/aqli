@@ -3155,10 +3155,11 @@ public class RunCommand implements Runnable {
             System.out.println("Threads: " + threads);
         }
         try {
-            MossTtsOnnxRunner runner = mossTtsWarmupRunner != null && !mossTtsWarmupRunner.isUnsatisfied()
-                    ? mossTtsWarmupRunner.get()
-                    : new MossTtsOnnxRunner();
-            MossTtsOnnxRunner.MossTtsWarmup warmup = runner.warmup(modelDir, codecPath, threads);
+            if (mossTtsWarmupRunner == null || mossTtsWarmupRunner.isUnsatisfied()) {
+                throw new IllegalStateException("MOSS TTS ONNX runner is not available in this runtime");
+            }
+            MossTtsOnnxRunner.MossTtsWarmup warmup =
+                    mossTtsWarmupRunner.get().warmup(modelDir, codecPath, threads);
             Map<String, Object> metadata = warmup.metadata();
             if (jsonMode) {
                 printMossTtsWarmupJson(modelId, modelDir, codecPath, threads, warmup, metadata);
