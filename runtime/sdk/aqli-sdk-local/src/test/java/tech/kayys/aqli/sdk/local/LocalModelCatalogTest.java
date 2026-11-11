@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;\nimport static org.mockito.Mockito.thenThrow;
+import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
