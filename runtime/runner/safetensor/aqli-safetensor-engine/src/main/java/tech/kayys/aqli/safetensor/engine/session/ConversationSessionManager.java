@@ -55,7 +55,6 @@ package tech.kayys.aqli.safetensor.engine.session;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import io.quarkus.arc.Arc;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager.KVCacheSession;
 import tech.kayys.aqli.safetensor.engine.generation.paged.PagedKVSessionRegistry;
@@ -129,22 +128,6 @@ public class ConversationSessionManager {
     private final AtomicInteger totalCreated = new AtomicInteger(0);
     private final AtomicInteger totalExpired = new AtomicInteger(0);
 
-    private PagedKVSessionRegistry sessionRegistry() {
-        if (sessionRegistry != null) {
-            return sessionRegistry;
-        }
-        try {
-            if (Arc.container() != null) {
-                var instance = Arc.container().instance(PagedKVSessionRegistry.class);
-                if (instance.isAvailable()) {
-                    sessionRegistry = instance.get();
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return sessionRegistry;
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
 
     @jakarta.annotation.PostConstruct
@@ -181,6 +164,7 @@ public class ConversationSessionManager {
      * @param modelKey  key identifying which model is loaded
      * @return the session if found, valid, and for the same model
      */
+    @Deprecated(forRemoval = false)
     public Optional<ConversationSession> find(String sessionId, String modelKey) {
         if (sessionId == null || sessionId.isBlank()) {
             return Optional.empty();
