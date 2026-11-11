@@ -25,6 +25,7 @@ import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.MossTtsOnnxGraphCatalog;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
@@ -3381,9 +3382,9 @@ public class RunCommand implements Runnable {
             Path cacheRoot) throws Exception {
         Set<Path> currentPaths = new java.util.HashSet<>();
         Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (MossTtsOnnxGraphResolver.Graph graph : MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecPath)) {
-            currentPaths.add(MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
-            currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+        for (MossTtsOnnxGraphCatalog.Graph graph : MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecPath)) {
+            currentPaths.add(MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
+            currentPrefixes.add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
         }
         return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
@@ -3594,12 +3595,12 @@ public class RunCommand implements Runnable {
         } else {
             try {
                 List<Map<String, Object>> graphItems = new ArrayList<>();
-                List<MossTtsOnnxGraphResolver.Graph> graphs = MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecDir.get());
+                List<MossTtsOnnxGraphCatalog.Graph> graphs = MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecDir.get());
                 int present = 0;
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
+                for (MossTtsOnnxGraphCatalog.Graph graph : graphs) {
+                    Path optimizedPath = MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot);
                     cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
                     boolean warm = Files.isRegularFile(optimizedPath);
                     if (warm) {
                         present++;
@@ -3610,7 +3611,7 @@ public class RunCommand implements Runnable {
                     item.put("source_path", graph.path().toAbsolutePath().normalize().toString());
                     item.put("optimized_path", optimizedPath.toAbsolutePath().normalize().toString());
                     item.put("optimized_file", optimizedPath.getFileName().toString());
-                    item.put("external_data_sidecars", MossTtsOnnxGraphResolver.externalDataSidecars(graph.path()).size());
+                    item.put("external_data_sidecars", MossTtsOnnxGraphCatalog.externalDataSidecars(graph.path()).size());
                     graphItems.add(item);
                 }
                 payload.put("graphs_available", true);
@@ -3663,12 +3664,12 @@ public class RunCommand implements Runnable {
             System.out.println("Optimized graph files: unavailable until companion codec is installed");
         } else {
             try {
-                List<MossTtsOnnxGraphResolver.Graph> graphs = MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecDir.get());
+                List<MossTtsOnnxGraphCatalog.Graph> graphs = MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecDir.get());
                 long present = 0L;
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
+                for (MossTtsOnnxGraphCatalog.Graph graph : graphs) {
+                    Path optimizedPath = MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot);
                     cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
                     if (Files.isRegularFile(optimizedPath)) {
                         present++;
                     }
@@ -3676,10 +3677,10 @@ public class RunCommand implements Runnable {
                 System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
                 System.out.println("Optimized graph files: " + present + "/" + graphs.size()
                         + (graphCacheEnabled ? " present" : " present but cache disabled"));
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
+                for (MossTtsOnnxGraphCatalog.Graph graph : graphs) {
+                    Path optimizedPath = MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot);
                     String status = Files.isRegularFile(optimizedPath) ? "warm" : "cold";
-                    int sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(graph.path()).size();
+                    int sidecars = MossTtsOnnxGraphCatalog.externalDataSidecars(graph.path()).size();
                     System.out.println("  " + graph.label() + ": " + status
                             + " -> " + optimizedPath.getFileName()
                             + (sidecars > 0 ? " (" + sidecars + " external data sidecars)" : ""));
