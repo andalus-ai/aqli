@@ -18,8 +18,6 @@ class MossAudioTokenizerModelLocatorTest {
     void prefersIndexedCodecLocation() throws Exception {
         Path indexed = Files.createDirectories(tempDir.resolve("indexed"));
         Files.writeString(indexed.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME), "{}");
-        Files.createDirectories(tempDir.resolve("other"))
-                .resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME);
         Files.writeString(tempDir.resolve("other")
                 .resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME), "{}");
 
