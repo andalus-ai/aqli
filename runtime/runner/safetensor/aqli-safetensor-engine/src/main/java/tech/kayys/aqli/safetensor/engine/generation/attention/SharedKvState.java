@@ -35,21 +35,34 @@ public class SharedKvState implements AutoCloseable {
     }
 
     public SharedKvState(AccelTensor key, AccelTensor value, KvCacheMemoryBudget memoryBudget) {
-        this.keyBuffer = Objects.requireNonNull(key, "key");
-        this.valueBuffer = Objects.requireNonNull(value, "value");
+        AccelTensor ownedKey = Objects.requireNonNull(key, "key");
+        AccelTensor ownedValue = Objects.requireNonNull(value, "value");
         this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
-        this.numHeads = Math.toIntExact(key.size(2));
-        this.headDim = Math.toIntExact(key.size(3));
-        this.lengthTokens = Math.toIntExact(key.size(1));
-        this.capacityTokens = lengthTokens;
+
+        int resolvedNumHeads;
+        int resolvedHeadDim;
+        int resolvedLengthTokens;
+        KvCacheMemoryBudget.Lease initialLease;
         try {
-            this.baseMemoryLease = reserveIfPositive(
-                    Math.addExact(key.dataSegment().byteSize(), value.dataSegment().byteSize()));
+            resolvedNumHeads = Math.toIntExact(ownedKey.size(2));
+            resolvedHeadDim = Math.toIntExact(ownedKey.size(3));
+            resolvedLengthTokens = Math.toIntExact(ownedKey.size(1));
+            long initialBytes = Math.addExact(
+                    ownedKey.dataSegment().byteSize(), ownedValue.dataSegment().byteSize());
+            initialLease = reserveIfPositive(initialBytes);
         } catch (RuntimeException | Error failure) {
-            closeIfOpen(keyBuffer);
-            closeIfOpen(valueBuffer);
+            closeIfOpen(ownedKey);
+            closeIfOpen(ownedValue);
             throw failure;
         }
+
+        this.keyBuffer = ownedKey;
+        this.valueBuffer = ownedValue;
+        this.numHeads = resolvedNumHeads;
+        this.headDim = resolvedHeadDim;
+        this.lengthTokens = resolvedLengthTokens;
+        this.capacityTokens = resolvedLengthTokens;
+        this.baseMemoryLease = initialLease;
     }
 
     public AccelTensor key() {
