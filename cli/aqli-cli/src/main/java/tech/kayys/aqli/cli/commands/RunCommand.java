@@ -25,6 +25,7 @@ import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.MossTtsOnnxGraphCatalog;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
@@ -75,6 +76,11 @@ import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
+import tech.kayys.aqli.audio.tts.moss.MossTtsCacheSettings;
+import tech.kayys.aqli.audio.tts.moss.MossTtsOnnxGraphResolver;
+import tech.kayys.aqli.audio.tts.moss.MossTtsOnnxCacheDiagnostics;
+import tech.kayys.aqli.audio.tts.moss.OptimizedCacheDirectoryScanner;
+import tech.kayys.aqli.audio.tts.moss.OptimizedCachePruner;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
@@ -105,7 +111,7 @@ public class RunCommand implements Runnable {
             "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
     private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
             "hf:" + MOSS_AUDIO_TOKENIZER_REPOSITORY;
-    private static final String MOSS_CODEC_META_FILE = "codec_browser_onnx_meta.json";
+    private static final String MOSS_CODEC_META_FILE = MossAudioTokenizerModelLayout.METADATA_FILE_NAME;
     private Map<String, Object> forcedExecutionRouteMetadata = Map.of();
 
     @ParentCommand
@@ -3087,7 +3093,7 @@ public class RunCommand implements Runnable {
     private Optional<Path> diagnosticCodecDirectory() {
         if (ttsCodec != null && !ttsCodec.isBlank()) {
             try {
-                return mossCodecDirectoryFrom(Path.of(resolveTtsCodecReference(ttsCodec)));
+                return MossAudioTokenizerModelLayout.directoryFrom(Path.of(resolveTtsCodecReference(ttsCodec)));
             } catch (Exception ignored) {
                 return Optional.empty();
             }
@@ -3369,9 +3375,9 @@ public class RunCommand implements Runnable {
             Path cacheRoot) throws Exception {
         Set<Path> currentPaths = new java.util.HashSet<>();
         Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (MossTtsOnnxGraphResolver.Graph graph : MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecPath)) {
-            currentPaths.add(MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
-            currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+        for (MossTtsOnnxGraphCatalog.Graph graph : MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecPath)) {
+            currentPaths.add(MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
+            currentPrefixes.add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
         }
         return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
@@ -4186,7 +4192,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             try {
                 Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(ref);
                 if (indexed.isPresent() && indexed.get().path != null) {
-                    Optional<Path> dir = mossCodecDirectoryFrom(Path.of(indexed.get().path));
+                    Optional<Path> dir = MossAudioTokenizerModelLayout.directoryFrom(Path.of(indexed.get().path));
                     if (dir.isPresent()) {
                         return dir;
                     }
@@ -4209,7 +4215,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
                     .sorted((left, right) -> left.toString().compareToIgnoreCase(right.toString()))
                     .toList();
             Optional<Path> official = codecDirs.stream()
-                    .filter(path -> pathLooksLikeMossAudioTokenizer(path))
+                    .filter(path -> MossAudioTokenizerModelLayout.looksLikeRepository(path, MOSS_AUDIO_TOKENIZER_REPOSITORY))
                     .findFirst();
             return official.isPresent() ? official : codecDirs.stream().findFirst();
         } catch (Exception ignored) {
@@ -4217,57 +4223,13 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
     }
 
-    private Optional<Path> mossCodecDirectoryFrom(Path path) {
-        if (path == null) {
-            return Optional.empty();
-        }
-        if (Files.isRegularFile(path)) {
-            if (path.getFileName().toString().equals(MOSS_CODEC_META_FILE)) {
-                return Optional.ofNullable(path.getParent());
-            }
-            Path parent = path.getParent();
-            return isMossAudioCodecDirectory(parent) ? Optional.of(parent) : Optional.empty();
-        }
-        if (isMossAudioCodecDirectory(path)) {
-            return Optional.of(path);
-        }
-        if (Files.isDirectory(path)) {
-            try (Stream<Path> walk = Files.walk(path, 6)) {
-                return walk.filter(Files::isRegularFile)
-                        .filter(file -> file.getFileName().toString().equals(MOSS_CODEC_META_FILE))
-                        .map(Path::getParent)
-                        .findFirst();
-            } catch (Exception ignored) {
-                return Optional.empty();
-            }
-        }
-        return Optional.empty();
-    }
 
-    private boolean isMossAudioCodecDirectory(Path path) {
-        return path != null && Files.isRegularFile(path.resolve(MOSS_CODEC_META_FILE));
-    }
 
-    private boolean pathLooksLikeMossAudioTokenizer(Path path) {
-        if (path == null) {
-            return false;
-        }
-        String normalizedPath = normalizeModelRef(path.toAbsolutePath().normalize().toString());
-        String normalizedRepo = normalizeModelRef(MOSS_AUDIO_TOKENIZER_REPOSITORY);
-        return normalizedPath.contains(normalizedRepo);
-    }
 
-    private String normalizeModelRef(String value) {
-        return value == null
-                ? ""
-                : value.toLowerCase(Locale.ROOT)
-                        .replace("\\", "/")
-                        .replace("__", "/")
-                        .replace("--", "/")
-                        .replaceAll("[^a-z0-9]+", "/")
-                        .replaceAll("/+", "/")
-                        .replaceAll("^/|/$", "");
-    }
+
+
+
+
 
     private void pullMossAudioCodecRepository() throws Exception {
         if (huggingFaceClient == null || huggingFaceClient.isUnsatisfied()) {

@@ -152,6 +152,11 @@ includeOptionalProject("quantizer:aqli-quantizer-gptq", "runtime/quantizer/aqli-
 includeOptionalProject("quantizer:aqli-quantizer-quip", "runtime/quantizer/aqli-quantizer-quip")
 includeOptionalProject("quantizer:aqli-quantizer-turboquant", "runtime/quantizer/aqli-quantizer-turboquant")
 
+// Capability modules
+includeOptionalProject("audio:aqli-audio-core", "runtime/audio/aqli-audio-core")
+includeOptionalProject("audio:tts:aqli-audio-tts", "runtime/audio/tts/aqli-audio-tts")
+includeOptionalProject("media:aqli-media-core", "runtime/media/aqli-media-core")
+
 // Optional runners and runtimes
 includeOptionalProject("runner:aqli-diffusion", "runtime/runner/aqli-diffusion")
 includeOptionalProject("runtime:aqli-runtime-core", "runtime/core/aqli-runtime-core")
