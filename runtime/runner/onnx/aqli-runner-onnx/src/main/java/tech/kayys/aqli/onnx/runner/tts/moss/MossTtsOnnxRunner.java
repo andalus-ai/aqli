@@ -210,7 +210,7 @@ public class MossTtsOnnxRunner {
         MossTtsCacheSettings cacheSettings = MossTtsCacheSettings.load();
         MossModelAssets assets = loadAssets(ttsDir, codecDir, cacheSettings);
         ensureOrtJavaNativeDependency();
-        OrtEnvironment env = OrtEnvironment.getEnvironment(ortLoggingLevel(), "aqli-moss-tts");
+        OrtEnvironment env = OrtEnvironment.getEnvironment(ortLoggingLevel(cacheSettings), "aqli-moss-tts");
         try (MossSessionLease lease = acquireSessions(env, ttsDir, codecDir, assets.ttsMeta(), assets.codecMeta(), threads, cacheSettings)) {
             MossSessions sessions = lease.sessions();
             sessions.codecDecode();
@@ -220,7 +220,7 @@ public class MossTtsOnnxRunner {
             metadata.put("runner", "moss-tts-onnx");
             metadata.put("effective_provider", "onnx");
             metadata.put("execution_backend", "onnxruntime-java");
-            metadata.put("onnx_log_level", ortLoggingLevelName());
+            metadata.put("onnx_log_level", ortLoggingLevelName(cacheSettings));
             metadata.put("onnx_warmup", true);
             metadata.put("onnx_warmup_duration_ms", durationMs);
             metadata.put("onnx_warmup_threads", Math.max(1, threads));
@@ -285,7 +285,7 @@ public class MossTtsOnnxRunner {
             cached = sessionCache.get(key);
             hit = cached != null;
             if (cached == null) {
-                MossSessions sessions = MossSessions.open(env, ttsDir, codecDir, ttsMeta, codecMeta, threads);
+                MossSessions sessions = MossSessions.open(env, ttsDir, codecDir, ttsMeta, codecMeta, threads, cacheSettings);
                 cached = new CachedMossSessions(key, sessions);
                 sessionCache.put(key, cached);
             }
@@ -2386,7 +2386,7 @@ public class MossTtsOnnxRunner {
                 }
             }
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-                configureSessionLogging(options);
+                configureSessionLogging(options, cacheSettings)
                 options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
                 options.setIntraOpNumThreads(Math.max(1, threads));
                 options.setInterOpNumThreads(1);
