@@ -167,6 +167,7 @@ class KvCacheMemoryBudgetTest {
     private static ModelConfig modelConfig() {
         ModelConfig config = new ModelConfig();
         config.setArchitectures(List.of("LlamaForCausalLM"));
+        config.overrideNumHiddenLayers(1);
         config.overrideNumAttentionHeads(1);
         config.overrideNumKeyValueHeads(1);
         config.overrideHeadDim(64);
