@@ -33,7 +33,7 @@ final class ImageMetadataSidecarStore {
             Files.createDirectories(parent);
         }
 
-        Map<String, Object> payload = new new LinkedHashMap<>()();
+        Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "aqli_image_metadata");
         payload.put("schema_version", 1);
         payload.put("created_at", Instant.now().toString());
@@ -55,7 +55,7 @@ final class ImageMetadataSidecarStore {
         payload.put("replay_args", request.replayArgs());
         payload.put("replay_command", request.replayCommand());
         payload.put("metadata", request.metadata() == null ? Map.of()
-                : new java.util.LinkedHashMap<>(request.metadata()));
+                : new LinkedHashMap<>(request.metadata()));
 
         Files.writeString(sidecarPath, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
         return new WriteResult(sidecarPath, false);
