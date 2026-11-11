@@ -2,6 +2,7 @@ package tech.kayys.aqli.onnx.runner.tts.moss.codec;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -32,6 +33,9 @@ public final class MossAudioTokenizerModelLayout {
                 return walk.filter(Files::isRegularFile)
                         .filter(file -> file.getFileName().toString().equals(METADATA_FILE_NAME))
                         .map(Path::getParent)
+                        .filter(parent -> parent != null)
+                        .distinct()
+                        .sorted(Comparator.comparing(Path::toString, String.CASE_INSENSITIVE_ORDER))
                         .findFirst();
             } catch (Exception ignored) {
                 return Optional.empty();
