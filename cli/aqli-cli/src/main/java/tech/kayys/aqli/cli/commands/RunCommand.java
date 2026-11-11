@@ -20,8 +20,8 @@ import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
-import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
-import tech.kayys.aqli.model.repo.local.AqliManifest;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
+
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
@@ -55,7 +55,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -126,9 +125,8 @@ public class RunCommand implements Runnable {
     @Inject
     DirectInferenceEngine directInferenceEngine;
     @Inject
-    Instance<HuggingFaceClient> huggingFaceClient;
+    Instance<HuggingFaceRepository> huggingFaceRepository;
     @Inject
-    Instance<ManifestStore> manifestStore;
     @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
 
@@ -4006,25 +4004,24 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             System.err.println("Run once online: aqli pull " + repoId);
             return null;
         }
-        if (huggingFaceClient == null || huggingFaceClient.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository downloader is not available in this runtime");
+        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
+            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
         }
 
         String revision = branch == null || branch.isBlank() ? "main" : branch.trim();
-        String manifestName = AqliManifest.computeName(repoId, revision);
-        Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
-        Files.createDirectories(targetDir);
-
         if (!ttsVoicesJsonOutput()) {
             System.out.println("Model not found locally; pulling hf:" + repoId
                     + ("main".equalsIgnoreCase(revision) ? "" : "@" + revision) + "...");
         }
-        HuggingFaceClient client = huggingFaceClient.get();
-        List<String> files = client.listFiles(repoId, revision);
-        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(files == null ? 0 : files.size())) {
-            client.downloadRepository(repoId, revision, targetDir, progress);
+        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(0)) {
+            huggingFaceRepository.get().pullRepository(
+                    repoId,
+                    revision,
+                    preferredFormat,
+                    null,
+                    Map.of("fallback", "automatic-run-huggingface-repository"),
+                    progress);
         }
-        saveRunHfDownloadManifest(repoId, targetDir, files, manifestName, revision, preferredFormat);
         LocalModelIndex.refreshFromDisk();
 
         Optional<LocalModelIndex.Entry> downloaded = findLocalIndexEntry(repoId, preferredFormat);
@@ -4066,47 +4063,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return hfRepoIdFromModelRef(requestedModel) != null
                 && !isCloudProviderName(requestedProvider)
                 && !isMcpProvider();
-    }
-
-    private void saveRunHfDownloadManifest(
-            String repoId,
-            Path targetDir,
-            List<String> files,
-            String manifestName,
-            String revision,
-            String preferredFormat) throws Exception {
-        ManifestStore store = manifestStore != null && !manifestStore.isUnsatisfied()
-                ? manifestStore.get()
-                : new ManifestStore();
-
-        String detectedFormat = ManifestStore.detectFormat(targetDir);
-        String manifestFormat = "unknown".equalsIgnoreCase(detectedFormat) && preferredFormat != null
-                ? preferredFormat
-                : detectedFormat;
-        AqliManifest manifest = new AqliManifest();
-        manifest.setId(manifestName);
-        manifest.setModelId(repoId);
-        manifest.setName(manifestName);
-        manifest.setFormat(manifestFormat);
-        manifest.setPipeline(files != null && files.stream().anyMatch(name -> name.endsWith("model_index.json")));
-        manifest.setSource("huggingface");
-        manifest.setRepository(repoId);
-        manifest.setBranch(revision == null || revision.isBlank() ? "main" : revision);
-        manifest.setBlobPath(targetDir.toAbsolutePath().toString());
-        manifest.setFiles(ManifestStore.listBlobFiles(targetDir));
-        manifest.setCreatedAt(Instant.now());
-        manifest.setSizeBytes(computePathSize(targetDir));
-        manifest.setArchitecture(ManifestStore.detectArchitecture(manifest));
-
-        Map<String, String> metadata = new LinkedHashMap<>();
-        metadata.put("fallback", "automatic-run-huggingface-repository");
-        metadata.put("format", manifestFormat != null ? manifestFormat : "unknown");
-        if (preferredFormat != null) {
-            metadata.put("preferred_format", preferredFormat);
-        }
-        manifest.setMetadata(metadata);
-
-        store.save(manifest);
     }
 
     private String ttsVoiceId(JsonNode voice) {
@@ -4263,72 +4219,18 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
 
     private void pullMossAudioCodecRepository() throws Exception {
-        if (huggingFaceClient == null || huggingFaceClient.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository downloader is not available in this runtime");
+        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
+            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
         }
 
-        String repoId = MOSS_AUDIO_TOKENIZER_REPOSITORY;
-        String manifestName = AqliManifest.computeName(repoId, "main");
-        Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
-        Files.createDirectories(targetDir);
-
-        HuggingFaceClient client = huggingFaceClient.get();
-        List<String> files = client.listFiles(repoId);
-        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(files.size())) {
-            client.downloadRepository(repoId, targetDir, progress);
-        }
-        saveMossAudioCodecManifest(repoId, targetDir, files, manifestName);
-    }
-
-    private void saveMossAudioCodecManifest(String repoId, Path targetDir, List<String> files, String manifestName)
-            throws Exception {
-        ManifestStore store = manifestStore != null && !manifestStore.isUnsatisfied()
-                ? manifestStore.get()
-                : new ManifestStore();
-
-        String format = ManifestStore.detectFormat(targetDir);
-        AqliManifest manifest = new AqliManifest();
-        manifest.setId(manifestName);
-        manifest.setModelId(repoId);
-        manifest.setName(manifestName);
-        manifest.setFormat(format);
-        manifest.setPipeline(files != null && files.stream().anyMatch(name -> name.endsWith("model_index.json")));
-        manifest.setSource("huggingface");
-        manifest.setRepository(repoId);
-        manifest.setBranch("main");
-        manifest.setBlobPath(targetDir.toAbsolutePath().toString());
-        manifest.setFiles(ManifestStore.listBlobFiles(targetDir));
-        manifest.setCreatedAt(Instant.now());
-        manifest.setSizeBytes(computePathSize(targetDir));
-        manifest.setArchitecture("moss-audio-tokenizer");
-        manifest.setMetadata(Map.of(
-                "fallback", "automatic-moss-tts-codec",
-                "format", format != null ? format : "unknown"));
-
-        store.save(manifest);
-    }
-
-    private long computePathSize(Path path) {
-        if (path == null || !Files.exists(path)) {
-            return 0L;
-        }
-        try {
-            if (Files.isRegularFile(path)) {
-                return Files.size(path);
-            }
-            try (Stream<Path> walk = Files.walk(path)) {
-                return walk.filter(Files::isRegularFile)
-                        .mapToLong(file -> {
-                            try {
-                                return Files.size(file);
-                            } catch (Exception ignored) {
-                                return 0L;
-                            }
-                        })
-                        .sum();
-            }
-        } catch (Exception ignored) {
-            return 0L;
+        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(0)) {
+            huggingFaceRepository.get().pullRepository(
+                    MOSS_AUDIO_TOKENIZER_REPOSITORY,
+                    "main",
+                    null,
+                    "moss-audio-tokenizer",
+                    Map.of("fallback", "automatic-moss-tts-codec"),
+                    progress);
         }
     }
 
@@ -4360,7 +4262,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         private long lastRedrawNanos;
 
         private CodecPullProgressRenderer(int totalFiles) {
-            this.totalFiles = Math.max(1, totalFiles);
+            this.totalFiles = Math.max(0, totalFiles);
         }
 
         @Override
@@ -4384,15 +4286,17 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             double speed = mbDone / elapsedSec;
             String spin = SPINNER[spinnerTick++ % SPINNER.length];
 
-            System.out.printf("\r%s [%-30s] %3d%% %.1f/%.1f MB %.1f MB/s file %d/%d",
+            String fileProgress = totalFiles > 0
+                    ? (Math.min(completedFiles + 1, totalFiles) + "/" + totalFiles)
+                    : Integer.toString(completedFiles + 1);
+            System.out.printf("\r%s [%-30s] %3d%% %.1f/%.1f MB %.1f MB/s file %s",
                     spin,
                     bar,
                     (int) Math.round(pct * 100.0),
                     mbDone,
                     mbTotal,
                     speed,
-                    Math.min(completedFiles + 1, totalFiles),
-                    totalFiles);
+                    fileProgress);
             System.out.flush();
         }
 
@@ -4400,10 +4304,12 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         public synchronized void onComplete(long totalBytes) {
             completedFiles++;
             fileStartNanos = System.nanoTime();
-            System.out.printf("\r* [%-30s] 100%% file %d/%d done%n",
+            String fileProgress = totalFiles > 0
+                    ? (Math.min(completedFiles, totalFiles) + "/" + totalFiles)
+                    : Integer.toString(completedFiles);
+            System.out.printf("\r* [%-30s] 100%% file %s done%n",
                     "==============================",
-                    Math.min(completedFiles, totalFiles),
-                    totalFiles);
+                    fileProgress);
             System.out.flush();
         }
 
