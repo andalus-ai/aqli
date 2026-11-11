@@ -2222,7 +2222,7 @@ public class RunCommand implements Runnable {
     }
 
     private int printTtsVoices(String modelId, String finalLocalPath) {
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             System.err.println("Error: --list-voices is only available for local MOSS TTS ONNX model directories.");
             System.err.println("Resolved model path: " + (finalLocalPath == null || finalLocalPath.isBlank()
@@ -2961,7 +2961,7 @@ public class RunCommand implements Runnable {
         System.out.println("Requested model: " + nullToDash(modelId));
         System.out.println("Resolved path: " + nullToDash(finalLocalPath));
 
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             System.err.println();
             System.err.println("Error: resolved model is not a local MOSS TTS ONNX directory.");
@@ -3102,7 +3102,7 @@ public class RunCommand implements Runnable {
         payload.put("requested_model", modelId);
         payload.put("resolved_path", finalLocalPath);
 
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             payload.put("status", "attention_needed");
             payload.put("error", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3201,7 +3201,7 @@ public class RunCommand implements Runnable {
             System.out.println("MOSS TTS warmup");
             System.out.println("==============");
         }
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_warmup", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3283,7 +3283,7 @@ public class RunCommand implements Runnable {
 
     private int pruneMossTtsOptimizedCache(String modelId, String finalLocalPath) {
         boolean dryRun = !ttsCachePruneApply;
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_cache_prune", "resolved model is not a local MOSS TTS ONNX directory");
@@ -4107,7 +4107,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         if (ttsCodec != null && !ttsCodec.isBlank()) {
             return true;
         }
-        if (resolveMossTtsDirectory(finalLocalPath, modelId).isEmpty()) {
+        if (MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId).isEmpty()) {
             return true;
         }
         Optional<Path> installedCodec = findInstalledMossAudioCodecDir();
