@@ -56,7 +56,23 @@ public final class MossTtsOnnxGraphResolver {
         String fingerprint = optimizedModelFingerprint(
                 modelPath.toAbsolutePath().normalize(), externalDataSidecars);
         String filename = cacheFilenamePrefix(modelPath) + fingerprint.substring(0, 16) + ".optimized.onnx";
-        return cacheRoot.resolve(filename);
+        return cacheScopeDirectory(modelPath, cacheRoot).resolve(filename);
+    }
+
+    /**
+     * Gives each source directory an isolated cache namespace. ONNX external-data
+     * locations are relative to the optimized graph, so sidecars with identical
+     * filenames from different model directories must not share one cache directory.
+     */
+    public static Path cacheScopeDirectory(Path modelPath, Path cacheRoot) throws Exception {
+        Path sourceDirectory = modelPath.toAbsolutePath().normalize().getParent();
+        String identity = sourceDirectory == null
+                ? modelPath.toAbsolutePath().normalize().toString()
+                : sourceDirectory.toRealPath().toString();
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String scope = HexFormat.of().formatHex(digest.digest()).substring(0, 24);
+        return cacheRoot.resolve("source-" + scope);
     }
 
     public static String cacheFilenamePrefix(Path modelPath) {

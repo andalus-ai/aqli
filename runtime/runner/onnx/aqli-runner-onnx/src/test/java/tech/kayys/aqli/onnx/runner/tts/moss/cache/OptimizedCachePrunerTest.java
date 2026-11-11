@@ -67,6 +67,22 @@ class OptimizedCachePrunerTest {
     }
 
     @Test
+    void applyDeletesStaleGraphsAndSidecarsInsideASourceScopedDirectory() throws Exception {
+        Path cache = Files.createDirectory(tempDir.resolve("cache"));
+        Path sourceScope = Files.createDirectory(cache.resolve("source-model"));
+        Path staleGraph = Files.writeString(sourceScope.resolve("tts-old.optimized.onnx"), "graph");
+        Path sidecar = Files.writeString(sourceScope.resolve("weights.data"), "data");
+        var inventory = OptimizedCacheDirectoryScanner.scan(cache, Set.of(), Set.of("tts-"));
+
+        var operations = OptimizedCachePruner.prune(inventory, false);
+
+        assertEquals(2, operations.size());
+        assertTrue(operations.stream().allMatch(OptimizedCachePruner.Operation::deleted));
+        assertFalse(Files.exists(staleGraph));
+        assertFalse(Files.exists(sidecar));
+    }
+
+    @Test
     void refusesInventoryEntriesOutsideTheScannedCacheRoot() throws Exception {
         Path cache = Files.createDirectory(tempDir.resolve("cache"));
         Path outside = Files.writeString(tempDir.resolve("important.optimized.onnx"), "keep");

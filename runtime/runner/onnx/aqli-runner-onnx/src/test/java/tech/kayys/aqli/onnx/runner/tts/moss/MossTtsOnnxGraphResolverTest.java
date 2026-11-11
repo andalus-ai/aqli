@@ -72,6 +72,24 @@ class MossTtsOnnxGraphResolverTest {
     }
 
     @Test
+    void isolatesOptimizedGraphsAndSidecarsFromDifferentSourceDirectories() throws Exception {
+        Path firstSource = Files.createDirectory(tempDir.resolve("first-model"));
+        Path secondSource = Files.createDirectory(tempDir.resolve("second-model"));
+        Path firstGraph = Files.writeString(firstSource.resolve("moss_tts_prefill.onnx"), "graph-a");
+        Path secondGraph = Files.writeString(secondSource.resolve("moss_tts_prefill.onnx"), "graph-b");
+        Files.writeString(firstSource.resolve("weights.data"), "weights-a");
+        Files.writeString(secondSource.resolve("weights.data"), "weights-b");
+        Path cache = tempDir.resolve("cache");
+
+        Path first = MossTtsOnnxGraphResolver.optimizedCachePath(firstGraph, cache);
+        Path second = MossTtsOnnxGraphResolver.optimizedCachePath(secondGraph, cache);
+
+        assertNotEquals(first.getParent(), second.getParent());
+        assertEquals("weights.data", first.getParent().resolve("weights.data").getFileName().toString());
+        assertEquals("weights.data", second.getParent().resolve("weights.data").getFileName().toString());
+    }
+
+    @Test
     void preResolvedSidecarsProduceTheSameOptimizedCacheIdentity() throws Exception {
         Path source = Files.createDirectory(tempDir.resolve("pre-resolved"));
         Path graph = Files.writeString(source.resolve("model.onnx"), "graph");

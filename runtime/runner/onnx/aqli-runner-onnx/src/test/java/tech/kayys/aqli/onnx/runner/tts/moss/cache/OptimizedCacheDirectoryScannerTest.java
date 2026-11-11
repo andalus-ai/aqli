@@ -53,6 +53,25 @@ class OptimizedCacheDirectoryScannerTest {
     }
 
     @Test
+    void inventoriesOptimizedGraphsAndSidecarsInSourceScopedDirectories() throws Exception {
+        Path cacheRoot = Files.createDirectory(tempDir.resolve("cache"));
+        Path sourceScope = Files.createDirectory(cacheRoot.resolve("source-model"));
+        Path current = Files.writeString(sourceScope.resolve("tts-prefill-current.optimized.onnx"), "current");
+        Path sidecar = Files.writeString(sourceScope.resolve("weights.data"), "data");
+
+        OptimizedCacheDirectoryScanner.Stats stats =
+                OptimizedCacheDirectoryScanner.scan(
+                        cacheRoot,
+                        Set.of(current.toAbsolutePath().normalize()),
+                        Set.of("tts-prefill-"));
+
+        assertEquals(2, stats.fileCount());
+        assertEquals(1, stats.currentOptimizedGraphFiles());
+        assertEquals(1, stats.externalDataSidecarFiles());
+        assertEquals(sidecar.toAbsolutePath().normalize(), stats.externalDataSidecarPaths().get(0));
+    }
+
+    @Test
     void marksSidecarsPruneableOnlyWhenNoOptimizedGraphsRemainAfterStaleCleanup() throws Exception {
         Path cacheRoot = Files.createDirectory(tempDir.resolve("cache"));
         Files.writeString(cacheRoot.resolve("tts-prefill-old.optimized.onnx"), "stale");

@@ -38,8 +38,15 @@ public final class OptimizedCachePruner {
             case "external_data_sidecar" -> ".data";
             default -> null;
         };
+        Path relative = cacheRoot.relativize(candidate);
+        boolean supportedDepth = relative.getNameCount() == 1 || relative.getNameCount() == 2;
+        boolean supportedParent = relative.getNameCount() == 1
+                || (relative.getNameCount() == 2
+                        && Files.isDirectory(candidate.getParent(), LinkOption.NOFOLLOW_LINKS));
         if (requiredSuffix == null
-                || !cacheRoot.equals(candidate.getParent())
+                || !candidate.startsWith(cacheRoot)
+                || !supportedDepth
+                || !supportedParent
                 || !candidate.getFileName().toString().endsWith(requiredSuffix)) {
             return refused(kind, candidate, "refused to prune a path outside the cache inventory");
         }
