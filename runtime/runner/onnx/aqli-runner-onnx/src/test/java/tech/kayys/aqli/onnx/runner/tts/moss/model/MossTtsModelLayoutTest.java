@@ -40,7 +40,7 @@ class MossTtsModelLayoutTest {
         Files.writeString(model.resolve("browser_poc_manifest.json"), "{}");
         Files.writeString(model.resolve("tts_browser_onnx_meta.json"), "{}");
 
-        assertEquals(model, MossTtsModelLayout.resolveDirectory("invalid path \\0", model.toString()).orElseThrow());
+        assertEquals(model, MossTtsModelLayout.resolveDirectory("not-a-model-path", model.toString()).orElseThrow());
         assertEquals(model, MossTtsModelLayout.resolveDirectory(null, model.toString()).orElseThrow());
     }
 
