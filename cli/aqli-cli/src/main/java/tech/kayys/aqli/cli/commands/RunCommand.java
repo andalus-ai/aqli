@@ -77,7 +77,7 @@ import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
-import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
+import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxCacheDiagnostics;
@@ -1522,7 +1522,7 @@ public class RunCommand implements Runnable {
                 requestProcessExit();
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
-                StreamingAudioOutput audioOutput = new StreamingAudioOutput();
+                StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
                 LivePcmAudioSink liveAudioSink = new LivePcmAudioSink(liveAudio);
                 CountDownLatch latch = new CountDownLatch(1);
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
@@ -1633,7 +1633,7 @@ public class RunCommand implements Runnable {
                                                     fallbackError -> {
                                                         // fallback failed -> close sinks and report
                                                         liveAudioSink.close();
-                                                        audioOutput.closeQuietly();
+                                                        closeAudioOutputQuietly(audioOutput);
                                                         fallbackStreamFailed.set(true);
                                                         uiRenderer.printError(fallbackError == null ? "Fallback stream failed" : fallbackError.getMessage(), false);
                                                         printProviderHintFromError(fallbackError);
@@ -1656,7 +1656,7 @@ public class RunCommand implements Runnable {
                                                     });
                                         } catch (Throwable fallbackStartErr) {
                                             liveAudioSink.close();
-                                            audioOutput.closeQuietly();
+                                            closeAudioOutputQuietly(audioOutput);
                                             streamFailed.set(true);
                                             uiRenderer.printError(fallbackStartErr.getMessage(), false);
                                             printProviderHintFromError(fallbackStartErr);
@@ -1670,7 +1670,7 @@ public class RunCommand implements Runnable {
 
                                 // No fallback available or fallback already attempted: close resources and finish
                                 liveAudioSink.close();
-                                audioOutput.closeQuietly();
+                                closeAudioOutputQuietly(audioOutput);
                                 streamFailed.set(true);
                                 uiRenderer.printError(error == null ? "Stream failed" : error.getMessage(), false);
                                 printProviderHintFromError(error);
@@ -1725,7 +1725,7 @@ public class RunCommand implements Runnable {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     liveAudioSink.close();
-                    audioOutput.closeQuietly();
+                    closeAudioOutputQuietly(audioOutput);
                     streamFailed.set(true);
                 }
                 requestProcessExit(streamFailed.get() ? 1 : 0);
@@ -5393,17 +5393,46 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
     private void handleOutputs(
             java.io.ByteArrayOutputStream imageBuffer,
-            StreamingAudioOutput audioOutput,
+            StreamingAudioOutputSession audioOutput,
             Map<String, Object> metadata) {
         if (imageBuffer.size() > 0) saveBuffer(imageBuffer, "png", "Image", metadata);
-        if (audioOutput != null && audioOutput.hasOutput()) {
-            audioOutput.finish(metadata);
+        if (audioOutput == null || !audioOutput.hasOutput()) {
+            return;
+        }
+        try {
+            StreamingAudioOutputSession.Output output = audioOutput.finish();
+            if (output instanceof StreamingAudioOutputSession.FileOutput fileOutput) {
+                Path savedPath = fileOutput.path();
+                System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
+                        + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
+                printAudioDetails(metadata);
+                maybeWriteAudioMetadataSidecar(savedPath, metadata);
+                autoOpenAudio(savedPath);
+            } else if (output instanceof StreamingAudioOutputSession.BufferedOutput bufferedOutput) {
+                java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
+                memory.write(bufferedOutput.bytes());
+                saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
+            }
+        } catch (Exception e) {
+            System.err.println("\\nFailed to save audio: " + e.getMessage());
+            closeAudioOutputQuietly(audioOutput);
+        }
+    }
+
+    private void closeAudioOutputQuietly(StreamingAudioOutputSession audioOutput) {
+        if (audioOutput == null) {
+            return;
+        }
+        try {
+            audioOutput.close();
+        } catch (Exception ignored) {
+            // Best-effort cleanup after a failed or interrupted stream.
         }
     }
 
     private void handleAudioChunk(
             StreamingInferenceChunk chunk,
-            StreamingAudioOutput encodedAudioOutput,
+            StreamingAudioOutputSession encodedAudioOutput,
             LivePcmAudioSink liveAudioSink) {
         if (chunk == null || chunk.getDelta() == null) {
             return;
@@ -5414,7 +5443,9 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
                 liveAudioSink.write(decoded, chunk.metadata());
                 return;
             }
-            encodedAudioOutput.write(decoded, chunk.metadata());
+            boolean streamToFile = shouldStreamEncodedAudioToFile(chunk.metadata());
+            Path targetPath = streamToFile ? resolveAudioOutputPath(chunk.metadata()) : null;
+            encodedAudioOutput.write(decoded, streamToFile, targetPath);
         } catch (Exception ignored) {
         }
     }
@@ -5462,102 +5493,12 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
     }
 
-    private final class StreamingAudioOutput implements AutoCloseable {
-        private final java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
-        private StreamingAudioFileWriter fileWriter;
-        private long bytes;
-        private boolean finished;
-
-        void write(byte[] chunk, Map<String, Object> metadata) throws java.io.IOException {
-            if (chunk == null || chunk.length == 0) {
-                return;
-            }
-            if (shouldStreamEncodedAudioToFile(metadata)) {
-                ensureFile(metadata);
-                fileWriter.write(chunk);
-            } else {
-                memory.write(chunk);
-            }
-            bytes += chunk.length;
-        }
-
-        boolean hasOutput() {
-            return bytes > 0 || memory.size() > 0 || fileWriter != null;
-        }
-
-        void finish(Map<String, Object> metadata) {
-            if (finished) {
-                return;
-            }
-            finished = true;
-            try {
-                if (fileWriter != null) {
-                    Path savedPath = fileWriter.finish();
-                    fileWriter = null;
-                    System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
-                            + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
-                    printAudioDetails(metadata);
-                    maybeWriteAudioMetadataSidecar(savedPath, metadata);
-                    autoOpenAudio(savedPath);
-                    return;
-                }
-                if (memory.size() > 0) {
-                    saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
-                }
-            } catch (Exception e) {
-                System.err.println("\nFailed to save audio: " + e.getMessage());
-                cleanupTemp();
-            }
-        }
-
-        private void ensureFile(Map<String, Object> metadata) throws java.io.IOException {
-            if (fileWriter != null) {
-                return;
-            }
-            fileWriter = new StreamingAudioFileWriter(resolveAudioOutputPath(metadata));
-            fileWriter.open();
-            if (memory.size() > 0) {
-                fileWriter.write(memory.toByteArray());
-                memory.reset();
-            }
-        }
-
-        private Path resolveAudioOutputPath(Map<String, Object> metadata) {
-            MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
-                    new MediaOutputPathResolver.Request(
-                            outputPath, extension, audioDefaultExtension(metadata), true));
-            warnIfAudioExtensionWasOverridden(output);
-            return output.path();
-        }
-
-        private void cleanupTemp() {
-            if (fileWriter == null) {
-                return;
-            }
-            try {
-                fileWriter.abort();
-            } catch (Exception ignored) {
-            } finally {
-                fileWriter = null;
-            }
-        }
-
-        void closeQuietly() {
-            try {
-                close();
-            } catch (Exception ignored) {
-            }
-            if (!finished) {
-                cleanupTemp();
-            }
-        }
-
-        @Override
-        public void close() throws java.io.IOException {
-            if (fileWriter != null) {
-                fileWriter.close();
-            }
-        }
+    private Path resolveAudioOutputPath(Map<String, Object> metadata) {
+        MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
+                new MediaOutputPathResolver.Request(
+                        outputPath, extension, audioDefaultExtension(metadata), true));
+        warnIfAudioExtensionWasOverridden(output);
+        return output.path();
     }
 
     private static boolean shouldStreamEncodedAudioToFile(Map<String, Object> metadata) {
