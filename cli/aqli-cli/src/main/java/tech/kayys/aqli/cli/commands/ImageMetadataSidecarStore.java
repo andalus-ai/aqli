@@ -3,6 +3,9 @@ package tech.kayys.aqli.cli.commands;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,7 +33,7 @@ final class ImageMetadataSidecarStore {
             Files.createDirectories(parent);
         }
 
-        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        Map<String, Object> payload = new new LinkedHashMap<>()();
         payload.put("type", "aqli_image_metadata");
         payload.put("schema_version", 1);
         payload.put("created_at", Instant.now().toString());
@@ -51,7 +54,7 @@ final class ImageMetadataSidecarStore {
         addParameter(payload, "height", request.height());
         payload.put("replay_args", request.replayArgs());
         payload.put("replay_command", request.replayCommand());
-        payload.put("metadata", request.metadata() == null ? java.util.Map.of()
+        payload.put("metadata", request.metadata() == null ? Map.of()
                 : new java.util.LinkedHashMap<>(request.metadata()));
 
         Files.writeString(sidecarPath, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
@@ -174,7 +177,7 @@ final class ImageMetadataSidecarStore {
             Object guidanceScale,
             Object width,
             Object height,
-            java.util.List<String> replayArgs,
+            List<String> replayArgs,
             String replayCommand,
             java.util.Map<String, Object> metadata) {
     }
