@@ -4,7 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import tech.kayys.aqli.sdk.config.SdkConfig;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 
 /** CDI composition point for local SDK instances. */
@@ -22,7 +22,7 @@ public class LocalAqliSdkFactory {
 
     @Produces
     @ApplicationScoped
-    public AqliSdk defaultSdk() {
+    public AqliRuntime defaultSdk() {
         return create(null);
     }
 
