@@ -69,12 +69,9 @@ import java.util.function.Consumer;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.audio.LivePcmAudioPlayer;
 import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
@@ -1524,7 +1521,7 @@ public class RunCommand implements Runnable {
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
                 StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
-                LivePcmAudioSink liveAudioSink = new LivePcmAudioSink(liveAudio);
+                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(liveAudio);
                 CountDownLatch latch = new CountDownLatch(1);
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
                 java.util.concurrent.atomic.AtomicBoolean streamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -5434,7 +5431,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
     private void handleAudioChunk(
             StreamingInferenceChunk chunk,
             StreamingAudioOutputSession encodedAudioOutput,
-            LivePcmAudioSink liveAudioSink) {
+            LivePcmAudioPlayer liveAudioSink) {
         if (chunk == null || chunk.getDelta() == null) {
             return;
         }
@@ -5888,89 +5885,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         MediaOutputOpener.openAudio(audioPath);
     }
 
-    private static final class LivePcmAudioSink implements AutoCloseable {
-        private final boolean enabled;
-        private SourceDataLine line;
-        private AudioFormat format;
-        private boolean warned;
-
-        private LivePcmAudioSink(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        void write(byte[] pcm, Map<String, Object> metadata) {
-            if (!enabled || pcm == null || pcm.length == 0) {
-                return;
-            }
-            try {
-                ensureOpen(metadata);
-                if (line != null) {
-                    line.write(pcm, 0, pcm.length);
-                }
-            } catch (Exception e) {
-                warnOnce(e);
-            }
-        }
-
-        private void ensureOpen(Map<String, Object> metadata) throws Exception {
-            int sampleRate = (int) Math.round(optionalMetadataDouble(metadata, "audio_sample_rate", 48_000.0));
-            int channels = Math.max(1, (int) Math.round(optionalMetadataDouble(metadata, "audio_channels", 1.0)));
-            AudioFormat requested = new AudioFormat(
-                    AudioFormat.Encoding.PCM_SIGNED,
-                    sampleRate,
-                    16,
-                    channels,
-                    channels * Short.BYTES,
-                    sampleRate,
-                    false);
-            if (line != null && requested.matches(format)) {
-                return;
-            }
-            closeLine();
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, requested);
-            line = (SourceDataLine) AudioSystem.getLine(info);
-            int bufferSize = Math.max(requested.getFrameSize(), sampleRate * requested.getFrameSize() / 4);
-            line.open(requested, bufferSize);
-            line.start();
-            format = requested;
-        }
-
-        private static double optionalMetadataDouble(
-                Map<String, Object> metadata,
-                String key,
-                double fallback) {
-            Double value = metadataDouble(metadata, key);
-            return value == null || value <= 0.0 ? fallback : value;
-        }
-
-        private void warnOnce(Exception e) {
-            if (warned) {
-                return;
-            }
-            warned = true;
-            System.err.println("\nWarning: live audio preview unavailable: " + e.getMessage());
-        }
-
-        @Override
-        public void close() {
-            closeLine();
-        }
-
-        private void closeLine() {
-            if (line == null) {
-                return;
-            }
-            try {
-                line.drain();
-                line.stop();
-                line.close();
-            } catch (Exception ignored) {
-            } finally {
-                line = null;
-                format = null;
-            }
-        }
-    }
 
     private void requestProcessExit() {
         requestProcessExit(0);
