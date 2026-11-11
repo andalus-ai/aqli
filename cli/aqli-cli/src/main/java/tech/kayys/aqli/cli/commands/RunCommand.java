@@ -2900,7 +2900,8 @@ public class RunCommand implements Runnable {
         if (ttsDir.isEmpty()) {
             System.err.println();
             System.err.println("Error: resolved model is not a local MOSS TTS ONNX directory.");
-            System.err.println("Expected files: browser_poc_manifest.json and tts_browser_onnx_meta.json");
+            System.err.println("Expected files: " + MossTtsModelLayout.MANIFEST_FILE_NAME + " and "
+                    + MossTtsModelLayout.METADATA_FILE_NAME);
             return 1;
         }
 
