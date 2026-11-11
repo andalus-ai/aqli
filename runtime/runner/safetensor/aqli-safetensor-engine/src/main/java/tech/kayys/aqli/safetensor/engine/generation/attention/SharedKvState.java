@@ -6,9 +6,17 @@
 package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
+import tech.kayys.aqli.safetensor.engine.generation.kv.KvCacheMemoryBudget;
 
 import java.lang.foreign.MemorySegment;
+import java.util.Objects;
 
+/**
+ * Retains dense shared-layer K/V state and optional packed Metal views.
+ *
+ * <p>Both the token-major backing tensors and their optional packed copies are
+ * charged to the same process-wide KV memory budget as paged block storage.
+ */
 public class SharedKvState implements AutoCloseable {
     private AccelTensor keyBuffer;
     private AccelTensor valueBuffer;
@@ -16,22 +24,53 @@ public class SharedKvState implements AutoCloseable {
     private AccelTensor packedValueBuffer;
     private final int numHeads;
     private final int headDim;
+    private final KvCacheMemoryBudget memoryBudget;
+    private KvCacheMemoryBudget.Lease baseMemoryLease;
+    private KvCacheMemoryBudget.Lease packedMemoryLease;
     private int lengthTokens;
     private int capacityTokens;
 
     public SharedKvState(AccelTensor key, AccelTensor value) {
-        this(key, value, Math.toIntExact(key.size(2)), Math.toIntExact(key.size(3)),
-                Math.toIntExact(key.size(1)), Math.toIntExact(key.size(1)));
+        this(key, value, new KvCacheMemoryBudget(Long.MAX_VALUE));
     }
 
-    private SharedKvState(AccelTensor keyBuffer, AccelTensor valueBuffer,
-            int numHeads, int headDim, int lengthTokens, int capacityTokens) {
-        this.keyBuffer = keyBuffer;
-        this.valueBuffer = valueBuffer;
-        this.numHeads = numHeads;
-        this.headDim = headDim;
-        this.lengthTokens = lengthTokens;
-        this.capacityTokens = capacityTokens;
+    public SharedKvState(AccelTensor key, AccelTensor value, KvCacheMemoryBudget memoryBudget) {
+        AccelTensor ownedKey;
+        AccelTensor ownedValue;
+        try {
+            ownedKey = Objects.requireNonNull(key, "key");
+            ownedValue = Objects.requireNonNull(value, "value");
+            this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
+        } catch (RuntimeException failure) {
+            closeIfOpen(key);
+            closeIfOpen(value);
+            throw failure;
+        }
+
+        int resolvedNumHeads;
+        int resolvedHeadDim;
+        int resolvedLengthTokens;
+        KvCacheMemoryBudget.Lease initialLease;
+        try {
+            resolvedNumHeads = Math.toIntExact(ownedKey.size(2));
+            resolvedHeadDim = Math.toIntExact(ownedKey.size(3));
+            resolvedLengthTokens = Math.toIntExact(ownedKey.size(1));
+            long initialBytes = Math.addExact(
+                    ownedKey.dataSegment().byteSize(), ownedValue.dataSegment().byteSize());
+            initialLease = reserveIfPositive(initialBytes);
+        } catch (RuntimeException | Error failure) {
+            closeIfOpen(ownedKey);
+            closeIfOpen(ownedValue);
+            throw failure;
+        }
+
+        this.keyBuffer = ownedKey;
+        this.valueBuffer = ownedValue;
+        this.numHeads = resolvedNumHeads;
+        this.headDim = resolvedHeadDim;
+        this.lengthTokens = resolvedLengthTokens;
+        this.capacityTokens = resolvedLengthTokens;
+        this.baseMemoryLease = initialLease;
     }
 
     public AccelTensor key() {
@@ -59,17 +98,21 @@ public class SharedKvState implements AutoCloseable {
             return;
         }
 
-        ensureCapacity(lengthTokens + deltaTokens);
-        SharedKvBufferOps.appendTokenMajor(keyBuffer, deltaKey, lengthTokens, numHeads, headDim);
-        SharedKvBufferOps.appendTokenMajor(valueBuffer, deltaValue, lengthTokens, numHeads, headDim);
-        if (packedKeyBuffer != null && packedValueBuffer != null) {
-            SharedKvBufferOps.appendTokenMajorToHeadMajor(packedKeyBuffer, deltaKey, lengthTokens, numHeads, headDim);
-            SharedKvBufferOps.appendTokenMajorToHeadMajor(packedValueBuffer, deltaValue, lengthTokens, numHeads,
-                    headDim);
+        try {
+            ensureCapacity(Math.addExact(lengthTokens, deltaTokens));
+            SharedKvBufferOps.appendTokenMajor(keyBuffer, deltaKey, lengthTokens, numHeads, headDim);
+            SharedKvBufferOps.appendTokenMajor(valueBuffer, deltaValue, lengthTokens, numHeads, headDim);
+            if (packedKeyBuffer != null && packedValueBuffer != null) {
+                SharedKvBufferOps.appendTokenMajorToHeadMajor(
+                        packedKeyBuffer, deltaKey, lengthTokens, numHeads, headDim);
+                SharedKvBufferOps.appendTokenMajorToHeadMajor(
+                        packedValueBuffer, deltaValue, lengthTokens, numHeads, headDim);
+            }
+            lengthTokens += deltaTokens;
+        } finally {
+            closeIfView(deltaKey, keyBuffer);
+            closeIfView(deltaValue, valueBuffer);
         }
-        lengthTokens += deltaTokens;
-        closeIfView(deltaKey, keyBuffer);
-        closeIfView(deltaValue, valueBuffer);
     }
 
     public MemorySegment packedKeyData() {
@@ -83,7 +126,6 @@ public class SharedKvState implements AutoCloseable {
     }
 
     public int packedCapacityTokens() {
-        ensurePackedBuffers();
         return capacityTokens;
     }
 
@@ -91,16 +133,62 @@ public class SharedKvState implements AutoCloseable {
         if (requiredTokens <= capacityTokens) {
             return;
         }
-        int newCapacity = Math.max(requiredTokens, Math.max(4, capacityTokens * 2));
-        keyBuffer = SharedKvBufferOps.growTokenMajor(keyBuffer, newCapacity, numHeads, headDim, lengthTokens);
-        valueBuffer = SharedKvBufferOps.growTokenMajor(valueBuffer, newCapacity, numHeads, headDim, lengthTokens);
-        if (packedKeyBuffer != null) {
-            packedKeyBuffer = SharedKvBufferOps.growHeadMajor(packedKeyBuffer, newCapacity, numHeads, headDim,
-                    lengthTokens);
+        int newCapacity = Math.max(requiredTokens, Math.max(4, Math.multiplyExact(capacityTokens, 2)));
+        long batch = keyBuffer.size(0);
+        long newBufferBytes = tensorBytes(batch, newCapacity, numHeads, headDim);
+        long newBaseBytes = Math.multiplyExact(newBufferBytes, 2L);
+
+        KvCacheMemoryBudget.Lease newBaseLease = reserveIfPositive(newBaseBytes);
+        KvCacheMemoryBudget.Lease newPackedLease = null;
+        boolean growPacked = packedKeyBuffer != null && packedValueBuffer != null;
+        AccelTensor newKey = null;
+        AccelTensor newValue = null;
+        AccelTensor newPackedKey = null;
+        AccelTensor newPackedValue = null;
+        try {
+            if (growPacked) {
+                newPackedLease = reserveIfPositive(newBaseBytes);
+            }
+
+            newKey = AccelTensor.zeros(batch, newCapacity, numHeads, headDim);
+            newValue = AccelTensor.zeros(batch, newCapacity, numHeads, headDim);
+            SharedKvBufferOps.copyTokenMajorRange(keyBuffer, newKey, lengthTokens, numHeads, headDim);
+            SharedKvBufferOps.copyTokenMajorRange(valueBuffer, newValue, lengthTokens, numHeads, headDim);
+
+            if (growPacked) {
+                newPackedKey = AccelTensor.zeros(batch, numHeads, newCapacity, headDim);
+                newPackedValue = AccelTensor.zeros(batch, numHeads, newCapacity, headDim);
+                SharedKvBufferOps.copyHeadMajorRange(
+                        packedKeyBuffer, newPackedKey, lengthTokens, numHeads, headDim);
+                SharedKvBufferOps.copyHeadMajorRange(
+                        packedValueBuffer, newPackedValue, lengthTokens, numHeads, headDim);
+            }
+        } catch (RuntimeException | Error failure) {
+            closeIfOpen(newKey);
+            closeIfOpen(newValue);
+            closeIfOpen(newPackedKey);
+            closeIfOpen(newPackedValue);
+            closeLease(newBaseLease);
+            if (newPackedLease != null) {
+                newPackedLease.close();
+            }
+            throw failure;
         }
-        if (packedValueBuffer != null) {
-            packedValueBuffer = SharedKvBufferOps.growHeadMajor(packedValueBuffer, newCapacity, numHeads, headDim,
-                    lengthTokens);
+
+        closeIfOpen(keyBuffer);
+        closeIfOpen(valueBuffer);
+        closeLease(baseMemoryLease);
+        keyBuffer = newKey;
+        valueBuffer = newValue;
+        baseMemoryLease = newBaseLease;
+
+        if (growPacked) {
+            closeIfOpen(packedKeyBuffer);
+            closeIfOpen(packedValueBuffer);
+            closeLease(packedMemoryLease);
+            packedKeyBuffer = newPackedKey;
+            packedValueBuffer = newPackedValue;
+            packedMemoryLease = newPackedLease;
         }
         capacityTokens = newCapacity;
     }
@@ -110,10 +198,42 @@ public class SharedKvState implements AutoCloseable {
             return;
         }
         long batch = keyBuffer.size(0);
-        packedKeyBuffer = AccelTensor.zeros(batch, numHeads, capacityTokens, headDim);
-        packedValueBuffer = AccelTensor.zeros(batch, numHeads, capacityTokens, headDim);
-        SharedKvBufferOps.packTokenMajorToHeadMajor(keyBuffer, packedKeyBuffer, lengthTokens, numHeads, headDim);
-        SharedKvBufferOps.packTokenMajorToHeadMajor(valueBuffer, packedValueBuffer, lengthTokens, numHeads, headDim);
+        long bytes = Math.multiplyExact(tensorBytes(batch, capacityTokens, numHeads, headDim), 2L);
+        KvCacheMemoryBudget.Lease lease = reserveIfPositive(bytes);
+        AccelTensor newPackedKey = null;
+        AccelTensor newPackedValue = null;
+        try {
+            newPackedKey = AccelTensor.zeros(batch, numHeads, capacityTokens, headDim);
+            newPackedValue = AccelTensor.zeros(batch, numHeads, capacityTokens, headDim);
+            SharedKvBufferOps.packTokenMajorToHeadMajor(
+                    keyBuffer, newPackedKey, lengthTokens, numHeads, headDim);
+            SharedKvBufferOps.packTokenMajorToHeadMajor(
+                    valueBuffer, newPackedValue, lengthTokens, numHeads, headDim);
+        } catch (RuntimeException | Error failure) {
+            closeIfOpen(newPackedKey);
+            closeIfOpen(newPackedValue);
+            closeLease(lease);
+            throw failure;
+        }
+        packedKeyBuffer = newPackedKey;
+        packedValueBuffer = newPackedValue;
+        packedMemoryLease = lease;
+    }
+
+    private KvCacheMemoryBudget.Lease reserveIfPositive(long bytes) {
+        return bytes > 0 ? memoryBudget.reserve(bytes) : null;
+    }
+
+    private static void closeLease(KvCacheMemoryBudget.Lease lease) {
+        if (lease != null) {
+            lease.close();
+        }
+    }
+
+    private static long tensorBytes(long batch, int tokens, int heads, int headDim) {
+        long elements = Math.multiplyExact(batch,
+                Math.multiplyExact((long) tokens, Math.multiplyExact((long) heads, headDim)));
+        return Math.multiplyExact(elements, Float.BYTES);
     }
 
     private static void closeIfView(AccelTensor tensor, AccelTensor backingBuffer) {
@@ -122,19 +242,63 @@ public class SharedKvState implements AutoCloseable {
         }
     }
 
+    private static void closeIfOpen(AccelTensor tensor) {
+        if (tensor != null && !tensor.isClosed()) {
+            tensor.close();
+        }
+    }
+
     @Override
     public void close() {
-        if (keyBuffer != null && !keyBuffer.isClosed()) {
-            keyBuffer.close();
+        Throwable failure = null;
+        failure = closeTensor(keyBuffer, failure);
+        failure = closeTensor(valueBuffer, failure);
+        failure = closeTensor(packedKeyBuffer, failure);
+        failure = closeTensor(packedValueBuffer, failure);
+        failure = closeBudgetLease(baseMemoryLease, failure);
+        baseMemoryLease = null;
+        failure = closeBudgetLease(packedMemoryLease, failure);
+        packedMemoryLease = null;
+        rethrowCloseFailure(failure);
+    }
+
+    private static Throwable closeTensor(AccelTensor tensor, Throwable failure) {
+        try {
+            closeIfOpen(tensor);
+        } catch (Throwable closeFailure) {
+            failure = combine(failure, closeFailure);
         }
-        if (valueBuffer != null && !valueBuffer.isClosed()) {
-            valueBuffer.close();
+        return failure;
+    }
+
+    private static Throwable closeBudgetLease(KvCacheMemoryBudget.Lease lease, Throwable failure) {
+        try {
+            closeLease(lease);
+        } catch (Throwable closeFailure) {
+            failure = combine(failure, closeFailure);
         }
-        if (packedKeyBuffer != null && !packedKeyBuffer.isClosed()) {
-            packedKeyBuffer.close();
+        return failure;
+    }
+
+    private static Throwable combine(Throwable previous, Throwable next) {
+        if (previous == null) {
+            return next;
         }
-        if (packedValueBuffer != null && !packedValueBuffer.isClosed()) {
-            packedValueBuffer.close();
+        if (previous != next) {
+            previous.addSuppressed(next);
+        }
+        return previous;
+    }
+
+    private static void rethrowCloseFailure(Throwable failure) {
+        if (failure instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        if (failure != null) {
+            throw new IllegalStateException("Failed to close shared KV state", failure);
         }
     }
 }

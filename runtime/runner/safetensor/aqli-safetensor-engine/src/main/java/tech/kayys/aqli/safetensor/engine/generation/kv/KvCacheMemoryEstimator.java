@@ -6,12 +6,13 @@
 package tech.kayys.aqli.safetensor.engine.generation.kv;
 
 /**
- * Calculates the maximum native bytes required if the configured KV block capacity is fully allocated.
+ * Calculates the maximum native bytes required if the configured paged KV block capacity is fully allocated.
  *
  * <p>The estimate mirrors {@link BlockManager}: K and V each have chunked block storage,
  * and quantized storage adds FP32 scale storage for each of K and V. It includes
  * the session's per-layer block capacity and fixed allocator margin. Actual
- * budget reservations are acquired incrementally as chunks are allocated.
+ * block reservations are acquired incrementally; retained shared-layer K/V
+ * tensors are budgeted separately by {@link tech.kayys.aqli.safetensor.engine.generation.attention.SharedKvState}.
  */
 public final class KvCacheMemoryEstimator {
     public static final int DEFAULT_EXTRA_BLOCKS = 64;
