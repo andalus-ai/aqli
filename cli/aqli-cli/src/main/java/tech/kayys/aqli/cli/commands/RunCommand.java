@@ -3381,7 +3381,7 @@ public class RunCommand implements Runnable {
             Path cacheRoot) throws Exception {
         Set<Path> currentPaths = new java.util.HashSet<>();
         Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (DiagnosticOnnxGraph graph : mossTtsDiagnosticGraphs(modelDir, codecPath)) {
+        for (MossTtsOnnxGraphResolver.Graph graph : mossTtsDiagnosticGraphs(modelDir, codecPath)) {
             currentPaths.add(optimizedModelCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
             currentPrefixes.add(optimizedCacheFilenamePrefix(graph.path()));
         }
@@ -3594,9 +3594,9 @@ public class RunCommand implements Runnable {
         } else {
             try {
                 List<Map<String, Object>> graphItems = new ArrayList<>();
-                List<DiagnosticOnnxGraph> graphs = mossTtsDiagnosticGraphs(modelDir, codecDir.get());
+                List<MossTtsOnnxGraphResolver.Graph> graphs = mossTtsDiagnosticGraphs(modelDir, codecDir.get());
                 int present = 0;
-                for (DiagnosticOnnxGraph graph : graphs) {
+                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
                     Path optimizedPath = optimizedModelCachePath(graph.path(), cacheRoot);
                     cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
                     cacheScope.currentPrefixes().add(optimizedCacheFilenamePrefix(graph.path()));
@@ -3663,9 +3663,9 @@ public class RunCommand implements Runnable {
             System.out.println("Optimized graph files: unavailable until companion codec is installed");
         } else {
             try {
-                List<DiagnosticOnnxGraph> graphs = mossTtsDiagnosticGraphs(modelDir, codecDir.get());
+                List<MossTtsOnnxGraphResolver.Graph> graphs = mossTtsDiagnosticGraphs(modelDir, codecDir.get());
                 long present = 0L;
-                for (DiagnosticOnnxGraph graph : graphs) {
+                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
                     Path optimizedPath = optimizedModelCachePath(graph.path(), cacheRoot);
                     cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
                     cacheScope.currentPrefixes().add(optimizedCacheFilenamePrefix(graph.path()));
@@ -3676,7 +3676,7 @@ public class RunCommand implements Runnable {
                 System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
                 System.out.println("Optimized graph files: " + present + "/" + graphs.size()
                         + (graphCacheEnabled ? " present" : " present but cache disabled"));
-                for (DiagnosticOnnxGraph graph : graphs) {
+                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
                     Path optimizedPath = optimizedModelCachePath(graph.path(), cacheRoot);
                     String status = Files.isRegularFile(optimizedPath) ? "warm" : "cold";
                     int sidecars = externalDataSidecars(graph.path()).size();
@@ -3712,91 +3712,6 @@ public class RunCommand implements Runnable {
         System.out.println("Asset cache: "
                 + (assetCacheEnabled && assetCacheMax > 0 ? "enabled" : "disabled")
                 + " (max entries " + Math.max(0, assetCacheMax) + ", in-process)");
-    }
-
-    private List<DiagnosticOnnxGraph> mossTtsDiagnosticGraphs(Path modelDir, Path codecDir) throws Exception {
-        JsonNode ttsMeta = new ObjectMapper().readTree(modelDir.resolve("tts_browser_onnx_meta.json").toFile());
-        JsonNode codecMeta = new ObjectMapper().readTree(codecDir.resolve(MOSS_CODEC_META_FILE).toFile());
-        JsonNode ttsFiles = ttsMeta.path("files");
-        JsonNode codecFiles = codecMeta.path("files");
-        return List.of(
-                new DiagnosticOnnxGraph(
-                        "tts prefill",
-                        modelDir.resolve(ttsFiles.path("prefill").asText("moss_tts_prefill.onnx"))),
-                new DiagnosticOnnxGraph(
-                        "tts decode",
-                        modelDir.resolve(ttsFiles.path("decode_step").asText("moss_tts_decode_step.onnx"))),
-                new DiagnosticOnnxGraph(
-                        "local sampler",
-                        modelDir.resolve(ttsFiles.path("local_fixed_sampled_frame")
-                                .asText("moss_tts_local_fixed_sampled_frame.onnx"))),
-                new DiagnosticOnnxGraph(
-                        "codec full decode",
-                        codecDir.resolve(codecFiles.path("decode_full")
-                                .asText("moss_audio_tokenizer_decode_full.onnx"))),
-                new DiagnosticOnnxGraph(
-                        "codec streaming decode",
-                        codecDir.resolve(codecFiles.path("decode_step")
-                                .asText("moss_audio_tokenizer_decode_step.onnx"))));
-    }
-
-    private Path optimizedModelCachePath(Path modelPath, Path cacheRoot) throws Exception {
-        String fingerprint = optimizedModelFingerprint(modelPath.toAbsolutePath().normalize());
-        String filename = optimizedCacheFilenamePrefix(modelPath)
-                + fingerprint.substring(0, 16) + ".optimized.onnx";
-        return cacheRoot.resolve(filename);
-    }
-
-    private String optimizedCacheFilenamePrefix(Path modelPath) {
-        return sanitizeCacheFilename(modelPath.getFileName().toString()) + "-";
-    }
-
-    private String optimizedModelFingerprint(Path modelPath) throws Exception {
-        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-        updateDigestLine(digest, "os=" + System.getProperty("os.name", ""));
-        updateDigestLine(digest, "arch=" + System.getProperty("os.arch", ""));
-        updateDigestLine(digest, "runtime=ort-java");
-        updateDigestLine(digest, "optimization=all-opt");
-        updateDigestLine(digest, "backend=cpu");
-        updateGraphIdentityDigest(digest, modelPath);
-        return java.util.HexFormat.of().formatHex(digest.digest());
-    }
-
-    private void updateGraphIdentityDigest(java.security.MessageDigest digest, Path modelPath) throws Exception {
-        updateFileIdentityDigest(digest, "onnx", modelPath);
-        List<Path> sidecars = externalDataSidecars(modelPath);
-        updateDigestLine(digest, "external_data_sidecars=" + sidecars.size());
-        for (Path sidecar : sidecars) {
-            updateFileIdentityDigest(digest, "data", sidecar);
-        }
-    }
-
-    private void updateFileIdentityDigest(java.security.MessageDigest digest, String kind, Path path) throws Exception {
-        Path modelPath = path.toAbsolutePath().normalize();
-        updateDigestLine(digest, String.join("\t",
-                kind,
-                modelPath.toRealPath().toString(),
-                String.valueOf(Files.size(modelPath)),
-                String.valueOf(Files.getLastModifiedTime(modelPath).toMillis())));
-    }
-
-    private void updateDigestLine(java.security.MessageDigest digest, String text) {
-        digest.update(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        digest.update((byte) '\n');
-    }
-
-    private List<Path> externalDataSidecars(Path modelPath) throws Exception {
-        Path sourceDir = modelPath.toAbsolutePath().normalize().getParent();
-        if (sourceDir == null || !Files.isDirectory(sourceDir)) {
-            return List.of();
-        }
-        try (var stream = Files.list(sourceDir)) {
-            return stream
-                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(".data"))
-                    .sorted((left, right) -> left.getFileName().toString()
-                            .compareTo(right.getFileName().toString()))
-                    .toList();
-        }
     }
 
     private void printOptimizedCacheDirectoryScanner.Stats(OptimizedCacheDirectoryScanner.Stats stats) {
@@ -3941,10 +3856,7 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private record DiagnosticOnnxGraph(String label, Path path) {
-    }
-
-    private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
+private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
     }
 
     private record OptimizedCacheDirectoryScanner.Stats(
