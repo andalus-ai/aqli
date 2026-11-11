@@ -1325,7 +1325,7 @@ public final class LiteRtLmStandaloneRunner {
             Path modelPath,
             LiteRTRunArguments args,
             PrintStream out,
-            EngineCache engineCache) throws Exception {
+            LiteRTEngineCache<Engine> engineCache) throws Exception {
         long startNanos = System.nanoTime();
         Files.createDirectories(cacheDir());
         Engine.Companion.setNativeMinLogSeverity(nativeLogSeverity());
