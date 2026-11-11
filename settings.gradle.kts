@@ -154,6 +154,7 @@ includeOptionalProject("quantizer:aqli-quantizer-turboquant", "runtime/quantizer
 
 // Capability modules
 includeOptionalProject("audio:aqli-audio-core", "runtime/audio/aqli-audio-core")
+includeOptionalProject("audio:tts:aqli-audio-tts", "runtime/audio/tts/aqli-audio-tts")
 includeOptionalProject("media:aqli-media-core", "runtime/media/aqli-media-core")
 
 // Optional runners and runtimes
