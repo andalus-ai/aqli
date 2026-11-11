@@ -356,30 +356,13 @@ public final class GgufStandaloneRunner {
                                 args.topK(),
                                 args.repeatPenalty());
 
-                long openStartNanos = System.nanoTime();
-                tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession = sessionCache != null
-                        ? sessionCache.acquireJavaBackend(modelPath)
-                        : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(modelPath);
-                boolean shouldClose = sessionCache == null;
-
-                long openNanos = System.nanoTime() - openStartNanos;
-                long generateNanos;
-                long afterGenerateNanos;
-                String text;
-                tech.kayys.aljabr.spi.inference.InferenceResponse response = null;
-
-                try {
-                    long generateStartNanos = System.nanoTime();
-                    response = backendSession.backend().execute(inferenceRequest);
-                    afterGenerateNanos = System.nanoTime();
-                    generateNanos = afterGenerateNanos - generateStartNanos;
-
-                    text = response != null && response.getContent() != null ? response.getContent() : "";
-                } finally {
-                    if (shouldClose) {
-                        backendSession.close();
-                    }
-                }
+                tech.kayys.aqli.inference.gguf.GgufJavaExecutionStrategy.Execution execution =
+                        executeJavaBackend(modelPath, inferenceRequest, sessionCache);
+                long openNanos = execution.openNanos();
+                long generateNanos = execution.executionNanos();
+                long afterGenerateNanos = execution.completedAtNanos();
+                tech.kayys.aljabr.spi.inference.InferenceResponse response = execution.response();
+                String text = response != null && response.getContent() != null ? response.getContent() : "";
 
                 if (args.debugPrompt()) {
                     out.println("[Raw Output (From LLM Before Decode/Strip)]:");
@@ -429,6 +412,19 @@ public final class GgufStandaloneRunner {
         }
         generateWithLlamaCpp(modelPath, args, engine == EngineMode.BENCHMARK, out, err, sessionCache, runnerName);
         return 0;
+    }
+
+    private static tech.kayys.aqli.inference.gguf.GgufJavaExecutionStrategy.Execution executeJavaBackend(
+            Path modelPath,
+            tech.kayys.aljabr.spi.inference.InferenceRequest request,
+            GgufSessionCache sessionCache) throws Exception {
+        return new tech.kayys.aqli.inference.gguf.GgufJavaExecutionStrategy().execute(
+                modelPath,
+                request,
+                sessionCache != null
+                        ? sessionCache::acquireJavaBackend
+                        : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession::open,
+                sessionCache == null);
     }
 
     private static void printJavaNativeProbe(Path modelPath, String label) {
@@ -501,39 +497,27 @@ public final class GgufStandaloneRunner {
             PrintStream err,
             GgufSessionCache sessionCache) throws Throwable {
         long startNanos = System.nanoTime();
-        long openStartNanos = System.nanoTime();
-        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession = sessionCache != null
-                ? sessionCache.acquireJavaBackend(modelPath)
-                : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(modelPath);
-        boolean shouldClose = sessionCache == null;
-        long openNanos = System.nanoTime() - openStartNanos;
-        try {
-            String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt() : "Hello";
-            String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
-            var reqBuilder = tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
-                    .model(modelPath.getFileName().toString())
-                    .prompt(formattedPrompt)
-                    .message(tech.kayys.aljabr.spi.Message.user(rawPrompt))
-                    .maxTokens(prewarmTokenCount())
-                    .temperature(0.0);
-            long genStartNanos = System.nanoTime();
-            backendSession.backend().execute(reqBuilder.build());
-            long generateNanos = System.nanoTime() - genStartNanos;
-            long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
-            out.printf("Prewarmed Java-native GGUF daemon for %s (tokens=%d).%n",
-                    modelPath.getFileName(), prewarmTokenCount());
-            out.printf("[GGUF daemon prewarm, Duration: %.2fs]%n", durationMs / 1000.0d);
-            if (fastRunTiming()) {
-                err.printf("Java GGUF timing: open=%.3fms, generateCall=%.3fms%n",
-                        openNanos / 1_000_000.0d, generateNanos / 1_000_000.0d);
-            }
-            return 0;
-        } finally {
-            if (shouldClose) {
-                backendSession.close();
-            }
-
+        String rawPrompt = (args.prompt() != null && !args.prompt().isBlank()) ? args.prompt() : "Hello";
+        String formattedPrompt = formatPromptForModel(rawPrompt, modelPath);
+        tech.kayys.aljabr.spi.inference.InferenceRequest request =
+                tech.kayys.aljabr.spi.inference.InferenceRequest.builder()
+                        .model(modelPath.getFileName().toString())
+                        .prompt(formattedPrompt)
+                        .message(tech.kayys.aljabr.spi.Message.user(rawPrompt))
+                        .maxTokens(prewarmTokenCount())
+                        .temperature(0.0)
+                        .build();
+        tech.kayys.aqli.inference.gguf.GgufJavaExecutionStrategy.Execution execution =
+                executeJavaBackend(modelPath, request, sessionCache);
+        long durationMs = Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
+        out.printf("Prewarmed Java-native GGUF daemon for %s (tokens=%d).%n",
+                modelPath.getFileName(), prewarmTokenCount());
+        out.printf("[GGUF daemon prewarm, Duration: %.2fs]%n", durationMs / 1000.0d);
+        if (fastRunTiming()) {
+            err.printf("Java GGUF timing: open=%.3fms, generateCall=%.3fms%n",
+                    execution.openNanos() / 1_000_000.0d, execution.executionNanos() / 1_000_000.0d);
         }
+        return 0;
     }
 
     private static int prewarmWithLlamaCpp(
