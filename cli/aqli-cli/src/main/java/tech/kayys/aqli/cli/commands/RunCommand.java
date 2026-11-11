@@ -6507,6 +6507,67 @@ public class RunCommand implements Runnable {
         }
     }
 
+    private static String onnxOptimizedCacheDetail(Map<String, Object> metadata) {
+        Double sessionValue = metadataDouble(metadata, "onnx_optimized_model_cache_sessions");
+        if (sessionValue == null || sessionValue <= 0.0) {
+            return null;
+        }
+        long sessions = Math.round(sessionValue);
+        long hits = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_hits"));
+        long created = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_created"));
+        long rebuilt = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_rebuilt"));
+        long disabled = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_disabled"));
+        if (disabled >= sessions && "false".equalsIgnoreCase(metadataText(metadata, "onnx_optimized_model_cache_enabled"))) {
+            return "onnx cache disabled";
+        }
+
+        List<String> notes = new ArrayList<>();
+        if (created > 0L) {
+            notes.add(created + " built");
+        }
+        if (rebuilt > 0L) {
+            notes.add(rebuilt + " rebuilt");
+        }
+        if (disabled > 0L) {
+            notes.add(disabled + " disabled");
+        }
+        String detail = "onnx cache " + hits + "/" + sessions + " hit";
+        return notes.isEmpty() ? detail : detail + " (" + String.join(", ", notes) + ")";
+    }
+
+    private static String onnxSessionCacheDetail(Map<String, Object> metadata) {
+        String state = metadataText(metadata, "onnx_session_cache_state");
+        if (state == null || state.isBlank() || "disabled".equalsIgnoreCase(state)) {
+            return null;
+        }
+        if ("hit".equalsIgnoreCase(state)) {
+            return "onnx sessions hot";
+        }
+        if ("miss".equalsIgnoreCase(state)) {
+            return "onnx sessions warmed";
+        }
+        return null;
+    }
+
+    private static String onnxAssetCacheDetail(Map<String, Object> metadata) {
+        String state = metadataText(metadata, "onnx_asset_cache_state");
+        if (state == null || state.isBlank() || "disabled".equalsIgnoreCase(state)) {
+            return null;
+        }
+        if ("hit".equalsIgnoreCase(state)) {
+            return "onnx assets hot";
+        }
+        if ("miss".equalsIgnoreCase(state)) {
+            return "onnx assets warmed";
+        }
+        return null;
+    }
+
+    private static double defaultedDouble(Map<String, Object> metadata, String key) {
+        Double value = metadataDouble(metadata, key);
+        return value == null ? 0.0 : value;
+    }
+
     private void maybeWriteAudioMetadataSidecar(Path audioPath, Map<String, Object> metadata) {
         boolean explicitPath = audioMetadataOutputPath != null && !audioMetadataOutputPath.isBlank();
         if (!explicitPath && !audioMetadataSidecar) {
@@ -6661,6 +6722,19 @@ public class RunCommand implements Runnable {
         }
         args.add(flag);
         args.add(text);
+    }
+
+    private static Double audioDurationSeconds(Map<String, Object> metadata) {
+        Double duration = metadataDouble(metadata, "audio_duration_seconds");
+        if (duration != null && duration > 0.0) {
+            return duration;
+        }
+        Double samples = metadataDouble(metadata, "audio_samples");
+        Double sampleRate = metadataDouble(metadata, "audio_sample_rate");
+        if (samples != null && sampleRate != null && samples > 0.0 && sampleRate > 0.0) {
+            return samples / sampleRate;
+        }
+        return null;
     }
 
     private void saveAudio(String base64) {
