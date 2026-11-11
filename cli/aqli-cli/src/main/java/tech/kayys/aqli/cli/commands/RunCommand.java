@@ -6357,6 +6357,14 @@ public class RunCommand implements Runnable {
                 || "true".equalsIgnoreCase(metadataText(metadata, "audio_stream_preview"));
     }
 
+    private static void warnIfAudioExtensionWasOverridden(MediaOutputPathResolver.Resolution output) {
+        if (output.requestedExtensionOverridden()) {
+            System.err.println("\nWarning: requested --ext " + output.requestedExtension()
+                    + ", but this provider returned " + output.extension()
+                    + " audio. Saving as ." + output.extension() + " to avoid a mislabeled file.");
+        }
+    }
+
     private void saveBuffer(java.io.ByteArrayOutputStream buffer, String defaultExt, String label) {
         saveBuffer(buffer, defaultExt, label, null);
     }
@@ -6367,23 +6375,11 @@ public class RunCommand implements Runnable {
             String label,
             Map<String, Object> metadata) {
         try {
-            String actualExt = normalizeExtension(defaultExt);
-            String requestedExt = normalizeExtension(extension);
-            String ext = requestedExt.isEmpty() ? actualExt : requestedExt;
-            if ("Audio".equals(label) && !requestedExt.isEmpty() && !requestedExt.equalsIgnoreCase(actualExt)) {
-                System.err.println("\nWarning: requested --ext " + requestedExt
-                        + ", but this provider returned " + actualExt
-                        + " audio. Saving as ." + actualExt + " to avoid a mislabeled file.");
-                ext = actualExt;
-            }
-            Path outPath = (outputPath != null && !outputPath.isEmpty()) ? Path.of(outputPath) : Path.of("output." + ext);
-            if (extension != null && !extension.isBlank()) {
-                outPath = replaceExtension(outPath, ext);
-            } else if ("Audio".equals(label) && outputPath != null && !outputPath.isEmpty()
-                    && isKnownAudioExtension(pathExtension(outPath))
-                    && !pathExtension(outPath).equalsIgnoreCase(ext)) {
-                outPath = replaceExtension(outPath, ext);
-            }
+            MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
+                    new MediaOutputPathResolver.Request(outputPath, extension, defaultExt, "Audio".equals(label)));
+            warnIfAudioExtensionWasOverridden(output);
+            String ext = output.extension();
+            Path outPath = output.path();
             Files.write(outPath, buffer.toByteArray());
             System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD + "✓ " + label + " saved to: " + ChatUIRenderer.RESET + outPath.toAbsolutePath());
             if ("Audio".equals(label)) {
@@ -6459,26 +6455,11 @@ public class RunCommand implements Runnable {
         }
 
         private Path resolveAudioOutputPath(Map<String, Object> metadata) {
-            String actualExt = normalizeExtension(audioDefaultExtension(metadata));
-            String requestedExt = normalizeExtension(extension);
-            String ext = requestedExt.isEmpty() ? actualExt : requestedExt;
-            if (!requestedExt.isEmpty() && !requestedExt.equalsIgnoreCase(actualExt)) {
-                System.err.println("\nWarning: requested --ext " + requestedExt
-                        + ", but this provider returned " + actualExt
-                        + " audio. Saving as ." + actualExt + " to avoid a mislabeled file.");
-                ext = actualExt;
-            }
-            Path outPath = (outputPath != null && !outputPath.isEmpty())
-                    ? Path.of(outputPath)
-                    : Path.of("output." + ext);
-            if (extension != null && !extension.isBlank()) {
-                outPath = replaceExtension(outPath, ext);
-            } else if (outputPath != null && !outputPath.isEmpty()
-                    && isKnownAudioExtension(pathExtension(outPath))
-                    && !pathExtension(outPath).equalsIgnoreCase(ext)) {
-                outPath = replaceExtension(outPath, ext);
-            }
-            return outPath;
+            MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
+                    new MediaOutputPathResolver.Request(
+                            outputPath, extension, audioDefaultExtension(metadata), true));
+            warnIfAudioExtensionWasOverridden(output);
+            return output.path();
         }
 
         private void cleanupTemp() {
