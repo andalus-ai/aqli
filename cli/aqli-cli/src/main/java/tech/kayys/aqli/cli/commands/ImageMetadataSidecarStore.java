@@ -1,5 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
+import tech.kayys.aqli.media.integrity.MediaFileIntegrity;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
