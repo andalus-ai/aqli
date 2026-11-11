@@ -54,6 +54,7 @@ public final class LiteRTConversationExecutor {
                 null, List.of(), List.of(), sampler, false, null, Map.of());
 
         try (Conversation conversation = engine.createConversation(config)) {
+            long conversationReadyNanos = System.nanoTime();
             CountDownLatch done = new CountDownLatch(1);
             AtomicBoolean cancelled = new AtomicBoolean();
             AtomicInteger streamUpdates = new AtomicInteger();
@@ -100,10 +101,10 @@ public final class LiteRTConversationExecutor {
             if (error.get() != null && !cancelled.get()) {
                 throw new IllegalStateException(error.get());
             }
-            return new Result(streamUpdates.get(), limiter.emittedTokenCount(), firstChunkNanos.get());
+            return new Result(streamUpdates.get(), limiter.emittedTokenCount(), conversationReadyNanos, firstChunkNanos.get());
         }
     }
 
-    public record Result(int streamUpdates, int outputTokens, long firstChunkNanos) {
+    public record Result(int streamUpdates, int outputTokens, long conversationReadyNanos, long firstChunkNanos) {
     }
 }
