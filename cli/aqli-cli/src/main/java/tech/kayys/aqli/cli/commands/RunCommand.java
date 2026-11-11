@@ -3087,7 +3087,7 @@ public class RunCommand implements Runnable {
     private Optional<Path> diagnosticCodecDirectory() {
         if (ttsCodec != null && !ttsCodec.isBlank()) {
             try {
-                return mossCodecDirectoryFrom(Path.of(resolveTtsCodecReference(ttsCodec)));
+                return MossAudioTokenizerModelLayout.directoryFrom(Path.of(resolveTtsCodecReference(ttsCodec)));
             } catch (Exception ignored) {
                 return Optional.empty();
             }
@@ -4186,7 +4186,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             try {
                 Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(ref);
                 if (indexed.isPresent() && indexed.get().path != null) {
-                    Optional<Path> dir = mossCodecDirectoryFrom(Path.of(indexed.get().path));
+                    Optional<Path> dir = MossAudioTokenizerModelLayout.directoryFrom(Path.of(indexed.get().path));
                     if (dir.isPresent()) {
                         return dir;
                     }
