@@ -1,4 +1,5 @@
 package tech.kayys.aqli.cli.commands;
+import tech.kayys.aqli.provider.litert.LiteRTTokenStreamLimiter;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.sdk.route.RunnerRouteBenchmarkCache;
 import tech.kayys.aqli.sdk.route.RunnerRoutePolicy;
@@ -627,32 +628,6 @@ class LiteRtLmStandaloneRunnerDaemonTest {
             restoreProperty("aqli.litert.fast_run.min_engine_tokens", previousMin);
             restoreProperty("aqli.litert.fast_run.max_engine_tokens", previousMax);
         }
-    }
-
-    @Test
-    void approximateTokenStreamLimiterMatchesChunkedFastRunLimit() {
-        LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter limiter =
-                new LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter(3);
-
-        String output = limiter.offer("hello ")
-                + limiter.offer("world\nfrom ")
-                + limiter.offer("aqli now");
-
-        assertEquals("hello world\nfrom", output);
-        assertEquals(3, limiter.emittedTokenCount());
-        assertTrue(limiter.atLimit());
-    }
-
-    @Test
-    void approximateTokenStreamLimiterDefersTrailingWhitespace() {
-        LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter limiter =
-                new LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter(2);
-
-        assertEquals("hello", limiter.offer("hello "));
-        assertEquals("", limiter.offer("\n"));
-        assertEquals(" \nworld", limiter.offer("world"));
-        assertEquals(2, limiter.emittedTokenCount());
-        assertFalse(limiter.atLimit());
     }
 
     @Test
