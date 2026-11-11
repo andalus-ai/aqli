@@ -79,6 +79,7 @@ fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
 
 // Optional core and repository projects
 includeOptionalProject("adapter:aqli-adapter", "runtime/adapter/aqli-adapter")
+includeOptionalProject("audio:aqli-audio-core", "runtime/audio/aqli-audio-core")
 includeOptionalProject("core:aqli-core", "framework/core/aqli-core")
 includeOptionalProject("tokenizer:aqli-tokenizer-core", "framework/core/aqli-tokenizer-core")
 includeOptionalProject("repository:aqli-model-database", "runtime/repository/aqli-model-database")
@@ -154,6 +155,7 @@ includeOptionalProject("quantizer:aqli-quantizer-turboquant", "runtime/quantizer
 
 // Capability modules
 includeOptionalProject("audio:aqli-audio-core", "runtime/audio/aqli-audio-core")
+includeOptionalProject("audio:tts:aqli-audio-tts", "runtime/audio/tts/aqli-audio-tts")
 includeOptionalProject("media:aqli-media-core", "runtime/media/aqli-media-core")
 
 // Optional runners and runtimes
@@ -176,6 +178,7 @@ if (file("framework/sdk/aqli-sdk-session").isDirectory) {
 // Optional SPIs
 includeOptionalProject("spi:aqli-spi", "framework/spi/aqli-spi")
 includeOptionalProject("spi:aqli-spi-audio", "framework/spi/aqli-spi-audio")
+includeOptionalProject("audio:aqli-audio-core", "runtime/audio/aqli-audio-core")
 includeOptionalProject("spi:aqli-spi-image", "framework/spi/aqli-spi-image")
 includeOptionalProject("spi:aqli-spi-inference", "framework/spi/aqli-spi-inference")
 includeOptionalProject("spi:aqli-spi-model", "framework/spi/aqli-spi-model")

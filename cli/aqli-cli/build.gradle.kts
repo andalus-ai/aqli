@@ -50,6 +50,7 @@ dependencies {
     implementation("org.jline:jline-terminal-jna:3.26.3")
     implementation("com.github.albfernandez:juniversalchardet:2.4.0")
 
+    implementation(project(":audio:aqli-audio-core"))
     implementation(project(":sdk:aqli-sdk"))
     implementation(project(":sdk:aqli-sdk-api"))
     implementation(project(":sdk:aqli-sdk-core"))
@@ -58,6 +59,7 @@ dependencies {
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation(project(":audio:aqli-audio-core"))
+    implementation(project(":audio:tts:aqli-audio-tts"))
     implementation(project(":media:aqli-media-core"))
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))

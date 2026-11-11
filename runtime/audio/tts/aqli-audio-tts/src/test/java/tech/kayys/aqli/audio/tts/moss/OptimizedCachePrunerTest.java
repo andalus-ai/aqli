@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.audio.tts.moss;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

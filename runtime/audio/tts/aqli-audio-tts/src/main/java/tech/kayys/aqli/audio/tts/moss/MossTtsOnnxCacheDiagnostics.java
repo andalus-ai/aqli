@@ -1,6 +1,4 @@
-package tech.kayys.aqli.cli.commands;
-
-import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
+package tech.kayys.aqli.audio.tts.moss;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,11 +12,11 @@ import java.util.Set;
  * Collects one consistent snapshot of MOSS TTS optimized ONNX cache diagnostics.
  * Presentation and output-format decisions remain with the CLI command.
  */
-final class MossTtsOnnxCacheDiagnostics {
+public final class MossTtsOnnxCacheDiagnostics {
     private MossTtsOnnxCacheDiagnostics() {
     }
 
-    static Snapshot inspect(Path modelDir, Optional<Path> codecDir, MossTtsCacheSettings settings) {
+    public static Snapshot inspect(Path modelDir, Optional<Path> codecDir, MossTtsCacheSettings settings) {
         Path cacheRoot = settings.optimizedGraphCacheRoot();
         Set<Path> currentPaths = new HashSet<>();
         Set<String> currentPrefixes = new HashSet<>();
@@ -52,20 +50,20 @@ final class MossTtsOnnxCacheDiagnostics {
         return new Snapshot(settings, graphsAvailable, graphError, List.copyOf(graphStatuses), directory);
     }
 
-    record GraphStatus(
+    public record GraphStatus(
             MossTtsOnnxGraphResolver.Graph graph,
             Path optimizedPath,
             boolean warm,
             int externalDataSidecars) {
     }
 
-    record Snapshot(
+    public record Snapshot(
             MossTtsCacheSettings settings,
             boolean graphsAvailable,
             String graphError,
             List<GraphStatus> graphs,
             OptimizedCacheDirectoryScanner.Stats cacheDirectory) {
-        int warmGraphCount() {
+        public int warmGraphCount() {
             return (int) graphs.stream().filter(GraphStatus::warm).count();
         }
     }

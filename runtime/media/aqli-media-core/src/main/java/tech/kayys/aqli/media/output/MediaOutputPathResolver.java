@@ -1,14 +1,14 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.media.output;
 
 import java.nio.file.Path;
 import java.util.Locale;
 
-/** Resolves media output paths from CLI overrides and provider-reported formats. */
-final class MediaOutputPathResolver {
+/** Resolves media output paths from requested and provider-reported formats. */
+public final class MediaOutputPathResolver {
     private MediaOutputPathResolver() {
     }
 
-    static Resolution resolve(Request request) {
+    public static Resolution resolve(Request request) {
         String actualExtension = normalize(request.actualExtension());
         String requestedExtension = normalize(request.requestedExtension());
         String extension = requestedExtension.isEmpty() ? actualExtension : requestedExtension;
@@ -74,9 +74,9 @@ final class MediaOutputPathResolver {
         return path.resolveSibling(replacement);
     }
 
-    record Request(String outputPath, String requestedExtension, String actualExtension, boolean audio) {
+    public record Request(String outputPath, String requestedExtension, String actualExtension, boolean audio) {
     }
 
-    record Resolution(Path path, String extension, String requestedExtension, boolean requestedExtensionOverridden) {
+    public record Resolution(Path path, String extension, String requestedExtension, boolean requestedExtensionOverridden) {
     }
 }

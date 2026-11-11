@@ -1,6 +1,4 @@
-package tech.kayys.aqli.cli.commands;
-
-import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
+package tech.kayys.aqli.audio.tts.moss;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
