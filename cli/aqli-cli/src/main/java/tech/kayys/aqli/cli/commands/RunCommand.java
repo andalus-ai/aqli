@@ -77,6 +77,7 @@ import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
+import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
 import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
@@ -1880,8 +1881,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to verify image metadata: " + e.getMessage());
@@ -1903,8 +1904,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
