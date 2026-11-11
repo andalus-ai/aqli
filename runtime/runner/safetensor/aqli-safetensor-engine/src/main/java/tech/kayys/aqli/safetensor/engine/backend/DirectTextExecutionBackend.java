@@ -84,8 +84,17 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
                     new long[0],
                     conversationSessionLease);
         }
-        long[] inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
-        DirectPreparedGenerationHandle handle = handles().publish(generation, inputIds);
+        long[] inputIds;
+        DirectPreparedGenerationHandle handle;
+        try {
+            inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
+            handle = handles().publish(generation, inputIds);
+        } catch (RuntimeException | Error failure) {
+            if (conversationSessionLease != null) {
+                conversationSessionLease.close();
+            }
+            throw failure;
+        }
         ResumableSessionArtifact artifact = ResumableSessionArtifact.backendSessionHandle(
                 descriptorFor(generation),
                 handle.sessionKey(),
@@ -112,7 +121,13 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
             if (conversationSession.isEmpty()) {
                 return Optional.empty();
             }
-            long[] inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
+            long[] inputIds;
+            try {
+                inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
+            } catch (RuntimeException | Error failure) {
+                conversationSession.get().close();
+                throw failure;
+            }
             return Optional.of(new DirectTextExecutionSession(
                     engine,
                     generation,
@@ -189,7 +204,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
         return resolveConversationSession(generation, null);
     }
 
-    private Optional<ConversationSessionManager.ConversationSession> resolveConversationSession(
+    private Optional<ConversationSessionManager.SessionLease> resolveConversationSession(
             PreparedTextGeneration generation,
             String sessionIdOverride) {
         if (generation == null || generation.preparationPlan() == null || generation.preparationPlan().context() == null) {
