@@ -1,22 +1,18 @@
 package tech.kayys.aqli.sdk.runtime;
 
-import tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector;
-import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
 import tech.kayys.aqli.sdk.mcp.McpRegistryManager;
-import tech.kayys.aqli.sdk.model.SystemInfo;
-import tech.kayys.aqli.spi.inference.AsyncJobStatus;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
+
 import java.util.List;
-import java.util.Map;
 
 /**
  * Aggregate interface for AQLI runtime capabilities.
  *
  * <p>New consumers should depend on focused capability ports where possible.
  * This aggregate remains the compatibility entry point and composes inference,
- * model catalogue, model lifecycle, and runtime-management operations.</p>
+ * model catalogue, model lifecycle, asynchronous jobs, diagnostics, and
+ * runtime-management operations.</p>
  *
  * <h3>Convenience operations</h3>
  * <ul>
@@ -27,30 +23,8 @@ import java.util.Map;
  * <li>{@link #pullGgufModel} / {@link #pullSafeTensorsModel} — format-aware model pulls.</li>
  * </ul>
  */
-public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations, ModelLifecycleOperations {
-
-    // ==================== Async Jobs ====================
-
-    String submitAsyncJob(InferenceRequest request) throws SdkException;
-
-    AsyncJobStatus getJobStatus(String jobId) throws SdkException;
-
-    AsyncJobStatus waitForJob(String jobId, java.time.Duration maxWaitTime, java.time.Duration pollInterval)
-            throws SdkException;
-
-
-    // ==================== System Operations ====================
-
-    /**
-     * Get information about the underlying hardware and platform.
-     */
-    default tech.kayys.aqli.plugin.kernel.KernelPlatform getPlatformInfo() throws SdkException {
-        return tech.kayys.aqli.plugin.kernel.KernelPlatformDetector.detect();
-    }
-
-    // Quantization is an optional integration and is deliberately not exposed
-    // through this core SDK contract. Consumers that enable the optional
-    // quantization module can use its QuantizationService directly.
+public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations,
+        ModelLifecycleOperations, AsyncJobOperations, RuntimeDiagnosticsOperations {
 
     // ==================== MCP Operations ====================
 
@@ -59,59 +33,20 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
                 "MCP registry is not supported by this SDK implementation");
     }
 
-    // ==================== System Operations ====================
-
-    SystemInfo getSystemInfo() throws SdkException;
-
-    /**
-     * Retrieve recent logs. NEW in v1.2.1.
-     */
-    default List<String> getRecentLogs(int maxLines) throws SdkException {
-        return List.of();
-    }
-
-    // ==================== Advanced Operations (v1.2.2) ====================
+    // ==================== Plugin Operations ====================
 
     /**
      * List all installed plugins and their metadata.
      */
-    default List<AqliPlugin.PluginMetadata> listPlugins() throws SdkException {
+    default List<AqliPlugin.PluginMetadata> listPlugins() {
         return List.of();
-    }
-
-    /**
-     * Get real-time performance metrics for a provider/model pair.
-     *
-     * <p>The returned map includes latency/error-rate data merged with current
-     * resource utilization ({@code cpu_load}, {@code heap_used_mb}, etc.).
-     *
-     * @return Map containing latency, error rate, and resource metrics.
-     */
-    default Map<String, Object> getMetrics(String providerId, String modelId) throws SdkException {
-        return Map.of();
-    }
-
-    /**
-     * Returns a point-in-time snapshot of CPU and memory utilization.
-     * Useful for capacity planning, auto-scaling decisions, and dashboards.
-     *
-     * <p>CPU values are in the range [0.0, 1.0].
-     * Memory values are in bytes.
-     *
-     * <p>NEW in v1.4.0.
-     *
-     * @return resource snapshot, or {@link SdkMetricsCollector.ResourceSnapshot#unavailable()}
-     *         if not supported by the SDK implementation.
-     */
-    default SdkMetricsCollector.ResourceSnapshot getResourceSnapshot() throws SdkException {
-        return SdkMetricsCollector.ResourceSnapshot.unavailable();
     }
 
     /**
      * ML Kit-style feature entrypoint for face recognition, natural language, and
      * document scanning.
      */
-    default AqliFeatureKit featureKit() throws SdkException {
+    default AqliFeatureKit featureKit() throws tech.kayys.aqli.sdk.exception.SdkException {
         throw new UnsupportedOperationException(
                 "Feature kit is not supported by this SDK implementation.");
     }
