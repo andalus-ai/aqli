@@ -65,10 +65,16 @@ public class AttentionScratchMemoryBudget {
         return maxBytes;
     }
 
-    private IllegalStateException exceeded(long requestedBytes) {
-        return new IllegalStateException(
+    private ExceededException exceeded(long requestedBytes) {
+        return new ExceededException(
                 "Attention scratch native memory budget exceeded: requested " + requestedBytes
                         + " bytes, reserved " + reservedBytes + " of " + maxBytes + " bytes");
+    }
+
+    public static final class ExceededException extends IllegalStateException {
+        private ExceededException(String message) {
+            super(message);
+        }
     }
 
     private synchronized void release(long bytes) {
