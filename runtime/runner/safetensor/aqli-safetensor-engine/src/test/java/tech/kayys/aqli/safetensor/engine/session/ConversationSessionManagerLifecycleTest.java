@@ -102,13 +102,14 @@ class ConversationSessionManagerLifecycleTest {
     }
 
     @Test
-    void capacityEvictionCountsOnlySessionsActuallyRemoved() {
+    void capacityEvictionCountsOnlySessionsActuallyRemoved() throws InterruptedException {
         ConversationSessionManager manager = manager();
         manager.maxSessions = 1;
         TestKvCache first = new TestKvCache();
         TestKvCache second = new TestKvCache();
 
         manager.create("first", "model-a", new int[] {1}, first);
+        Thread.sleep(10);
         manager.create("second", "model-a", new int[] {2}, second);
 
         assertEquals(1, manager.activeSessions());
