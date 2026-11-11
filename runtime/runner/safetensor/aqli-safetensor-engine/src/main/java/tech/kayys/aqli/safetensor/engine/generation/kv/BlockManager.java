@@ -14,19 +14,21 @@ import java.util.Objects;
 /**
  * Owns the physical K/V storage for one generation session.
  *
- * <p>Physical memory is allocated lazily in chunks as block indices are leased.
- * A block index remains stable for the session, while its backing chunk is
- * released when the final block in that chunk is returned.
+ * <p>The pool is deliberately session-scoped. A block index is leased at most
+ * once at a time, and the arena must outlive every segment view obtained from
+ * this manager.
  */
 public final class BlockManager implements AutoCloseable {
-    private static final int BLOCKS_PER_CHUNK = 16;
-
     public enum KvStorageType {
         FP32,
         INT8,
         INT4
     }
 
+    private MemorySegment kPoolSlab;
+    private MemorySegment vPoolSlab;
+    private MemorySegment kScaleSlab;
+    private MemorySegment vScaleSlab;
     private int blockSizeBytes;
     private int tokensPerBlock;
     private int numHeads;
@@ -34,13 +36,11 @@ public final class BlockManager implements AutoCloseable {
     private long headStride;
     private long tokenStride;
     private long scaleStride;
-    private long scaleBlockBytes;
     private boolean initialized;
     private int maxBlocks;
     private KvStorageType storageType = KvStorageType.FP32;
     private int bytesPerElement = Float.BYTES;
-    private StorageChunk[] chunks;
-    private long allocatedNativeBytes;
+    private Arena poolArena;
     private final ArrayDeque<Integer> freeBlockIndices = new ArrayDeque<>();
     private final BitSet allocatedBlocks = new BitSet();
 
@@ -75,11 +75,35 @@ public final class BlockManager implements AutoCloseable {
             case INT4 -> Math.addExact(blockElements, 1L) / 2L;
         };
         int newBlockSizeBytes = Math.toIntExact(blockBytes);
-        long newScaleBlockBytes = storageType == KvStorageType.FP32
+        long totalBytes = Math.multiplyExact((long) maxBlocks, blockBytes);
+        long totalScaleBytes = storageType == KvStorageType.FP32
                 ? 0L
-                : Math.multiplyExact(Math.multiplyExact((long) numHeads, tokensPerBlock), Float.BYTES);
+                : Math.multiplyExact(Math.multiplyExact(
+                        Math.multiplyExact((long) maxBlocks, numHeads), tokensPerBlock), Float.BYTES);
 
-        closeChunks();
+        Arena newArena = Arena.ofShared();
+        MemorySegment newK;
+        MemorySegment newV;
+        MemorySegment newKScale = null;
+        MemorySegment newVScale = null;
+        try {
+            newK = newArena.allocate(totalBytes, 64);
+            newV = newArena.allocate(totalBytes, 64);
+            if (storageType != KvStorageType.FP32) {
+                newKScale = newArena.allocate(totalScaleBytes, 64);
+                newVScale = newArena.allocate(totalScaleBytes, 64);
+            }
+        } catch (RuntimeException | Error failure) {
+            newArena.close();
+            throw failure;
+        }
+
+        closeArena();
+        this.poolArena = newArena;
+        this.kPoolSlab = newK;
+        this.vPoolSlab = newV;
+        this.kScaleSlab = newKScale;
+        this.vScaleSlab = newVScale;
         this.tokensPerBlock = tokensPerBlock;
         this.numHeads = numHeads;
         this.headDim = headDim;
@@ -90,8 +114,6 @@ public final class BlockManager implements AutoCloseable {
         this.tokenStride = headDim;
         this.headStride = Math.multiplyExact((long) tokensPerBlock, tokenStride);
         this.scaleStride = tokensPerBlock;
-        this.scaleBlockBytes = newScaleBlockBytes;
-        this.chunks = new StorageChunk[(maxBlocks + BLOCKS_PER_CHUNK - 1) / BLOCKS_PER_CHUNK];
         this.initialized = true;
         resetFreeList();
     }
@@ -117,17 +139,9 @@ public final class BlockManager implements AutoCloseable {
     public synchronized Integer allocateBlock() {
         ensureInitialized();
         Integer index = freeBlockIndices.pollFirst();
-        if (index == null) {
-            return null;
+        if (index != null) {
+            allocatedBlocks.set(index);
         }
-        try {
-            ensureChunkAllocated(index);
-        } catch (RuntimeException | Error failure) {
-            freeBlockIndices.addFirst(index);
-            throw failure;
-        }
-        allocatedBlocks.set(index);
-        chunks[chunkIndex(index)].allocatedBlockCount++;
         return index;
     }
 
@@ -137,54 +151,30 @@ public final class BlockManager implements AutoCloseable {
         if (!allocatedBlocks.get(index)) {
             throw new IllegalStateException("KV block " + index + " is not currently allocated");
         }
-        int chunkIndex = chunkIndex(index);
-        StorageChunk chunk = chunks[chunkIndex];
         allocatedBlocks.clear(index);
         freeBlockIndices.addLast(index);
-        chunk.allocatedBlockCount--;
-        if (chunk.allocatedBlockCount == 0) {
-            releaseChunk(chunkIndex);
-        }
     }
 
     public synchronized MemorySegment getKBlock(int blockIndex) {
         ensureInitialized();
         checkBlockIndex(blockIndex);
-        StorageChunk chunk = requireChunk(blockIndex);
-        long localOffset = (long) (blockIndex - chunk.firstBlock) * blockSizeBytes;
-        return chunk.kPool.asSlice(localOffset, blockSizeBytes);
+        return kPoolSlab.asSlice((long) blockIndex * blockSizeBytes, blockSizeBytes);
     }
 
     public synchronized MemorySegment getVBlock(int blockIndex) {
         ensureInitialized();
         checkBlockIndex(blockIndex);
-        StorageChunk chunk = requireChunk(blockIndex);
-        long localOffset = (long) (blockIndex - chunk.firstBlock) * blockSizeBytes;
-        return chunk.vPool.asSlice(localOffset, blockSizeBytes);
+        return vPoolSlab.asSlice((long) blockIndex * blockSizeBytes, blockSizeBytes);
     }
 
-    /**
-     * Returns a contiguous pool only when the entire configured capacity fits
-     * in one physical chunk. Multi-chunk callers must use block-level access.
-     */
-    @Deprecated(forRemoval = false)
     public synchronized MemorySegment getRawKPool() {
         ensureInitialized();
-        return requireSingleChunkPool().kPool;
+        return kPoolSlab;
     }
 
-    @Deprecated(forRemoval = false)
     public synchronized MemorySegment getRawVPool() {
         ensureInitialized();
-        return requireSingleChunkPool().vPool;
-    }
-
-    private StorageChunk requireSingleChunkPool() {
-        if (chunks.length != 1 || chunks[0] == null || chunks[0].blockCount != maxBlocks) {
-            throw new UnsupportedOperationException(
-                    "A contiguous KV pool is unavailable for chunked storage; use getKBlock/getVBlock");
-        }
-        return chunks[0];
+        return vPoolSlab;
     }
 
     public synchronized int getBlockSizeBytes() {
@@ -240,108 +230,30 @@ public final class BlockManager implements AutoCloseable {
     public synchronized MemorySegment getKScaleBlock(int blockIndex) {
         ensureInitialized();
         checkBlockIndex(blockIndex);
-        if (scaleBlockBytes == 0) {
+        if (kScaleSlab == null) {
             return null;
         }
-        StorageChunk chunk = requireChunk(blockIndex);
-        long localOffset = (long) (blockIndex - chunk.firstBlock) * scaleBlockBytes;
-        return chunk.kScalePool.asSlice(localOffset, scaleBlockBytes);
+        long scaleBlockBytes = (long) numHeads * tokensPerBlock * Float.BYTES;
+        return kScaleSlab.asSlice((long) blockIndex * scaleBlockBytes, scaleBlockBytes);
     }
 
     public synchronized MemorySegment getVScaleBlock(int blockIndex) {
         ensureInitialized();
         checkBlockIndex(blockIndex);
-        if (scaleBlockBytes == 0) {
+        if (vScaleSlab == null) {
             return null;
         }
-        StorageChunk chunk = requireChunk(blockIndex);
-        long localOffset = (long) (blockIndex - chunk.firstBlock) * scaleBlockBytes;
-        return chunk.vScalePool.asSlice(localOffset, scaleBlockBytes);
+        long scaleBlockBytes = (long) numHeads * tokensPerBlock * Float.BYTES;
+        return vScaleSlab.asSlice((long) blockIndex * scaleBlockBytes, scaleBlockBytes);
     }
 
     public synchronized int getAllocatedBlockCount() {
         return allocatedBlocks.cardinality();
     }
 
-    public synchronized int getAllocatedChunkCount() {
-        int count = 0;
-        if (chunks != null) {
-            for (StorageChunk chunk : chunks) {
-                if (chunk != null) {
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
-
-    /** Current native bytes allocated by physical chunks, excluding reserved capacity. */
-    public synchronized long getAllocatedNativeBytes() {
-        return allocatedNativeBytes;
-    }
-
     public synchronized int getCapacity() {
         ensureInitialized();
         return maxBlocks;
-    }
-
-    private void ensureChunkAllocated(int blockIndex) {
-        int chunkIndex = chunkIndex(blockIndex);
-        if (chunks[chunkIndex] != null) {
-            return;
-        }
-
-        int firstBlock = chunkIndex * BLOCKS_PER_CHUNK;
-        int blockCount = Math.min(BLOCKS_PER_CHUNK, maxBlocks - firstBlock);
-        long dataBytes = Math.multiplyExact((long) blockCount, blockSizeBytes);
-        long scaleBytes = Math.multiplyExact((long) blockCount, scaleBlockBytes);
-        long totalBytes = Math.addExact(Math.multiplyExact(dataBytes, 2L),
-                Math.multiplyExact(scaleBytes, 2L));
-
-        Arena arena = Arena.ofShared();
-        try {
-            MemorySegment kPool = arena.allocate(dataBytes, 64);
-            MemorySegment vPool = arena.allocate(dataBytes, 64);
-            MemorySegment kScalePool = scaleBlockBytes == 0 ? null : arena.allocate(scaleBytes, 64);
-            MemorySegment vScalePool = scaleBlockBytes == 0 ? null : arena.allocate(scaleBytes, 64);
-            chunks[chunkIndex] = new StorageChunk(
-                    firstBlock, blockCount, arena, kPool, vPool, kScalePool, vScalePool, totalBytes);
-            allocatedNativeBytes = Math.addExact(allocatedNativeBytes, totalBytes);
-        } catch (RuntimeException | Error failure) {
-            arena.close();
-            throw failure;
-        }
-    }
-
-    private StorageChunk requireChunk(int blockIndex) {
-        StorageChunk chunk = chunks[chunkIndex(blockIndex)];
-        if (chunk == null) {
-            throw new IllegalStateException("KV block " + blockIndex + " has no allocated storage chunk");
-        }
-        return chunk;
-    }
-
-    private int chunkIndex(int blockIndex) {
-        return blockIndex / BLOCKS_PER_CHUNK;
-    }
-
-    private void releaseChunk(int chunkIndex) {
-        StorageChunk chunk = chunks[chunkIndex];
-        if (chunk == null) {
-            return;
-        }
-        chunk.arena.close();
-        chunks[chunkIndex] = null;
-        allocatedNativeBytes -= chunk.allocatedBytes;
-    }
-
-    private void closeChunks() {
-        if (chunks != null) {
-            for (int i = 0; i < chunks.length; i++) {
-                releaseChunk(i);
-            }
-        }
-        allocatedNativeBytes = 0;
     }
 
     private void checkBlockIndex(int blockIndex) {
@@ -352,15 +264,25 @@ public final class BlockManager implements AutoCloseable {
     }
 
     private void ensureInitialized() {
-        if (!initialized || chunks == null) {
+        if (!initialized || poolArena == null || !poolArena.scope().isAlive()) {
             throw new IllegalStateException("KV block storage is not initialized");
+        }
+    }
+
+    private void closeArena() {
+        if (poolArena != null && poolArena.scope().isAlive()) {
+            poolArena.close();
         }
     }
 
     @Override
     public synchronized void close() {
-        closeChunks();
-        chunks = null;
+        closeArena();
+        poolArena = null;
+        kPoolSlab = null;
+        vPoolSlab = null;
+        kScaleSlab = null;
+        vScaleSlab = null;
         freeBlockIndices.clear();
         allocatedBlocks.clear();
         initialized = false;
@@ -372,39 +294,7 @@ public final class BlockManager implements AutoCloseable {
         headStride = 0;
         tokenStride = 0;
         scaleStride = 0;
-        scaleBlockBytes = 0;
         bytesPerElement = Float.BYTES;
         storageType = KvStorageType.FP32;
-    }
-
-    private static final class StorageChunk {
-        private final int firstBlock;
-        private final int blockCount;
-        private final Arena arena;
-        private final MemorySegment kPool;
-        private final MemorySegment vPool;
-        private final MemorySegment kScalePool;
-        private final MemorySegment vScalePool;
-        private final long allocatedBytes;
-        private int allocatedBlockCount;
-
-        private StorageChunk(
-                int firstBlock,
-                int blockCount,
-                Arena arena,
-                MemorySegment kPool,
-                MemorySegment vPool,
-                MemorySegment kScalePool,
-                MemorySegment vScalePool,
-                long allocatedBytes) {
-            this.firstBlock = firstBlock;
-            this.blockCount = blockCount;
-            this.arena = arena;
-            this.kPool = kPool;
-            this.vPool = vPool;
-            this.kScalePool = kScalePool;
-            this.vScalePool = vScalePool;
-            this.allocatedBytes = allocatedBytes;
-        }
     }
 }
