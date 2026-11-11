@@ -1077,10 +1077,6 @@ public final class GgufStandaloneRunner {
         return Math.min(maxAutoContext, GgufStandaloneConfiguration.parsePositiveInt(configured, maxAutoContext));
     }
 
-    private static int fastRunMaxAutoContext() {
-        return CONFIG.positiveInt("aqli.gguf.fast_run.max_auto_context", 4096);
-    }
-
     static boolean fastRunSwaFull() {
         return CONFIG.booleanValue("aqli.gguf.fast_run.swa_full", false);
     }
