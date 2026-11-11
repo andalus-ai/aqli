@@ -35,9 +35,17 @@ public class SharedKvState implements AutoCloseable {
     }
 
     public SharedKvState(AccelTensor key, AccelTensor value, KvCacheMemoryBudget memoryBudget) {
-        AccelTensor ownedKey = Objects.requireNonNull(key, "key");
-        AccelTensor ownedValue = Objects.requireNonNull(value, "value");
-        this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
+        AccelTensor ownedKey;
+        AccelTensor ownedValue;
+        try {
+            ownedKey = Objects.requireNonNull(key, "key");
+            ownedValue = Objects.requireNonNull(value, "value");
+            this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
+        } catch (RuntimeException failure) {
+            closeIfOpen(key);
+            closeIfOpen(value);
+            throw failure;
+        }
 
         int resolvedNumHeads;
         int resolvedHeadDim;
