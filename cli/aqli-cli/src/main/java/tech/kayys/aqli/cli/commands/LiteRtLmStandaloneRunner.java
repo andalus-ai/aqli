@@ -4,6 +4,7 @@ import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
 import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
 import tech.kayys.aqli.provider.litert.LiteRTDaemonProtocol;
 import tech.kayys.aqli.provider.litert.LiteRTTokenStreamLimiter;
+import tech.kayys.aqli.provider.litert.LiteRTConversationExecutor;
 import tech.kayys.aqli.provider.litert.LiteRTEngineCache;
 import tech.kayys.aqli.provider.litert.LiteRTEngineLease;
 import tech.kayys.aqli.sdk.route.*;
@@ -495,93 +496,44 @@ public final class LiteRtLmStandaloneRunner {
                         lease.fallbackReason());
             }
 
-            SamplerConfig sampler = new SamplerConfig(
-                    Math.max(1, args.topK()),
-                    Math.max(0.0d, Math.min(1.0d, args.topP())),
-                    Math.max(0.0d, args.temperature()),
-                    0);
-            ConversationConfig conversationConfig = new ConversationConfig(
-                    null,
-                    List.of(),
-                    List.of(),
-                    sampler,
-                    false,
-                    null,
-                    Map.of());
-            try (Conversation conversation = lease.engine().createConversation(conversationConfig)) {
-                long afterConversationCreateNanos = System.nanoTime();
-                CountDownLatch done = new CountDownLatch(1);
-                AtomicBoolean cancelled = new AtomicBoolean(false);
-                AtomicInteger streamUpdates = new AtomicInteger(0);
-                AtomicLong firstChunkNanos = new AtomicLong(0L);
-                AtomicReference<Throwable> error = new AtomicReference<>();
-                LiteRTTokenStreamLimiter tokenLimiter = new LiteRTTokenStreamLimiter(args.maxTokens());
-                conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt())), new MessageCallback() {
-                    @Override
-                    public void onMessage(com.google.ai.edge.litertlm.Message message) {
-                        if (cancelled.get()) {
-                            return;
-                        }
-                        streamUpdates.incrementAndGet();
-                        firstChunkNanos.compareAndSet(0L, System.nanoTime());
-                        String delta = tokenLimiter.offer(message.toString());
-                        if (!delta.isEmpty()) {
-                            out.print(delta);
-                            out.flush();
-                        }
-                        if (tokenLimiter.atLimit() && cancelled.compareAndSet(false, true)) {
-                            conversation.cancelProcess();
-                            done.countDown();
-                        }
-                    }
-
-                    @Override
-                    public void onDone() {
-                        done.countDown();
-                    }
-
-                    @Override
-                    public void onError(Throwable throwable) {
-                        if (!cancelled.get()) {
-                            error.compareAndSet(null, throwable);
-                        }
-                        done.countDown();
-                    }
-                }, Map.of());
-                if (!done.await(timeout().toMillis(), TimeUnit.MILLISECONDS)) {
-                    conversation.cancelProcess();
-                    throw new IllegalStateException("LiteRT-LM fast path timed out");
-                }
-                if (error.get() != null && !cancelled.get()) {
-                    throw new IllegalStateException(error.get());
-                }
-                lease.markPrewarmed(prewarmIterationCount());
-                long endNanos = System.nanoTime();
-                if (args.banner()) {
-                    printFastRunStats(out,
-                            streamUpdates.get(),
-                            tokenLimiter.emittedTokenCount(),
-                            startNanos,
-                            beforeEngineInitNanos,
-                            afterEngineInitNanos,
-                            afterConversationCreateNanos,
-                            firstChunkNanos.get(),
-                            endNanos);
-                }
-                if (Boolean.getBoolean("aqli.litert.fast_run.profile")) {
-                    long first = firstChunkNanos.get();
-                    err.printf(Locale.ROOT,
-                            "[Fast LiteRT-LM profile] routeResolve=%.3fs routeCacheHit=%s selectedArtifact=%s routeSource=%s cache+config=%.3fs engineInit=%.3fs conversation=%.3fs firstChunk=%.3fs total=%.3fs%n",
-                            seconds(route.durationNanos()),
-                            route.cacheHit(),
-                            route.selectedArtifact(),
-                            route.source(),
-                            seconds(beforeEngineInitNanos - startNanos),
-                            seconds(afterEngineInitNanos - beforeEngineInitNanos),
-                            seconds(afterConversationCreateNanos - afterEngineInitNanos),
-                            first == 0L ? -1.0d : seconds(first - afterConversationCreateNanos),
-                            seconds(System.nanoTime() - startNanos));
-                }
+            LiteRTConversationExecutor.Result result = LiteRTConversationExecutor.execute(
+                    lease.engine(),
+                    promptForModel(args.prompt()),
+                    args.topK(),
+                    args.topP(),
+                    args.temperature(),
+                    args.maxTokens(),
+                    timeout(),
+                    delta -> {
+                        out.print(delta);
+                        out.flush();
+                    });
+            lease.markPrewarmed(prewarmIterationCount());
+            long endNanos = System.nanoTime();
+            if (args.banner()) {
+                printFastRunStats(out,
+                        result.streamUpdates(),
+                        result.outputTokens(),
+                        startNanos,
+                        beforeEngineInitNanos,
+                        afterEngineInitNanos,
+                        result.conversationReadyNanos(),
+                        result.firstChunkNanos(),
+                        endNanos);
+            }
+            if (Boolean.getBoolean("aqli.litert.fast_run.profile")) {
+                long first = result.firstChunkNanos();
+                err.printf(Locale.ROOT,
+                        "[Fast LiteRT-LM profile] routeResolve=%.3fs routeCacheHit=%s selectedArtifact=%s routeSource=%s cache+config=%.3fs engineInit=%.3fs conversation=%.3fs firstChunk=%.3fs total=%.3fs%n",
+                        seconds(route.durationNanos()),
+                        route.cacheHit(),
+                        route.selectedArtifact(),
+                        route.source(),
+                        seconds(beforeEngineInitNanos - startNanos),
+                        seconds(afterEngineInitNanos - beforeEngineInitNanos),
+                        seconds(result.conversationReadyNanos() - afterEngineInitNanos),
+                        first == 0L ? -1.0d : seconds(first - result.conversationReadyNanos()),
+                        seconds(System.nanoTime() - startNanos));
             }
         }
     }
