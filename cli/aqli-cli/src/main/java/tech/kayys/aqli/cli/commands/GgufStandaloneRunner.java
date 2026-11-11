@@ -734,10 +734,6 @@ public final class GgufStandaloneRunner {
         }
     }
 
-    private static Optional<String> safeMetrics(LlamaCppGgufSession session) {
-        return safeMetrics(session, false, "cold");
-    }
-
     /**
      * Strips model thinking-channel blocks from the raw output string.
      *
