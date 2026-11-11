@@ -46,15 +46,7 @@ public final class LlamaCppGgufSession implements AutoCloseable {
 
     public static LlamaCppGgufSession open(
             Path modelPath,
-            int context,
-            int batch,
-            int microBatch,
-            int threads,
-            int batchThreads,
-            int gpuLayers,
-            boolean useMmap,
-            boolean useMlock,
-            boolean swaFull,
+            LlamaCppGgufSessionParameters parameters,
             LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
         LlamaCppGgufNativeBindings binding =
                 LlamaCppGgufNativeBindings.load(libraryPaths.bridgeLibrary());
@@ -66,15 +58,15 @@ public final class LlamaCppGgufSession implements AutoCloseable {
             MemorySegment handle = (MemorySegment) binding.open.invokeExact(
                     model,
                     backendDir,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap ? 1 : 0,
-                    useMlock ? 1 : 0,
-                    swaFull ? 1 : 0,
+                    parameters.context(),
+                    parameters.batch(),
+                    parameters.microBatch(),
+                    parameters.threads(),
+                    parameters.batchThreads(),
+                    parameters.gpuLayers(),
+                    parameters.useMmap() ? 1 : 0,
+                    parameters.useMlock() ? 1 : 0,
+                    parameters.swaFull() ? 1 : 0,
                     error,
                     ERROR_BUFFER_BYTES);
             if (isNull(handle)) {
