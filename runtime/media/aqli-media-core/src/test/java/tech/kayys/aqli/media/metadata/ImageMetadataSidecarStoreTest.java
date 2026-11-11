@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import tech.kayys.aqli.media.integrity.MediaFileIntegrity;
 
 class ImageMetadataSidecarStoreTest {
     @TempDir
