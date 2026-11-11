@@ -5,8 +5,6 @@ import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
-
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -21,7 +19,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.lang.invoke.MethodHandle;
@@ -225,6 +222,13 @@ public final class GgufStandaloneRunner {
     }
 
     private static boolean hasKnownNonGgufTarget(GgufRunArguments args) {
+<<<<<<< HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
+        return GgufModelResolver.hasKnownNonGgufTarget(args, equivalentGgufFastPathEnabled());
+    }
+
+    static Optional<Path> resolveGgufModel(GgufRunArguments args) {
+        return GgufModelResolver.resolve(args, equivalentGgufFastPathEnabled());
+=======
         if (args.modelFile() != null && hasNonGgufExtension(args.modelFile())) {
             return true;
         }
@@ -512,55 +516,12 @@ public final class GgufStandaloneRunner {
             score += 20;
         }
         return score;
+>>>>>>> main:cli/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
     }
 
     static boolean equivalentGgufFastPathEnabled() {
         String configured = configValue("aqli.gguf.fast_run.auto_equivalent");
         return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
-    }
-
-    private static Optional<Path> resolvePath(Path raw) {
-        Path expanded = expandHome(raw);
-        if (Files.exists(expanded)) {
-            return Optional.of(expanded.toAbsolutePath().normalize());
-        }
-        return Optional.empty();
-    }
-
-    private static Path expandHome(Path path) {
-        String text = path.toString();
-        if (text.equals("~")) {
-            return Path.of(System.getProperty("user.home"));
-        }
-        if (text.startsWith("~/")) {
-            return Path.of(System.getProperty("user.home"), text.substring(2));
-        }
-        return path;
-    }
-
-    private static Optional<Path> findGguf(Path path) {
-        try {
-            if (Files.isRegularFile(path) && isGguf(path)) {
-                return Optional.of(path.toAbsolutePath().normalize());
-            }
-            Path searchDir = Files.isDirectory(path) ? path : path.getParent();
-            if (searchDir == null || !Files.isDirectory(searchDir)) {
-                return Optional.empty();
-            }
-            try (var stream = Files.list(searchDir)) {
-                return stream
-                        .filter(Files::isRegularFile)
-                        .filter(GgufStandaloneRunner::isGguf)
-                        .findFirst()
-                        .map(candidate -> candidate.toAbsolutePath().normalize());
-            }
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private static boolean isGguf(Path path) {
-        return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gguf");
     }
 
     private static int generate(Path modelPath, GgufRunArguments args) throws Throwable {
@@ -1934,6 +1895,10 @@ public final class GgufStandaloneRunner {
                 System.err);
     }
 
+    private static GgufDaemonControlClient daemonControlClient() {
+        return new GgufDaemonControlClient();
+    }
+
     private static boolean startDaemon() {
         deleteDaemonPortFile();
         try {
@@ -1954,25 +1919,30 @@ public final class GgufStandaloneRunner {
             command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
-            if (!daemonLauncher().launch(command, daemonLauncherMode(), launchctlLabel(), daemonLogFile(),
-                    isMacOs(), fastRunDebug(), daemonNativePaths())) {
-                return false;
-            }
-
-            long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(daemonStartTimeoutMillis());
-            while (System.nanoTime() < deadlineNanos) {
-                if (readDaemonPort().isPresent()) {
-                    return true;
-                }
-                Thread.sleep(100L);
-            }
-            return readDaemonPort().isPresent();
+            return daemonStartupCoordinator().start(
+                    command,
+                    daemonLauncherMode(),
+                    launchctlLabel(),
+                    daemonLogFile(),
+                    isMacOs(),
+                    fastRunDebug(),
+                    daemonNativePaths());
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon failed to start: " + briefMessage(e));
             }
             return false;
         }
+    }
+
+    private static GgufDaemonStartupCoordinator daemonStartupCoordinator() {
+        return new GgufDaemonStartupCoordinator(
+                new GgufDaemonLauncher()::launch,
+                GgufStandaloneRunner::readDaemonPort,
+                GgufStandaloneRunner::daemonStartTimeoutMillis,
+                System::nanoTime,
+                Thread::sleep,
+                100L);
     }
 
     static String daemonLauncherMode() {
@@ -2056,18 +2026,9 @@ public final class GgufStandaloneRunner {
             removeLaunchctlDaemon();
             return 0;
         }
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port.getAsInt()),
-                    daemonConnectTimeoutMillis());
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, DAEMON_STOP_MAGIC);
-            out.flush();
-            int channel = in.read();
-            int status = in.readInt();
-            return channel == 0 ? status : COMMAND_ERROR;
-        } catch (Exception ignored) {
-            return 0;
+        try {
+            return daemonControlClient().requestStop(
+                    port.getAsInt(), DAEMON_STOP_MAGIC, daemonConnectTimeoutMillis(), COMMAND_ERROR);
         } finally {
             deleteDaemonPortFile();
             removeLaunchctlDaemon();
