@@ -38,10 +38,16 @@ public class LocalAqliSdk implements AqliSdk {
 
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
+    private final LocalModelCatalog models;
 
     public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config) {
+        this(engines, config, new LocalModelCatalog(new tech.kayys.aqli.model.repo.local.ManifestStore()));
+    }
+
+    public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config, LocalModelCatalog models) {
         this.engines = java.util.Objects.requireNonNull(engines, "engines");
         this.config = config != null ? config : SdkConfig.builder().build();
+        this.models = java.util.Objects.requireNonNull(models, "models");
     }
 
     @Override
@@ -106,17 +112,17 @@ public class LocalAqliSdk implements AqliSdk {
 
     @Override
     public List<ModelInfo> listModels() throws SdkException {
-        throw unsupported("Model catalogue");
+        return models.listModels(0, Integer.MAX_VALUE);
     }
 
     @Override
     public List<ModelInfo> listModels(int offset, int limit) throws SdkException {
-        throw unsupported("Model catalogue");
+        return models.listModels(offset, limit);
     }
 
     @Override
     public Optional<ModelInfo> getModelInfo(String modelId) throws SdkException {
-        throw unsupported("Model lookup");
+        return models.findModel(modelId);
     }
 
     @Override

@@ -82,10 +82,19 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
                     generation,
                     ResumableSessionArtifact.descriptorOnly(descriptorFor(generation)),
                     new long[0],
-                    conversationSession);
+                    conversationSessionLease);
         }
-        long[] inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
-        DirectPreparedGenerationHandle handle = handles().publish(generation, inputIds);
+        long[] inputIds;
+        DirectPreparedGenerationHandle handle;
+        try {
+            inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
+            handle = handles().publish(generation, inputIds);
+        } catch (RuntimeException | Error failure) {
+            if (conversationSessionLease != null) {
+                conversationSessionLease.close();
+            }
+            throw failure;
+        }
         ResumableSessionArtifact artifact = ResumableSessionArtifact.backendSessionHandle(
                 descriptorFor(generation),
                 handle.sessionKey(),
@@ -96,7 +105,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
                         "prepared_generation", true,
                         "pretokenized_prompt", true,
                         "artifact_strategy", generation.artifactPlan().strategy().name().toLowerCase()));
-        return new DirectTextExecutionSession(engine, generation, artifact, inputIds, conversationSession);
+        return new DirectTextExecutionSession(engine, generation, artifact, inputIds, conversationSessionLease);
     }
 
     @Override
@@ -112,7 +121,13 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
             if (conversationSession.isEmpty()) {
                 return Optional.empty();
             }
-            long[] inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
+            long[] inputIds;
+            try {
+                inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
+            } catch (RuntimeException | Error failure) {
+                conversationSession.get().close();
+                throw failure;
+            }
             return Optional.of(new DirectTextExecutionSession(
                     engine,
                     generation,
@@ -158,12 +173,14 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
 
     @Override
     public Uni<InferenceResponse> generate(PreparedTextGeneration generation) {
-        return openSession(generation).generate();
+        TextExecutionSession session = openSession(generation);
+        return session.generate().eventually(session::close);
     }
 
     @Override
     public Multi<InferenceResponse> generateStream(PreparedTextGeneration generation) {
-        return openSession(generation).generateStream();
+        TextExecutionSession session = openSession(generation);
+        return session.generateStream().onTermination().invoke(session::close);
     }
 
     @Override
@@ -187,7 +204,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
         return resolveConversationSession(generation, null);
     }
 
-    private Optional<ConversationSessionManager.ConversationSession> resolveConversationSession(
+    private Optional<ConversationSessionManager.SessionLease> resolveConversationSession(
             PreparedTextGeneration generation,
             String sessionIdOverride) {
         if (generation == null || generation.preparationPlan() == null || generation.preparationPlan().context() == null) {

@@ -55,7 +55,6 @@ package tech.kayys.aqli.safetensor.engine.session;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import io.quarkus.arc.Arc;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager.KVCacheSession;
 import tech.kayys.aqli.safetensor.engine.generation.paged.PagedKVSessionRegistry;
@@ -129,22 +128,6 @@ public class ConversationSessionManager {
     private final AtomicInteger totalCreated = new AtomicInteger(0);
     private final AtomicInteger totalExpired = new AtomicInteger(0);
 
-    private PagedKVSessionRegistry sessionRegistry() {
-        if (sessionRegistry != null) {
-            return sessionRegistry;
-        }
-        try {
-            if (Arc.container() != null) {
-                var instance = Arc.container().instance(PagedKVSessionRegistry.class);
-                if (instance.isAvailable()) {
-                    sessionRegistry = instance.get();
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return sessionRegistry;
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
 
     @jakarta.annotation.PostConstruct
@@ -160,8 +143,14 @@ public class ConversationSessionManager {
     @PreDestroy
     void stop() {
         cleaner.shutdownNow();
-        sessions.values().forEach(ConversationSession::close);
-        SHARED_SESSIONS.clear();
+        synchronized (lifecycleLock) {
+            List<ConversationSession> ownedSessions = new ArrayList<>(sessions.values());
+            sessions.clear();
+            ownedSessions.forEach(session -> {
+                deregister(session.sessionId());
+                session.close();
+            });
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -175,6 +164,7 @@ public class ConversationSessionManager {
      * @param modelKey  key identifying which model is loaded
      * @return the session if found, valid, and for the same model
      */
+    @Deprecated(forRemoval = false)
     public Optional<ConversationSession> find(String sessionId, String modelKey) {
         if (sessionId == null || sessionId.isBlank()) {
             return Optional.empty();
@@ -186,7 +176,11 @@ public class ConversationSessionManager {
             }
             if (!session.modelKey().equals(modelKey) || isExpired(session) || session.isClosed()) {
                 if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
                     session.close();
+                    if (isExpired(session)) {
+                        totalExpired.incrementAndGet();
+                    }
                     if (!session.modelKey().equals(modelKey)) {
                         log.debugf("Session %s found but model changed — discarding", sessionId);
                     }
@@ -236,47 +230,50 @@ public class ConversationSessionManager {
         if (sessionId == null || sessionId.isBlank()) {
             return ConversationExecutionState.noneRequested();
         }
-
-        ConversationSession s = SHARED_SESSIONS.get(sessionId);
-        if (s == null) {
-            return ConversationExecutionState.miss(
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.get(sessionId);
+            if (session == null) {
+                return ConversationExecutionState.miss(
+                        sessionId,
+                        modelKey,
+                        "No cached conversation execution state was found for the requested session");
+            }
+            if (!session.modelKey().equals(modelKey)) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                }
+                return ConversationExecutionState.modelMismatch(
+                        sessionId,
+                        modelKey,
+                        session.modelKey(),
+                        session.totalTokens(),
+                        toLongArray(session.tokenIds()),
+                        "Conversation session exists, but it belongs to a different model");
+            }
+            if (isExpired(session) || session.isClosed()) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                    totalExpired.incrementAndGet();
+                }
+                return ConversationExecutionState.expired(
+                        sessionId,
+                        modelKey,
+                        session.totalTokens(),
+                        toLongArray(session.tokenIds()),
+                        "Conversation session existed, but its cached execution state expired");
+            }
+            session.touch();
+            return ConversationExecutionState.hit(
                     sessionId,
                     modelKey,
-                    "No cached conversation execution state was found for the requested session");
+                    session.totalTokens(),
+                    toLongArray(session.tokenIds()),
+                    session.pendingReplayTokenId(),
+                    session.kvCache() != null,
+                    "Conversation session has active cached execution state");
         }
-
-        if (!s.modelKey().equals(modelKey)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
-            return ConversationExecutionState.modelMismatch(
-                    sessionId,
-                    modelKey,
-                    s.modelKey(),
-                    s.totalTokens(),
-                    toLongArray(s.tokenIds()),
-                    "Conversation session exists, but it belongs to a different model");
-        }
-
-        if (isExpired(s)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
-            return ConversationExecutionState.expired(
-                    sessionId,
-                    modelKey,
-                    s.totalTokens(),
-                    toLongArray(s.tokenIds()),
-                    "Conversation session existed, but its cached execution state expired");
-        }
-
-        s.touch();
-        return ConversationExecutionState.hit(
-                sessionId,
-                modelKey,
-                s.totalTokens(),
-                toLongArray(s.tokenIds()),
-                s.pendingReplayTokenId(),
-                s.kvCache() != null && !s.isClosed(),
-                "Conversation session has active cached execution state");
     }
 
     /**
@@ -393,12 +390,12 @@ public class ConversationSessionManager {
 
     /** Number of active sessions. */
     public int activeSessions() {
-        return SHARED_SESSIONS.size();
+        return sessions.size();
     }
 
     /** Total sessions created since startup. */
     public int totalCreated() {
-        return TOTAL_CREATED.get();
+        return totalCreated.get();
     }
 
     /** Total sessions expired/evicted since startup. */
@@ -645,7 +642,14 @@ public class ConversationSessionManager {
                 return;
             }
             if (activeLeases > 0) {
-                // Do not invalidate a cache currently used by an inference turn.
+                // A pending replacement is not visible to active leases; dispose
+                // of an earlier unpublished replacement before superseding it.
+                if (hasPendingKvCache && pendingKvCache != null && pendingKvCache != replacement) {
+                    try {
+                        pendingKvCache.close();
+                    } catch (Exception ignored) {
+                    }
+                }
                 pendingKvCache = replacement;
                 hasPendingKvCache = true;
                 return;
