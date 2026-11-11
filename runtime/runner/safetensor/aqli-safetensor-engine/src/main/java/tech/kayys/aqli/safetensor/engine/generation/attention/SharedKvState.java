@@ -230,13 +230,55 @@ public class SharedKvState implements AutoCloseable {
 
     @Override
     public void close() {
-        closeIfOpen(keyBuffer);
-        closeIfOpen(valueBuffer);
-        closeIfOpen(packedKeyBuffer);
-        closeIfOpen(packedValueBuffer);
-        closeLease(baseMemoryLease);
+        Throwable failure = null;
+        failure = closeTensor(keyBuffer, failure);
+        failure = closeTensor(valueBuffer, failure);
+        failure = closeTensor(packedKeyBuffer, failure);
+        failure = closeTensor(packedValueBuffer, failure);
+        failure = closeBudgetLease(baseMemoryLease, failure);
         baseMemoryLease = null;
-        closeLease(packedMemoryLease);
+        failure = closeBudgetLease(packedMemoryLease, failure);
         packedMemoryLease = null;
+        rethrowCloseFailure(failure);
+    }
+
+    private static Throwable closeTensor(AccelTensor tensor, Throwable failure) {
+        try {
+            closeIfOpen(tensor);
+        } catch (Throwable closeFailure) {
+            failure = combine(failure, closeFailure);
+        }
+        return failure;
+    }
+
+    private static Throwable closeBudgetLease(KvCacheMemoryBudget.Lease lease, Throwable failure) {
+        try {
+            closeLease(lease);
+        } catch (Throwable closeFailure) {
+            failure = combine(failure, closeFailure);
+        }
+        return failure;
+    }
+
+    private static Throwable combine(Throwable previous, Throwable next) {
+        if (previous == null) {
+            return next;
+        }
+        if (previous != next) {
+            previous.addSuppressed(next);
+        }
+        return previous;
+    }
+
+    private static void rethrowCloseFailure(Throwable failure) {
+        if (failure instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        if (failure != null) {
+            throw new IllegalStateException("Failed to close shared KV state", failure);
+        }
     }
 }
