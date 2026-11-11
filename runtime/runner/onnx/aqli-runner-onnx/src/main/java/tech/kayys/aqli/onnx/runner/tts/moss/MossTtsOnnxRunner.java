@@ -1980,6 +1980,12 @@ public class MossTtsOnnxRunner {
         }
     }
 
+    static void closePartiallyOpenedSessions(List<? extends AutoCloseable> openedSessions) {
+        for (int index = openedSessions.size() - 1; index >= 0; index--) {
+            closeQuietly(openedSessions.get(index));
+        }
+    }
+
     private static void closeQuietly(AutoCloseable closeable) {
         if (closeable == null) {
             return;
@@ -2296,22 +2302,32 @@ public class MossTtsOnnxRunner {
             Path localFixedSampledFramePath = graphs.get(2).path();
             Path codecDecodePath = graphs.get(3).path();
             Path codecDecodeStepPath = graphs.get(4).path();
-            SessionOpen prefill = createSession(env, prefillPath, threads, cacheSettings);
-            SessionOpen decode = createSession(env, decodePath, threads, cacheSettings);
-            SessionOpen localFixedSampledFrame = createSession(env, localFixedSampledFramePath, threads, cacheSettings);
-            LazyOrtSession codecDecode = new LazyOrtSession(env, codecDecodePath, threads, cacheSettings);
-            LazyOrtSession codecDecodeStep = new LazyOrtSession(env, codecDecodeStepPath, threads, cacheSettings);
-            List<OptimizedModelCacheEvent> eagerCacheEvents = List.of(
-                    prefill.cache(),
-                    decode.cache(),
-                    localFixedSampledFrame.cache());
-            return new MossSessions(
-                    prefill.session(),
-                    decode.session(),
-                    localFixedSampledFrame.session(),
-                    codecDecode,
-                    codecDecodeStep,
-                    eagerCacheEvents);
+            List<OrtSession> openedSessions = new ArrayList<>(3);
+            try {
+                SessionOpen prefill = createSession(env, prefillPath, threads, cacheSettings);
+                openedSessions.add(prefill.session());
+                SessionOpen decode = createSession(env, decodePath, threads, cacheSettings);
+                openedSessions.add(decode.session());
+                SessionOpen localFixedSampledFrame =
+                        createSession(env, localFixedSampledFramePath, threads, cacheSettings);
+                openedSessions.add(localFixedSampledFrame.session());
+                LazyOrtSession codecDecode = new LazyOrtSession(env, codecDecodePath, threads, cacheSettings);
+                LazyOrtSession codecDecodeStep = new LazyOrtSession(env, codecDecodeStepPath, threads, cacheSettings);
+                List<OptimizedModelCacheEvent> eagerCacheEvents = List.of(
+                        prefill.cache(),
+                        decode.cache(),
+                        localFixedSampledFrame.cache());
+                return new MossSessions(
+                        prefill.session(),
+                        decode.session(),
+                        localFixedSampledFrame.session(),
+                        codecDecode,
+                        codecDecodeStep,
+                        eagerCacheEvents);
+            } catch (OrtException | RuntimeException | Error failure) {
+                closePartiallyOpenedSessions(openedSessions);
+                throw failure;
+            }
         }
 
         private static String sessionCacheKey(
