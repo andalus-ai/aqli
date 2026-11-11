@@ -1,6 +1,7 @@
 package tech.kayys.aqli.safetensor.engine.generation.kv;
 
 import org.junit.jupiter.api.Test;
+import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.util.List;
@@ -123,6 +124,32 @@ class KvCacheMemoryBudgetTest {
 
         assertEquals(oneChunkBytes * 2, budget.reservedBytes());
         assertEquals(2, session.blockManager().getAllocatedChunkCount());
+
+        session.close();
+        assertEquals(0, budget.reservedBytes());
+    }
+
+    @Test
+    void sessionOwnsAndReleasesSharedKvBackingAndPackedReservations() {
+        ModelConfig config = modelConfig();
+        var generationConfig = tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults();
+        var maximum = KvCacheMemoryEstimator.estimate(
+                128, config.numHiddenLayers(), config.resolvedMaxKvHeads(), config.resolvedMaxHeadDim(),
+                16, BlockManager.KvStorageType.FP32, 64);
+        KvCacheMemoryBudget budget = new KvCacheMemoryBudget(maximum.totalBytes() + 4096);
+        KVCacheManager.KVCacheSession session =
+                new KVCacheManager.KVCacheSession(128, new BlockManager(budget), budget);
+
+        session.allocate(config, generationConfig);
+        long pagedReservation = budget.reservedBytes();
+        var shared = session.createSharedKvState(
+                AccelTensor.zeros(1, 2, 1, 64),
+                AccelTensor.zeros(1, 2, 1, 64));
+        session.sharedKvStates().put(0, shared);
+        assertEquals(pagedReservation + 1024, budget.reservedBytes());
+
+        shared.packedKeyData();
+        assertEquals(pagedReservation + 2048, budget.reservedBytes());
 
         session.close();
         assertEquals(0, budget.reservedBytes());
