@@ -95,6 +95,21 @@ class SharedKvStateTest {
         assertEquals(0, budget.reservedBytes());
     }
 
+    @Test
+    void closesTransferredTensorsWhenInitialBudgetReservationIsRejected() {
+        KvCacheMemoryBudget budget = new KvCacheMemoryBudget(63);
+        AccelTensor key = tensor(1.0f, 1, 2, 2, 2);
+        AccelTensor value = tensor(101.0f, 1, 2, 2, 2);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> new SharedKvState(key, value, budget));
+
+        assertEquals(0, budget.reservedBytes());
+        org.junit.jupiter.api.Assertions.assertTrue(key.isClosed());
+        org.junit.jupiter.api.Assertions.assertTrue(value.isClosed());
+    }
+
     private static AccelTensor tensor(float start, long... shape) {
         AccelTensor tensor = AccelTensor.zeros(shape);
         for (int i = 0; i < tensor.numel(); i++) {
