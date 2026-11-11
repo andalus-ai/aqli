@@ -90,7 +90,7 @@ public final class GgufSessionCache implements AutoCloseable {
             return existing;
         }
         log.accept("java backend cache miss: " + key.getFileName());
-        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
+        GgufJavaBackendSession opened =
                 tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
         javaBackends.put(key, opened);
         return opened;
