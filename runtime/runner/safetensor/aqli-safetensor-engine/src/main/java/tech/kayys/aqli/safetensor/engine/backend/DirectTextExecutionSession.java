@@ -26,8 +26,6 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
     private final ResumableSessionArtifact artifact;
     private final long[] inputIds;
     private final ConversationSessionManager.ConversationSession conversationSession;
-    private final ConversationSessionManager.SessionLease conversationSessionLease;
-    private final java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
     private volatile ConversationExecutionSnapshot conversationSnapshot;
     private volatile ConversationTurnPlan conversationTurnPlan;
     private volatile Boolean conversationDeltaPrefillUsed;
@@ -41,27 +39,12 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
             PreparedTextGeneration generation,
             ResumableSessionArtifact artifact,
             long[] inputIds,
-            ConversationSessionManager.SessionLease conversationSessionLease) {
-        this.engine = Objects.requireNonNull(engine, "engine");
-        this.generation = Objects.requireNonNull(generation, "generation");
-        this.artifact = Objects.requireNonNull(artifact, "artifact");
-        this.inputIds = inputIds != null ? inputIds.clone() : new long[0];
-        this.conversationSessionLease = conversationSessionLease;
-        this.conversationSession = conversationSessionLease != null ? conversationSessionLease.session() : null;
-    }
-
-    public DirectTextExecutionSession(
-            DirectInferenceEngine engine,
-            PreparedTextGeneration generation,
-            ResumableSessionArtifact artifact,
-            long[] inputIds,
             ConversationSessionManager.ConversationSession conversationSession) {
         this.engine = Objects.requireNonNull(engine, "engine");
         this.generation = Objects.requireNonNull(generation, "generation");
         this.artifact = Objects.requireNonNull(artifact, "artifact");
         this.inputIds = inputIds != null ? inputIds.clone() : new long[0];
         this.conversationSession = conversationSession;
-        this.conversationSessionLease = null;
     }
 
     @Override
@@ -116,10 +99,6 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
 
     @Override
     public Uni<InferenceResponse> generate() {
-        return generateInternal().onTermination().invoke(this::close);
-    }
-
-    private Uni<InferenceResponse> generateInternal() {
         long[] effectiveInputIds = inputIds.length > 0
                 ? inputIds
                 : engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
@@ -182,10 +161,6 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
 
     @Override
     public Multi<InferenceResponse> generateStream() {
-        return generateStreamInternal().onTermination().invoke(this::close);
-    }
-
-    private Multi<InferenceResponse> generateStreamInternal() {
         long[] effectiveInputIds = inputIds.length > 0
                 ? inputIds
                 : engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
@@ -235,18 +210,12 @@ public final class DirectTextExecutionSession implements TextExecutionSession {
 
     @Override
     public void close() {
-        if (!closed.compareAndSet(false, true)) {
-            return;
-        }
         ConversationExecutionSnapshot snapshot = conversationSnapshot;
         if (snapshot != null && snapshot.kvCacheSession() != null && !conversationSnapshotAdopted) {
             try {
                 snapshot.kvCacheSession().close();
             } catch (Exception ignored) {
             }
-        }
-        if (conversationSessionLease != null) {
-            conversationSessionLease.close();
         }
     }
 
