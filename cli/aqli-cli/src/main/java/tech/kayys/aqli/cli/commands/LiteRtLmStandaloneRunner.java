@@ -3,7 +3,6 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
 import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
 import tech.kayys.aqli.provider.litert.LiteRTDaemonProtocol;
-import tech.kayys.aqli.provider.litert.LiteRTTokenStreamLimiter;
 import tech.kayys.aqli.provider.litert.LiteRTConversationExecutor;
 import tech.kayys.aqli.provider.litert.LiteRTEngineCache;
 import tech.kayys.aqli.provider.litert.LiteRTEngineLease;
@@ -16,14 +15,10 @@ import io.opentelemetry.api.common.AttributesBuilder;
 
 import com.google.ai.edge.litertlm.Backend;
 import com.google.ai.edge.litertlm.Conversation;
-import com.google.ai.edge.litertlm.ConversationConfig;
-import com.google.ai.edge.litertlm.Contents;
 import com.google.ai.edge.litertlm.Engine;
 import com.google.ai.edge.litertlm.EngineConfig;
 import com.google.ai.edge.litertlm.ExperimentalFlags;
 import com.google.ai.edge.litertlm.LogSeverity;
-import com.google.ai.edge.litertlm.MessageCallback;
-import com.google.ai.edge.litertlm.SamplerConfig;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -51,12 +46,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -1317,58 +1307,15 @@ public final class LiteRtLmStandaloneRunner {
             LiteRTEngineLease<Engine> lease,
             LiteRTRunArguments args,
             int maxWarmupTokens) throws Exception {
-        SamplerConfig sampler = new SamplerConfig(
-                Math.max(1, args.topK()),
-                Math.max(0.0d, Math.min(1.0d, args.topP())),
-                Math.max(0.0d, args.temperature()),
-                0);
-        ConversationConfig conversationConfig = new ConversationConfig(
-                null,
-                List.of(),
-                List.of(),
-                sampler,
-                false,
-                null,
-                Map.of());
-        try (Conversation conversation = lease.engine().createConversation(conversationConfig)) {
-            CountDownLatch done = new CountDownLatch(1);
-            AtomicBoolean cancelled = new AtomicBoolean(false);
-            AtomicReference<Throwable> error = new AtomicReference<>();
-            LiteRTTokenStreamLimiter tokenLimiter = new LiteRTTokenStreamLimiter(maxWarmupTokens);
-            conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt())), new MessageCallback() {
-                @Override
-                public void onMessage(com.google.ai.edge.litertlm.Message message) {
-                    if (cancelled.get()) {
-                        return;
-                    }
-                    tokenLimiter.offer(message.toString());
-                    if (tokenLimiter.atLimit() && cancelled.compareAndSet(false, true)) {
-                        conversation.cancelProcess();
-                        done.countDown();
-                    }
-                }
-
-                @Override
-                public void onDone() {
-                    done.countDown();
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-                    if (!cancelled.get()) {
-                        error.compareAndSet(null, throwable);
-                    }
-                    done.countDown();
-                }
-            }, Map.of());
-            if (!done.await(timeout().toMillis(), TimeUnit.MILLISECONDS)) {
-                conversation.cancelProcess();
-                throw new IllegalStateException("LiteRT-LM prewarm timed out");
-            }
-            if (error.get() != null && !cancelled.get()) {
-                throw new IllegalStateException(error.get());
-            }
-        }
+        LiteRTConversationExecutor.execute(
+                lease.engine(),
+                promptForModel(args.prompt()),
+                args.topK(),
+                args.topP(),
+                args.temperature(),
+                maxWarmupTokens,
+                timeout(),
+                null);
     }
 
     private static ConversationConfig daemonKeepAliveConversationConfig() {
