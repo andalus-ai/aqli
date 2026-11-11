@@ -56,6 +56,8 @@ class SharedKvStateTest {
                 tensor(101.0f, 1, 2, 2, 2),
                 budget);
         assertEquals(64, budget.reservedBytes());
+        assertEquals(2, state.packedCapacityTokens());
+        assertEquals(64, budget.reservedBytes(), "capacity inspection must not materialize packed tensors");
 
         state.packedKeyData();
         assertEquals(128, budget.reservedBytes());
