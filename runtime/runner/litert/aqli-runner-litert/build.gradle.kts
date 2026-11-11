@@ -34,6 +34,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:2.0.12")
     implementation("com.fasterxml.jackson.core:jackson-annotations:2.16.1")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
+    compileOnly("com.google.ai.edge.litertlm:litertlm-jvm:0.11.0")
     runtimeOnly("com.google.ai.edge.litertlm:litertlm-jvm:0.11.0")
     compileOnly("jakarta.inject:jakarta.inject-api:2.0.1")
     compileOnly("io.quarkus:quarkus-arc")
