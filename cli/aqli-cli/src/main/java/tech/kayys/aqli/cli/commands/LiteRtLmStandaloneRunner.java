@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
 import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
 import tech.kayys.aqli.provider.litert.LiteRTDaemonProtocol;
+import tech.kayys.aqli.provider.litert.LiteRTTokenStreamLimiter;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -511,7 +512,7 @@ public final class LiteRtLmStandaloneRunner {
                 AtomicInteger streamUpdates = new AtomicInteger(0);
                 AtomicLong firstChunkNanos = new AtomicLong(0L);
                 AtomicReference<Throwable> error = new AtomicReference<>();
-                ApproximateTokenStreamLimiter tokenLimiter = new ApproximateTokenStreamLimiter(args.maxTokens());
+                LiteRTTokenStreamLimiter tokenLimiter = new LiteRTTokenStreamLimiter(args.maxTokens());
                 conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt())), new MessageCallback() {
                     @Override
                     public void onMessage(com.google.ai.edge.litertlm.Message message) {
@@ -1370,7 +1371,7 @@ public final class LiteRtLmStandaloneRunner {
             CountDownLatch done = new CountDownLatch(1);
             AtomicBoolean cancelled = new AtomicBoolean(false);
             AtomicReference<Throwable> error = new AtomicReference<>();
-            ApproximateTokenStreamLimiter tokenLimiter = new ApproximateTokenStreamLimiter(maxWarmupTokens);
+            LiteRTTokenStreamLimiter tokenLimiter = new LiteRTTokenStreamLimiter(maxWarmupTokens);
             conversation.sendMessageAsync(Contents.Companion.of(promptForModel(args.prompt())), new MessageCallback() {
                 @Override
                 public void onMessage(com.google.ai.edge.litertlm.Message message) {
@@ -1746,57 +1747,6 @@ public final class LiteRtLmStandaloneRunner {
                 keepAlive.close();
             } catch (Throwable ignored) {
             }
-        }
-    }
-
-    static final class ApproximateTokenStreamLimiter {
-        private final int maxTokens;
-        private final StringBuilder pendingWhitespace = new StringBuilder();
-        private int emittedTokenCount;
-        private boolean inToken;
-        private boolean atLimit;
-
-        ApproximateTokenStreamLimiter(int maxTokens) {
-            this.maxTokens = Math.max(1, maxTokens);
-        }
-
-        String offer(String chunk) {
-            if (chunk == null || chunk.isEmpty() || atLimit) {
-                return "";
-            }
-            StringBuilder delta = new StringBuilder(chunk.length());
-            for (int i = 0; i < chunk.length(); i++) {
-                char ch = chunk.charAt(i);
-                if (Character.isWhitespace(ch)) {
-                    pendingWhitespace.append(ch);
-                    inToken = false;
-                    continue;
-                }
-                if (!inToken) {
-                    int nextTokenCount = emittedTokenCount + 1;
-                    if (nextTokenCount > maxTokens) {
-                        pendingWhitespace.setLength(0);
-                        atLimit = true;
-                        break;
-                    }
-                    emittedTokenCount = nextTokenCount;
-                    inToken = true;
-                }
-                if (pendingWhitespace.length() > 0) {
-                    delta.append(pendingWhitespace);
-                    pendingWhitespace.setLength(0);
-                }
-                delta.append(ch);
-            }
-            return delta.toString();
-        }
-
-        boolean atLimit() {
-            return atLimit;
-        }
-
-        int emittedTokenCount() {
-            return emittedTokenCount;
         }
     }
 
