@@ -188,7 +188,7 @@ public class KVCacheManager {
             return workspace;
         }
 
-        public AttentionScratchMemoryBudget attentionScratchMemoryBudget() {
+        public synchronized AttentionScratchMemoryBudget attentionScratchMemoryBudget() {
             ensureNotClosed("attentionScratchMemoryBudget");
             return attentionScratchMemoryBudget;
         }
