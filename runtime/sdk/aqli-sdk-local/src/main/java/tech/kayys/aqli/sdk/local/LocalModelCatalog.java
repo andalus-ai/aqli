@@ -116,9 +116,22 @@ public class LocalModelCatalog {
         return Optional.of(toModelInfo(newestRevision(nameMatches)));
     }
 
+    /**
+     * Returns malformed-manifest diagnostics without changing normal listing
+     * behavior or exposing filesystem paths outside the manifest filename.
+     */
+    public List<ManifestStore.ManifestReadIssue> listReadIssues() throws SdkException {
+        try {
+            return manifests.listAllWithDiagnostics().issues();
+        } catch (RuntimeException e) {
+            throw new SdkException("SDK_ERR_MODEL_CATALOG",
+                    "Unable to read local model catalogue diagnostics: " + e.getMessage(), e);
+        }
+    }
+
     private List<AqliManifest> readManifests() throws SdkException {
         try {
-            return manifests.listAll();
+            return manifests.listAllWithDiagnostics().manifests();
         } catch (RuntimeException e) {
             throw new SdkException("SDK_ERR_MODEL_CATALOG",
                     "Unable to read the local model catalogue: " + e.getMessage(), e);
