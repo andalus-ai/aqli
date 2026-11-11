@@ -160,8 +160,11 @@ public class ConversationSessionManager {
     @PreDestroy
     void stop() {
         cleaner.shutdownNow();
-        sessions.values().forEach(ConversationSession::close);
-        SHARED_SESSIONS.clear();
+        synchronized (lifecycleLock) {
+            List<ConversationSession> ownedSessions = new ArrayList<>(sessions.values());
+            sessions.clear();
+            ownedSessions.forEach(ConversationSession::close);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -236,47 +239,50 @@ public class ConversationSessionManager {
         if (sessionId == null || sessionId.isBlank()) {
             return ConversationExecutionState.noneRequested();
         }
-
-        ConversationSession s = SHARED_SESSIONS.get(sessionId);
-        if (s == null) {
-            return ConversationExecutionState.miss(
+        synchronized (lifecycleLock) {
+            ConversationSession session = sessions.get(sessionId);
+            if (session == null) {
+                return ConversationExecutionState.miss(
+                        sessionId,
+                        modelKey,
+                        "No cached conversation execution state was found for the requested session");
+            }
+            if (!session.modelKey().equals(modelKey)) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                }
+                return ConversationExecutionState.modelMismatch(
+                        sessionId,
+                        modelKey,
+                        session.modelKey(),
+                        session.totalTokens(),
+                        toLongArray(session.tokenIds()),
+                        "Conversation session exists, but it belongs to a different model");
+            }
+            if (isExpired(session) || session.isClosed()) {
+                if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
+                    session.close();
+                    totalExpired.incrementAndGet();
+                }
+                return ConversationExecutionState.expired(
+                        sessionId,
+                        modelKey,
+                        session.totalTokens(),
+                        toLongArray(session.tokenIds()),
+                        "Conversation session existed, but its cached execution state expired");
+            }
+            session.touch();
+            return ConversationExecutionState.hit(
                     sessionId,
                     modelKey,
-                    "No cached conversation execution state was found for the requested session");
+                    session.totalTokens(),
+                    toLongArray(session.tokenIds()),
+                    session.pendingReplayTokenId(),
+                    session.kvCache() != null,
+                    "Conversation session has active cached execution state");
         }
-
-        if (!s.modelKey().equals(modelKey)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
-            return ConversationExecutionState.modelMismatch(
-                    sessionId,
-                    modelKey,
-                    s.modelKey(),
-                    s.totalTokens(),
-                    toLongArray(s.tokenIds()),
-                    "Conversation session exists, but it belongs to a different model");
-        }
-
-        if (isExpired(s)) {
-            SHARED_SESSIONS.remove(sessionId);
-            s.close();
-            return ConversationExecutionState.expired(
-                    sessionId,
-                    modelKey,
-                    s.totalTokens(),
-                    toLongArray(s.tokenIds()),
-                    "Conversation session existed, but its cached execution state expired");
-        }
-
-        s.touch();
-        return ConversationExecutionState.hit(
-                sessionId,
-                modelKey,
-                s.totalTokens(),
-                toLongArray(s.tokenIds()),
-                s.pendingReplayTokenId(),
-                s.kvCache() != null && !s.isClosed(),
-                "Conversation session has active cached execution state");
     }
 
     /**
@@ -393,12 +399,12 @@ public class ConversationSessionManager {
 
     /** Number of active sessions. */
     public int activeSessions() {
-        return SHARED_SESSIONS.size();
+        return sessions.size();
     }
 
     /** Total sessions created since startup. */
     public int totalCreated() {
-        return TOTAL_CREATED.get();
+        return totalCreated.get();
     }
 
     /** Total sessions expired/evicted since startup. */
