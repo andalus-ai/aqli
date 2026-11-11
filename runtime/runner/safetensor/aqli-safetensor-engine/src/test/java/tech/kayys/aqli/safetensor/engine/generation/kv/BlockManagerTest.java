@@ -79,6 +79,28 @@ class BlockManagerTest {
     }
 
     @Test
+    void chunkReservationsTrackAllocatedNativeMemoryAndReturnWhenChunkIsFreed() {
+        KvCacheMemoryBudget budget = new KvCacheMemoryBudget(16L * 16 * 1 * 8 * Float.BYTES * 2);
+        try (BlockManager manager = new BlockManager(budget)) {
+            manager.initialize(16, 1, 8, 40);
+
+            for (int i = 0; i < 16; i++) {
+                assertEquals(i, manager.allocateBlock());
+            }
+            assertEquals(manager.getAllocatedNativeBytes(), budget.reservedBytes());
+            assertThrows(IllegalStateException.class, manager::allocateBlock);
+
+            for (int i = 0; i < 16; i++) {
+                manager.freeBlock(i);
+            }
+            assertEquals(0, budget.reservedBytes());
+            assertEquals(0, manager.getAllocatedNativeBytes());
+            assertEquals(0, manager.allocateBlock());
+            assertEquals(manager.getAllocatedNativeBytes(), budget.reservedBytes());
+        }
+    }
+
+    @Test
     void closeIsIdempotentAndRequiresReinitializationBeforeUse() {
         BlockManager manager = new BlockManager();
         manager.initialize(16, 1, 8, 1);

@@ -12,10 +12,10 @@ import jakarta.inject.Inject;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Process-wide admission budget for native Safetensors KV-cache slabs.
+ * Process-wide admission budget for native Safetensors KV-cache chunks.
  *
- * <p>The budget accounts reservations, not JVM heap. A lease remains held
- * while its KV session is alive, including when a conversation retains it.
+ * <p>The budget accounts allocated native chunks, not JVM heap. A chunk lease
+ * remains held until its final physical block is released or its session closes.
  */
 @ApplicationScoped
 public class KvCacheMemoryBudget {
