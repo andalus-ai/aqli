@@ -887,7 +887,8 @@ public class RunCommand implements Runnable {
                                 if (!quietRouteResolutionOutput()) {
                                     System.out.println("Model ready at: " + displayPath(Path.of(finalLocalPath)));
                                 }
-                            } else if (requiresLocalHfRepositoryResolution(requestedModelRef, providerId)) {
+                            } else if (ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
+                        requestedModelRef, providerId, isMcpProvider())) {
                                 return;
                             }
                         }
@@ -3825,7 +3826,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
         String repoId = hfRepoIdFromModelRef(requestedModel);
-        if (repoId == null || isCloudProviderName(providerId) || isMcpProvider()) {
+        if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
 
@@ -3883,22 +3884,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
                 ? source.reference()
                 : null;
-    }
-
-    private boolean isCloudProviderName(String provider) {
-        if (provider == null || provider.isBlank()) {
-            return false;
-        }
-        return switch (provider.trim().toLowerCase(Locale.ROOT)) {
-            case "openai", "mistral", "anthropic", "gemini", "cerebras", "deepseek", "ollama" -> true;
-            default -> false;
-        };
-    }
-
-    private boolean requiresLocalHfRepositoryResolution(String requestedModel, String requestedProvider) {
-        return hfRepoIdFromModelRef(requestedModel) != null
-                && !isCloudProviderName(requestedProvider)
-                && !isMcpProvider();
     }
 
     private String truncateDisplay(String value, int width) {
