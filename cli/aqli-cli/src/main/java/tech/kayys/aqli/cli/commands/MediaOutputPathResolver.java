@@ -58,7 +58,7 @@ final class MediaOutputPathResolver {
 
     private static boolean isKnownAudioExtension(String extension) {
         return switch (normalize(extension)) {
-            case "aac", "aiff", "alac", "flac", "m4a", "mp3", "ogg", "opus", "wav", "webm" -> true;
+            case "aac", "flac", "m4a", "mp3", "ogg", "wav" -> true;
             default -> false;
         };
     }
