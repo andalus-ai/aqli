@@ -25,6 +25,7 @@ import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
 import tech.kayys.aqli.onnx.runner.tts.moss.voice.MossTtsVoiceCatalog;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
@@ -2225,7 +2226,7 @@ public class RunCommand implements Runnable {
     }
 
     private int printTtsVoices(String modelId, String finalLocalPath) {
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             System.err.println("Error: --list-voices is only available for local MOSS TTS ONNX model directories.");
             System.err.println("Resolved model path: " + (finalLocalPath == null || finalLocalPath.isBlank()
@@ -2893,7 +2894,7 @@ public class RunCommand implements Runnable {
         System.out.println("Requested model: " + nullToDash(modelId));
         System.out.println("Resolved path: " + nullToDash(finalLocalPath));
 
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             System.err.println();
             System.err.println("Error: resolved model is not a local MOSS TTS ONNX directory.");
@@ -3034,7 +3035,7 @@ public class RunCommand implements Runnable {
         payload.put("requested_model", modelId);
         payload.put("resolved_path", finalLocalPath);
 
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             payload.put("status", "attention_needed");
             payload.put("error", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3133,7 +3134,7 @@ public class RunCommand implements Runnable {
             System.out.println("MOSS TTS warmup");
             System.out.println("==============");
         }
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_warmup", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3215,7 +3216,7 @@ public class RunCommand implements Runnable {
 
     private int pruneMossTtsOptimizedCache(String modelId, String finalLocalPath) {
         boolean dryRun = !ttsCachePruneApply;
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_cache_prune", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3720,44 +3721,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return value == null || value.isBlank() ? "-" : value;
     }
 
-    private Optional<Path> resolveMossTtsDirectory(String finalLocalPath, String modelId) {
-        for (String candidate : new String[] { finalLocalPath, modelId }) {
-            if (candidate == null || candidate.isBlank()) {
-                continue;
-            }
-            Path path;
-            try {
-                path = Paths.get(candidate);
-            } catch (Exception ignored) {
-                continue;
-            }
-            Optional<Path> resolved = mossTtsDirectoryFrom(path);
-            if (resolved.isPresent()) {
-                return resolved;
-            }
-        }
-        return Optional.empty();
-    }
-
-    private Optional<Path> mossTtsDirectoryFrom(Path path) {
-        if (path == null) {
-            return Optional.empty();
-        }
-        if (isMossTtsDirectory(path)) {
-            return Optional.of(path);
-        }
-        Path parent = path.getParent();
-        if (parent != null && isMossTtsDirectory(parent)) {
-            return Optional.of(parent);
-        }
-        return Optional.empty();
-    }
-
-    private boolean isMossTtsDirectory(Path path) {
-        return Files.isRegularFile(path.resolve("browser_poc_manifest.json"))
-                && Files.isRegularFile(path.resolve("tts_browser_onnx_meta.json"));
-    }
-
     private boolean allowsPromptlessExtensionRun(String modelId, String finalLocalPath) {
         return looksLikeWebWorldReference(modelId) || looksLikeWebWorldReference(finalLocalPath);
     }
@@ -3987,7 +3950,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         if (ttsCodec != null && !ttsCodec.isBlank()) {
             return true;
         }
-        if (resolveMossTtsDirectory(finalLocalPath, modelId).isEmpty()) {
+        if (MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId).isEmpty()) {
             return true;
         }
         Optional<Path> installedCodec = findInstalledMossAudioCodecDir();
