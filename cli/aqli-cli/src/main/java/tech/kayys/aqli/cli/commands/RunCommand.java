@@ -81,6 +81,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxCacheDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCacheDirectoryScanner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
@@ -3237,27 +3238,8 @@ public class RunCommand implements Runnable {
         Path codecPath = codecDir.get().toAbsolutePath().normalize();
         Path cacheRoot = MossTtsCacheSettings.load().optimizedGraphCacheRoot();
         try {
-            OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
-            OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
-            List<OptimizedCachePruner.Operation> operations = OptimizedCachePruner.prune(before, dryRun);
-            int errors = 0;
-            long affectedBytes = 0L;
-            if (!dryRun) {
-                for (OptimizedCachePruner.Operation operation : operations) {
-                    if (operation.error() != null && !operation.error().isBlank()) {
-                        errors++;
-                    } else if (operation.deleted()) {
-                        affectedBytes += operation.sizeBytes();
-                    }
-                }
-            } else {
-                for (OptimizedCachePruner.Operation operation : operations) {
-                    affectedBytes += operation.sizeBytes();
-                }
-            }
-            OptimizedCacheDirectoryScanner.Stats after = dryRun
-                    ? before
-                    : OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
+            MossTtsOptimizedCacheMaintenance.Result result =
+                    new MossTtsOptimizedCacheMaintenance().prune(modelDir, codecPath, cacheRoot, dryRun);
             if (jsonMode) {
                 printMossTtsCachePruneJson(
                         modelId,
@@ -3265,24 +3247,24 @@ public class RunCommand implements Runnable {
                         codecPath,
                         cacheRoot,
                         dryRun,
-                        before,
-                        after,
-                        operations,
-                        affectedBytes,
-                        errors);
+                        result.before(),
+                        result.after(),
+                        result.operations(),
+                        result.affectedBytes(),
+                        result.errors());
             } else {
                 printMossTtsCachePrune(
                         modelDir,
                         codecPath,
                         cacheRoot,
                         dryRun,
-                        before,
-                        after,
-                        operations,
-                        affectedBytes,
-                        errors);
+                        result.before(),
+                        result.after(),
+                        result.operations(),
+                        result.affectedBytes(),
+                        result.errors());
             }
-            return errors == 0 ? 0 : 1;
+            return result.errors() == 0 ? 0 : 1;
         } catch (Exception e) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_cache_prune", "MOSS TTS cache prune failed: " + e.getMessage());
@@ -3291,19 +3273,6 @@ public class RunCommand implements Runnable {
             System.err.println("Error: MOSS TTS cache prune failed: " + e.getMessage());
             return 1;
         }
-    }
-
-    private OptimizedCacheScope currentMossTtsOptimizedCacheScope(
-            Path modelDir,
-            Path codecPath,
-            Path cacheRoot) throws Exception {
-        Set<Path> currentPaths = new java.util.HashSet<>();
-        Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (MossTtsOnnxGraphResolver.Graph graph : MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecPath)) {
-            currentPaths.add(MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
-            currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
-        }
-        return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
 
     private void printMossTtsCachePruneJson(
@@ -3704,10 +3673,7 @@ public class RunCommand implements Runnable {
         }
     }
 
-private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
-    }
-
-    private String indentBlock(String text, String indent) {
+private String indentBlock(String text, String indent) {
         if (text == null || text.isBlank()) {
             return indent + "(empty)";
         }

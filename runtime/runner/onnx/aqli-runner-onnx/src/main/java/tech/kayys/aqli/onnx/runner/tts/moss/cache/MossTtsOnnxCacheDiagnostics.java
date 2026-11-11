@@ -39,6 +39,7 @@ public final class MossTtsOnnxCacheDiagnostics {
                             MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot, sidecars);
                     currentPaths.add(optimizedPath.toAbsolutePath().normalize());
                     currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+                    currentPrefixes.add(MossTtsOnnxGraphResolver.cacheEntryPrefix(graph.path(), cacheRoot));
                     graphStatuses.add(new GraphStatus(
                             graph, optimizedPath, Files.isRegularFile(optimizedPath), sidecars.size()));
                 }
