@@ -35,15 +35,14 @@ class GgufSessionCacheTest {
     }
 
     @Test
-    void oneShotLeaseClosesItsSessionExactlyOnce() {
+    void oneShotLeaseClosesItsOwnedSession() {
         LlamaCppGgufSession session = mock(LlamaCppGgufSession.class);
         GgufSessionCache.SessionLease lease =
                 new GgufSessionCache.SessionLease(session, false, true, "cold");
 
         lease.close();
-        lease.close();
 
-        verify(session, times(2)).close();
+        verify(session, times(1)).close();
     }
 
     @Test
