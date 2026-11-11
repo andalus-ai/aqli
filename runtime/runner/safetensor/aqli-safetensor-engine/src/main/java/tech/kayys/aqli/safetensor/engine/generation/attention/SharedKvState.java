@@ -126,7 +126,6 @@ public class SharedKvState implements AutoCloseable {
     }
 
     public int packedCapacityTokens() {
-        ensurePackedBuffers();
         return capacityTokens;
     }
 
