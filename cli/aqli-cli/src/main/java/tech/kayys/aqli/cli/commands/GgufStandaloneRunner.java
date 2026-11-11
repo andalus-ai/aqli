@@ -670,8 +670,7 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
-                        nGpuLayers,
-                        useMmap, useMlock, swaFull)
+                        nGpuLayers, useMmap, useMlock, swaFull, llamaCppLibraryPaths())
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
