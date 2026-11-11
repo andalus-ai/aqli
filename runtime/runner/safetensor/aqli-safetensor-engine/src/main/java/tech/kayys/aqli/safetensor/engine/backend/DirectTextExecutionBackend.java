@@ -158,12 +158,14 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
 
     @Override
     public Uni<InferenceResponse> generate(PreparedTextGeneration generation) {
-        return openSession(generation).generate();
+        TextExecutionSession session = openSession(generation);
+        return session.generate().eventually(session::close);
     }
 
     @Override
     public Multi<InferenceResponse> generateStream(PreparedTextGeneration generation) {
-        return openSession(generation).generateStream();
+        TextExecutionSession session = openSession(generation);
+        return session.generateStream().onTermination().invoke(session::close);
     }
 
     @Override
