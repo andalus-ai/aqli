@@ -2029,28 +2029,70 @@ public class RunCommand implements Runnable {
             Object value = option.value();
             switch (option.option()) {
                 case MODEL -> applyReplayModelTarget((String) value);
-                case MODEL_DIR -> { if (modelDir == null || modelDir.isBlank()) modelDir = (String) value; }
-                case MODEL_FILE -> { if (modelFile == null || modelFile.isBlank()) modelFile = (String) value; }
-                case MODEL_PATH -> { if (modelPath == null || modelPath.isBlank()) modelPath = (String) value; }
-                case PROVIDER -> { if (providerId == null || providerId.isBlank()) providerId = (String) value; }
-                case RUNNER -> { if (runner == null || runner.isBlank()) runner = (String) value; }
-                case PROMPT -> { if (prompt == null || prompt.isBlank()) prompt = (String) value; }
-                case VOICE -> { if (ttsVoice == null || ttsVoice.isBlank()) ttsVoice = (String) value; }
-                case AUDIO_FORMAT -> { if (audioFormat == null || audioFormat.isBlank()) audioFormat = (String) value; }
-                case SEED -> { if (seed == null && !randomTtsSeed) seed = (Long) value; }
-                case OUTPUT -> { /* output path is resolved from the plan after parsing */ }
-                case AUDIO_QUALITY -> { if (audioQuality == null || audioQuality.isBlank()) audioQuality = (String) value; }
-                case AUDIO_BITRATE -> { if (audioBitrateKbps == null) audioBitrateKbps = (Integer) value; }
-                case AUDIO_CHANNELS -> { if (audioChannels == null || audioChannels.isBlank()) audioChannels = (String) value; }
-                case CODEC_DECODE -> { if (ttsCodecDecode == null || ttsCodecDecode.isBlank()) ttsCodecDecode = (String) value; }
-                case MAX_FRAMES -> { if (ttsMaxFrames == null) ttsMaxFrames = (Integer) value; }
-                case MAX_SECONDS -> { if (ttsMaxSeconds == null) ttsMaxSeconds = (Double) value; }
-                case GAIN_DB -> { if (audioGainDb == null) audioGainDb = (Double) value; }
-                case PEAK_DB -> { if (audioPeakDb == null) audioPeakDb = (Double) value; }
-                case FADE_MS -> { if (audioFadeMs == null) audioFadeMs = (Double) value; }
-                case TRIM_DBFS -> { if (audioTrimDbfs == null) audioTrimDbfs = (Double) value; }
-                case TRIM_PADDING_MS -> { if (audioTrimPaddingMs == null) audioTrimPaddingMs = (Double) value; }
-                case FLAC_COMPRESSION -> { if (flacCompression == null) flacCompression = (Integer) value; }
+                case MODEL_DIR -> {
+                    if (modelDir == null || modelDir.isBlank()) modelDir = (String) value;
+                }
+                case MODEL_FILE -> {
+                    if (modelFile == null || modelFile.isBlank()) modelFile = (String) value;
+                }
+                case MODEL_PATH -> {
+                    if (modelPath == null || modelPath.isBlank()) modelPath = (String) value;
+                }
+                case PROVIDER -> {
+                    if (providerId == null || providerId.isBlank()) providerId = (String) value;
+                }
+                case RUNNER -> {
+                    if (runner == null || runner.isBlank()) runner = (String) value;
+                }
+                case PROMPT -> {
+                    if (prompt == null || prompt.isBlank()) prompt = (String) value;
+                }
+                case VOICE -> {
+                    if (ttsVoice == null || ttsVoice.isBlank()) ttsVoice = (String) value;
+                }
+                case AUDIO_FORMAT -> {
+                    if (audioFormat == null || audioFormat.isBlank()) audioFormat = (String) value;
+                }
+                case SEED -> {
+                    if (seed == null && !randomTtsSeed) seed = (Long) value;
+                }
+                case OUTPUT -> { /* output is resolved from Plan.outputPath() after all options */ }
+                case AUDIO_QUALITY -> {
+                    if (audioQuality == null || audioQuality.isBlank()) audioQuality = (String) value;
+                }
+                case AUDIO_BITRATE -> {
+                    if (audioBitrateKbps == null) audioBitrateKbps = (Integer) value;
+                }
+                case AUDIO_CHANNELS -> {
+                    if (audioChannels == null || audioChannels.isBlank()) audioChannels = (String) value;
+                }
+                case CODEC_DECODE -> {
+                    if (ttsCodecDecode == null || ttsCodecDecode.isBlank()) ttsCodecDecode = (String) value;
+                }
+                case MAX_FRAMES -> {
+                    if (ttsMaxFrames == null) ttsMaxFrames = (Integer) value;
+                }
+                case MAX_SECONDS -> {
+                    if (ttsMaxSeconds == null) ttsMaxSeconds = (Double) value;
+                }
+                case GAIN_DB -> {
+                    if (audioGainDb == null) audioGainDb = (Double) value;
+                }
+                case PEAK_DB -> {
+                    if (audioPeakDb == null) audioPeakDb = (Double) value;
+                }
+                case FADE_MS -> {
+                    if (audioFadeMs == null) audioFadeMs = (Double) value;
+                }
+                case TRIM_DBFS -> {
+                    if (audioTrimDbfs == null) audioTrimDbfs = (Double) value;
+                }
+                case TRIM_PADDING_MS -> {
+                    if (audioTrimPaddingMs == null) audioTrimPaddingMs = (Double) value;
+                }
+                case FLAC_COMPRESSION -> {
+                    if (flacCompression == null) flacCompression = (Integer) value;
+                }
                 case DISABLE_AUDIO_POLISH -> disableAudioPolish = true;
                 case DISABLE_AUDIO_NORMALIZE -> disableAudioNormalize = true;
                 case TRIM_SILENCE -> audioTrimSilence = true;
