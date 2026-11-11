@@ -5,15 +5,13 @@ import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
 import tech.kayys.aqli.sdk.mcp.McpRegistryManager;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
 
-import java.util.List;
-
 /**
  * Aggregate interface for AQLI runtime capabilities.
  *
  * <p>New consumers should depend on focused capability ports where possible.
  * This aggregate remains the compatibility entry point and composes inference,
- * model catalogue, model lifecycle, asynchronous jobs, diagnostics, and
- * runtime-management operations.</p>
+ * model lifecycle, asynchronous jobs, diagnostics, plugin discovery, MCP
+ * registry access, and high-level feature operations.</p>
  *
  * <h3>Convenience operations</h3>
  * <ul>
@@ -25,30 +23,6 @@ import java.util.List;
  * </ul>
  */
 public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations,
-        ModelLifecycleOperations, AsyncJobOperations, RuntimeDiagnosticsOperations {
-
-    // ==================== MCP Operations ====================
-
-    default McpRegistryManager mcpRegistry() {
-        throw new UnsupportedOperationException(
-                "MCP registry is not supported by this SDK implementation");
-    }
-
-    // ==================== Plugin Operations ====================
-
-    /**
-     * List all installed plugins and their metadata.
-     */
-    default List<AqliPlugin.PluginMetadata> listPlugins() throws SdkException {
-        return List.of();
-    }
-
-    /**
-     * ML Kit-style feature entrypoint for face recognition, natural language, and
-     * document scanning.
-     */
-    default AqliFeatureKit featureKit() throws SdkException {
-        throw new UnsupportedOperationException(
-                "Feature kit is not supported by this SDK implementation.");
-    }
+        ModelLifecycleOperations, AsyncJobOperations, RuntimeDiagnosticsOperations,
+        PluginOperations, McpOperations, FeatureOperations {
 }
