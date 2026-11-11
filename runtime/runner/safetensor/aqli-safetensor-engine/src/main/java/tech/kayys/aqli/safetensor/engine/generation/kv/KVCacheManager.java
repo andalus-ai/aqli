@@ -24,28 +24,40 @@ import jakarta.inject.Inject;
 public class KVCacheManager {
     private final KvCacheMemoryBudget memoryBudget;
     private final ForwardWorkspaceMemoryBudget workspaceMemoryBudget;
+    private final AttentionScratchMemoryBudget attentionScratchMemoryBudget;
 
     /** Supports direct construction in focused unit tests; CDI uses the budgeted constructor. */
     public KVCacheManager() {
-        this(KvCacheMemoryBudget.unbounded(), ForwardWorkspaceMemoryBudget.unbounded());
+        this(KvCacheMemoryBudget.unbounded(), ForwardWorkspaceMemoryBudget.unbounded(),
+                AttentionScratchMemoryBudget.unbounded());
     }
 
     /** Compatibility constructor for tests and direct embedders. */
     public KVCacheManager(KvCacheMemoryBudget memoryBudget) {
-        this(memoryBudget, ForwardWorkspaceMemoryBudget.unbounded());
+        this(memoryBudget, ForwardWorkspaceMemoryBudget.unbounded(), AttentionScratchMemoryBudget.unbounded());
+    }
+
+    public KVCacheManager(
+            KvCacheMemoryBudget memoryBudget,
+            ForwardWorkspaceMemoryBudget workspaceMemoryBudget) {
+        this(memoryBudget, workspaceMemoryBudget, AttentionScratchMemoryBudget.unbounded());
     }
 
     @Inject
     public KVCacheManager(
             KvCacheMemoryBudget memoryBudget,
-            ForwardWorkspaceMemoryBudget workspaceMemoryBudget) {
+            ForwardWorkspaceMemoryBudget workspaceMemoryBudget,
+            AttentionScratchMemoryBudget attentionScratchMemoryBudget) {
         this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
         this.workspaceMemoryBudget = Objects.requireNonNull(workspaceMemoryBudget, "workspaceMemoryBudget");
+        this.attentionScratchMemoryBudget = Objects.requireNonNull(
+                attentionScratchMemoryBudget, "attentionScratchMemoryBudget");
     }
 
     public KVCacheSession createSession(int maxSeqLen) {
         return new KVCacheSession(
-                maxSeqLen, new BlockManager(memoryBudget), memoryBudget, workspaceMemoryBudget);
+                maxSeqLen, new BlockManager(memoryBudget), memoryBudget, workspaceMemoryBudget,
+                attentionScratchMemoryBudget);
     }
 
     public static class KVCacheSession implements AutoCloseable {
@@ -62,6 +74,7 @@ public class KVCacheManager {
         private final BlockManager blockManager;
         private final KvCacheMemoryBudget memoryBudget;
         private final ForwardWorkspaceMemoryBudget workspaceMemoryBudget;
+        private final AttentionScratchMemoryBudget attentionScratchMemoryBudget;
         private final Map<Integer, List<Integer>> blockTables = new java.util.concurrent.ConcurrentHashMap<>();
 
         private State state = State.NEW;
@@ -79,11 +92,13 @@ public class KVCacheManager {
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
             this(maxSeqLen, Objects.requireNonNull(blockManager, "blockManager"),
-                    blockManager.memoryBudget(), ForwardWorkspaceMemoryBudget.unbounded());
+                    blockManager.memoryBudget(), ForwardWorkspaceMemoryBudget.unbounded(),
+                    AttentionScratchMemoryBudget.unbounded());
         }
 
         KVCacheSession(int maxSeqLen, BlockManager blockManager, KvCacheMemoryBudget memoryBudget) {
-            this(maxSeqLen, blockManager, memoryBudget, ForwardWorkspaceMemoryBudget.unbounded());
+            this(maxSeqLen, blockManager, memoryBudget, ForwardWorkspaceMemoryBudget.unbounded(),
+                    AttentionScratchMemoryBudget.unbounded());
         }
 
         KVCacheSession(
@@ -91,6 +106,16 @@ public class KVCacheManager {
                 BlockManager blockManager,
                 KvCacheMemoryBudget memoryBudget,
                 ForwardWorkspaceMemoryBudget workspaceMemoryBudget) {
+            this(maxSeqLen, blockManager, memoryBudget, workspaceMemoryBudget,
+                    AttentionScratchMemoryBudget.unbounded());
+        }
+
+        KVCacheSession(
+                int maxSeqLen,
+                BlockManager blockManager,
+                KvCacheMemoryBudget memoryBudget,
+                ForwardWorkspaceMemoryBudget workspaceMemoryBudget,
+                AttentionScratchMemoryBudget attentionScratchMemoryBudget) {
             if (maxSeqLen <= 0) {
                 throw new IllegalArgumentException("maxSeqLen must be positive");
             }
@@ -99,6 +124,8 @@ public class KVCacheManager {
             this.blockManager = Objects.requireNonNull(blockManager, "blockManager");
             this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
             this.workspaceMemoryBudget = Objects.requireNonNull(workspaceMemoryBudget, "workspaceMemoryBudget");
+            this.attentionScratchMemoryBudget = Objects.requireNonNull(
+                    attentionScratchMemoryBudget, "attentionScratchMemoryBudget");
             if (this.blockManager.memoryBudget() != this.memoryBudget) {
                 throw new IllegalArgumentException(
                         "BlockManager and KVCacheSession must share the same native-memory budget");
@@ -159,6 +186,11 @@ public class KVCacheManager {
         public synchronized ForwardWorkspace getWorkspace() {
             requireAllocated("getWorkspace");
             return workspace;
+        }
+
+        public AttentionScratchMemoryBudget attentionScratchMemoryBudget() {
+            ensureNotClosed("attentionScratchMemoryBudget");
+            return attentionScratchMemoryBudget;
         }
 
         public synchronized Object getMambaState() {
