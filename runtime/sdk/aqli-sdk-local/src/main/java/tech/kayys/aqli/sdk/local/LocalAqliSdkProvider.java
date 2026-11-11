@@ -2,8 +2,8 @@ package tech.kayys.aqli.sdk.local;
 
 import jakarta.enterprise.inject.spi.CDI;
 import tech.kayys.aqli.sdk.config.SdkConfig;
-import tech.kayys.aqli.sdk.core.AqliSdk;
-import tech.kayys.aqli.sdk.core.AqliSdkProvider;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.runtime.AqliRuntimeProvider;
 import tech.kayys.aqli.sdk.exception.SdkException;
 
 /**
@@ -13,7 +13,7 @@ import tech.kayys.aqli.sdk.exception.SdkException;
  * requires the CDI container because inference engines and their native
  * dependencies are container-managed.</p>
  */
-public final class LocalAqliSdkProvider implements AqliSdkProvider {
+public final class LocalAqliSdkProvider implements AqliRuntimeProvider {
 
     @Override
     public Mode mode() {
@@ -26,7 +26,7 @@ public final class LocalAqliSdkProvider implements AqliSdkProvider {
     }
 
     @Override
-    public AqliSdk create(SdkConfig config) throws SdkException {
+    public AqliRuntime create(SdkConfig config) throws SdkException {
         try {
             return CDI.current().select(LocalAqliSdkFactory.class).get().create(config);
         } catch (RuntimeException e) {
