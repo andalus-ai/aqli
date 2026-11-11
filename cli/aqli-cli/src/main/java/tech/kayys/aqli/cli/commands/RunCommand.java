@@ -1656,7 +1656,7 @@ public class RunCommand implements Runnable {
                                                     });
                                         } catch (Throwable fallbackStartErr) {
                                             liveAudioSink.close();
-                                            audioOutput.closeQuietly();
+                                            closeAudioOutputQuietly(audioOutput);
                                             streamFailed.set(true);
                                             uiRenderer.printError(fallbackStartErr.getMessage(), false);
                                             printProviderHintFromError(fallbackStartErr);
@@ -1670,7 +1670,7 @@ public class RunCommand implements Runnable {
 
                                 // No fallback available or fallback already attempted: close resources and finish
                                 liveAudioSink.close();
-                                audioOutput.closeQuietly();
+                                closeAudioOutputQuietly(audioOutput);
                                 streamFailed.set(true);
                                 uiRenderer.printError(error == null ? "Stream failed" : error.getMessage(), false);
                                 printProviderHintFromError(error);
@@ -1725,7 +1725,7 @@ public class RunCommand implements Runnable {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     liveAudioSink.close();
-                    audioOutput.closeQuietly();
+                    closeAudioOutputQuietly(audioOutput);
                     streamFailed.set(true);
                 }
                 requestProcessExit(streamFailed.get() ? 1 : 0);
