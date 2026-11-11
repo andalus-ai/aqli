@@ -163,7 +163,10 @@ public class ConversationSessionManager {
         synchronized (lifecycleLock) {
             List<ConversationSession> ownedSessions = new ArrayList<>(sessions.values());
             sessions.clear();
-            ownedSessions.forEach(ConversationSession::close);
+            ownedSessions.forEach(session -> {
+                deregister(session.sessionId());
+                session.close();
+            });
         }
     }
 
@@ -189,7 +192,11 @@ public class ConversationSessionManager {
             }
             if (!session.modelKey().equals(modelKey) || isExpired(session) || session.isClosed()) {
                 if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
                     session.close();
+                    if (isExpired(session)) {
+                        totalExpired.incrementAndGet();
+                    }
                     if (!session.modelKey().equals(modelKey)) {
                         log.debugf("Session %s found but model changed — discarding", sessionId);
                     }
@@ -651,7 +658,14 @@ public class ConversationSessionManager {
                 return;
             }
             if (activeLeases > 0) {
-                // Do not invalidate a cache currently used by an inference turn.
+                // A pending replacement is not visible to active leases; dispose
+                // of an earlier unpublished replacement before superseding it.
+                if (hasPendingKvCache && pendingKvCache != null && pendingKvCache != replacement) {
+                    try {
+                        pendingKvCache.close();
+                    } catch (Exception ignored) {
+                    }
+                }
                 pendingKvCache = replacement;
                 hasPendingKvCache = true;
                 return;
