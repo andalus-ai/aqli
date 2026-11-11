@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.audio.tts.moss;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,13 +13,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Resolves the ONNX graph set and optimized-cache identity for a local MOSS TTS model.
  */
-final class MossTtsOnnxGraphResolver {
+public final class MossTtsOnnxGraphResolver {
     private static final String CODEC_META_FILE = "codec_browser_onnx_meta.json";
 
     private MossTtsOnnxGraphResolver() {
     }
 
-    static List<Graph> resolveGraphs(Path modelDir, Path codecDir) throws Exception {
+    public static List<Graph> resolveGraphs(Path modelDir, Path codecDir) throws Exception {
         JsonNode ttsMeta = new ObjectMapper().readTree(modelDir.resolve("tts_browser_onnx_meta.json").toFile());
         JsonNode codecMeta = new ObjectMapper().readTree(codecDir.resolve(CODEC_META_FILE).toFile());
         JsonNode ttsFiles = ttsMeta.path("files");
@@ -35,17 +35,17 @@ final class MossTtsOnnxGraphResolver {
                         .asText("moss_audio_tokenizer_decode_step.onnx"))));
     }
 
-    static Path optimizedCachePath(Path modelPath, Path cacheRoot) throws Exception {
+    public static Path optimizedCachePath(Path modelPath, Path cacheRoot) throws Exception {
         String fingerprint = optimizedModelFingerprint(modelPath.toAbsolutePath().normalize());
         String filename = cacheFilenamePrefix(modelPath) + fingerprint.substring(0, 16) + ".optimized.onnx";
         return cacheRoot.resolve(filename);
     }
 
-    static String cacheFilenamePrefix(Path modelPath) {
+    public static String cacheFilenamePrefix(Path modelPath) {
         return sanitizeCacheFilename(modelPath.getFileName().toString()) + "-";
     }
 
-    static List<Path> externalDataSidecars(Path modelPath) throws Exception {
+    public static List<Path> externalDataSidecars(Path modelPath) throws Exception {
         Path sourceDir = modelPath.toAbsolutePath().normalize().getParent();
         if (sourceDir == null || !Files.isDirectory(sourceDir)) {
             return List.of();
@@ -97,6 +97,6 @@ final class MossTtsOnnxGraphResolver {
         return normalized.isBlank() ? "model" : normalized;
     }
 
-    record Graph(String label, Path path) {
+    public record Graph(String label, Path path) {
     }
 }
