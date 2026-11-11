@@ -1889,6 +1889,9 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
+        } catch (ImageMetadataSidecarStore.UserMessageException e) {
+            System.err.println(e.presentation());
+            return false;
         } catch (Exception e) {
             System.err.println("Error: failed to verify image metadata: " + e.getMessage());
             return false;
@@ -1909,6 +1912,9 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
+        } catch (ImageMetadataSidecarStore.UserMessageException e) {
+            System.err.println(e.presentation());
+            return false;
         } catch (Exception e) {
             System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
             return false;
