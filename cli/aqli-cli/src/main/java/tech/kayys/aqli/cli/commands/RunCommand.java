@@ -25,6 +25,7 @@ import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.tts.moss.voice.MossTtsVoiceCatalog;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
@@ -2245,7 +2246,7 @@ public class RunCommand implements Runnable {
             TtsVoiceListFilter filter = ttsVoiceListFilter();
             List<JsonNode> matchedVoices = new ArrayList<>();
             for (JsonNode voice : voices) {
-                if (ttsVoiceMatchesListFilter(voice, filter)) {
+                if (MossTtsVoiceCatalog.matches(voice, filter.language(), filter.gender(), filter.terms())) {
                     matchedVoices.add(voice);
                 }
             }
@@ -2270,11 +2271,11 @@ public class RunCommand implements Runnable {
                 for (JsonNode voice : matchedVoices) {
                     System.out.printf("%-7s %-12s %-8s %-11s %-18s %s%n",
                             voice == voices.get(0) ? "*" : "",
-                            ttsVoiceId(voice),
-                            ttsVoiceLanguageLabel(voice),
-                            ttsVoiceGenderLabel(voice),
-                            truncateDisplay(ttsVoiceGroup(voice), 18),
-                            ttsVoiceDisplayName(voice));
+                            MossTtsVoiceCatalog.voiceId(voice),
+                            MossTtsVoiceCatalog.languageLabel(voice),
+                            MossTtsVoiceCatalog.genderLabel(voice),
+                            truncateDisplay(MossTtsVoiceCatalog.group(voice), 18),
+                            MossTtsVoiceCatalog.displayName(voice));
                 }
             }
             System.out.println();
@@ -2323,24 +2324,24 @@ public class RunCommand implements Runnable {
         payload.put("model_path", ttsDir.toAbsolutePath().normalize().toString());
         payload.put("total", voices.size());
         payload.put("matched", matchedVoices.size());
-        payload.put("default_voice", voices.isEmpty() ? null : ttsVoiceId(voices.get(0)));
+        payload.put("default_voice", voices.isEmpty() ? null : MossTtsVoiceCatalog.voiceId(voices.get(0)));
         payload.put("filter", ttsVoiceFilterJson(filter));
 
         List<Map<String, Object>> voiceItems = new ArrayList<>();
         for (JsonNode voice : matchedVoices) {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("default", voice.equals(voices.get(0)));
-            item.put("voice", ttsVoiceId(voice));
-            item.put("language", ttsVoiceLanguageLabel(voice));
-            item.put("gender", ttsVoiceGenderLabel(voice));
-            item.put("group", ttsVoiceGroup(voice));
-            item.put("display_name", ttsVoiceDisplayName(voice));
-            item.put("selector", ttsVoiceSelectorExample(voice));
+            item.put("voice", MossTtsVoiceCatalog.voiceId(voice));
+            item.put("language", MossTtsVoiceCatalog.languageLabel(voice));
+            item.put("gender", MossTtsVoiceCatalog.genderLabel(voice));
+            item.put("group", MossTtsVoiceCatalog.group(voice));
+            item.put("display_name", MossTtsVoiceCatalog.displayName(voice));
+            item.put("selector", MossTtsVoiceCatalog.selectorExample(voice));
             voiceItems.add(item);
         }
         payload.put("voices", voiceItems);
         payload.put("examples", List.of(
-                "--voice " + (voices.isEmpty() ? "Junhao" : ttsVoiceId(voices.get(0))),
+                "--voice " + (voices.isEmpty() ? "Junhao" : MossTtsVoiceCatalog.voiceId(voices.get(0))),
                 "--voice en",
                 "--voice jp female",
                 "--voice-search bitter"));
@@ -2357,37 +2358,25 @@ public class RunCommand implements Runnable {
         return value;
     }
 
-    private String ttsVoiceSelectorExample(JsonNode voice) {
-        String language = ttsVoiceLanguageLabel(voice);
-        String gender = ttsVoiceGenderLabel(voice);
-        if (!"other".equals(language) && !"unspecified".equals(gender)) {
-            return language + " " + gender;
-        }
-        if (!"other".equals(language)) {
-            return language;
-        }
-        return ttsVoiceId(voice);
-    }
-
     private TtsVoiceListFilter ttsVoiceListFilter() {
-        String language = normalizeTtsVoiceLanguageFilter(ttsVoiceLanguage);
-        String gender = normalizeTtsVoiceGenderFilter(ttsVoiceGender);
+        String language = MossTtsVoiceCatalog.normalizeLanguageFilter(ttsVoiceLanguage);
+        String gender = MossTtsVoiceCatalog.normalizeGenderFilter(ttsVoiceGender);
         List<String> terms = new ArrayList<>();
 
         if (ttsVoiceGender != null && !ttsVoiceGender.isBlank() && gender == null) {
-            terms.addAll(ttsVoiceFilterTerms(ttsVoiceGender));
+            terms.addAll(MossTtsVoiceCatalog.filterTerms(ttsVoiceGender));
         }
 
         String selectorText = ttsVoiceSearch != null && !ttsVoiceSearch.isBlank()
                 ? ttsVoiceSearch
                 : ttsVoice;
-        for (String term : ttsVoiceFilterTerms(selectorText)) {
-            String termLanguage = normalizeTtsVoiceLanguageFilter(term);
+        for (String term : MossTtsVoiceCatalog.filterTerms(selectorText)) {
+            String termLanguage = MossTtsVoiceCatalog.normalizeLanguageFilter(term);
             if (termLanguage != null) {
                 language = termLanguage;
                 continue;
             }
-            String termGender = normalizeTtsVoiceGenderFilter(term);
+            String termGender = MossTtsVoiceCatalog.normalizeGenderFilter(term);
             if (termGender != null) {
                 gender = termGender;
                 continue;
@@ -2398,65 +2387,6 @@ public class RunCommand implements Runnable {
         }
 
         return new TtsVoiceListFilter(language, gender, List.copyOf(terms));
-    }
-
-    private List<String> ttsVoiceFilterTerms(String value) {
-        String normalized = normalizeTtsVoiceFilterText(value);
-        if (normalized.isBlank()) {
-            return List.of();
-        }
-        return List.of(normalized.split(" "));
-    }
-
-    private boolean ttsVoiceMatchesListFilter(JsonNode voice, TtsVoiceListFilter filter) {
-        if (filter == null || !filter.hasFilters()) {
-            return true;
-        }
-        if (filter.language() != null && !filter.language().equals(ttsVoiceLanguageLabel(voice))) {
-            return false;
-        }
-        if (filter.gender() != null && !filter.gender().equals(ttsVoiceGenderLabel(voice))) {
-            return false;
-        }
-        if (!filter.terms().isEmpty()) {
-            String searchText = ttsVoiceSearchText(voice);
-            for (String term : filter.terms()) {
-                if (!searchText.contains(term)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private String normalizeTtsVoiceLanguageFilter(String value) {
-        String normalized = normalizeTtsVoiceFilterText(value);
-        return switch (normalized) {
-            case "en", "eng", "english" -> "en";
-            case "jp", "ja", "jpn", "japanese" -> "jp";
-            case "cn", "zh", "zho", "chi", "chinese", "mandarin" -> "zh";
-            default -> null;
-        };
-    }
-
-    private String normalizeTtsVoiceGenderFilter(String value) {
-        String normalized = normalizeTtsVoiceFilterText(value);
-        return switch (normalized) {
-            case "f", "female", "woman", "women", "girl" -> "female";
-            case "m", "male", "man", "men", "boy" -> "male";
-            default -> null;
-        };
-    }
-
-    private String normalizeTtsVoiceFilterText(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.trim()
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^\\p{L}\\p{N}]+", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
@@ -2985,9 +2915,9 @@ public class RunCommand implements Runnable {
             int voiceCount = voices.isArray() ? voices.size() : 0;
             System.out.println("Voices: " + voiceCount + (voiceCount == 0 ? " (missing)" : ""));
             if (voiceCount > 0) {
-                System.out.println("Voice groups: " + ttsVoiceGroupSummary(voices));
-                System.out.println("Default voice: " + ttsVoiceId(voices.get(0))
-                        + " (" + ttsVoiceDisplayName(voices.get(0)) + ")");
+                System.out.println("Voice groups: " + MossTtsVoiceCatalog.groupSummary(voices));
+                System.out.println("Default voice: " + MossTtsVoiceCatalog.voiceId(voices.get(0))
+                        + " (" + MossTtsVoiceCatalog.displayName(voices.get(0)) + ")");
             } else {
                 exitCode = 1;
             }
@@ -3127,13 +3057,13 @@ public class RunCommand implements Runnable {
             Map<String, Object> voiceInfo = new LinkedHashMap<>();
             int voiceCount = voices.isArray() ? voices.size() : 0;
             voiceInfo.put("count", voiceCount);
-            voiceInfo.put("groups", voices.isArray() ? ttsVoiceGroupCounts(voices) : Map.of());
+            voiceInfo.put("groups", voices.isArray() ? MossTtsVoiceCatalog.groupCounts(voices) : Map.of());
             if (voiceCount > 0) {
                 Map<String, Object> defaultVoice = new LinkedHashMap<>();
-                defaultVoice.put("voice", ttsVoiceId(voices.get(0)));
-                defaultVoice.put("display_name", ttsVoiceDisplayName(voices.get(0)));
-                defaultVoice.put("language", ttsVoiceLanguageLabel(voices.get(0)));
-                defaultVoice.put("gender", ttsVoiceGenderLabel(voices.get(0)));
+                defaultVoice.put("voice", MossTtsVoiceCatalog.voiceId(voices.get(0)));
+                defaultVoice.put("display_name", MossTtsVoiceCatalog.displayName(voices.get(0)));
+                defaultVoice.put("language", MossTtsVoiceCatalog.languageLabel(voices.get(0)));
+                defaultVoice.put("gender", MossTtsVoiceCatalog.genderLabel(voices.get(0)));
                 voiceInfo.put("default", defaultVoice);
             } else {
                 exitCode = 1;
@@ -3558,15 +3488,6 @@ public class RunCommand implements Runnable {
         return value;
     }
 
-    private Map<String, Integer> ttsVoiceGroupCounts(JsonNode voices) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (JsonNode voice : voices) {
-            String key = ttsVoiceLanguageLabel(voice) + " " + ttsVoiceGenderLabel(voice);
-            counts.put(key, counts.getOrDefault(key, 0) + 1);
-        }
-        return counts;
-    }
-
     private Map<String, Object> ttsOnnxCacheDiagnosticsJson(Path modelDir, Optional<Path> codecDir) {
         MossTtsOnnxCacheDiagnostics.Snapshot snapshot =
                 MossTtsOnnxCacheDiagnostics.inspect(modelDir, codecDir, MossTtsCacheSettings.load());
@@ -3786,50 +3707,6 @@ public class RunCommand implements Runnable {
     }
 
 private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
-    }
-
-    private String ttsVoiceGroupSummary(JsonNode voices) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (JsonNode voice : voices) {
-            String key = ttsVoiceLanguageLabel(voice) + " " + ttsVoiceGenderLabel(voice);
-            counts.put(key, counts.getOrDefault(key, 0) + 1);
-        }
-        List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            parts.add(entry.getKey() + "=" + entry.getValue());
-        }
-        return parts.isEmpty() ? "(none)" : String.join(", ", parts);
-    }
-
-    private String ttsVoiceLanguageLabel(JsonNode voice) {
-        String text = ttsVoiceSearchText(voice);
-        if (text.contains("english") || text.contains(" en ") || text.startsWith("en ")) {
-            return "en";
-        }
-        if (text.contains("japanese") || text.contains(" jp ") || text.startsWith("jp ")) {
-            return "jp";
-        }
-        if (text.contains("chinese") || text.contains(" cn ") || text.contains(" zh ")
-                || text.startsWith("cn ") || text.startsWith("zh ")) {
-            return "zh";
-        }
-        return "other";
-    }
-
-    private String ttsVoiceGenderLabel(JsonNode voice) {
-        String text = ttsVoiceSearchText(voice);
-        if (text.contains("female")) {
-            return "female";
-        }
-        if (text.contains("male")) {
-            return "male";
-        }
-        return "unspecified";
-    }
-
-    private String ttsVoiceSearchText(JsonNode voice) {
-        String raw = ttsVoiceId(voice) + " " + ttsVoiceGroup(voice) + " " + ttsVoiceDisplayName(voice);
-        return " " + normalizeTtsVoiceFilterText(raw) + " ";
     }
 
     private String indentBlock(String text, String indent) {
@@ -4061,26 +3938,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return hfRepoIdFromModelRef(requestedModel) != null
                 && !isCloudProviderName(requestedProvider)
                 && !isMcpProvider();
-    }
-
-    private String ttsVoiceId(JsonNode voice) {
-        for (String field : List.of("voice", "id", "name", "display_name")) {
-            String value = voice.path(field).asText("");
-            if (!value.isBlank()) {
-                return value;
-            }
-        }
-        return "default";
-    }
-
-    private String ttsVoiceDisplayName(JsonNode voice) {
-        String displayName = voice.path("display_name").asText("");
-        return displayName.isBlank() ? ttsVoiceId(voice) : displayName;
-    }
-
-    private String ttsVoiceGroup(JsonNode voice) {
-        String group = voice.path("group").asText("");
-        return group.isBlank() ? "-" : group;
     }
 
     private String truncateDisplay(String value, int width) {
