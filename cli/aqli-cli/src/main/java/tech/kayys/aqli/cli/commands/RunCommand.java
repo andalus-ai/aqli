@@ -73,7 +73,11 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxGraphResolver;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
+import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
+import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
@@ -105,20 +109,6 @@ public class RunCommand implements Runnable {
     private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
             "hf:" + MOSS_AUDIO_TOKENIZER_REPOSITORY;
     private static final String MOSS_CODEC_META_FILE = "codec_browser_onnx_meta.json";
-    private static final String ONNX_OPTIMIZED_CACHE_ENABLED_PROPERTY = "aqli.onnx.optimized-model-cache.enabled";
-    private static final String ONNX_OPTIMIZED_CACHE_ENABLED_ENV = "AQLI_ONNX_OPTIMIZED_MODEL_CACHE";
-    private static final String ONNX_OPTIMIZED_CACHE_DIR_PROPERTY = "aqli.onnx.optimized-model-cache.dir";
-    private static final String ONNX_OPTIMIZED_CACHE_DIR_ENV = "AQLI_ONNX_OPTIMIZED_MODEL_CACHE_DIR";
-    private static final String MOSS_SESSION_CACHE_ENABLED_PROPERTY = "aqli.onnx.moss-tts.session-cache.enabled";
-    private static final String MOSS_SESSION_CACHE_ENABLED_ENV = "AQLI_ONNX_MOSS_TTS_SESSION_CACHE";
-    private static final String MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY = "aqli.onnx.moss-tts.session-cache.max-entries";
-    private static final String MOSS_SESSION_CACHE_MAX_ENTRIES_ENV = "AQLI_ONNX_MOSS_TTS_SESSION_CACHE_MAX_ENTRIES";
-    private static final String MOSS_ASSET_CACHE_ENABLED_PROPERTY = "aqli.onnx.moss-tts.asset-cache.enabled";
-    private static final String MOSS_ASSET_CACHE_ENABLED_ENV = "AQLI_ONNX_MOSS_TTS_ASSET_CACHE";
-    private static final String MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY = "aqli.onnx.moss-tts.asset-cache.max-entries";
-    private static final String MOSS_ASSET_CACHE_MAX_ENTRIES_ENV = "AQLI_ONNX_MOSS_TTS_ASSET_CACHE_MAX_ENTRIES";
-    private static final String ONNX_LOG_LEVEL_PROPERTY = "aqli.onnx.log-level";
-    private static final String ONNX_LOG_LEVEL_ENV = "AQLI_ONNX_LOG_LEVEL";
     private Map<String, Object> forcedExecutionRouteMetadata = Map.of();
 
     @ParentCommand
@@ -3318,7 +3308,7 @@ public class RunCommand implements Runnable {
 
         Path modelDir = ttsDir.get().toAbsolutePath().normalize();
         Path codecPath = codecDir.get().toAbsolutePath().normalize();
-        Path cacheRoot = onnxOptimizedCacheRoot();
+        Path cacheRoot = MossTtsCacheSettings.load().optimizedGraphCacheRoot();
         try {
             OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
             OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
@@ -3579,140 +3569,84 @@ public class RunCommand implements Runnable {
     }
 
     private Map<String, Object> ttsOnnxCacheDiagnosticsJson(Path modelDir, Optional<Path> codecDir) {
+        MossTtsOnnxCacheDiagnostics.Snapshot snapshot =
+                MossTtsOnnxCacheDiagnostics.inspect(modelDir, codecDir, MossTtsCacheSettings.load());
+        MossTtsCacheSettings settings = snapshot.settings();
+        Path cacheRoot = settings.optimizedGraphCacheRoot();
         Map<String, Object> payload = new LinkedHashMap<>();
-        boolean graphCacheEnabled = cacheBoolean(
-                ONNX_OPTIMIZED_CACHE_ENABLED_PROPERTY,
-                ONNX_OPTIMIZED_CACHE_ENABLED_ENV,
-                true);
-        Path cacheRoot = onnxOptimizedCacheRoot();
-        payload.put("optimized_graph_cache_enabled", graphCacheEnabled);
+        payload.put("optimized_graph_cache_enabled", settings.optimizedGraphCacheEnabled());
         payload.put("graph_cache_root", cacheRoot.toString());
-        payload.put("onnx_runtime_log_level", onnxLogLevelName());
-        OptimizedCacheScope cacheScope = new OptimizedCacheScope(new java.util.HashSet<>(), new java.util.HashSet<>());
+        payload.put("onnx_runtime_log_level", settings.onnxRuntimeLogLevel());
 
-        if (codecDir.isEmpty()) {
+        if (!snapshot.graphsAvailable()) {
             payload.put("graphs_available", false);
-        } else {
-            try {
-                List<Map<String, Object>> graphItems = new ArrayList<>();
-                List<MossTtsOnnxGraphCatalog.Graph> graphs = MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecDir.get());
-                int present = 0;
-                for (MossTtsOnnxGraphCatalog.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot);
-                    cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
-                    boolean warm = Files.isRegularFile(optimizedPath);
-                    if (warm) {
-                        present++;
-                    }
-                    Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("label", graph.label());
-                    item.put("state", warm ? "warm" : "cold");
-                    item.put("source_path", graph.path().toAbsolutePath().normalize().toString());
-                    item.put("optimized_path", optimizedPath.toAbsolutePath().normalize().toString());
-                    item.put("optimized_file", optimizedPath.getFileName().toString());
-                    item.put("external_data_sidecars", MossTtsOnnxGraphCatalog.externalDataSidecars(graph.path()).size());
-                    graphItems.add(item);
-                }
-                payload.put("graphs_available", true);
-                payload.put("warmable_graphs", graphs.size());
-                payload.put("normal_generation_graphs", 4);
-                payload.put("optimized_graph_files_present", present);
-                payload.put("graphs", graphItems);
-            } catch (Exception e) {
-                payload.put("graphs_available", false);
-                payload.put("graph_error", e.getMessage());
+            if (snapshot.graphError() != null) {
+                payload.put("graph_error", snapshot.graphError());
             }
+        } else {
+            List<Map<String, Object>> graphItems = new ArrayList<>();
+            for (MossTtsOnnxCacheDiagnostics.GraphStatus graph : snapshot.graphs()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("label", graph.graph().label());
+                item.put("state", graph.warm() ? "warm" : "cold");
+                item.put("source_path", graph.graph().path().toAbsolutePath().normalize().toString());
+                item.put("optimized_path", graph.optimizedPath().toAbsolutePath().normalize().toString());
+                item.put("optimized_file", graph.optimizedPath().getFileName().toString());
+                item.put("external_data_sidecars", graph.externalDataSidecars());
+                graphItems.add(item);
+            }
+            payload.put("graphs_available", true);
+            payload.put("warmable_graphs", snapshot.graphs().size());
+            payload.put("normal_generation_graphs", 4);
+            payload.put("optimized_graph_files_present", snapshot.warmGraphCount());
+            payload.put("graphs", graphItems);
         }
-        payload.put("cache_directory", OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()).toJson());
-
+        payload.put("cache_directory", snapshot.cacheDirectory().toJson());
         payload.put("session_cache", Map.of(
-                "enabled", cacheBoolean(
-                        MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                        MOSS_SESSION_CACHE_ENABLED_ENV,
-                        true),
-                "max_entries", cacheInt(
-                        MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                        MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                        2),
+                "enabled", settings.sessionCacheEnabled(),
+                "max_entries", settings.sessionCacheMaxEntries(),
                 "scope", "in-process"));
         payload.put("asset_cache", Map.of(
-                "enabled", cacheBoolean(
-                        MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                        MOSS_ASSET_CACHE_ENABLED_ENV,
-                        true),
-                "max_entries", cacheInt(
-                        MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                        MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                        4),
+                "enabled", settings.assetCacheEnabled(),
+                "max_entries", settings.assetCacheMaxEntries(),
                 "scope", "in-process"));
         return payload;
     }
 
     private void printTtsOnnxCacheDiagnostics(Path modelDir, Optional<Path> codecDir) {
-        boolean graphCacheEnabled = cacheBoolean(
-                ONNX_OPTIMIZED_CACHE_ENABLED_PROPERTY,
-                ONNX_OPTIMIZED_CACHE_ENABLED_ENV,
-                true);
-        Path cacheRoot = onnxOptimizedCacheRoot();
-        System.out.println("Optimized graph cache: " + (graphCacheEnabled ? "enabled" : "disabled"));
+        MossTtsOnnxCacheDiagnostics.Snapshot snapshot =
+                MossTtsOnnxCacheDiagnostics.inspect(modelDir, codecDir, MossTtsCacheSettings.load());
+        MossTtsCacheSettings settings = snapshot.settings();
+        Path cacheRoot = settings.optimizedGraphCacheRoot();
+        System.out.println("Optimized graph cache: "
+                + (settings.optimizedGraphCacheEnabled() ? "enabled" : "disabled"));
         System.out.println("Graph cache root: " + displayPath(cacheRoot));
-        System.out.println("ONNX Runtime log level: " + onnxLogLevelName());
-        OptimizedCacheScope cacheScope = new OptimizedCacheScope(new java.util.HashSet<>(), new java.util.HashSet<>());
+        System.out.println("ONNX Runtime log level: " + settings.onnxRuntimeLogLevel());
 
         if (codecDir.isEmpty()) {
             System.out.println("Optimized graph files: unavailable until companion codec is installed");
+        } else if (!snapshot.graphsAvailable()) {
+            System.out.println("Optimized graph files: unavailable (" + snapshot.graphError() + ")");
         } else {
-            try {
-                List<MossTtsOnnxGraphCatalog.Graph> graphs = MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecDir.get());
-                long present = 0L;
-                for (MossTtsOnnxGraphCatalog.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot);
-                    cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
-                    if (Files.isRegularFile(optimizedPath)) {
-                        present++;
-                    }
-                }
-                System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
-                System.out.println("Optimized graph files: " + present + "/" + graphs.size()
-                        + (graphCacheEnabled ? " present" : " present but cache disabled"));
-                for (MossTtsOnnxGraphCatalog.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot);
-                    String status = Files.isRegularFile(optimizedPath) ? "warm" : "cold";
-                    int sidecars = MossTtsOnnxGraphCatalog.externalDataSidecars(graph.path()).size();
-                    System.out.println("  " + graph.label() + ": " + status
-                            + " -> " + optimizedPath.getFileName()
-                            + (sidecars > 0 ? " (" + sidecars + " external data sidecars)" : ""));
-                }
-            } catch (Exception e) {
-                System.out.println("Optimized graph files: unavailable (" + e.getMessage() + ")");
+            System.out.println("Warmable graphs: " + snapshot.graphs().size() + " (normal generation opens 4)");
+            System.out.println("Optimized graph files: " + snapshot.warmGraphCount() + "/" + snapshot.graphs().size()
+                    + (settings.optimizedGraphCacheEnabled() ? " present" : " present but cache disabled"));
+            for (MossTtsOnnxCacheDiagnostics.GraphStatus graph : snapshot.graphs()) {
+                System.out.println("  " + graph.graph().label() + ": " + (graph.warm() ? "warm" : "cold")
+                        + " -> " + graph.optimizedPath().getFileName()
+                        + (graph.externalDataSidecars() > 0
+                                ? " (" + graph.externalDataSidecars() + " external data sidecars)"
+                                : ""));
             }
         }
-        printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
+        printOptimizedCacheDirectoryStats(snapshot.cacheDirectory());
 
-        boolean sessionCacheEnabled = cacheBoolean(
-                MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                MOSS_SESSION_CACHE_ENABLED_ENV,
-                true);
-        int sessionCacheMax = cacheInt(
-                MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                2);
-        boolean assetCacheEnabled = cacheBoolean(
-                MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                MOSS_ASSET_CACHE_ENABLED_ENV,
-                true);
-        int assetCacheMax = cacheInt(
-                MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                4);
         System.out.println("Session cache: "
-                + (sessionCacheEnabled && sessionCacheMax > 0 ? "enabled" : "disabled")
-                + " (max entries " + Math.max(0, sessionCacheMax) + ", in-process)");
+                + (settings.sessionCacheEnabled() && settings.sessionCacheMaxEntries() > 0 ? "enabled" : "disabled")
+                + " (max entries " + settings.sessionCacheMaxEntries() + ", in-process)");
         System.out.println("Asset cache: "
-                + (assetCacheEnabled && assetCacheMax > 0 ? "enabled" : "disabled")
-                + " (max entries " + Math.max(0, assetCacheMax) + ", in-process)");
+                + (settings.assetCacheEnabled() && settings.assetCacheMaxEntries() > 0 ? "enabled" : "disabled")
+                + " (max entries " + settings.assetCacheMaxEntries() + ", in-process)");
     }
 
     private void printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.Stats stats) {
@@ -3753,42 +3687,6 @@ public class RunCommand implements Runnable {
 
     private static long safeSize(Path path) {
         return OptimizedCacheDirectoryScanner.safeSize(path);
-    }
-
-    private Path onnxOptimizedCacheRoot() {
-        String root = firstNonBlank(
-                System.getProperty(ONNX_OPTIMIZED_CACHE_DIR_PROPERTY),
-                System.getenv(ONNX_OPTIMIZED_CACHE_DIR_ENV));
-        return root.isBlank()
-                ? Path.of(System.getProperty("user.home"), ".aqli", "cache", "onnx", "optimized", "moss-tts")
-                : Path.of(root).resolve("moss-tts");
-    }
-
-    private boolean cacheBoolean(String property, String env, boolean fallback) {
-        String raw = firstNonBlank(System.getProperty(property), System.getenv(env), String.valueOf(fallback));
-        return !Set.of("0", "false", "no", "off", "disable", "disabled")
-                .contains(raw.trim().toLowerCase(Locale.ROOT));
-    }
-
-    private int cacheInt(String property, String env, int fallback) {
-        String raw = firstNonBlank(System.getProperty(property), System.getenv(env), String.valueOf(fallback));
-        try {
-            return Math.max(0, Integer.parseInt(raw.trim()));
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
-
-    private String onnxLogLevelName() {
-        String raw = firstNonBlank(
-                System.getProperty(ONNX_LOG_LEVEL_PROPERTY),
-                System.getenv(ONNX_LOG_LEVEL_ENV),
-                "error");
-        String normalized = raw.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "verbose", "info", "warning", "warn", "error", "fatal" -> normalized;
-            default -> "error";
-        };
     }
 
     private static String sanitizeCacheFilename(String value) {
@@ -3859,187 +3757,6 @@ public class RunCommand implements Runnable {
 
 private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
     }
-
-    private record OptimizedCacheDirectoryScanner.Stats(
-            Path path,
-            boolean exists,
-            int fileCount,
-            int optimizedGraphFiles,
-            int currentOptimizedGraphFiles,
-            int staleOptimizedGraphFiles,
-            int unrelatedOptimizedGraphFiles,
-            int externalDataSidecarFiles,
-            long sizeBytes,
-            long staleOptimizedGraphSizeBytes,
-            long unrelatedOptimizedGraphSizeBytes,
-            long externalDataSidecarSizeBytes,
-            List<Path> externalDataSidecarPaths,
-            List<Path> orphanExternalDataSidecarPaths,
-            List<Path> unrelatedOptimizedGraphPaths,
-            List<Path> staleOptimizedGraphPaths) {
-        private Map<String, Object> toJson() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("path", path.toString());
-            value.put("exists", exists);
-            value.put("file_count", fileCount);
-            value.put("size_bytes", sizeBytes);
-            value.put("optimized_graph_files", optimizedGraphFiles);
-            value.put("current_optimized_graph_files", currentOptimizedGraphFiles);
-            value.put("stale_optimized_graph_files", staleOptimizedGraphFiles);
-            value.put("stale_optimized_graph_size_bytes", staleOptimizedGraphSizeBytes);
-            value.put("unrelated_optimized_graph_files", unrelatedOptimizedGraphFiles);
-            value.put("unrelated_optimized_graph_size_bytes", unrelatedOptimizedGraphSizeBytes);
-            value.put("external_data_sidecar_files", externalDataSidecarFiles);
-            value.put("external_data_sidecar_size_bytes", externalDataSidecarSizeBytes);
-            value.put("external_data_sidecar_prune_policy", externalDataSidecarPrunePolicy());
-            value.put("optimized_graph_files_after_stale_prune", optimizedGraphFilesAfterStalePrune());
-            value.put("pruneable_external_data_sidecar_files", pruneableExternalDataSidecarFiles());
-            value.put("pruneable_external_data_sidecar_size_bytes", pruneableExternalDataSidecarSizeBytes());
-            value.put("pruneable_external_data_sidecar_file_names", pruneableExternalDataSidecarFileNames());
-            value.put("pruneable_external_data_sidecar_paths", pruneableExternalDataSidecarPaths().stream()
-                    .map(Path::toString)
-                    .toList());
-            value.put("retained_external_data_sidecar_files", retainedExternalDataSidecarFiles());
-            value.put("retained_external_data_sidecar_size_bytes", retainedExternalDataSidecarSizeBytes());
-            value.put("retained_external_data_sidecar_file_names", retainedExternalDataSidecarFileNames());
-            value.put("retained_external_data_sidecar_paths", retainedExternalDataSidecarPaths().stream()
-                    .map(Path::toString)
-                    .toList());
-            value.put("external_data_sidecar_file_names", externalDataSidecarFileNames());
-            value.put("external_data_sidecar_paths", externalDataSidecarPaths.stream()
-                    .map(Path::toString)
-                    .toList());
-            value.put("orphan_external_data_sidecar_files", orphanExternalDataSidecarFiles());
-            value.put("orphan_external_data_sidecar_size_bytes", orphanExternalDataSidecarSizeBytes());
-            value.put("orphan_external_data_sidecar_file_names", orphanExternalDataSidecarFileNames());
-            value.put("orphan_external_data_sidecar_paths", orphanExternalDataSidecarPaths.stream()
-                    .map(Path::toString)
-                    .toList());
-            value.put("stale_optimized_graph_file_names", staleOptimizedGraphFileNames());
-            value.put("stale_optimized_graph_paths", staleOptimizedGraphPaths.stream()
-                    .map(Path::toString)
-                    .toList());
-            value.put("unrelated_optimized_graph_file_names", unrelatedOptimizedGraphFileNames());
-            value.put("unrelated_optimized_graph_paths", unrelatedOptimizedGraphPaths.stream()
-                    .map(Path::toString)
-                    .toList());
-            return value;
-        }
-
-        private List<String> staleOptimizedGraphFileNames() {
-            return staleOptimizedGraphPaths.stream()
-                    .map(path -> path.getFileName().toString())
-                    .toList();
-        }
-
-        private List<String> unrelatedOptimizedGraphFileNames() {
-            return unrelatedOptimizedGraphPaths.stream()
-                    .map(path -> path.getFileName().toString())
-                    .toList();
-        }
-
-        private int orphanExternalDataSidecarFiles() {
-            return orphanExternalDataSidecarPaths.size();
-        }
-
-        private long orphanExternalDataSidecarSizeBytes() {
-            long total = 0L;
-            for (Path path : orphanExternalDataSidecarPaths) {
-                total += safeSize(path);
-            }
-            return total;
-        }
-
-        private List<String> externalDataSidecarFileNames() {
-            return externalDataSidecarPaths.stream()
-                    .map(path -> path.getFileName().toString())
-                    .toList();
-        }
-
-        private List<String> orphanExternalDataSidecarFileNames() {
-            return orphanExternalDataSidecarPaths.stream()
-                    .map(path -> path.getFileName().toString())
-                    .toList();
-        }
-
-        private int optimizedGraphFilesAfterStalePrune() {
-            return Math.max(0, optimizedGraphFiles - staleOptimizedGraphFiles);
-        }
-
-        private List<Path> pruneableExternalDataSidecarPaths() {
-            if (externalDataSidecarPaths.isEmpty()) {
-                return List.of();
-            }
-            return optimizedGraphFilesAfterStalePrune() == 0 ? externalDataSidecarPaths : List.of();
-        }
-
-        private int pruneableExternalDataSidecarFiles() {
-            return pruneableExternalDataSidecarPaths().size();
-        }
-
-        private long pruneableExternalDataSidecarSizeBytes() {
-            long total = 0L;
-            for (Path path : pruneableExternalDataSidecarPaths()) {
-                total += safeSize(path);
-            }
-            return total;
-        }
-
-        private List<String> pruneableExternalDataSidecarFileNames() {
-            return pruneableExternalDataSidecarPaths().stream()
-                    .map(path -> path.getFileName().toString())
-                    .toList();
-        }
-
-        private List<Path> retainedExternalDataSidecarPaths() {
-            if (externalDataSidecarPaths.isEmpty()) {
-                return List.of();
-            }
-            List<Path> pruneable = pruneableExternalDataSidecarPaths();
-            if (pruneable.isEmpty()) {
-                return externalDataSidecarPaths;
-            }
-            if (pruneable.size() == externalDataSidecarPaths.size()) {
-                return List.of();
-            }
-            Set<Path> pruneableSet = new java.util.HashSet<>(pruneable);
-            return externalDataSidecarPaths.stream()
-                    .filter(path -> !pruneableSet.contains(path))
-                    .toList();
-        }
-
-        private int retainedExternalDataSidecarFiles() {
-            return retainedExternalDataSidecarPaths().size();
-        }
-
-        private long retainedExternalDataSidecarSizeBytes() {
-            long total = 0L;
-            for (Path path : retainedExternalDataSidecarPaths()) {
-                total += safeSize(path);
-            }
-            return total;
-        }
-
-        private List<String> retainedExternalDataSidecarFileNames() {
-            return retainedExternalDataSidecarPaths().stream()
-                    .map(path -> path.getFileName().toString())
-                    .toList();
-        }
-
-        private String externalDataSidecarPrunePolicy() {
-            if (externalDataSidecarPaths.isEmpty()) {
-                return "none";
-            }
-            if (optimizedGraphFiles == 0) {
-                return "prune orphan sidecars; no optimized graphs are present";
-            }
-            if (optimizedGraphFilesAfterStalePrune() == 0) {
-                return "prune sidecars with stale graphs; no optimized graphs remain after stale cleanup";
-            }
-            return "keep sidecars; optimized graphs remain after stale cleanup";
-        }
-    }
-
 
     private String ttsVoiceGroupSummary(JsonNode voices) {
         Map<String, Integer> counts = new LinkedHashMap<>();

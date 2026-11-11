@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.audio.output;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -8,16 +8,16 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 /** Writes streamed audio to a temporary file and atomically publishes the completed artifact. */
-final class StreamingAudioFileWriter implements AutoCloseable {
+public final class StreamingAudioFileWriter implements AutoCloseable {
     private final Path finalPath;
     private Path temporaryPath;
     private OutputStream output;
 
-    StreamingAudioFileWriter(Path finalPath) {
+    public StreamingAudioFileWriter(Path finalPath) {
         this.finalPath = finalPath.toAbsolutePath().normalize();
     }
 
-    void open() throws IOException {
+    public void open() throws IOException {
         if (output != null) {
             return;
         }
@@ -34,7 +34,7 @@ final class StreamingAudioFileWriter implements AutoCloseable {
                 StandardOpenOption.TRUNCATE_EXISTING);
     }
 
-    void write(byte[] bytes) throws IOException {
+    public void write(byte[] bytes) throws IOException {
         if (output == null) {
             throw new IllegalStateException("streaming audio writer is not open");
         }
@@ -43,7 +43,7 @@ final class StreamingAudioFileWriter implements AutoCloseable {
         }
     }
 
-    Path finish() throws IOException {
+    public Path finish() throws IOException {
         if (temporaryPath == null) {
             throw new IllegalStateException("streaming audio writer has no pending output");
         }
@@ -57,7 +57,7 @@ final class StreamingAudioFileWriter implements AutoCloseable {
         return finalPath;
     }
 
-    void abort() throws IOException {
+    public void abort() throws IOException {
         close();
         if (temporaryPath != null) {
             Files.deleteIfExists(temporaryPath);
