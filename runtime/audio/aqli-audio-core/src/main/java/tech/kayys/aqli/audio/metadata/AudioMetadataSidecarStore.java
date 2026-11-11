@@ -1,4 +1,6 @@
-package tech.kayys.aqli.cli.commands.audio;
+package tech.kayys.aqli.audio.metadata;
+
+import tech.kayys.aqli.media.integrity.MediaFileIntegrity;
 
 import tech.kayys.aqli.cli.commands.MediaFileIntegrity;
 

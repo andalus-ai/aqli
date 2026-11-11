@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.media.integrity;
 
 import java.io.InputStream;
 import java.nio.file.Files;
