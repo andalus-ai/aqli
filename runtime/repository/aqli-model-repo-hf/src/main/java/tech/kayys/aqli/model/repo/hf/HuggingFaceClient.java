@@ -272,12 +272,19 @@ public class HuggingFaceClient {
     public void downloadRepository(String modelId, String revision, java.nio.file.Path targetDir,
             DownloadProgressListener progressListener)
             throws IOException, InterruptedException {
-        List<String> files = listFiles(modelId, revision);
+        downloadRepository(modelId, revision, listFiles(modelId, revision), targetDir, progressListener);
+    }
 
+    public void downloadRepository(
+            String modelId,
+            String revision,
+            List<String> files,
+            java.nio.file.Path targetDir,
+            DownloadProgressListener progressListener) throws IOException, InterruptedException {
         for (String file : files) {
-            if (file.startsWith("."))
+            if (file.startsWith(".")) {
                 continue;
-
+            }
             downloadFile(modelId, file, revision, targetDir.resolve(file), progressListener);
         }
     }
