@@ -5403,7 +5403,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             StreamingAudioOutputSession.Output output = audioOutput.finish();
             if (output instanceof StreamingAudioOutputSession.FileOutput fileOutput) {
                 Path savedPath = fileOutput.path();
-                System.out.println("\\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
+                System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
                         + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
                 printAudioDetails(metadata);
                 maybeWriteAudioMetadataSidecar(savedPath, metadata);
