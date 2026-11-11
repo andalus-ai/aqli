@@ -8,6 +8,7 @@ java { toolchain { languageVersion.set(JavaLanguageVersion.of(25)) } }
 repositories { mavenCentral(); mavenLocal() }
 
 dependencies {
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")

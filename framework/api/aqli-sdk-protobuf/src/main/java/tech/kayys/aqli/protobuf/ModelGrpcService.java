@@ -12,7 +12,7 @@ import tech.kayys.aqli.registry.service.ModelRegistryService;
 import java.util.stream.Collectors;
 
 @GrpcService
-public class ModelGrpcService implements ModelService {
+public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(ModelGrpcService.class);
 

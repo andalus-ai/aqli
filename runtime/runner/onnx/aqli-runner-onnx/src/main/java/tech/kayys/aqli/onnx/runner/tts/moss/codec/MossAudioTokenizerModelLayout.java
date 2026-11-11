@@ -2,12 +2,15 @@ package tech.kayys.aqli.onnx.runner.tts.moss.codec;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 /** Resolves the on-disk layout of the MOSS audio-tokenizer companion model. */
 public final class MossAudioTokenizerModelLayout {
+    public static final String REPOSITORY_ID = "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
+    public static final String MODEL_SPEC = "hf:" + REPOSITORY_ID;
     public static final String METADATA_FILE_NAME = "codec_browser_onnx_meta.json";
 
     private MossAudioTokenizerModelLayout() {
@@ -32,6 +35,9 @@ public final class MossAudioTokenizerModelLayout {
                 return walk.filter(Files::isRegularFile)
                         .filter(file -> file.getFileName().toString().equals(METADATA_FILE_NAME))
                         .map(Path::getParent)
+                        .filter(parent -> parent != null)
+                        .distinct()
+                        .sorted(Comparator.comparing(Path::toString, String.CASE_INSENSITIVE_ORDER))
                         .findFirst();
             } catch (Exception ignored) {
                 return Optional.empty();

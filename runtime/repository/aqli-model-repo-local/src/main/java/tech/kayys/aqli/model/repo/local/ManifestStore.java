@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collections;
 import java.util.stream.Stream;
 
 /**
@@ -22,6 +23,17 @@ import java.util.stream.Stream;
  */
 @ApplicationScoped
 public class ManifestStore {
+    /** A manifest file that could not be decoded. */
+    public record ManifestReadIssue(String fileName, String message) {}
+
+    /** Successfully decoded manifests plus per-file read diagnostics. */
+    public record ManifestListing(List<AqliManifest> manifests, List<ManifestReadIssue> issues) {
+        public ManifestListing {
+            manifests = List.copyOf(manifests);
+            issues = List.copyOf(issues);
+        }
+    }
+
     private final Path manifestDir;
     private final ObjectMapper mapper;
 
@@ -37,23 +49,41 @@ public class ManifestStore {
     }
 
     public synchronized List<AqliManifest> listAll() {
+        return listAllWithDiagnostics().manifests();
+    }
+
+    /**
+     * Reads all manifest files while preserving the resilient list behavior:
+     * malformed records are excluded from the manifest list but reported in
+     * the returned diagnostics.
+     */
+    public synchronized ManifestListing listAllWithDiagnostics() {
         if (!Files.exists(manifestDir)) {
-            return List.of();
+            return new ManifestListing(List.of(), List.of());
         }
         if (!Files.isDirectory(manifestDir)) {
             throw new IllegalStateException("Model manifest location is not a directory: " + manifestDir);
         }
+
+        List<AqliManifest> readable = new ArrayList<>();
+        List<ManifestReadIssue> issues = new ArrayList<>();
         try (Stream<Path> paths = Files.list(manifestDir)) {
-            return paths.filter(Files::isRegularFile)
+            paths.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
                     .sorted(Comparator.comparing(path -> path.getFileName().toString()))
-                    .map(this::readQuietly)
-                    .filter(Optional::isPresent)
-                    .map(Optional::orElseThrow)
-                    .toList();
+                    .forEach(path -> {
+                        try {
+                            readable.add(mapper.readValue(path.toFile(), AqliManifest.class));
+                        } catch (IOException | RuntimeException e) {
+                            String message = e.getMessage() == null
+                                    ? e.getClass().getSimpleName() : e.getMessage();
+                            issues.add(new ManifestReadIssue(path.getFileName().toString(), message));
+                        }
+                    });
         } catch (IOException e) {
             throw new IllegalStateException("Unable to list model manifests in " + manifestDir, e);
         }
+        return new ManifestListing(readable, issues);
     }
 
     public synchronized Optional<AqliManifest> findById(String id) {

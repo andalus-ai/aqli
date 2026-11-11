@@ -12,7 +12,6 @@ import tech.kayys.aqli.safetensor.engine.generation.kv.ForwardWorkspace;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.List;
@@ -31,7 +30,7 @@ final class FlashAttentionMetalPagedAttention {
     AccelTensor tryCompute(AccelTensor q, KVCacheManager.KVCacheSession kvSession,
             BlockManager blockManager, List<Integer> blocks, int kvLayerIdx, int startPos, int numHeads,
             int numKVHeads, int headDim, float scale, boolean causal, float softCap, ModelConfig config, int layerIdx,
-            int totalTokens, long batch, long seqLen, boolean slidingLayer, Arena arena,
+            int totalTokens, long batch, long seqLen, boolean slidingLayer, BudgetedAttentionArena arena,
             FlashAttentionModelPolicy modelPolicy, MemorySegment attentionContextBuffer) {
         MetalBinding binding = metalBinding();
         if (!routingPolicy().allowPagedMetalAttentionBridge(modelPolicy, (int) seqLen, totalTokens)

@@ -82,8 +82,9 @@ public class MossTtsOnnxRunner {
         MossTtsProgressListener progress = progressListener == null ? NOOP_PROGRESS_LISTENER : progressListener;
         MossTtsPcmChunkListener pcmChunks = pcmChunkListener == null ? NOOP_PCM_CHUNK_LISTENER : pcmChunkListener;
         Instant started = Instant.now();
+        MossTtsCacheSettings cacheSettings = MossTtsCacheSettings.load();
 
-        MossModelAssets assets = loadAssets(ttsDir, codecDir);
+        MossModelAssets assets = loadAssets(ttsDir, codecDir, cacheSettings);
         JsonNode manifest = assets.manifest();
         JsonNode ttsMeta = assets.ttsMeta();
         JsonNode codecMeta = assets.codecMeta();
@@ -101,8 +102,8 @@ public class MossTtsOnnxRunner {
         int progressEveryFrames = requestedStreamProgressFrames(request, maxFrames);
 
         ensureOrtJavaNativeDependency();
-        OrtEnvironment env = OrtEnvironment.getEnvironment(ortLoggingLevel(), "aqli-moss-tts");
-        try (MossSessionLease lease = acquireSessions(env, ttsDir, codecDir, ttsMeta, codecMeta, threads)) {
+        OrtEnvironment env = OrtEnvironment.getEnvironment(ortLoggingLevel(cacheSettings), "aqli-moss-tts");
+        try (MossSessionLease lease = acquireSessions(env, ttsDir, codecDir, ttsMeta, codecMeta, threads, cacheSettings)) {
             MossSessions sessions = lease.sessions();
             progress.onProgress(new MossTtsProgress("prefill", 0, maxFrames, "TTS prefill"));
             GeneratedFrames generated = generateFrames(
@@ -152,7 +153,7 @@ public class MossTtsOnnxRunner {
             metadata.put("runner", "moss-tts-onnx");
             metadata.put("effective_provider", "onnx");
             metadata.put("execution_backend", "onnxruntime-java");
-            metadata.put("onnx_log_level", ortLoggingLevelName());
+            metadata.put("onnx_log_level", ortLoggingLevelName(cacheSettings));
             sessions.cacheStats().putMetadata(metadata);
             assets.putMetadata(metadata);
             lease.putMetadata(metadata);
@@ -206,10 +207,11 @@ public class MossTtsOnnxRunner {
         Objects.requireNonNull(ttsDir, "ttsDir");
         Objects.requireNonNull(codecDir, "codecDir");
         Instant started = Instant.now();
-        MossModelAssets assets = loadAssets(ttsDir, codecDir);
+        MossTtsCacheSettings cacheSettings = MossTtsCacheSettings.load();
+        MossModelAssets assets = loadAssets(ttsDir, codecDir, cacheSettings);
         ensureOrtJavaNativeDependency();
-        OrtEnvironment env = OrtEnvironment.getEnvironment(ortLoggingLevel(), "aqli-moss-tts");
-        try (MossSessionLease lease = acquireSessions(env, ttsDir, codecDir, assets.ttsMeta(), assets.codecMeta(), threads)) {
+        OrtEnvironment env = OrtEnvironment.getEnvironment(ortLoggingLevel(cacheSettings), "aqli-moss-tts");
+        try (MossSessionLease lease = acquireSessions(env, ttsDir, codecDir, assets.ttsMeta(), assets.codecMeta(), threads, cacheSettings)) {
             MossSessions sessions = lease.sessions();
             sessions.codecDecode();
             sessions.codecDecodeStep();
@@ -218,7 +220,7 @@ public class MossTtsOnnxRunner {
             metadata.put("runner", "moss-tts-onnx");
             metadata.put("effective_provider", "onnx");
             metadata.put("execution_backend", "onnxruntime-java");
-            metadata.put("onnx_log_level", ortLoggingLevelName());
+            metadata.put("onnx_log_level", ortLoggingLevelName(cacheSettings));
             metadata.put("onnx_warmup", true);
             metadata.put("onnx_warmup_duration_ms", durationMs);
             metadata.put("onnx_warmup_threads", Math.max(1, threads));
@@ -231,9 +233,10 @@ public class MossTtsOnnxRunner {
         }
     }
 
-    private MossModelAssets loadAssets(Path ttsDir, Path codecDir) throws Exception {
-        boolean enabled = mossAssetCacheEnabled();
-        int maxEntries = mossAssetCacheMaxEntries();
+    private MossModelAssets loadAssets(
+            Path ttsDir, Path codecDir, MossTtsCacheSettings cacheSettings) throws Exception {
+        boolean enabled = cacheSettings.assetCacheEnabled();
+        int maxEntries = cacheSettings.assetCacheMaxEntries();
         String key = MossModelAssets.cacheKey(ttsDir, codecDir);
         if (!enabled || maxEntries <= 0) {
             return MossModelAssets.load(ttsDir, codecDir, key, "disabled", enabled, maxEntries, 0);
@@ -266,11 +269,12 @@ public class MossTtsOnnxRunner {
             Path codecDir,
             JsonNode ttsMeta,
             JsonNode codecMeta,
-            int threads) throws OrtException {
-        boolean enabled = mossSessionCacheEnabled();
-        int maxEntries = mossSessionCacheMaxEntries();
+            int threads,
+            MossTtsCacheSettings cacheSettings) throws OrtException {
+        boolean enabled = cacheSettings.sessionCacheEnabled();
+        int maxEntries = cacheSettings.sessionCacheMaxEntries();
         if (!enabled || maxEntries <= 0) {
-            return MossSessionLease.ephemeral(MossSessions.open(env, ttsDir, codecDir, ttsMeta, codecMeta, threads),
+            return MossSessionLease.ephemeral(MossSessions.open(env, ttsDir, codecDir, ttsMeta, codecMeta, threads, cacheSettings),
                     enabled, maxEntries);
         }
 
@@ -281,7 +285,7 @@ public class MossTtsOnnxRunner {
             cached = sessionCache.get(key);
             hit = cached != null;
             if (cached == null) {
-                MossSessions sessions = MossSessions.open(env, ttsDir, codecDir, ttsMeta, codecMeta, threads);
+                MossSessions sessions = MossSessions.open(env, ttsDir, codecDir, ttsMeta, codecMeta, threads, cacheSettings);
                 cached = new CachedMossSessions(key, sessions);
                 sessionCache.put(key, cached);
             }
@@ -320,23 +324,6 @@ public class MossTtsOnnxRunner {
             return sessionCache.size();
         }
     }
-
-    private static boolean mossSessionCacheEnabled() {
-        return MossTtsCacheSettings.load().sessionCacheEnabled();
-    }
-
-    private static int mossSessionCacheMaxEntries() {
-        return MossTtsCacheSettings.load().sessionCacheMaxEntries();
-    }
-
-    private static boolean mossAssetCacheEnabled() {
-        return MossTtsCacheSettings.load().assetCacheEnabled();
-    }
-
-    private static int mossAssetCacheMaxEntries() {
-        return MossTtsCacheSettings.load().assetCacheMaxEntries();
-    }
-
 
 
     @PreDestroy
@@ -2003,13 +1990,14 @@ public class MossTtsOnnxRunner {
         }
     }
 
-    private static void configureSessionLogging(OrtSession.SessionOptions options) throws OrtException {
+    private static void configureSessionLogging(
+            OrtSession.SessionOptions options, MossTtsCacheSettings cacheSettings) throws OrtException {
         options.setLoggerId("aqli-moss-tts");
-        options.setSessionLogLevel(ortLoggingLevel());
+        options.setSessionLogLevel(ortLoggingLevel(cacheSettings));
     }
 
-    private static OrtLoggingLevel ortLoggingLevel() {
-        return switch (ortLoggingLevelName()) {
+    private static OrtLoggingLevel ortLoggingLevel(MossTtsCacheSettings cacheSettings) {
+        return switch (ortLoggingLevelName(cacheSettings)) {
             case "verbose" -> OrtLoggingLevel.ORT_LOGGING_LEVEL_VERBOSE;
             case "info" -> OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO;
             case "warning", "warn" -> OrtLoggingLevel.ORT_LOGGING_LEVEL_WARNING;
@@ -2018,8 +2006,8 @@ public class MossTtsOnnxRunner {
         };
     }
 
-    private static String ortLoggingLevelName() {
-        return MossTtsCacheSettings.load().onnxRuntimeLogLevel();
+    private static String ortLoggingLevelName(MossTtsCacheSettings cacheSettings) {
+        return cacheSettings.onnxRuntimeLogLevel();
     }
 
     public record MossTtsAudio(
@@ -2299,22 +2287,20 @@ public class MossTtsOnnxRunner {
                 Path codecDir,
                 JsonNode ttsMeta,
                 JsonNode codecMeta,
-                int threads) throws OrtException {
-            JsonNode ttsFiles = ttsMeta.path("files");
-            JsonNode codecFiles = codecMeta.path("files");
-            Path prefillPath = ttsDir.resolve(ttsFiles.path("prefill").asText("moss_tts_prefill.onnx"));
-            Path decodePath = ttsDir.resolve(ttsFiles.path("decode_step").asText("moss_tts_decode_step.onnx"));
-            Path localFixedSampledFramePath = ttsDir.resolve(ttsFiles.path("local_fixed_sampled_frame")
-                    .asText("moss_tts_local_fixed_sampled_frame.onnx"));
-            Path codecDecodePath = codecDir.resolve(codecFiles.path("decode_full")
-                    .asText("moss_audio_tokenizer_decode_full.onnx"));
-            Path codecDecodeStepPath = codecDir.resolve(codecFiles.path("decode_step")
-                    .asText("moss_audio_tokenizer_decode_step.onnx"));
-            SessionOpen prefill = createSession(env, prefillPath, threads);
-            SessionOpen decode = createSession(env, decodePath, threads);
-            SessionOpen localFixedSampledFrame = createSession(env, localFixedSampledFramePath, threads);
-            LazyOrtSession codecDecode = new LazyOrtSession(env, codecDecodePath, threads);
-            LazyOrtSession codecDecodeStep = new LazyOrtSession(env, codecDecodeStepPath, threads);
+                int threads,
+                MossTtsCacheSettings cacheSettings) throws OrtException {
+            List<MossTtsOnnxGraphResolver.Graph> graphs =
+                    MossTtsOnnxGraphResolver.resolveGraphs(ttsDir, codecDir, ttsMeta, codecMeta);
+            Path prefillPath = graphs.get(0).path();
+            Path decodePath = graphs.get(1).path();
+            Path localFixedSampledFramePath = graphs.get(2).path();
+            Path codecDecodePath = graphs.get(3).path();
+            Path codecDecodeStepPath = graphs.get(4).path();
+            SessionOpen prefill = createSession(env, prefillPath, threads, cacheSettings);
+            SessionOpen decode = createSession(env, decodePath, threads, cacheSettings);
+            SessionOpen localFixedSampledFrame = createSession(env, localFixedSampledFramePath, threads, cacheSettings);
+            LazyOrtSession codecDecode = new LazyOrtSession(env, codecDecodePath, threads, cacheSettings);
+            LazyOrtSession codecDecodeStep = new LazyOrtSession(env, codecDecodeStepPath, threads, cacheSettings);
             List<OptimizedModelCacheEvent> eagerCacheEvents = List.of(
                     prefill.cache(),
                     decode.cache(),
@@ -2334,17 +2320,11 @@ public class MossTtsOnnxRunner {
                 JsonNode ttsMeta,
                 JsonNode codecMeta,
                 int threads) {
-            JsonNode ttsFiles = ttsMeta.path("files");
-            JsonNode codecFiles = codecMeta.path("files");
-            List<Path> paths = List.of(
-                    ttsDir.resolve(ttsFiles.path("prefill").asText("moss_tts_prefill.onnx")),
-                    ttsDir.resolve(ttsFiles.path("decode_step").asText("moss_tts_decode_step.onnx")),
-                    ttsDir.resolve(ttsFiles.path("local_fixed_sampled_frame")
-                            .asText("moss_tts_local_fixed_sampled_frame.onnx")),
-                    codecDir.resolve(codecFiles.path("decode_full")
-                            .asText("moss_audio_tokenizer_decode_full.onnx")),
-                    codecDir.resolve(codecFiles.path("decode_step")
-                            .asText("moss_audio_tokenizer_decode_step.onnx")));
+            List<Path> paths = MossTtsOnnxGraphResolver
+                    .resolveGraphs(ttsDir, codecDir, ttsMeta, codecMeta)
+                    .stream()
+                    .map(MossTtsOnnxGraphResolver.Graph::path)
+                    .toList();
             try {
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 digest.update(("threads=" + Math.max(1, threads) + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -2379,9 +2359,10 @@ public class MossTtsOnnxRunner {
             return OptimizedModelCacheStats.from(events);
         }
 
-        private static SessionOpen createSession(OrtEnvironment env, Path path, int threads) throws OrtException {
+        private static SessionOpen createSession(
+                OrtEnvironment env, Path path, int threads, MossTtsCacheSettings cacheSettings) throws OrtException {
             Path modelPath = path.toAbsolutePath().normalize();
-            Path optimizedPath = optimizedModelCachePath(modelPath);
+            Path optimizedPath = optimizedModelCachePath(modelPath, cacheSettings);
             int sidecars = 0;
             if (optimizedPath != null) {
                 sidecars = prepareOptimizedModelSidecars(modelPath, optimizedPath);
@@ -2389,7 +2370,7 @@ public class MossTtsOnnxRunner {
             boolean staleCacheRebuilt = false;
             if (optimizedPath != null && Files.isRegularFile(optimizedPath)) {
                 try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-                    configureSessionLogging(options);
+                    configureSessionLogging(options, cacheSettings);
                     options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.NO_OPT);
                     options.setIntraOpNumThreads(Math.max(1, threads));
                     options.setInterOpNumThreads(1);
@@ -2405,7 +2386,7 @@ public class MossTtsOnnxRunner {
                 }
             }
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-                configureSessionLogging(options);
+                configureSessionLogging(options, cacheSettings);
                 options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
                 options.setIntraOpNumThreads(Math.max(1, threads));
                 options.setInterOpNumThreads(1);
@@ -2466,13 +2447,12 @@ public class MossTtsOnnxRunner {
             }
         }
 
-        private static Path optimizedModelCachePath(Path modelPath) {
-            MossTtsCacheSettings settings = MossTtsCacheSettings.load();
-            if (!settings.optimizedGraphCacheEnabled()) {
+        private static Path optimizedModelCachePath(Path modelPath, MossTtsCacheSettings cacheSettings) {
+            if (!cacheSettings.optimizedGraphCacheEnabled()) {
                 return null;
             }
             try {
-                return MossTtsOnnxGraphResolver.optimizedCachePath(modelPath, settings.optimizedGraphCacheRoot());
+                return MossTtsOnnxGraphResolver.optimizedCachePath(modelPath, cacheSettings.optimizedGraphCacheRoot());
             } catch (Exception e) {
                 return null;
             }
@@ -2508,18 +2488,21 @@ public class MossTtsOnnxRunner {
         private final OrtEnvironment env;
         private final Path path;
         private final int threads;
+        private final MossTtsCacheSettings cacheSettings;
         private OrtSession session;
         private OptimizedModelCacheEvent cacheEvent;
 
-        private LazyOrtSession(OrtEnvironment env, Path path, int threads) {
+        private LazyOrtSession(
+                OrtEnvironment env, Path path, int threads, MossTtsCacheSettings cacheSettings) {
             this.env = env;
             this.path = path;
             this.threads = threads;
+            this.cacheSettings = cacheSettings;
         }
 
         private OrtSession session() throws OrtException {
             if (session == null) {
-                SessionOpen opened = MossSessions.createSession(env, path, threads);
+                SessionOpen opened = MossSessions.createSession(env, path, threads, cacheSettings);
                 session = opened.session();
                 cacheEvent = opened.cache();
             }

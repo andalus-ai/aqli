@@ -19,7 +19,6 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
-import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 
 import tech.kayys.aqli.model.repo.local.ManifestStore;
@@ -70,19 +69,19 @@ import java.util.function.Consumer;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
+import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
+import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
-import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
+import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
+import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxCacheDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCacheDirectoryScanner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
@@ -109,11 +108,6 @@ import tech.kayys.suling.audio.Suling;
 @Unremovable
 @Command(name = "run", description = "Run inference using a specified model")
 public class RunCommand implements Runnable {
-    private static final String MOSS_AUDIO_TOKENIZER_REPOSITORY =
-            "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
-    private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
-            "hf:" + MOSS_AUDIO_TOKENIZER_REPOSITORY;
-    private static final String MOSS_CODEC_META_FILE = MossAudioTokenizerModelLayout.METADATA_FILE_NAME;
     private Map<String, Object> forcedExecutionRouteMetadata = Map.of();
 
     @ParentCommand
@@ -892,7 +886,8 @@ public class RunCommand implements Runnable {
                                 if (!quietRouteResolutionOutput()) {
                                     System.out.println("Model ready at: " + displayPath(Path.of(finalLocalPath)));
                                 }
-                            } else if (requiresLocalHfRepositoryResolution(requestedModelRef, providerId)) {
+                            } else if (ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
+                                    requestedModelRef, providerId, isMcpProvider())) {
                                 return;
                             }
                         }
@@ -1526,8 +1521,8 @@ public class RunCommand implements Runnable {
                 requestProcessExit();
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
-                StreamingAudioOutput audioOutput = new StreamingAudioOutput();
-                LivePcmAudioSink liveAudioSink = new LivePcmAudioSink(liveAudio);
+                StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
+                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(liveAudio);
                 CountDownLatch latch = new CountDownLatch(1);
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
                 java.util.concurrent.atomic.AtomicBoolean streamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -1637,7 +1632,7 @@ public class RunCommand implements Runnable {
                                                     fallbackError -> {
                                                         // fallback failed -> close sinks and report
                                                         liveAudioSink.close();
-                                                        audioOutput.closeQuietly();
+                                                        closeAudioOutputQuietly(audioOutput);
                                                         fallbackStreamFailed.set(true);
                                                         uiRenderer.printError(fallbackError == null ? "Fallback stream failed" : fallbackError.getMessage(), false);
                                                         printProviderHintFromError(fallbackError);
@@ -1660,7 +1655,7 @@ public class RunCommand implements Runnable {
                                                     });
                                         } catch (Throwable fallbackStartErr) {
                                             liveAudioSink.close();
-                                            audioOutput.closeQuietly();
+                                            closeAudioOutputQuietly(audioOutput);
                                             streamFailed.set(true);
                                             uiRenderer.printError(fallbackStartErr.getMessage(), false);
                                             printProviderHintFromError(fallbackStartErr);
@@ -1674,7 +1669,7 @@ public class RunCommand implements Runnable {
 
                                 // No fallback available or fallback already attempted: close resources and finish
                                 liveAudioSink.close();
-                                audioOutput.closeQuietly();
+                                closeAudioOutputQuietly(audioOutput);
                                 streamFailed.set(true);
                                 uiRenderer.printError(error == null ? "Stream failed" : error.getMessage(), false);
                                 printProviderHintFromError(error);
@@ -1729,7 +1724,7 @@ public class RunCommand implements Runnable {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     liveAudioSink.close();
-                    audioOutput.closeQuietly();
+                    closeAudioOutputQuietly(audioOutput);
                     streamFailed.set(true);
                 }
                 requestProcessExit(streamFailed.get() ? 1 : 0);
@@ -1884,8 +1879,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to verify image metadata: " + e.getMessage());
@@ -1907,8 +1902,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
@@ -2945,7 +2940,7 @@ public class RunCommand implements Runnable {
         if (codecDir.isPresent()) {
             Path dir = codecDir.get().toAbsolutePath().normalize();
             System.out.println("Codec directory: " + displayPath(dir));
-            System.out.println("Codec metadata: " + diagnosticFileStatus(dir.resolve(MOSS_CODEC_META_FILE)));
+            System.out.println("Codec metadata: " + diagnosticFileStatus(dir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME)));
         } else {
             exitCode = 1;
             System.out.println("Codec directory: missing");
@@ -2958,7 +2953,7 @@ public class RunCommand implements Runnable {
             } else {
                 System.out.println("Auto pull: enabled for generation");
             }
-            System.out.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.out.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
         }
 
         System.out.println();
@@ -3088,10 +3083,10 @@ public class RunCommand implements Runnable {
             Path dir = codecDir.get().toAbsolutePath().normalize();
             codec.put("present", true);
             codec.put("directory", dir.toString());
-            codec.put("metadata", diagnosticFileJson(dir.resolve(MOSS_CODEC_META_FILE)));
+            codec.put("metadata", diagnosticFileJson(dir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME)));
         } else {
             codec.put("present", false);
-            codec.put("install_command", "aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            codec.put("install_command", "aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             exitCode = 1;
         }
         payload.put("codec", codec);
@@ -3153,7 +3148,7 @@ public class RunCommand implements Runnable {
                 return 1;
             }
             System.err.println("Error: MOSS TTS companion codec is not installed.");
-            System.err.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return 1;
         }
 
@@ -3235,7 +3230,7 @@ public class RunCommand implements Runnable {
                 return 1;
             }
             System.err.println("Error: MOSS TTS companion codec is not installed.");
-            System.err.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return 1;
         }
 
@@ -3243,27 +3238,8 @@ public class RunCommand implements Runnable {
         Path codecPath = codecDir.get().toAbsolutePath().normalize();
         Path cacheRoot = MossTtsCacheSettings.load().optimizedGraphCacheRoot();
         try {
-            OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
-            OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
-            List<OptimizedCachePruner.Operation> operations = OptimizedCachePruner.prune(before, dryRun);
-            int errors = 0;
-            long affectedBytes = 0L;
-            if (!dryRun) {
-                for (OptimizedCachePruner.Operation operation : operations) {
-                    if (operation.error() != null && !operation.error().isBlank()) {
-                        errors++;
-                    } else if (operation.deleted()) {
-                        affectedBytes += operation.sizeBytes();
-                    }
-                }
-            } else {
-                for (OptimizedCachePruner.Operation operation : operations) {
-                    affectedBytes += operation.sizeBytes();
-                }
-            }
-            OptimizedCacheDirectoryScanner.Stats after = dryRun
-                    ? before
-                    : OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
+            MossTtsOptimizedCacheMaintenance.Result result =
+                    new MossTtsOptimizedCacheMaintenance().prune(modelDir, codecPath, cacheRoot, dryRun);
             if (jsonMode) {
                 printMossTtsCachePruneJson(
                         modelId,
@@ -3271,24 +3247,24 @@ public class RunCommand implements Runnable {
                         codecPath,
                         cacheRoot,
                         dryRun,
-                        before,
-                        after,
-                        operations,
-                        affectedBytes,
-                        errors);
+                        result.before(),
+                        result.after(),
+                        result.operations(),
+                        result.affectedBytes(),
+                        result.errors());
             } else {
                 printMossTtsCachePrune(
                         modelDir,
                         codecPath,
                         cacheRoot,
                         dryRun,
-                        before,
-                        after,
-                        operations,
-                        affectedBytes,
-                        errors);
+                        result.before(),
+                        result.after(),
+                        result.operations(),
+                        result.affectedBytes(),
+                        result.errors());
             }
-            return errors == 0 ? 0 : 1;
+            return result.errors() == 0 ? 0 : 1;
         } catch (Exception e) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_cache_prune", "MOSS TTS cache prune failed: " + e.getMessage());
@@ -3297,19 +3273,6 @@ public class RunCommand implements Runnable {
             System.err.println("Error: MOSS TTS cache prune failed: " + e.getMessage());
             return 1;
         }
-    }
-
-    private OptimizedCacheScope currentMossTtsOptimizedCacheScope(
-            Path modelDir,
-            Path codecPath,
-            Path cacheRoot) throws Exception {
-        Set<Path> currentPaths = new java.util.HashSet<>();
-        Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (MossTtsOnnxGraphResolver.Graph graph : MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecPath)) {
-            currentPaths.add(MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
-            currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
-        }
-        return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
 
     private void printMossTtsCachePruneJson(
@@ -3710,10 +3673,7 @@ public class RunCommand implements Runnable {
         }
     }
 
-private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
-    }
-
-    private String indentBlock(String text, String indent) {
+private String indentBlock(String text, String indent) {
         if (text == null || text.isBlank()) {
             return indent + "(empty)";
         }
@@ -3830,7 +3790,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
         String repoId = hfRepoIdFromModelRef(requestedModel);
-        if (repoId == null || isCloudProviderName(providerId) || isMcpProvider()) {
+        if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
 
@@ -3854,7 +3814,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             System.out.println("Model not found locally; pulling hf:" + repoId
                     + ("main".equalsIgnoreCase(revision) ? "" : "@" + revision) + "...");
         }
-        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(0)) {
+        try (TerminalDownloadProgressRenderer progress = new TerminalDownloadProgressRenderer(0)) {
             huggingFaceRepository.get().pullRepository(
                     repoId,
                     revision,
@@ -3888,22 +3848,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
                 ? source.reference()
                 : null;
-    }
-
-    private boolean isCloudProviderName(String provider) {
-        if (provider == null || provider.isBlank()) {
-            return false;
-        }
-        return switch (provider.trim().toLowerCase(Locale.ROOT)) {
-            case "openai", "mistral", "anthropic", "gemini", "cerebras", "deepseek", "ollama" -> true;
-            default -> false;
-        };
-    }
-
-    private boolean requiresLocalHfRepositoryResolution(String requestedModel, String requestedProvider) {
-        return hfRepoIdFromModelRef(requestedModel) != null
-                && !isCloudProviderName(requestedProvider)
-                && !isMcpProvider();
     }
 
     private String truncateDisplay(String value, int width) {
@@ -3962,16 +3906,16 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
         if (offline) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and --offline/--local disables automatic downloads.");
-            System.err.println("Run once online: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Run once online: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
         if (disableTtsAutoCodec) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and automatic codec pull is disabled.");
-            System.err.println("Pull it with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Pull it with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
 
-        System.out.println("MOSS TTS companion codec not found; pulling " + MOSS_AUDIO_TOKENIZER_REPOSITORY + "...");
+        System.out.println("MOSS TTS companion codec not found; pulling " + MossAudioTokenizerModelLayout.REPOSITORY_ID + "...");
         try {
             pullMossAudioCodecRepository();
             LocalModelIndex.refreshFromDisk();
@@ -3980,7 +3924,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             if (e.getCause() != null && e.getCause().getMessage() != null) {
                 System.err.println("Detail: " + e.getCause().getMessage());
             }
-            System.err.println("You can also run manually: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("You can also run manually: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
 
@@ -3990,14 +3934,14 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             return true;
         }
 
-        System.err.println("Error: Codec pull finished, but " + MOSS_CODEC_META_FILE + " was not found.");
-        System.err.println("Try manually: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+        System.err.println("Error: Codec pull finished, but " + MossAudioTokenizerModelLayout.METADATA_FILE_NAME + " was not found.");
+        System.err.println("Try manually: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
         return false;
     }
 
     private Optional<Path> findInstalledMossAudioCodecDir() {
         List<Path> indexedPaths = new ArrayList<>();
-        for (String ref : List.of(MOSS_AUDIO_TOKENIZER_REPOSITORY, MOSS_AUDIO_TOKENIZER_MODEL_SPEC)) {
+        for (String ref : List.of(MossAudioTokenizerModelLayout.REPOSITORY_ID, MossAudioTokenizerModelLayout.MODEL_SPEC)) {
             try {
                 LocalModelIndex.find(ref)
                         .map(entry -> entry.path)
@@ -4011,7 +3955,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return MossAudioTokenizerModelLocator.findInstalled(
                 AqliHome.path("models"),
                 indexedPaths,
-                MOSS_AUDIO_TOKENIZER_REPOSITORY);
+                MossAudioTokenizerModelLayout.REPOSITORY_ID);
     }
 
 
@@ -4027,9 +3971,9 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
         }
 
-        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(0)) {
+        try (TerminalDownloadProgressRenderer progress = new TerminalDownloadProgressRenderer(0)) {
             huggingFaceRepository.get().pullRepository(
-                    MOSS_AUDIO_TOKENIZER_REPOSITORY,
+                    MossAudioTokenizerModelLayout.REPOSITORY_ID,
                     "main",
                     null,
                     "moss-audio-tokenizer",
@@ -4052,75 +3996,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
     private boolean allowCpuFallbackWhenMetalRequested() {
         return CliMetalRuntime.allowCpuFallbackWhenMetalRequested();
-    }
-
-    private static final class CodecPullProgressRenderer implements DownloadProgressListener, AutoCloseable {
-        private static final String[] SPINNER = { "|", "/", "-", "\\" };
-        private static final int BAR_WIDTH = 30;
-        private static final long MIN_REDRAW_NS = 80_000_000L;
-
-        private final int totalFiles;
-        private int completedFiles;
-        private int spinnerTick;
-        private long fileStartNanos = System.nanoTime();
-        private long lastRedrawNanos;
-
-        private CodecPullProgressRenderer(int totalFiles) {
-            this.totalFiles = Math.max(0, totalFiles);
-        }
-
-        @Override
-        public synchronized void onProgress(long downloadedBytes, long totalBytes, double progress) {
-            long now = System.nanoTime();
-            if (now - lastRedrawNanos < MIN_REDRAW_NS && downloadedBytes < totalBytes) {
-                return;
-            }
-            lastRedrawNanos = now;
-
-            double pct = Math.max(0.0, Math.min(1.0, progress));
-            int filled = Math.min(BAR_WIDTH, (int) Math.round(BAR_WIDTH * pct));
-            StringBuilder bar = new StringBuilder(BAR_WIDTH);
-            for (int i = 0; i < BAR_WIDTH; i++) {
-                bar.append(i < filled ? "=" : ".");
-            }
-
-            double elapsedSec = Math.max(0.001, (now - fileStartNanos) / 1_000_000_000.0);
-            double mbDone = downloadedBytes / 1024.0 / 1024.0;
-            double mbTotal = totalBytes > 0 ? totalBytes / 1024.0 / 1024.0 : 0.0;
-            double speed = mbDone / elapsedSec;
-            String spin = SPINNER[spinnerTick++ % SPINNER.length];
-
-            String fileProgress = totalFiles > 0
-                    ? (Math.min(completedFiles + 1, totalFiles) + "/" + totalFiles)
-                    : Integer.toString(completedFiles + 1);
-            System.out.printf("\r%s [%-30s] %3d%% %.1f/%.1f MB %.1f MB/s file %s",
-                    spin,
-                    bar,
-                    (int) Math.round(pct * 100.0),
-                    mbDone,
-                    mbTotal,
-                    speed,
-                    fileProgress);
-            System.out.flush();
-        }
-
-        @Override
-        public synchronized void onComplete(long totalBytes) {
-            completedFiles++;
-            fileStartNanos = System.nanoTime();
-            String fileProgress = totalFiles > 0
-                    ? (Math.min(completedFiles, totalFiles) + "/" + totalFiles)
-                    : Integer.toString(completedFiles);
-            System.out.printf("\r* [%-30s] 100%% file %s done%n",
-                    "==============================",
-                    fileProgress);
-            System.out.flush();
-        }
-
-        @Override
-        public void close() {
-            System.out.flush();
-        }
     }
 
     private void printQuantizationInfo() {
@@ -5482,18 +5357,47 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
     private void handleOutputs(
             java.io.ByteArrayOutputStream imageBuffer,
-            StreamingAudioOutput audioOutput,
+            StreamingAudioOutputSession audioOutput,
             Map<String, Object> metadata) {
         if (imageBuffer.size() > 0) saveBuffer(imageBuffer, "png", "Image", metadata);
-        if (audioOutput != null && audioOutput.hasOutput()) {
-            audioOutput.finish(metadata);
+        if (audioOutput == null || !audioOutput.hasOutput()) {
+            return;
+        }
+        try {
+            StreamingAudioOutputSession.Output output = audioOutput.finish();
+            if (output instanceof StreamingAudioOutputSession.FileOutput fileOutput) {
+                Path savedPath = fileOutput.path();
+                System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
+                        + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
+                printAudioDetails(metadata);
+                maybeWriteAudioMetadataSidecar(savedPath, metadata);
+                autoOpenAudio(savedPath);
+            } else if (output instanceof StreamingAudioOutputSession.BufferedOutput bufferedOutput) {
+                java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
+                memory.write(bufferedOutput.bytes());
+                saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
+            }
+        } catch (Exception e) {
+            System.err.println("\\nFailed to save audio: " + e.getMessage());
+            closeAudioOutputQuietly(audioOutput);
+        }
+    }
+
+    private void closeAudioOutputQuietly(StreamingAudioOutputSession audioOutput) {
+        if (audioOutput == null) {
+            return;
+        }
+        try {
+            audioOutput.close();
+        } catch (Exception ignored) {
+            // Best-effort cleanup after a failed or interrupted stream.
         }
     }
 
     private void handleAudioChunk(
             StreamingInferenceChunk chunk,
-            StreamingAudioOutput encodedAudioOutput,
-            LivePcmAudioSink liveAudioSink) {
+            StreamingAudioOutputSession encodedAudioOutput,
+            LivePcmAudioPlayer liveAudioSink) {
         if (chunk == null || chunk.getDelta() == null) {
             return;
         }
@@ -5503,7 +5407,9 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
                 liveAudioSink.write(decoded, chunk.metadata());
                 return;
             }
-            encodedAudioOutput.write(decoded, chunk.metadata());
+            boolean streamToFile = shouldStreamEncodedAudioToFile(chunk.metadata());
+            Path targetPath = streamToFile ? resolveAudioOutputPath(chunk.metadata()) : null;
+            encodedAudioOutput.write(decoded, streamToFile, targetPath);
         } catch (Exception ignored) {
         }
     }
@@ -5551,102 +5457,12 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
     }
 
-    private final class StreamingAudioOutput implements AutoCloseable {
-        private final java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
-        private StreamingAudioFileWriter fileWriter;
-        private long bytes;
-        private boolean finished;
-
-        void write(byte[] chunk, Map<String, Object> metadata) throws java.io.IOException {
-            if (chunk == null || chunk.length == 0) {
-                return;
-            }
-            if (shouldStreamEncodedAudioToFile(metadata)) {
-                ensureFile(metadata);
-                fileWriter.write(chunk);
-            } else {
-                memory.write(chunk);
-            }
-            bytes += chunk.length;
-        }
-
-        boolean hasOutput() {
-            return bytes > 0 || memory.size() > 0 || fileWriter != null;
-        }
-
-        void finish(Map<String, Object> metadata) {
-            if (finished) {
-                return;
-            }
-            finished = true;
-            try {
-                if (fileWriter != null) {
-                    Path savedPath = fileWriter.finish();
-                    fileWriter = null;
-                    System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
-                            + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
-                    printAudioDetails(metadata);
-                    maybeWriteAudioMetadataSidecar(savedPath, metadata);
-                    autoOpenAudio(savedPath);
-                    return;
-                }
-                if (memory.size() > 0) {
-                    saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
-                }
-            } catch (Exception e) {
-                System.err.println("\nFailed to save audio: " + e.getMessage());
-                cleanupTemp();
-            }
-        }
-
-        private void ensureFile(Map<String, Object> metadata) throws java.io.IOException {
-            if (fileWriter != null) {
-                return;
-            }
-            fileWriter = new StreamingAudioFileWriter(resolveAudioOutputPath(metadata));
-            fileWriter.open();
-            if (memory.size() > 0) {
-                fileWriter.write(memory.toByteArray());
-                memory.reset();
-            }
-        }
-
-        private Path resolveAudioOutputPath(Map<String, Object> metadata) {
-            MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
-                    new MediaOutputPathResolver.Request(
-                            outputPath, extension, audioDefaultExtension(metadata), true));
-            warnIfAudioExtensionWasOverridden(output);
-            return output.path();
-        }
-
-        private void cleanupTemp() {
-            if (fileWriter == null) {
-                return;
-            }
-            try {
-                fileWriter.abort();
-            } catch (Exception ignored) {
-            } finally {
-                fileWriter = null;
-            }
-        }
-
-        void closeQuietly() {
-            try {
-                close();
-            } catch (Exception ignored) {
-            }
-            if (!finished) {
-                cleanupTemp();
-            }
-        }
-
-        @Override
-        public void close() throws java.io.IOException {
-            if (fileWriter != null) {
-                fileWriter.close();
-            }
-        }
+    private Path resolveAudioOutputPath(Map<String, Object> metadata) {
+        MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
+                new MediaOutputPathResolver.Request(
+                        outputPath, extension, audioDefaultExtension(metadata), true));
+        warnIfAudioExtensionWasOverridden(output);
+        return output.path();
     }
 
     private static boolean shouldStreamEncodedAudioToFile(Map<String, Object> metadata) {
@@ -6035,89 +5851,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         MediaOutputOpener.openAudio(audioPath);
     }
 
-    private static final class LivePcmAudioSink implements AutoCloseable {
-        private final boolean enabled;
-        private SourceDataLine line;
-        private AudioFormat format;
-        private boolean warned;
-
-        private LivePcmAudioSink(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        void write(byte[] pcm, Map<String, Object> metadata) {
-            if (!enabled || pcm == null || pcm.length == 0) {
-                return;
-            }
-            try {
-                ensureOpen(metadata);
-                if (line != null) {
-                    line.write(pcm, 0, pcm.length);
-                }
-            } catch (Exception e) {
-                warnOnce(e);
-            }
-        }
-
-        private void ensureOpen(Map<String, Object> metadata) throws Exception {
-            int sampleRate = (int) Math.round(optionalMetadataDouble(metadata, "audio_sample_rate", 48_000.0));
-            int channels = Math.max(1, (int) Math.round(optionalMetadataDouble(metadata, "audio_channels", 1.0)));
-            AudioFormat requested = new AudioFormat(
-                    AudioFormat.Encoding.PCM_SIGNED,
-                    sampleRate,
-                    16,
-                    channels,
-                    channels * Short.BYTES,
-                    sampleRate,
-                    false);
-            if (line != null && requested.matches(format)) {
-                return;
-            }
-            closeLine();
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, requested);
-            line = (SourceDataLine) AudioSystem.getLine(info);
-            int bufferSize = Math.max(requested.getFrameSize(), sampleRate * requested.getFrameSize() / 4);
-            line.open(requested, bufferSize);
-            line.start();
-            format = requested;
-        }
-
-        private static double optionalMetadataDouble(
-                Map<String, Object> metadata,
-                String key,
-                double fallback) {
-            Double value = metadataDouble(metadata, key);
-            return value == null || value <= 0.0 ? fallback : value;
-        }
-
-        private void warnOnce(Exception e) {
-            if (warned) {
-                return;
-            }
-            warned = true;
-            System.err.println("\nWarning: live audio preview unavailable: " + e.getMessage());
-        }
-
-        @Override
-        public void close() {
-            closeLine();
-        }
-
-        private void closeLine() {
-            if (line == null) {
-                return;
-            }
-            try {
-                line.drain();
-                line.stop();
-                line.close();
-            } catch (Exception ignored) {
-            } finally {
-                line = null;
-                format = null;
-            }
-        }
-    }
 
     private void requestProcessExit() {
         requestProcessExit(0);
