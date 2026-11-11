@@ -90,6 +90,23 @@ class GgufLlamaCppRunOptionsTest {
         assertEquals(1, options.batchThreads());
     }
 
+    @Test
+    void cpuFallbackChangesOnlyGpuLayerSelection() {
+        GgufLlamaCppRunOptions metal = GgufLlamaCppRunOptions.resolve(
+                "metal", "hello", 32, false, 8, configuration(Map.of()));
+        GgufLlamaCppRunOptions cpu = metal.withGpuLayers(0);
+
+        assertEquals(0, cpu.gpuLayers());
+        assertEquals(metal.context(), cpu.context());
+        assertEquals(metal.batch(), cpu.batch());
+        assertEquals(metal.microBatch(), cpu.microBatch());
+        assertEquals(metal.threads(), cpu.threads());
+        assertEquals(metal.batchThreads(), cpu.batchThreads());
+        assertEquals(metal.swaFull(), cpu.swaFull());
+        assertEquals(metal.useMmap(), cpu.useMmap());
+        assertEquals(metal.useMlock(), cpu.useMlock());
+    }
+
     private static GgufStandaloneConfiguration configuration(Map<String, String> values) {
         return new GgufStandaloneConfiguration(values::get, ignored -> null);
     }
