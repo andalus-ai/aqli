@@ -10,8 +10,8 @@ import tech.kayys.aljabr.metal.binding.MetalFlashAttentionBinding;
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 import tech.kayys.aljabr.spi.model.ModelConfig;
+import tech.kayys.aqli.safetensor.engine.generation.kv.AttentionScratchMemoryBudget;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.function.BooleanSupplier;
@@ -45,7 +45,8 @@ final class FlashAttentionMetalDenseSharedAttention {
     AccelTensor compute(AccelTensor q, AccelTensor k, AccelTensor v,
             SharedKvState sharedKvState, ModelConfig config, FlashAttentionModelPolicy modelPolicy,
             int layerIdx, int startPos, int numQHeads, int numKVHeads, int headDim,
-            float scale, boolean causal, float softCap, MemorySegment attentionContextBuffer) {
+            float scale, boolean causal, float softCap, MemorySegment attentionContextBuffer,
+            AttentionScratchMemoryBudget scratchMemoryBudget) {
         if (!canUseMetal.getAsBoolean()) {
             return null;
         }
@@ -85,7 +86,7 @@ final class FlashAttentionMetalDenseSharedAttention {
         AccelTensor kContiguous = null;
         AccelTensor vContiguous = null;
         AccelTensor out = null;
-        try (Arena arena = Arena.ofConfined()) {
+        try (BudgetedAttentionArena arena = new BudgetedAttentionArena(scratchMemoryBudget)) {
             out = FlashAttentionContextOutputBuffer.viewOrAllocate(attentionContextBuffer, q);
 
             if (useFa4) {
