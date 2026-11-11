@@ -24,11 +24,15 @@ class StreamingAudioFileWriterTest {
         writer.write(new byte[] {3, 4});
 
         assertFalse(Files.exists(output));
-        assertTrue(Files.list(output.getParent()).anyMatch(path -> path.getFileName().toString().endsWith(".part")));
+        try (var files = Files.list(output.getParent())) {
+            assertTrue(files.anyMatch(path -> path.getFileName().toString().endsWith(".part")));
+        }
 
         assertTrue(writer.finish().equals(output.toAbsolutePath().normalize()));
         assertArrayEquals(new byte[] {1, 2, 3, 4}, Files.readAllBytes(output));
-        assertFalse(Files.list(output.getParent()).anyMatch(path -> path.getFileName().toString().endsWith(".part")));
+        try (var files = Files.list(output.getParent())) {
+            assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".part")));
+        }
     }
 
     @Test
