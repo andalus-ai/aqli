@@ -75,6 +75,7 @@ import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
+import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
@@ -6799,7 +6800,18 @@ public class RunCommand implements Runnable {
                     ? Path.of(imageMetadataOutputPath)
                     : replaceExtension(imagePath, "json");
             Path absoluteImagePath = imagePath.toAbsolutePath().normalize();
-            List<String> replayArgs = imageMetadataReplayArgs(absoluteImagePath, metadata);
+            List<String> replayArgs = ImageMetadataReplayCommandBuilder.build(
+                    new ImageMetadataReplayCommandBuilder.Request(
+                            modelId,
+                            providerId,
+                            runner,
+                            prompt,
+                            imageReplaySeed(metadata),
+                            steps,
+                            guidanceScale,
+                            width,
+                            height,
+                            absoluteImagePath.toString()));
             ImageMetadataSidecarStore.WriteResult result = ImageMetadataSidecarStore.write(
                     new ImageMetadataSidecarStore.WriteRequest(
                             absoluteImagePath,
@@ -6827,23 +6839,6 @@ public class RunCommand implements Runnable {
         } catch (Exception e) {
             System.err.println("\nFailed to save image metadata: " + e.getMessage());
         }
-    }
-
-    private List<String> imageMetadataReplayArgs(Path imagePath, Map<String, Object> metadata) {
-        List<String> args = new ArrayList<>();
-        args.add("aqli");
-        args.add("run");
-        addReplayModelArgs(args, modelId);
-        addStringArg(args, "--provider", providerId);
-        addStringArg(args, "--runner", runner);
-        addStringArg(args, "--prompt", prompt);
-        addStringArg(args, "--seed", imageReplaySeed(metadata));
-        addStringArg(args, "--steps", steps);
-        addStringArg(args, "--guidance-scale", guidanceScale);
-        addStringArg(args, "--width", width);
-        addStringArg(args, "--height", height);
-        addStringArg(args, "--output", imagePath == null ? null : imagePath.toString());
-        return args;
     }
 
     private String imageReplaySeed(Map<String, Object> metadata) {
@@ -6894,25 +6889,6 @@ public class RunCommand implements Runnable {
                 disableAudioPolish,
                 disableAudioNormalize,
                 audioTrimSilence));
-    }
-
-    private static void addReplayModelArgs(List<String> args, String modelValue) {
-        if (modelValue == null || modelValue.isBlank()) {
-            return;
-        }
-        try {
-            Path path = Path.of(modelValue);
-            if (Files.isDirectory(path)) {
-                addStringArg(args, "--modelDir", modelValue);
-                return;
-            }
-            if (Files.isRegularFile(path)) {
-                addStringArg(args, "--modelFile", modelValue);
-                return;
-            }
-        } catch (Exception ignored) {
-        }
-        addStringArg(args, "--model", modelValue);
     }
 
     private String replaySeed(Map<String, Object> metadata) {
