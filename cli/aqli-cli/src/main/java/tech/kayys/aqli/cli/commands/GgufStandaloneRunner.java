@@ -5,15 +5,8 @@ import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 
-import static tech.kayys.aqli.inference.gguf.GgufDaemonProtocol.writeString;
-
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
-import tech.kayys.aqli.observability.ObservabilityManager;
-import tech.kayys.aqli.metrics.MetricsRegistry;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.common.AttributesBuilder;
-import io.opentelemetry.api.common.AttributeKey;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -21,7 +14,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.lang.invoke.MethodHandle;
@@ -224,7 +216,92 @@ public final class GgufStandaloneRunner {
         }
     }
 
+    private static void printPrewarmUsage(PrintStream out) {
+        out.println("Usage: aqli prewarm --model MODEL [--prompt TEXT] [--max-tokens N] [--backend metal|cpu]");
+        out.println("       aqli warmup  --model MODEL [--prompt TEXT] [--max-tokens N] [--backend metal|cpu]");
+        out.println();
+        out.println("Preloads the local llama.cpp GGUF daemon and builds the first prompt cache so the next");
+        out.println("matching aqli run can reuse the Metal/CPU session instead of paying cold-start cost.");
+    }
+
+    private static boolean isHelpRequest(String[] args) {
+        for (String arg : args) {
+            if ("--help".equals(arg) || "-h".equals(arg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String[] prewarmRunArgs(String[] args) {
+        List<String> normalized = new ArrayList<>();
+        int startIndex = 0;
+        if (args.length > 0 && ("run".equals(args[0]) || isPrewarmCommand(args[0]))) {
+            startIndex = 1;
+        }
+        normalized.add("run");
+        boolean hasPrompt = false;
+        boolean hasMaxTokens = false;
+        boolean hasProvider = false;
+        boolean hasEngine = false;
+        for (int i = startIndex; i < args.length; i++) {
+            String arg = args[i];
+            normalized.add(arg);
+            String option = arg;
+            int eq = arg.indexOf('=');
+            if (arg.startsWith("--") && eq > 0) {
+                option = arg.substring(0, eq);
+            }
+            if (option.equals("--prompt") || option.equals("-p")) {
+                hasPrompt = true;
+            } else if (option.equals("--max-tokens")) {
+                hasMaxTokens = true;
+            } else if (option.equals("--provider")) {
+                hasProvider = true;
+            } else if (option.equals("--engine") || option.equals("--gguf-engine")
+                    || option.equals("--llamacpp") || option.equals("--llama-cpp")) {
+                hasEngine = true;
+            }
+        }
+        if (!hasPrompt) {
+            normalized.add("--prompt");
+            normalized.add(firstNonBlank(
+                    System.getProperty("aqli.gguf.fast_run.prewarm_prompt"),
+                    System.getenv("AQLI_GGUF_FAST_PREWARM_PROMPT"),
+                    "where is jakarta"));
+        }
+        if (!hasMaxTokens) {
+            normalized.add("--max-tokens");
+            normalized.add(firstNonBlank(
+                    System.getProperty("aqli.gguf.fast_run.prewarm_context_tokens"),
+                    System.getenv("AQLI_GGUF_FAST_PREWARM_CONTEXT_TOKENS"),
+                    "10"));
+        }
+        if (!hasProvider) {
+            normalized.add("--provider");
+            normalized.add("gguf");
+        }
+        if (!hasEngine) {
+            normalized.add("--engine");
+            normalized.add("auto");
+        }
+        return normalized.toArray(String[]::new);
+    }
+
+    private static boolean isPrewarmCommand(String arg) {
+        return "__gguf-daemon-prewarm".equals(arg)
+                || "prewarm".equals(arg)
+                || "warmup".equals(arg);
+    }
+
     private static boolean hasKnownNonGgufTarget(GgufRunArguments args) {
+<<<<<<< HEAD:ui/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
+        return GgufModelResolver.hasKnownNonGgufTarget(args, equivalentGgufFastPathEnabled());
+    }
+
+    static Optional<Path> resolveGgufModel(GgufRunArguments args) {
+        return GgufModelResolver.resolve(args, equivalentGgufFastPathEnabled());
+=======
         if (args.modelFile() != null && hasNonGgufExtension(args.modelFile())) {
             return true;
         }
@@ -512,55 +589,12 @@ public final class GgufStandaloneRunner {
             score += 20;
         }
         return score;
+>>>>>>> main:cli/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/GgufStandaloneRunner.java
     }
 
     static boolean equivalentGgufFastPathEnabled() {
         String configured = configValue("aqli.gguf.fast_run.auto_equivalent");
         return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
-    }
-
-    private static Optional<Path> resolvePath(Path raw) {
-        Path expanded = expandHome(raw);
-        if (Files.exists(expanded)) {
-            return Optional.of(expanded.toAbsolutePath().normalize());
-        }
-        return Optional.empty();
-    }
-
-    private static Path expandHome(Path path) {
-        String text = path.toString();
-        if (text.equals("~")) {
-            return Path.of(System.getProperty("user.home"));
-        }
-        if (text.startsWith("~/")) {
-            return Path.of(System.getProperty("user.home"), text.substring(2));
-        }
-        return path;
-    }
-
-    private static Optional<Path> findGguf(Path path) {
-        try {
-            if (Files.isRegularFile(path) && isGguf(path)) {
-                return Optional.of(path.toAbsolutePath().normalize());
-            }
-            Path searchDir = Files.isDirectory(path) ? path : path.getParent();
-            if (searchDir == null || !Files.isDirectory(searchDir)) {
-                return Optional.empty();
-            }
-            try (var stream = Files.list(searchDir)) {
-                return stream
-                        .filter(Files::isRegularFile)
-                        .filter(GgufStandaloneRunner::isGguf)
-                        .findFirst()
-                        .map(candidate -> candidate.toAbsolutePath().normalize());
-            }
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private static boolean isGguf(Path path) {
-        return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gguf");
     }
 
     private static int generate(Path modelPath, GgufRunArguments args) throws Throwable {
@@ -689,8 +723,8 @@ public final class GgufStandaloneRunner {
             int probeRows = Math.max(1, Integer.getInteger("aqli.gguf.java_probe_rows", 16));
             int probeMatVecRows = Math.max(1, Integer.getInteger("aqli.gguf.java_probe_matvec_rows", 4096));
             GgufRuntimeProbe probe = GgufRuntimeProbe.load(modelPath, probeRows, probeMatVecRows);
-            printProfile(label, probe.profile());
-            printRowDotProbe(label, probe);
+            GgufRuntimeProbeReporter.printProfile(System.out, label, probe.profile());
+            GgufRuntimeProbeReporter.printRowDotProbe(System.out, label, probe);
         } catch (Throwable throwable) {
             System.out.printf("%s: unavailable, reason=%s.%n", label, briefMessage(throwable));
             if (fastRunDebug()) {
@@ -1128,8 +1162,8 @@ public final class GgufStandaloneRunner {
             long openNanos,
             long generateNanos,
             long endNanos) {
-        printFastRunStats(out, label, outputTokens, startNanos, openNanos, generateNanos, endNanos,
-                Optional.empty());
+        GgufRunMetricsReporter.printFastRunStats(
+                out, label, outputTokens, startNanos, openNanos, generateNanos, endNanos);
     }
 
     static void printFastRunStats(
@@ -1141,235 +1175,12 @@ public final class GgufStandaloneRunner {
             long generateNanos,
             long endNanos,
             Optional<String> nativeMetrics) {
-        long durationNanos = Math.max(0L, endNanos - startNanos);
-        long durationMs = Duration.ofNanos(durationNanos).toMillis();
-        double durationSeconds = durationMs / 1000.0d;
-        double totalSpeed = durationSeconds > 0.0d && outputTokens > 0 ? outputTokens / durationSeconds : 0.0d;
-        double generateMs = openOrGenerateMillis(generateNanos);
-        double generateSeconds = generateNanos / 1_000_000_000.0d;
-        double generationSpeed = generateSeconds > 0.0d && outputTokens > 0 ? outputTokens / generateSeconds : 0.0d;
-        double tokenLatencyMs = outputTokens > 0 ? generateMs / outputTokens : 0.0d;
-
-        out.printf("%n[%s, Duration: %.2fs, Speed: %.2f t/s (generate call)]%n", label, durationSeconds,
-                generationSpeed);
-        out.println("Performance Metrics:");
-        out.printf("  open time      = %9.2f ms%n", openOrGenerateMillis(openNanos));
-        out.printf("  generate call  = %9.2f ms%n", generateMs);
-        out.printf("  end-to-end rate= %9.2f t/s (%d output tokens / generate-call time)%n",
-                generationSpeed, Math.max(0, outputTokens));
-        out.printf("  token latency  = %9.2f ms/token (end-to-end)%n", tokenLatencyMs);
-        printNativeMetrics(out, nativeMetrics);
-        out.println();
-
-        try {
-            ObservabilityManager obs = ObservabilityManager.global();
-            if (obs != null) {
-                MetricsRegistry reg = obs.getMetricsRegistry();
-                AttributesBuilder attrs = Attributes.builder()
-                        .put("engine", "gguf")
-                        .put("fast_path", true);
-
-                if (nativeMetrics.isPresent()) {
-                    Map<String, String> m = parseNativeMetrics(nativeMetrics.get());
-                    String backend = m.get("backend");
-                    if (backend != null && !backend.isBlank()) {
-                        attrs.put("native_backend", backend);
-                    }
-                    if (m.containsKey("gpuLayers"))
-                        attrs.put("gpuLayers", Long.parseLong(m.get("gpuLayers")));
-                    if (m.containsKey("threads"))
-                        attrs.put("threads", Long.parseLong(m.get("threads")));
-                    if (m.containsKey("context"))
-                        attrs.put("context", Long.parseLong(m.get("context")));
-                    if (m.containsKey("batch"))
-                        attrs.put("batch", Long.parseLong(m.get("batch")));
-
-                    if (m.containsKey("modelLoad"))
-                        reg.record("aqli.llm.native.load", Double.parseDouble(m.get("modelLoad")), attrs.build());
-                    if (m.containsKey("contextInit"))
-                        reg.record("aqli.llm.native.context_init", Double.parseDouble(m.get("contextInit")),
-                                attrs.build());
-                    if (m.containsKey("tokenize"))
-                        reg.record("aqli.llm.native.tokenize", Double.parseDouble(m.get("tokenize")), attrs.build());
-                    if (m.containsKey("prefill")) {
-                        double prefillMs = nativeMillis(m, "prefill");
-                        int promptTokens = parseCount(m.get("promptTokens"));
-                        reg.record("aqli.llm.native.prefill", prefillMs, attrs.build());
-                        reg.record("aqli.llm.prefill.duration", prefillMs, attrs.build());
-                        reg.record("aqli.llm.prefill.speed",
-                                tokenRatePerSecond(promptTokens, prefillMs), attrs.build());
-                    }
-                    if (m.containsKey("decode")) {
-                        double decodeMs = nativeMillis(m, "decode");
-                        int decodedTokens = parseCount(m.get("decodedTokens"));
-                        reg.record("aqli.llm.native.decode", decodeMs, attrs.build());
-                        reg.record("aqli.llm.decode.duration", decodeMs, attrs.build());
-                        reg.record("aqli.llm.decode.speed",
-                                tokenRatePerSecond(decodedTokens, decodeMs), attrs.build());
-                        reg.record("aqli.llm.decode.token_latency",
-                                decodedTokens > 0 ? decodeMs / decodedTokens : 0.0d, attrs.build());
-                    }
-                }
-
-                Attributes finalAttrs = attrs.build();
-                reg.record("aqli.llm.generation.duration", durationMs, finalAttrs);
-                reg.record("aqli.llm.generation.speed", totalSpeed, finalAttrs);
-                reg.record("aqli.llm.generation.end_to_end_speed", generationSpeed, finalAttrs);
-                reg.record("aqli.llm.generation.token_latency", tokenLatencyMs, finalAttrs);
-                reg.record("aqli.llm.model.open_time", openOrGenerateMillis(openNanos), finalAttrs);
-            }
-        } catch (Exception e) {
-            // Ignore telemetry exceptions
-        }
-    }
-
-    private static double openOrGenerateMillis(long nanos) {
-        return Math.max(0L, nanos) / 1_000_000.0d;
-    }
-
-    private static void printNativeMetrics(PrintStream out, Optional<String> nativeMetrics) {
-        if (nativeMetrics.isEmpty()) {
-            return;
-        }
-        Map<String, String> metrics = parseNativeMetrics(nativeMetrics.get());
-        if (metrics.isEmpty()) {
-            return;
-        }
-        String backend = metrics.get("backend");
-        if (backend != null && !backend.isBlank()) {
-            out.printf("  native backend = %s%s%n", backend, nativeRuntimeShape(metrics));
-        }
-        out.printf("  native load    = %9.2f ms, context init = %.2f ms%n",
-                nativeMillis(metrics, "modelLoad"),
-                nativeMillis(metrics, "contextInit"));
-        out.printf("  native tokenize= %9.2f ms (%s)%n",
-                nativeMillis(metrics, "tokenize"),
-                metrics.getOrDefault("tokenizeCache", "unknown"));
-        double prefillMs = nativeMillis(metrics, "prefill");
-        int promptTokens = parseCount(metrics.get("promptTokens"));
-        double prefillSpeed = tokenRatePerSecond(promptTokens, prefillMs);
-        out.printf("  prompt prefill = %9.2f ms (%d tokens @ %.2f t/s)%n",
-                prefillMs, promptTokens, prefillSpeed);
-        double decodeMs = nativeMillis(metrics, "decode");
-        int decodedTokens = parseCount(metrics.get("decodedTokens"));
-        double decodeSpeed = tokenRatePerSecond(decodedTokens, decodeMs);
-        double decodeLatencyMs = decodedTokens > 0 ? decodeMs / decodedTokens : 0.0d;
-        out.printf("  generation     = %9.2f ms (%s sampled, %d decoded @ %.2f t/s)%n",
-                decodeMs,
-                metrics.getOrDefault("generatedTokens", "0"),
-                decodedTokens, decodeSpeed);
-        out.printf("  decode latency = %9.2f ms/decoded token%n", decodeLatencyMs);
-        String sampler = metrics.get("sampler");
-        if (sampler != null && !sampler.isBlank()) {
-            out.printf("  native sampler = %s, %.2f ms%n",
-                    sampler,
-                    nativeMillis(metrics, "samplerMs"));
-        }
-        String warmSession = metrics.get("warmSession");
-        if (warmSession != null && !warmSession.isBlank()) {
-            String reuseKind = metrics.getOrDefault("sessionReuse", "").trim();
-            out.printf("  native session = %s%s%n",
-                    Boolean.parseBoolean(warmSession) ? "warm" : "cold",
-                    reuseKind.isBlank() ? "" : " (" + reuseKind + ")");
-        }
-        out.printf("  native cache   = %s, %.2f ms%s%n",
-                metrics.getOrDefault("promptCache", "unknown"),
-                nativeMillis(metrics, "promptCacheMs"),
-                nativePromptCacheFlags(metrics));
-        printNativeOutputMetrics(out, metrics);
-    }
-
-    private static String nativePromptCacheFlags(Map<String, String> metrics) {
-        List<String> flags = new ArrayList<>();
-        if (Boolean.parseBoolean(metrics.getOrDefault("promptCacheEagerShort", "false"))) {
-            flags.add("eager-short");
-        }
-        if (Boolean.parseBoolean(metrics.getOrDefault("repeatedPrompt", "false"))) {
-            flags.add("repeat");
-        }
-        return flags.isEmpty() ? "" : " (" + String.join(", ", flags) + ")";
-    }
-
-    private static void printNativeOutputMetrics(PrintStream out, Map<String, String> metrics) {
-        String outputBytes = metrics.get("outputBytes");
-        String javaBufferBytes = metrics.get("javaOutputBufferBytes");
-        String javaRetries = metrics.get("javaOutputRetries");
-        if ((outputBytes == null || outputBytes.isBlank())
-                && (javaBufferBytes == null || javaBufferBytes.isBlank())
-                && (javaRetries == null || javaRetries.isBlank())) {
-            return;
-        }
-        out.printf("  native output  = %s bytes, java buffer = %s bytes, retries = %s%n",
-                outputBytes == null || outputBytes.isBlank() ? "unknown" : outputBytes,
-                javaBufferBytes == null || javaBufferBytes.isBlank() ? "unknown" : javaBufferBytes,
-                javaRetries == null || javaRetries.isBlank() ? "0" : javaRetries);
-    }
-
-    private static String nativeRuntimeShape(Map<String, String> metrics) {
-        List<String> parts = new ArrayList<>();
-        addNativeRuntimePart(parts, "gpuLayers", metrics.get("gpuLayers"));
-        addNativeRuntimePart(parts, "threads", metrics.get("threads"));
-        addNativeRuntimePart(parts, "ctx", metrics.get("ctx"));
-        addNativeRuntimePart(parts, "batch", metrics.get("batch"));
-        return parts.isEmpty() ? "" : " (" + String.join(", ", parts) + ")";
-    }
-
-    private static void addNativeRuntimePart(List<String> parts, String name, String value) {
-        if (value != null && !value.isBlank()) {
-            parts.add(name + "=" + value);
-        }
+        GgufRunMetricsReporter.printFastRunStats(
+                out, label, outputTokens, startNanos, openNanos, generateNanos, endNanos, nativeMetrics);
     }
 
     static Map<String, String> parseNativeMetrics(String rawMetrics) {
-        Map<String, String> parsed = new LinkedHashMap<>();
-        if (rawMetrics == null || rawMetrics.isBlank()) {
-            return parsed;
-        }
-        for (String part : rawMetrics.split(",")) {
-            int split = part.indexOf('=');
-            if (split <= 0) {
-                continue;
-            }
-            String key = part.substring(0, split).trim();
-            String value = part.substring(split + 1).trim();
-            if (!key.isBlank() && !value.isBlank()) {
-                parsed.put(key, value);
-            }
-        }
-        return parsed;
-    }
-
-    private static int parseCount(String value) {
-        if (value == null || value.isBlank()) {
-            return 0;
-        }
-        try {
-            return Math.max(0, Integer.parseInt(value.trim()));
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
-    }
-
-    private static double tokenRatePerSecond(int tokens, double elapsedMillis) {
-        return tokens > 0 && Double.isFinite(elapsedMillis) && elapsedMillis > 0.0d
-                ? tokens * 1000.0d / elapsedMillis
-                : 0.0d;
-    }
-
-    private static double nativeMillis(Map<String, String> metrics, String key) {
-        String value = metrics.get(key);
-        if (value == null || value.isBlank()) {
-            return 0.0d;
-        }
-        String normalized = value.trim();
-        if (normalized.endsWith("ms")) {
-            normalized = normalized.substring(0, normalized.length() - 2);
-        }
-        try {
-            return Double.parseDouble(normalized);
-        } catch (NumberFormatException ignored) {
-            return 0.0d;
-        }
+        return GgufRunMetricsReporter.parseNativeMetrics(rawMetrics);
     }
 
     static void printRunHeader(Path modelPath, GgufRunArguments args, PrintStream out) {
@@ -1481,84 +1292,8 @@ public final class GgufStandaloneRunner {
         }
     }
 
-    private static void printProfile(String label, GgufRuntimeProfile profile) {
-        System.out.printf(
-                "%s: architecture=%s, ggufVersion=%d, tensors=%d, metadata=%d, size=%.2fGiB, "
-                        + "load=%.2fs, knownTypes=%.1f%%, decoderTensors=%d/%d, types=%s, status=%s.%n",
-                label,
-                profile.architecture(),
-                profile.ggufVersion(),
-                profile.tensorCount(),
-                profile.metadataCount(),
-                profile.modelBytes() / 1024.0d / 1024.0d / 1024.0d,
-                profile.loadMillis() / 1000.0d,
-                profile.knownTensorTypeRatio() * 100.0d,
-                profile.presentDecoderTensorCount(),
-                profile.requiredDecoderTensorCount(),
-                profile.compactTypeSummary(4),
-                profile.javaStatus());
-        if (!profile.missingDecoderTensorExamples().isEmpty()) {
-            System.out.printf(
-                    "%s missing decoder tensors: count=%d, examples=%s.%n",
-                    label,
-                    profile.missingDecoderTensorCount(),
-                    String.join(", ", profile.missingDecoderTensorExamples()));
-        }
-        if (!profile.malformedDecoderTensorExamples().isEmpty()) {
-            System.out.printf(
-                    "%s invalid decoder tensor shapes: count=%d, examples=%s.%n",
-                    label,
-                    profile.malformedDecoderTensorCount(),
-                    String.join(", ", profile.malformedDecoderTensorExamples()));
-        }
-        System.out.printf("%s readiness: %s.%n", label, javaReadinessSummary(profile));
-        if (profile.modelConfig() != null) {
-            System.out.printf(
-                    "%s config: type=%s, layers=%d, hidden=%d, heads=%d/%d, headDim=%d, context=%d, vocab=%d.%n",
-                    label,
-                    profile.modelConfig().modelType(),
-                    profile.modelConfig().numHiddenLayers(),
-                    profile.modelConfig().hiddenSize(),
-                    profile.modelConfig().numAttentionHeads(),
-                    profile.modelConfig().resolvedNumKvHeads(),
-                    profile.modelConfig().resolvedHeadDim(),
-                    profile.modelConfig().maxPositionEmbeddings(),
-                    profile.modelConfig().vocabSize());
-        }
-    }
-
     static String javaReadinessSummary(GgufRuntimeProfile profile) {
-        boolean loaderReady = profile != null && profile.knownTensorTypeRatio() > 0.0d;
-        boolean decoderTensorsReady = profile != null && profile.decoderTensorSetComplete();
-        boolean rowDotReady = profile != null && profile.rowDotPrimitivesReady();
-        return "loaderReady=" + loaderReady
-                + ", decoderTensorsReady=" + decoderTensorsReady
-                + ", rowDotReady=" + rowDotReady
-                + ", generationReady=false";
-    }
-
-    private static void printRowDotProbe(String label, GgufRuntimeProbe probe) {
-        if (!probe.hasTensorProbe()) {
-            System.out.printf("%s row-dot probe: unavailable, no supported matrix tensor.%n", label);
-            return;
-        }
-        System.out.printf("%s tensor probe: %s.%n", label, probe.compactSummary());
-        if (probe.hasPreparedMatrixCachePlan()) {
-            System.out.printf(
-                    "%s decoder prepared-cache decision: %s.%n",
-                    label,
-                    probe.preparedMatrixCacheDecision().selectionSummary());
-            System.out.printf(
-                    "%s decoder prepared-cache plan: %s.%n",
-                    label,
-                    probe.preparedMatrixCachePlan().compactSummary());
-        }
-        if (probe.hasPreparedMatrixCacheProbe()) {
-            System.out.printf(
-                    "%s decoder prepared-cache probe: %s.%n",
-                    label,
-                    probe.preparedMatrixCacheStats().compactSummary());
-        }
+        return GgufRuntimeProbeReporter.javaReadinessSummary(profile);
     }
 
     static String formatPromptForModel(String prompt, Path modelPath) {
@@ -1934,6 +1669,10 @@ public final class GgufStandaloneRunner {
                 System.err);
     }
 
+    private static GgufDaemonControlClient daemonControlClient() {
+        return new GgufDaemonControlClient();
+    }
+
     private static boolean startDaemon() {
         deleteDaemonPortFile();
         try {
@@ -1954,25 +1693,30 @@ public final class GgufStandaloneRunner {
             command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
-            if (!daemonLauncher().launch(command, daemonLauncherMode(), launchctlLabel(), daemonLogFile(),
-                    isMacOs(), fastRunDebug(), daemonNativePaths())) {
-                return false;
-            }
-
-            long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(daemonStartTimeoutMillis());
-            while (System.nanoTime() < deadlineNanos) {
-                if (readDaemonPort().isPresent()) {
-                    return true;
-                }
-                Thread.sleep(100L);
-            }
-            return readDaemonPort().isPresent();
+            return daemonStartupCoordinator().start(
+                    command,
+                    daemonLauncherMode(),
+                    launchctlLabel(),
+                    daemonLogFile(),
+                    isMacOs(),
+                    fastRunDebug(),
+                    daemonNativePaths());
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon failed to start: " + briefMessage(e));
             }
             return false;
         }
+    }
+
+    private static GgufDaemonStartupCoordinator daemonStartupCoordinator() {
+        return new GgufDaemonStartupCoordinator(
+                new GgufDaemonLauncher()::launch,
+                GgufStandaloneRunner::readDaemonPort,
+                GgufStandaloneRunner::daemonStartTimeoutMillis,
+                System::nanoTime,
+                Thread::sleep,
+                100L);
     }
 
     static String daemonLauncherMode() {
@@ -2056,18 +1800,9 @@ public final class GgufStandaloneRunner {
             removeLaunchctlDaemon();
             return 0;
         }
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port.getAsInt()),
-                    daemonConnectTimeoutMillis());
-            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            DataInputStream in = new DataInputStream(socket.getInputStream());
-            writeString(out, DAEMON_STOP_MAGIC);
-            out.flush();
-            int channel = in.read();
-            int status = in.readInt();
-            return channel == 0 ? status : COMMAND_ERROR;
-        } catch (Exception ignored) {
-            return 0;
+        try {
+            return daemonControlClient().requestStop(
+                    port.getAsInt(), DAEMON_STOP_MAGIC, daemonConnectTimeoutMillis(), COMMAND_ERROR);
         } finally {
             deleteDaemonPortFile();
             removeLaunchctlDaemon();

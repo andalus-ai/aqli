@@ -54,18 +54,18 @@ A direct comparison of the four foundational types below shows that each AQLI im
 
 | Concept | AQLI source module | Aljabr source module | Result |
 |---|---|---|---|
-| `Message` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
-| `RequestContext` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
-| `ToolCall` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
-| `ToolDefinition` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | Identical after package normalization |
+| `Message` | `:spi:aqli-spi` | `:spi:aljabr-spi-inference` | Identical after package normalization |
+| `RequestContext` | `:spi:aqli-spi` | `:spi:aljabr-spi-inference` | Identical after package normalization |
+| `ToolCall` | `:spi:aqli-spi` | `:spi:aljabr-spi-inference` | Identical after package normalization |
+| `ToolDefinition` | `:spi:aqli-spi` | `:spi:aljabr-spi-inference` | Identical after package normalization |
 
 This expands the initial comparison: `ToolCall` and `RequestContext` are also exact duplicates, not merely similar types. `Message` directly depends on the project-local `ToolCall`, so those two must be migrated as a unit or through an explicit compatibility conversion. `ToolCall` itself refers to the project-local `ToolDefinition.Type`, making the dependency group a three-type cluster: `Message`, `ToolCall`, and `ToolDefinition`.
 
 ## Module placement and dependency-boundary findings
 
-- AQLI places `Message`, `RequestContext`, `ToolCall`, and `ToolDefinition` in the lower-level `:spi:aqli-spi` module. Their Aljabr counterparts are in `:core:aljabr-spi-inference`. Consolidation therefore changes not only imports but also the module dependency graph for every consumer of `:spi:aqli-spi`.
+- AQLI places `Message`, `RequestContext`, `ToolCall`, and `ToolDefinition` in the lower-level `:spi:aqli-spi` module. Their Aljabr counterparts are in `:spi:aljabr-spi-inference`. Consolidation therefore changes not only imports but also the module dependency graph for every consumer of `:spi:aqli-spi`.
 - AQLI `:spi:aqli-spi` declares `tech.kayys.aljabr:aljabr-tensor` as an `implementation` dependency, while its public `RequestContext.preferredDevice()` signature exposes `tech.kayys.aljabr.core.tensor.DeviceType`. This is another public API dependency leak. More importantly, it couples a generic request-context SPI to a concrete tensor/core type. The target design should decide whether device preference belongs in a framework-neutral execution hint or should be represented by a stable identifier; simply changing the dependency to `api` would expose the coupling rather than resolve it.
-- Aljabr's `:core:aljabr-spi-inference` intentionally has API dependencies on tensor and model SPI modules. AQLI's base SPI currently reaches the tensor module directly, which should be reconsidered as the canonical shared context is migrated.
+- Aljabr's `:spi:aljabr-spi-inference` intentionally has API dependencies on tensor and model SPI modules. AQLI's base SPI currently reaches the tensor module directly, which should be reconsidered as the canonical shared context is migrated.
 
 ## Migration sequencing update
 
@@ -191,8 +191,8 @@ A second source-comparison pass found a wider duplicated family in the two infer
 
 | Contract | AQLI path | Aljabr path | Initial ownership recommendation |
 |---|---|---|---|
-| `EngineContext` | `:spi:aqli-spi` | `:core:aljabr-spi-inference` | AQLI runtime |
-| `ExecutionContext` | `:framework:spi:aqli-spi-inference` | `:core:aljabr-spi-inference` | AQLI runtime orchestration |
+| `EngineContext` | `:spi:aqli-spi` | `:spi:aljabr-spi-inference` | AQLI runtime |
+| `ExecutionContext` | `:framework:spi:aqli-spi-inference` | `:spi:aljabr-spi-inference` | AQLI runtime orchestration |
 | `ExecutionStatus` | same | same | AQLI runtime orchestration |
 | `ExecutionToken` | same | same | AQLI runtime orchestration |
 | `Priority` | same | same | Aljabr portable inference request contract |
@@ -239,7 +239,7 @@ A direct source inspection of the remaining overlapping inference contracts foun
 |---|---|---|---|
 | `InferencePhase` | Same enum and behavior in both repositories. Its phases include authorization, provider routing, audit, observability, and cleanup in addition to model processing. | AQLI | Treat as runtime orchestration vocabulary, not an Aljabr execution contract. |
 | `InferencePipeline` | Same interface, but its methods mutate and return `ExecutionContext`; it executes ordered runtime phases. | AQLI | Keep the pipeline in AQLI. Aljabr should expose model execution primitives, not the serving pipeline. |
-| `InferencePhasePlugin` | AQLI version extends `AqliPlugin`; Aljabr version is in `:core:aljabr-spi-plugin` and extends `AljabrPlugin`. Both depend on phase and execution-context concepts. | AQLI for serving phases | Do not treat them as interchangeable. AQLI phase plugins operate on mutable runtime state. Aljabr's generic plugin SPI may remain for framework/model extensions, but should not duplicate AQLI serving-phase semantics. |
+| `InferencePhasePlugin` | AQLI version extends `AqliPlugin`; Aljabr version is in `:spi:aljabr-spi-plugin` and extends `AljabrPlugin`. Both depend on phase and execution-context concepts. | AQLI for serving phases | Do not treat them as interchangeable. AQLI phase plugins operate on mutable runtime state. Aljabr's generic plugin SPI may remain for framework/model extensions, but should not duplicate AQLI serving-phase semantics. |
 | `InferenceObserver` | Same lifecycle callbacks in both repositories; callbacks accept project-specific `ExecutionContext`, including phase lifecycle and stream events. AQLI's concrete observer records Micrometer metrics and W3C trace metadata. | AQLI | Keep serving lifecycle observation in AQLI. Aljabr telemetry, if needed, should use smaller framework execution events independent of AQLI runtime context. |
 | `ValidationContext` | Same record/builder, but it wraps `RequestContext` and supplies a community API-key fallback. | AQLI | This is request admission/authentication context, not tensor/model execution. Do not make API-key policy canonical in Aljabr. Split a pure model-input validation context only if an Aljabr validator needs it. |
 | `VerificationRequest` / `VerificationResponse` | Same token-list DTO definitions. They describe verification of draft tokens against a target model. | Aljabr | This is speculative decoding/model-execution data and should have one Aljabr canonical contract, with AQLI compatibility conversion only if AQLI callers exist. |

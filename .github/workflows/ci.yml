@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "core/**"
+      - "cli/**"
       - "framework/**"
       - "training/**"
       - "api/**"
@@ -30,6 +31,7 @@ on:
       - master
     paths:
       - "core/**"
+      - "cli/**"
       - "backend/**"
       - "buildSrc/**"
       - "framework/**"
