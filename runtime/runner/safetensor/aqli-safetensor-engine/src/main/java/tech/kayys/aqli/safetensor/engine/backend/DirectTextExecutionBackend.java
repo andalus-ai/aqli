@@ -65,7 +65,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
 
     @Override
     public TextExecutionSession openSession(PreparedTextGeneration generation) {
-        ConversationSessionManager.ConversationSession conversationSession =
+        ConversationSessionManager.SessionLease conversationSessionLease =
                 resolveConversationSession(generation).orElse(null);
         if (generation.artifactPlan().strategy() == TextExecutionArtifactPlan.Strategy.KV_SNAPSHOT
                 && generation.sessionPlan().conversationStateful()) {
@@ -74,7 +74,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
                     generation,
                     conversationArtifactFor(generation),
                     new long[0],
-                    conversationSession);
+                    conversationSessionLease);
         }
         if (generation.artifactPlan().strategy() != TextExecutionArtifactPlan.Strategy.PROCESS_LOCAL_PRETOKENIZED_HANDLE) {
             return new DirectTextExecutionSession(
@@ -107,7 +107,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
             return Optional.empty();
         }
         if (artifact.kind() == ResumableSessionArtifact.Kind.KV_SNAPSHOT) {
-            Optional<ConversationSessionManager.ConversationSession> conversationSession =
+            Optional<ConversationSessionManager.SessionLease> conversationSession =
                     resolveConversationSession(generation, artifact.artifactKey());
             if (conversationSession.isEmpty()) {
                 return Optional.empty();
@@ -182,7 +182,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
         return handleRegistry != null ? handleRegistry : new DirectPreparedGenerationRegistry();
     }
 
-    private Optional<ConversationSessionManager.ConversationSession> resolveConversationSession(
+    private Optional<ConversationSessionManager.SessionLease> resolveConversationSession(
             PreparedTextGeneration generation) {
         return resolveConversationSession(generation, null);
     }
@@ -200,7 +200,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
             return Optional.empty();
         }
         ConversationExecutionStateResolver resolver = conversationResolver();
-        return resolver.findActiveSession(generation.model(), sessionId);
+        return resolver.acquireActiveSession(generation.model(), sessionId);
     }
 
     private ConversationExecutionStateResolver conversationResolver() {
