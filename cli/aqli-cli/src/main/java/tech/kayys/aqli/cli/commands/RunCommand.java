@@ -3303,7 +3303,7 @@ public class RunCommand implements Runnable {
 
         Path modelDir = ttsDir.get().toAbsolutePath().normalize();
         Path codecPath = codecDir.get().toAbsolutePath().normalize();
-        Path cacheRoot = onnxOptimizedCacheRoot();
+        Path cacheRoot = MossTtsCacheSettings.load().optimizedGraphCacheRoot();
         try {
             OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
             OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
