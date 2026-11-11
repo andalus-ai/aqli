@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /**
  * FFM-backed KV (key-value) cache manager using {@link AccelTensor}.
@@ -21,8 +22,20 @@ import jakarta.enterprise.context.ApplicationScoped;
  */
 @ApplicationScoped
 public class KVCacheManager {
+    private final KvCacheMemoryBudget memoryBudget;
+
+    /** Supports direct construction in focused unit tests; CDI uses the budgeted constructor. */
+    public KVCacheManager() {
+        this(KvCacheMemoryBudget.unbounded());
+    }
+
+    @Inject
+    public KVCacheManager(KvCacheMemoryBudget memoryBudget) {
+        this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
+    }
+
     public KVCacheSession createSession(int maxSeqLen) {
-        return new KVCacheSession(maxSeqLen, new BlockManager());
+        return new KVCacheSession(maxSeqLen, new BlockManager(), memoryBudget);
     }
 
     public static class KVCacheSession implements AutoCloseable {
@@ -37,6 +50,8 @@ public class KVCacheManager {
         private final int maxSeqLen;
         private final int maxSupportedTokens;
         private final BlockManager blockManager;
+        private final KvCacheMemoryBudget memoryBudget;
+        private KvCacheMemoryBudget.Lease memoryLease;
         private final Map<Integer, List<Integer>> blockTables = new java.util.concurrent.ConcurrentHashMap<>();
 
         private State state = State.NEW;
@@ -53,12 +68,17 @@ public class KVCacheManager {
         private Object mambaState;
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
+            this(maxSeqLen, blockManager, KvCacheMemoryBudget.unbounded());
+        }
+
+        KVCacheSession(int maxSeqLen, BlockManager blockManager, KvCacheMemoryBudget memoryBudget) {
             if (maxSeqLen <= 0) {
                 throw new IllegalArgumentException("maxSeqLen must be positive");
             }
             this.maxSeqLen = maxSeqLen;
             this.maxSupportedTokens = Math.min(maxSeqLen, MAX_PREALLOCATED_TOKENS);
             this.blockManager = Objects.requireNonNull(blockManager, "blockManager");
+            this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
         }
 
         /**
@@ -89,11 +109,14 @@ public class KVCacheManager {
 
                 // The current pool is one fixed reservation. Do not expose a larger
                 // token limit than this reservation can support.
-                int initialBlocks = Math.addExact(
-                        Math.multiplyExact(
-                                (maxSupportedTokens + tokensPerBlock - 1) / tokensPerBlock, numLayers),
-                        64);
+                KvCacheMemoryEstimator.Estimate estimate = KvCacheMemoryEstimator.estimate(
+                        maxSupportedTokens, numLayers, numKVHeads, headDim, tokensPerBlock,
+                        storageType, KvCacheMemoryEstimator.DEFAULT_EXTRA_BLOCKS);
+                int initialBlocks = Math.toIntExact(estimate.blockCount());
 
+                // Reserve before allocating native slabs. The lease is owned by this
+                // session and is released by cleanup on every failure/close path.
+                memoryLease = memoryBudget.reserve(estimate.totalBytes());
                 blockManager.initialize(tokensPerBlock, numKVHeads, headDim, initialBlocks, storageType);
 
                 for (int layer = 0; layer < numLayers; layer++) {
@@ -349,6 +372,15 @@ public class KVCacheManager {
                 blockManager.close();
             } catch (Throwable closeFailure) {
                 failure = combine(failure, closeFailure);
+            }
+
+            if (memoryLease != null) {
+                try {
+                    memoryLease.close();
+                } catch (Throwable closeFailure) {
+                    failure = combine(failure, closeFailure);
+                }
+                memoryLease = null;
             }
             return failure;
         }
