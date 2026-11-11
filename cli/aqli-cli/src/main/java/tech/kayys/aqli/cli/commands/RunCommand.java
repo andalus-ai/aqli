@@ -74,6 +74,7 @@ import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
+import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -2104,45 +2105,7 @@ public class RunCommand implements Runnable {
     }
 
     private String defaultAudioReplayOutputPath(String originalOutputPath, String replayAudioFormat) {
-        String ext = normalizeExtension(replayAudioFormat);
-        Path originalPath = originalOutputPath == null || originalOutputPath.isBlank()
-                ? Path.of("output." + (ext.isBlank() ? "wav" : ext))
-                : Path.of(originalOutputPath);
-        Path replayPath = appendReplaySuffix(originalPath, ext);
-        return uniquifyPath(replayPath).toString();
-    }
-
-    private Path appendReplaySuffix(Path path, String fallbackExt) {
-        String filename = path.getFileName() == null ? "output" : path.getFileName().toString();
-        String ext = pathExtension(path);
-        if (ext.isBlank()) {
-            ext = normalizeExtension(fallbackExt);
-        }
-        String base = filename;
-        if (!ext.isBlank() && filename.toLowerCase(Locale.ROOT).endsWith("." + ext.toLowerCase(Locale.ROOT))) {
-            base = filename.substring(0, filename.length() - ext.length() - 1);
-        }
-        String replayFilename = base + "-replay" + (ext.isBlank() ? "" : "." + ext);
-        return path.resolveSibling(replayFilename);
-    }
-
-    private Path uniquifyPath(Path path) {
-        if (!Files.exists(path)) {
-            return path;
-        }
-        String filename = path.getFileName() == null ? "output" : path.getFileName().toString();
-        String ext = pathExtension(path);
-        String base = filename;
-        if (!ext.isBlank() && filename.toLowerCase(Locale.ROOT).endsWith("." + ext.toLowerCase(Locale.ROOT))) {
-            base = filename.substring(0, filename.length() - ext.length() - 1);
-        }
-        for (int i = 2; i < 1000; i++) {
-            Path candidate = path.resolveSibling(base + "-" + i + (ext.isBlank() ? "" : "." + ext));
-            if (!Files.exists(candidate)) {
-                return candidate;
-            }
-        }
-        return path;
+        return AudioReplayOutputPathResolver.resolve(originalOutputPath, replayAudioFormat).toString();
     }
 
     private boolean validateTtsAudioCliOptions() {
