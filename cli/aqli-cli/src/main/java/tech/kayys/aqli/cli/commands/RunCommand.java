@@ -3688,7 +3688,7 @@ public class RunCommand implements Runnable {
                 System.out.println("Optimized graph files: unavailable (" + e.getMessage() + ")");
             }
         }
-        printOptimizedCacheDirectoryScanner.Stats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
+        printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
 
         boolean sessionCacheEnabled = cacheBoolean(
                 MOSS_SESSION_CACHE_ENABLED_PROPERTY,
@@ -3714,7 +3714,7 @@ public class RunCommand implements Runnable {
                 + " (max entries " + Math.max(0, assetCacheMax) + ", in-process)");
     }
 
-    private void printOptimizedCacheDirectoryScanner.Stats(OptimizedCacheDirectoryScanner.Stats stats) {
+    private void printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.Stats stats) {
         if (!stats.exists()) {
             System.out.println("Cache directory files: not created yet");
             return;
