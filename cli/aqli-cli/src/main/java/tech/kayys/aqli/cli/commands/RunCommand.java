@@ -6872,18 +6872,11 @@ public class RunCommand implements Runnable {
     }
 
     private void autoOpenImage(Path imagePath) {
-        try {
-            String os = System.getProperty("os.name").toLowerCase();
-            if (os.contains("mac")) new ProcessBuilder("open", imagePath.toString()).start();
-            else if (os.contains("linux")) new ProcessBuilder("xdg-open", imagePath.toString()).start();
-        } catch (Exception ignored) {}
+        MediaOutputOpener.openImage(imagePath);
     }
 
     private void autoOpenAudio(Path audioPath) {
-        try {
-            String os = System.getProperty("os.name").toLowerCase();
-            if (os.contains("mac")) new ProcessBuilder("afplay", audioPath.toString()).start();
-        } catch (Exception ignored) {}
+        MediaOutputOpener.openAudio(audioPath);
     }
 
     private static final class LivePcmAudioSink implements AutoCloseable {
