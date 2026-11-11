@@ -24,7 +24,7 @@ public final class GgufSessionCache implements AutoCloseable {
         this.libraryPaths = libraryPaths;
     }
 
-    private record SessionKey(
+    record SessionKey(
         Path modelPath,
         int context,
         int batch,
