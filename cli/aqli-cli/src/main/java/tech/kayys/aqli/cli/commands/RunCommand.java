@@ -2092,14 +2092,6 @@ public class RunCommand implements Runnable {
         return node.asText();
     }
 
-    private static Long parseReplayLong(String option, String value) {
-        try {
-            return Long.parseLong(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
     private static Long parseOptionalReplayLong(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -2108,22 +2100,6 @@ public class RunCommand implements Runnable {
             return Long.parseLong(value.trim());
         } catch (Exception e) {
             throw new IllegalArgumentException("invalid integer value in replay metadata: " + value);
-        }
-    }
-
-    private static Integer parseReplayInt(String option, String value) {
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
-    private static Double parseReplayDouble(String option, String value) {
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
         }
     }
 
