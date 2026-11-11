@@ -3460,14 +3460,14 @@ public class RunCommand implements Runnable {
         } else {
             System.out.println((dryRun ? "Would delete" : "Deleted") + " stale optimized graph files: "
                     + graphOperations.size() + " file(s), " + formatBytes(totalOperationBytes(graphOperations)));
-            printOptimizedCachePruner.Operations(graphOperations, dryRun, 10);
+            printCachePruneOperations(graphOperations, dryRun, 10);
         }
         if (sidecarOperations.isEmpty()) {
             System.out.println("Orphan external data sidecars: none");
         } else {
             System.out.println((dryRun ? "Would delete" : "Deleted") + " orphan external data sidecars: "
                     + sidecarOperations.size() + " file(s), " + formatBytes(totalOperationBytes(sidecarOperations)));
-            printOptimizedCachePruner.Operations(sidecarOperations, dryRun, 10);
+            printCachePruneOperations(sidecarOperations, dryRun, 10);
         }
         if (!dryRun) {
             System.out.println("After: " + after.currentOptimizedGraphFiles() + " current, "
@@ -3482,7 +3482,7 @@ public class RunCommand implements Runnable {
                 : "Status: completed with " + errors + " error(s)");
     }
 
-    private void printOptimizedCachePruner.Operations(
+    private void printCachePruneOperations(
             List<OptimizedCachePruner.Operation> operations,
             boolean dryRun,
             int limit) {
