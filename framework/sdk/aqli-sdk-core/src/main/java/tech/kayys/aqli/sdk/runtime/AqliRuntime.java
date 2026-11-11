@@ -1,9 +1,5 @@
 package tech.kayys.aqli.sdk.runtime;
 
-import tech.kayys.aqli.sdk.exception.SdkException;
-import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
-import tech.kayys.aqli.sdk.mcp.McpRegistryManager;
-import tech.kayys.aqli.spi.plugin.AqliPlugin;
 
 /**
  * Aggregate interface for AQLI runtime capabilities.
