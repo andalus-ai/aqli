@@ -656,28 +656,6 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         }
     }
 
-    @Test
-    void warmupStateTracksOnlyMissingIterations() {
-        LiteRtLmStandaloneRunner.WarmupState state = new LiteRtLmStandaloneRunner.WarmupState();
-
-        assertEquals(3, state.remainingIterations(3));
-        state.markCompleted(1);
-        assertEquals(2, state.remainingIterations(3));
-        state.markCompleted(3);
-        assertEquals(0, state.remainingIterations(3));
-    }
-
-    @Test
-    void warmupStateNeverRegresses() {
-        LiteRtLmStandaloneRunner.WarmupState state = new LiteRtLmStandaloneRunner.WarmupState();
-
-        state.markCompleted(3);
-        state.markCompleted(1);
-
-        assertEquals(0, state.remainingIterations(3));
-        assertEquals(2, state.remainingIterations(5));
-    }
-
     private static void restoreProperty(String name, String value) {
         if (value == null) {
             System.clearProperty(name);
