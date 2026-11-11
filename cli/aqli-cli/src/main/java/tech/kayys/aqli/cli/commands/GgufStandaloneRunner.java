@@ -304,7 +304,7 @@ public final class GgufStandaloneRunner {
 
 
     static boolean equivalentGgufFastPathEnabled() {
-        String configured = configValue("aqli.gguf.fast_run.auto_equivalent");
+        String configured = GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.auto_equivalent");
         return configured == null || configured.isBlank() || Boolean.parseBoolean(configured);
     }
 
@@ -456,9 +456,9 @@ public final class GgufStandaloneRunner {
         String requestedBackend = normalizedBackend(args.backend());
         int nGpuLayers = "cpu".equals(requestedBackend)
                 ? 0
-                : intConfig("aqli.gguf.fast_run.gpu_layers", -1);
-        int threads = Math.max(1, intConfig("aqli.gguf.fast_run.threads", defaultThreads()));
-        int batchThreads = Math.max(1, intConfig("aqli.gguf.fast_run.batch_threads", threads));
+                : GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.gpu_layers", -1);
+        int threads = Math.max(1, GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.threads", defaultThreads()));
+        int batchThreads = Math.max(1, GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.batch_threads", threads));
         String prompt = formatPromptForModel(args.prompt(), modelPath);
         int context = fastRunContext(prompt, args.maxTokens());
         int batch = boundedBatch("aqli.gguf.fast_run.batch", Math.min(context, 1024), context);
@@ -564,9 +564,9 @@ public final class GgufStandaloneRunner {
         String requestedBackend = normalizedBackend(args.backend());
         int nGpuLayers = "cpu".equals(requestedBackend)
                 ? 0
-                : intConfig("aqli.gguf.fast_run.gpu_layers", -1);
-        int threads = Math.max(1, intConfig("aqli.gguf.fast_run.threads", defaultThreads()));
-        int batchThreads = Math.max(1, intConfig("aqli.gguf.fast_run.batch_threads", threads));
+                : GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.gpu_layers", -1);
+        int threads = Math.max(1, GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.threads", defaultThreads()));
+        int batchThreads = Math.max(1, GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.batch_threads", threads));
         String prompt = formatPromptForModel(args.prompt(), modelPath);
         int context = fastRunPrewarmContext(prompt, args.maxTokens());
         int batch = boundedBatch("aqli.gguf.fast_run.batch", Math.min(context, 1024), context);
@@ -634,8 +634,8 @@ public final class GgufStandaloneRunner {
             PrintStream err,
             GgufSessionCache sessionCache) throws Throwable {
         long openStartNanos = System.nanoTime();
-        boolean useMmap = booleanConfig("aqli.gguf.fast_run.mmap", true);
-        boolean useMlock = booleanConfig("aqli.gguf.fast_run.mlock", false);
+        boolean useMmap = GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.mmap", true);
+        boolean useMlock = GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.mlock", false);
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
                         nGpuLayers,
@@ -682,7 +682,7 @@ public final class GgufStandaloneRunner {
 
     static int prewarmTokenCount() {
         // Two tokens force one post-sample decode, which warms the hot decode path.
-        return Math.max(2, intConfig("aqli.gguf.fast_run.prewarm_tokens", 2));
+        return Math.max(2, GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.prewarm_tokens", 2));
     }
 
     private static void generateWithLlamaCppSession(
@@ -704,8 +704,8 @@ public final class GgufStandaloneRunner {
             GgufSessionCache sessionCache,
             String runnerName) throws Throwable {
         long openStartNanos = System.nanoTime();
-        boolean useMmap = booleanConfig("aqli.gguf.fast_run.mmap", true);
-        boolean useMlock = booleanConfig("aqli.gguf.fast_run.mlock", false);
+        boolean useMmap = GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.mmap", true);
+        boolean useMlock = GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.mlock", false);
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
                         nGpuLayers,
@@ -1008,7 +1008,7 @@ public final class GgufStandaloneRunner {
     }
 
     static String formatPromptForModel(String prompt, Path modelPath) {
-        String mode = stringConfig("aqli.gguf.fast_run.prompt_format", "auto")
+        String mode = GgufStandaloneConfiguration.system().string("aqli.gguf.fast_run.prompt_format", "auto")
                 .trim()
                 .toLowerCase(Locale.ROOT);
         if (mode.equals("raw") || mode.equals("none") || prompt == null || prompt.isBlank()) {
@@ -1041,7 +1041,7 @@ public final class GgufStandaloneRunner {
     }
 
     private static boolean useConciseQuestionInstruction(String prompt) {
-        if (!booleanConfig("aqli.gguf.fast_run.concise_qa_prompt", true)) {
+        if (!GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.concise_qa_prompt", true)) {
             return false;
         }
         if (prompt == null) {
@@ -1097,15 +1097,15 @@ public final class GgufStandaloneRunner {
     }
 
     static int boundedBatch(String property, int defaultValue, int maxValue) {
-        int requested = intConfig(property, defaultValue);
+        int requested = GgufStandaloneConfiguration.system().intValue(property, defaultValue);
         int upperBound = Math.max(1, maxValue);
         return Math.max(1, Math.min(requested, upperBound));
     }
 
     static int fastRunContext(String prompt, int maxTokens) {
-        String configured = configValue("aqli.gguf.fast_run.context");
+        String configured = GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.context");
         if (configured != null && !configured.isBlank() && !configured.trim().equalsIgnoreCase("auto")) {
-            return parsePositiveInt(configured, 2048);
+            return GgufStandaloneConfiguration.parsePositiveInt(configured, 2048);
         }
 
         int maxAutoContext = fastRunMaxAutoContext();
@@ -1120,9 +1120,9 @@ public final class GgufStandaloneRunner {
     }
 
     static int fastRunPrewarmContext(String prompt, int maxTokens) {
-        String configured = configValue("aqli.gguf.fast_run.context");
+        String configured = GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.context");
         if (configured != null && !configured.isBlank() && !configured.trim().equalsIgnoreCase("auto")) {
-            return parsePositiveInt(configured, 2048);
+            return GgufStandaloneConfiguration.parsePositiveInt(configured, 2048);
         }
         int maxAutoContext = fastRunMaxAutoContext();
         int requested = Math.max(fastRunContext(prompt, maxTokens), fastRunPrewarmMinContext(maxAutoContext));
@@ -1130,132 +1130,13 @@ public final class GgufStandaloneRunner {
     }
 
     static int fastRunPrewarmMinContext(int maxAutoContext) {
-        String configured = firstNonBlank(configValue("aqli.gguf.fast_run.prewarm_min_context"),
+        String configured = firstNonBlank(GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.prewarm_min_context"),
                 Integer.toString(maxAutoContext));
-        return Math.min(maxAutoContext, parsePositiveInt(configured, maxAutoContext));
+        return Math.min(maxAutoContext, GgufStandaloneConfiguration.parsePositiveInt(configured, maxAutoContext));
     }
 
     private static int fastRunMaxAutoContext() {
-        return positiveIntConfig("aqli.gguf.fast_run.max_auto_context", 4096);
-    }
-
-    private static String configValue(String property) {
-        String configured = System.getProperty(property);
-        if (configured != null && !configured.isBlank()) {
-            return configured;
-        }
-        for (String envName : configEnvNames(property)) {
-            configured = System.getenv(envName);
-            if (configured != null && !configured.isBlank()) {
-                return configured;
-            }
-        }
-        return null;
-    }
-
-    static List<String> configEnvNames(String property) {
-        List<String> names = new ArrayList<>();
-        addEnvName(names, envName(property));
-        String prefix = "aqli.gguf.fast_run.";
-        if (property != null && property.startsWith(prefix)) {
-            addEnvName(names, "AQLI_GGUF_FAST_" + envName(property.substring(prefix.length())));
-        }
-        addLegacyEnvNames(names, property);
-        return names;
-    }
-
-    private static void addLegacyEnvNames(List<String> names, String property) {
-        if (property == null) {
-            return;
-        }
-        switch (property) {
-            case "aqli.gguf.fast_run.gpu_layers" -> addEnvName(names, "GGUF_GPU_LAYERS");
-            case "aqli.gguf.fast_run.batch" -> addEnvName(names, "GGUF_BATCH_SIZE");
-            case "aqli.gguf.fast_run.ubatch" -> {
-                addEnvName(names, "GGUF_UBATCH_SIZE");
-                addEnvName(names, "GGUF_MICRO_BATCH_SIZE");
-            }
-            case "aqli.gguf.fast_run.threads" -> addEnvName(names, "GGUF_THREADS");
-            case "aqli.gguf.fast_run.batch_threads" -> addEnvName(names, "GGUF_BATCH_THREADS");
-            case "aqli.gguf.fast_run.context" -> {
-                addEnvName(names, "GGUF_CONTEXT");
-                addEnvName(names, "GGUF_CONTEXT_SIZE");
-                addEnvName(names, "GGUF_CTX_SIZE");
-            }
-            case "aqli.gguf.fast_run.llama_lib_dir" -> addEnvName(names, "AQLI_LLAMA_LIB_DIR");
-            case "aqli.gguf.fast_run.bridge" -> addEnvName(names, "AQLI_GGUF_FAST_BRIDGE");
-            default -> {
-            }
-        }
-    }
-
-    private static void addEnvName(List<String> names, String name) {
-        if (name != null && !name.isBlank() && !names.contains(name)) {
-            names.add(name);
-        }
-    }
-
-    private static String envName(String value) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        String normalized = value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_");
-        return normalized.replaceAll("^_+|_+$", "");
-    }
-
-    private static String stringConfig(String property, String fallback) {
-        return firstNonBlank(configValue(property), fallback);
-    }
-
-    private static boolean booleanConfig(String property, boolean fallback) {
-        String configured = configValue(property);
-        if (configured == null || configured.isBlank()) {
-            return fallback;
-        }
-        return switch (configured.trim().toLowerCase(Locale.ROOT)) {
-            case "true", "1", "yes", "y", "on" -> true;
-            case "false", "0", "no", "n", "off" -> false;
-            default -> fallback;
-        };
-    }
-
-    private static int intConfig(String property, int fallback) {
-        String configured = configValue(property);
-        if (configured == null || configured.isBlank()) {
-            return fallback;
-        }
-        try {
-            return Integer.parseInt(configured.trim());
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
-
-    private static int positiveIntConfig(String property, int fallback) {
-        return parsePositiveInt(configValue(property), fallback);
-    }
-
-    private static long longConfig(String property, long fallback) {
-        String configured = configValue(property);
-        if (configured == null || configured.isBlank()) {
-            return fallback;
-        }
-        try {
-            return Long.parseLong(configured.trim());
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
-
-    private static int parsePositiveInt(String value, int fallback) {
-        if (value == null || value.isBlank()) {
-            return Math.max(1, fallback);
-        }
-        try {
-            return Math.max(1, Integer.parseInt(value.trim()));
-        } catch (NumberFormatException ignored) {
-            return Math.max(1, fallback);
-        }
+        return GgufStandaloneConfiguration.system().positiveInt("aqli.gguf.fast_run.max_auto_context", 4096);
     }
 
     private static int nextPowerOfTwoBounded(int value, int minimum, int maximum) {
@@ -1270,11 +1151,11 @@ public final class GgufStandaloneRunner {
     }
 
     static boolean fastRunSwaFull() {
-        return booleanConfig("aqli.gguf.fast_run.swa_full", false);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.swa_full", false);
     }
 
     static boolean fastRunCpuFallback() {
-        return booleanConfig("aqli.gguf.fast_run.cpu_fallback", true);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.cpu_fallback", true);
     }
 
     static boolean fastRunTiming() {
@@ -1282,11 +1163,11 @@ public final class GgufStandaloneRunner {
         if (requestTiming != null) {
             return requestTiming;
         }
-        return booleanConfig("aqli.gguf.fast_run.timing", false);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.timing", false);
     }
 
     private static boolean fastRunDebug() {
-        return booleanConfig("aqli.gguf.fast_run.debug", false);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.debug", false);
     }
 
     /**
@@ -1298,16 +1179,16 @@ public final class GgufStandaloneRunner {
      * This is automatically set when Wayang uses the SDK in embedded mode.
      */
     static boolean fastRunQuiet() {
-        return booleanConfig("aqli.gguf.fast_run.quiet", false);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.quiet", false);
     }
 
     private static boolean daemonEnabled() {
-        return booleanConfig("aqli.gguf.fast_run.daemon", false);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.daemon", false);
     }
 
     static Path llamaLibDir() {
         String configured = firstNonBlank(
-                configValue("aqli.gguf.fast_run.llama_lib_dir"),
+                GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.llama_lib_dir"),
                 System.getenv("AQLI_LLAMA_LIB_DIR"),
                 null);
         if (configured != null && !configured.isBlank()) {
@@ -1317,7 +1198,7 @@ public final class GgufStandaloneRunner {
     }
 
     static Path bridgePath() {
-        String configured = configValue("aqli.gguf.fast_run.bridge");
+        String configured = GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.bridge");
         if (configured != null && !configured.isBlank()) {
             return Path.of(configured).toAbsolutePath();
         }
@@ -1390,9 +1271,9 @@ public final class GgufStandaloneRunner {
             Files.createDirectories(daemonLogFile().getParent());
             List<String> command = new ArrayList<>();
             command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
-            command.add("-Xmx" + stringConfig("aqli.gguf.fast_run.daemon_heap", "1g"));
+            command.add("-Xmx" + GgufStandaloneConfiguration.system().string("aqli.gguf.fast_run.daemon_heap", "1g"));
             command.add("-XX:MaxDirectMemorySize="
-                    + stringConfig("aqli.gguf.fast_run.daemon_direct_memory", "8g"));
+                    + GgufStandaloneConfiguration.system().string("aqli.gguf.fast_run.daemon_direct_memory", "8g"));
             command.add("--enable-preview");
             command.add("--add-modules");
             command.add("jdk.incubator.vector");
@@ -1432,7 +1313,7 @@ public final class GgufStandaloneRunner {
 
     static String daemonLauncherMode() {
         return GgufDaemonLauncher.normalizeMode(
-                stringConfig("aqli.gguf.fast_run.daemon_launcher", defaultDaemonLauncherMode()),
+                GgufStandaloneConfiguration.system().string("aqli.gguf.fast_run.daemon_launcher", defaultDaemonLauncherMode()),
                 defaultDaemonLauncherMode());
     }
 
@@ -1449,7 +1330,7 @@ public final class GgufStandaloneRunner {
                             GgufStandaloneRunner::daemonLog)) {
                 port = server.getLocalPort();
                 writeDaemonPort(port);
-                long idleSeconds = longConfig("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
+                long idleSeconds = GgufStandaloneConfiguration.system().longValue("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
                 daemonLog("daemon started: pid=" + ProcessHandle.current().pid()
                         + ", port=" + port
                         + ", idleSeconds=" + idleSeconds);
@@ -1615,19 +1496,19 @@ public final class GgufStandaloneRunner {
     }
 
     static boolean staleDaemonForceKill() {
-        return booleanConfig("aqli.gguf.fast_run.stale_daemon_force_kill", true);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.stale_daemon_force_kill", true);
     }
 
     static long staleDaemonKillWaitMillis() {
-        return Math.max(100L, longConfig("aqli.gguf.fast_run.stale_daemon_kill_wait_ms", 2000L));
+        return Math.max(100L, GgufStandaloneConfiguration.system().longValue("aqli.gguf.fast_run.stale_daemon_kill_wait_ms", 2000L));
     }
 
     static boolean strictDaemonKey() {
-        return booleanConfig("aqli.gguf.fast_run.strict_daemon_key", false);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.strict_daemon_key", false);
     }
 
     static boolean hardExitAfterRun() {
-        return booleanConfig("aqli.gguf.fast_run.hard_exit_after_run", true);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.hard_exit_after_run", true);
     }
 
     static boolean shouldHardExitAfterNativeRun(boolean daemonSession) {
@@ -1639,7 +1520,7 @@ public final class GgufStandaloneRunner {
     }
 
     private static boolean daemonHardExit() {
-        return booleanConfig("aqli.gguf.fast_run.daemon_hard_exit", true);
+        return GgufStandaloneConfiguration.system().booleanValue("aqli.gguf.fast_run.daemon_hard_exit", true);
     }
 
     private static void hardExitDaemon(int status, int port) {
@@ -1665,7 +1546,7 @@ public final class GgufStandaloneRunner {
     }
 
     private static String launchctlLabel() {
-        return stringConfig("aqli.gguf.fast_run.daemon_launchctl_label",
+        return GgufStandaloneConfiguration.system().string("aqli.gguf.fast_run.daemon_launchctl_label",
                 "tech.kayys.aljabr.gguf-fast-daemon");
     }
 
@@ -1693,35 +1574,35 @@ public final class GgufStandaloneRunner {
     }
 
     private static int daemonConnectTimeoutMillis() {
-        return intConfig("aqli.gguf.fast_run.daemon_connect_timeout_ms", 1000);
+        return GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.daemon_connect_timeout_ms", 1000);
     }
 
     private static int daemonStartTimeoutMillis() {
-        return intConfig("aqli.gguf.fast_run.daemon_start_timeout_ms", 20_000);
+        return GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.daemon_start_timeout_ms", 20_000);
     }
 
     static long daemonRequestRetryMillis() {
-        return Math.max(0L, longConfig("aqli.gguf.fast_run.daemon_request_retry_ms", 2_000L));
+        return Math.max(0L, GgufStandaloneConfiguration.system().longValue("aqli.gguf.fast_run.daemon_request_retry_ms", 2_000L));
     }
 
     static long daemonRequestRetrySleepMillis() {
-        return Math.max(10L, longConfig("aqli.gguf.fast_run.daemon_request_retry_sleep_ms", 75L));
+        return Math.max(10L, GgufStandaloneConfiguration.system().longValue("aqli.gguf.fast_run.daemon_request_retry_sleep_ms", 75L));
     }
 
     static int daemonMaxSessions() {
-        return Math.max(1, intConfig("aqli.gguf.fast_run.daemon_max_sessions", 2));
+        return Math.max(1, GgufStandaloneConfiguration.system().intValue("aqli.gguf.fast_run.daemon_max_sessions", 2));
     }
 
     private static long timeoutMillis() {
-        return TimeUnit.SECONDS.toMillis(longConfig("aqli.gguf.fast_run.timeout_seconds", 180L));
+        return TimeUnit.SECONDS.toMillis(GgufStandaloneConfiguration.system().longValue("aqli.gguf.fast_run.timeout_seconds", 180L));
     }
 
     static GgufRunArguments parseRunArguments(String[] args) {
         GgufRunArguments parsed = GgufRunArguments.parse(
                 args,
-                stringConfig("aqli.gguf.fast_run.backend", "metal"),
+                GgufStandaloneConfiguration.system().string("aqli.gguf.fast_run.backend", "metal"),
                 firstNonBlank(
-                        configValue("aqli.gguf.fast_run.engine"),
+                        GgufStandaloneConfiguration.system().value("aqli.gguf.fast_run.engine"),
                         System.getenv("AQLI_GGUF_ENGINE"),
                         "auto"));
         if (parsed.verbose()) {
