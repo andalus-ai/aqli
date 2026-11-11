@@ -25,6 +25,7 @@ import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
 import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
+import tech.kayys.aqli.onnx.runner.tts.moss.diagnostics.MossTtsModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.voice.MossTtsVoiceCatalog;
 import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
 import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLocator;
@@ -2907,21 +2908,16 @@ public class RunCommand implements Runnable {
         System.out.println("Manifest: " + diagnosticFileStatus(manifestPath));
         System.out.println("TTS metadata: " + diagnosticFileStatus(ttsMetaPath));
 
-        JsonNode manifest = null;
-        try {
-            manifest = new ObjectMapper().readTree(manifestPath.toFile());
-            JsonNode voices = manifest.path("builtin_voices");
-            int voiceCount = voices.isArray() ? voices.size() : 0;
-            System.out.println("Voices: " + voiceCount + (voiceCount == 0 ? " (missing)" : ""));
-            if (voiceCount > 0) {
-                System.out.println("Voice groups: " + MossTtsVoiceCatalog.groupSummary(voices));
-                System.out.println("Default voice: " + MossTtsVoiceCatalog.voiceId(voices.get(0))
-                        + " (" + MossTtsVoiceCatalog.displayName(voices.get(0)) + ")");
-            } else {
-                exitCode = 1;
-            }
-        } catch (Exception e) {
-            System.err.println("Manifest read error: " + e.getMessage());
+        MossTtsModelDiagnostics.Snapshot modelDiagnostics =
+                MossTtsModelDiagnostics.inspect(modelDir);
+        System.out.println("Voices: " + modelDiagnostics.voiceCount()
+                + (modelDiagnostics.voiceCount() == 0 ? " (missing)" : ""));
+        if (modelDiagnostics.defaultVoice() != null) {
+            System.out.println("Voice groups: " + modelDiagnostics.voiceGroupSummary());
+            MossTtsModelDiagnostics.VoiceSummary voice = modelDiagnostics.defaultVoice();
+            System.out.println("Default voice: " + voice.id() + " (" + voice.displayName() + ")");
+        } else {
+            System.err.println("Manifest read error: " + modelDiagnostics.manifestError());
             exitCode = 1;
         }
 
@@ -3050,32 +3046,30 @@ public class RunCommand implements Runnable {
         tts.put("metadata", diagnosticFileJson(ttsMetaPath));
         payload.put("tts", tts);
 
-        try {
-            JsonNode manifest = new ObjectMapper().readTree(manifestPath.toFile());
-            JsonNode voices = manifest.path("builtin_voices");
-            Map<String, Object> voiceInfo = new LinkedHashMap<>();
-            int voiceCount = voices.isArray() ? voices.size() : 0;
-            voiceInfo.put("count", voiceCount);
-            voiceInfo.put("groups", voices.isArray() ? MossTtsVoiceCatalog.groupCounts(voices) : Map.of());
-            if (voiceCount > 0) {
-                Map<String, Object> defaultVoice = new LinkedHashMap<>();
-                defaultVoice.put("voice", MossTtsVoiceCatalog.voiceId(voices.get(0)));
-                defaultVoice.put("display_name", MossTtsVoiceCatalog.displayName(voices.get(0)));
-                defaultVoice.put("language", MossTtsVoiceCatalog.languageLabel(voices.get(0)));
-                defaultVoice.put("gender", MossTtsVoiceCatalog.genderLabel(voices.get(0)));
-                voiceInfo.put("default", defaultVoice);
-            } else {
-                exitCode = 1;
-            }
-            String selector = effectiveTtsVoiceSelector();
-            if (selector != null && !selector.isBlank()) {
-                voiceInfo.put("requested_selector", selector);
-            }
-            tts.put("voices", voiceInfo);
-        } catch (Exception e) {
-            tts.put("manifest_error", e.getMessage());
+        MossTtsModelDiagnostics.Snapshot modelDiagnostics =
+                MossTtsModelDiagnostics.inspect(modelDir);
+        Map<String, Object> voiceInfo = new LinkedHashMap<>();
+        voiceInfo.put("count", modelDiagnostics.voiceCount());
+        voiceInfo.put("groups", modelDiagnostics.voiceGroups());
+        if (modelDiagnostics.defaultVoice() != null) {
+            MossTtsModelDiagnostics.VoiceSummary voice = modelDiagnostics.defaultVoice();
+            Map<String, Object> defaultVoice = new LinkedHashMap<>();
+            defaultVoice.put("voice", voice.id());
+            defaultVoice.put("display_name", voice.displayName());
+            defaultVoice.put("language", voice.language());
+            defaultVoice.put("gender", voice.gender());
+            voiceInfo.put("default", defaultVoice);
+        } else {
             exitCode = 1;
         }
+        if (modelDiagnostics.manifestError() != null) {
+            tts.put("manifest_error", modelDiagnostics.manifestError());
+        }
+        String selector = effectiveTtsVoiceSelector();
+        if (selector != null && !selector.isBlank()) {
+            voiceInfo.put("requested_selector", selector);
+        }
+        tts.put("voices", voiceInfo);
 
         Optional<Path> codecDir = diagnosticCodecDirectory();
         Map<String, Object> codec = new LinkedHashMap<>();
@@ -3515,50 +3509,21 @@ public class RunCommand implements Runnable {
         } else if (!snapshot.graphsAvailable()) {
             System.out.println("Optimized graph files: unavailable (" + snapshot.graphError() + ")");
         } else {
-            try {
-                List<MossTtsOnnxGraphResolver.Graph> graphs = MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecDir.get());
-                long present = 0L;
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
-                    cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
-                    if (Files.isRegularFile(optimizedPath)) {
-                        present++;
-                    }
-                }
-                System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
-                System.out.println("Optimized graph files: " + present + "/" + graphs.size()
-                        + (graphCacheEnabled ? " present" : " present but cache disabled"));
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
-                    String status = Files.isRegularFile(optimizedPath) ? "warm" : "cold";
-                    int sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(graph.path()).size();
-                    System.out.println("  " + graph.label() + ": " + status
-                            + " -> " + optimizedPath.getFileName()
-                            + (sidecars > 0 ? " (" + sidecars + " external data sidecars)" : ""));
-                }
-            } catch (Exception e) {
-                System.out.println("Optimized graph files: unavailable (" + e.getMessage() + ")");
+            List<MossTtsOnnxCacheDiagnostics.GraphStatus> graphs = snapshot.graphs();
+            System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
+            System.out.println("Optimized graph files: " + snapshot.warmGraphCount() + "/" + graphs.size()
+                    + (settings.optimizedGraphCacheEnabled() ? " present" : " present but cache disabled"));
+            for (MossTtsOnnxCacheDiagnostics.GraphStatus graph : graphs) {
+                System.out.println("  " + graph.graph().label() + ": "
+                        + (graph.warm() ? "warm" : "cold")
+                        + " -> " + graph.optimizedPath().getFileName()
+                        + (graph.externalDataSidecars() > 0
+                                ? " (" + graph.externalDataSidecars() + " external data sidecars)"
+                                : ""));
             }
         }
-        printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
+        printOptimizedCacheDirectoryStats(snapshot.cacheDirectory());
 
-        boolean sessionCacheEnabled = cacheBoolean(
-                MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                MOSS_SESSION_CACHE_ENABLED_ENV,
-                true);
-        int sessionCacheMax = cacheInt(
-                MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                2);
-        boolean assetCacheEnabled = cacheBoolean(
-                MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                MOSS_ASSET_CACHE_ENABLED_ENV,
-                true);
-        int assetCacheMax = cacheInt(
-                MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                4);
         System.out.println("Session cache: "
                 + (settings.sessionCacheEnabled() && settings.sessionCacheMaxEntries() > 0 ? "enabled" : "disabled")
                 + " (max entries " + settings.sessionCacheMaxEntries() + ", in-process)");
