@@ -37,6 +37,7 @@ public final class LiteRTConversationExecutor {
             double temperature,
             int maxTokens,
             Duration timeout,
+            String timeoutMessage,
             Consumer<String> output) throws Exception {
         if (engine == null) {
             throw new IllegalArgumentException("LiteRT engine is required");
@@ -96,7 +97,7 @@ public final class LiteRTConversationExecutor {
 
             if (!done.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 conversation.cancelProcess();
-                throw new IllegalStateException("LiteRT-LM conversation timed out");
+                throw new IllegalStateException(timeoutMessage == null || timeoutMessage.isBlank()\n                        ? "LiteRT-LM conversation timed out"\n                        : timeoutMessage);
             }
             if (error.get() != null && !cancelled.get()) {
                 throw new IllegalStateException(error.get());
