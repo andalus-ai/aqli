@@ -8,15 +8,15 @@ package tech.kayys.aqli.safetensor.engine.generation.kv;
 import tech.kayys.aqli.safetensor.engine.generation.attention.SharedKvState;
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aljabr.spi.model.ModelConfig;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * FFM-backed KV (key-value) cache manager using {@link AccelTensor}.
  *
- * <p>
- * No LibTorch dependency — pure MemorySegment storage.
+ * <p>No LibTorch dependency — pure MemorySegment storage.
  */
 @ApplicationScoped
 public class KVCacheManager {
@@ -25,13 +25,18 @@ public class KVCacheManager {
     }
 
     public static class KVCacheSession implements AutoCloseable {
+        private enum State {
+            NEW,
+            ALLOCATED,
+            CLOSED
+        }
+
         private final int maxSeqLen;
         private final BlockManager blockManager;
-
-        // Layer -> List of physical block indices
         private final Map<Integer, List<Integer>> blockTables = new java.util.concurrent.ConcurrentHashMap<>();
 
-        private int currentPos = 0;
+        private State state = State.NEW;
+        private int currentPos;
         private int tokensPerBlock = 16;
         private int numLayers;
         private int numKVHeads;
@@ -44,191 +49,317 @@ public class KVCacheManager {
         private Object mambaState;
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
-            this.maxSeqLen = maxSeqLen;
-            this.blockManager = blockManager;
-        }
-
-        public void allocate(ModelConfig config, tech.kayys.aljabr.safetensor.generation.GenerationConfig genConfig) {
-            this.numLayers = config.numHiddenLayers();
-            this.numKVHeads = config.resolvedMaxKvHeads();
-            this.headDim = config.resolvedMaxHeadDim();
-            this.tokensPerBlock = 16; // Default block size
-            this.kvQuantization = genConfig.kvCacheQuant();
-
-            BlockManager.KvStorageType storageType =
-                    switch (kvQuantization) {
-                        case INT8 -> BlockManager.KvStorageType.INT8;
-                        case INT4, TURBO -> BlockManager.KvStorageType.INT4;
-                        case NONE -> BlockManager.KvStorageType.FP32;
-                    };
-
-            // Gemma-4 128K context requires massive memory. We allocate a safe initial pool 
-            // and cap it to prevent Metal driver aborts on huge contiguous requests.
-            int safeMaxTokens = Math.min(maxSeqLen, 4096); 
-            int initialBlocks = (safeMaxTokens / tokensPerBlock) * numLayers + 64;
-            
-            blockManager.initialize(tokensPerBlock, numKVHeads, headDim, initialBlocks, storageType);
-
-            for (int i = 0; i < numLayers; i++) {
-                blockTables.put(i, new java.util.ArrayList<>());
-                // Allocate first block
-                appendBlock(i);
+            if (maxSeqLen <= 0) {
+                throw new IllegalArgumentException("maxSeqLen must be positive");
             }
-            
-            this.workspace = new ForwardWorkspace();
-            this.workspace.ensureCapacity(config.hiddenSize(), config.hiddenSize(), config.intermediateSize());
+            this.maxSeqLen = maxSeqLen;
+            this.blockManager = Objects.requireNonNull(blockManager, "blockManager");
         }
 
-        public ForwardWorkspace getWorkspace() {
+        /**
+         * Allocates the session's KV storage and forward workspace exactly once.
+         * A failed allocation closes the session and releases every resource acquired
+         * up to the failure point.
+         */
+        public synchronized void allocate(
+                ModelConfig config,
+                tech.kayys.aljabr.safetensor.generation.GenerationConfig genConfig) {
+            requireState(State.NEW, "allocate");
+            Objects.requireNonNull(config, "config");
+            Objects.requireNonNull(genConfig, "genConfig");
+
+            try {
+                this.numLayers = config.numHiddenLayers();
+                this.numKVHeads = config.resolvedMaxKvHeads();
+                this.headDim = config.resolvedMaxHeadDim();
+                this.tokensPerBlock = 16;
+                this.kvQuantization = genConfig.kvCacheQuant();
+
+                BlockManager.KvStorageType storageType =
+                        switch (kvQuantization) {
+                            case INT8 -> BlockManager.KvStorageType.INT8;
+                            case INT4, TURBO -> BlockManager.KvStorageType.INT4;
+                            case NONE -> BlockManager.KvStorageType.FP32;
+                        };
+
+                // Keep the initial reservation bounded; growth is handled by ensureCapacity.
+                int safeMaxTokens = Math.min(maxSeqLen, 4096);
+                int initialBlocks = Math.addExact(
+                        Math.multiplyExact(safeMaxTokens / tokensPerBlock, numLayers), 64);
+
+                blockManager.initialize(tokensPerBlock, numKVHeads, headDim, initialBlocks, storageType);
+
+                for (int layer = 0; layer < numLayers; layer++) {
+                    blockTables.put(layer, new java.util.ArrayList<>());
+                    appendBlock(layer);
+                }
+
+                workspace = new ForwardWorkspace();
+                workspace.ensureCapacity(config.hiddenSize(), config.hiddenSize(), config.intermediateSize());
+                state = State.ALLOCATED;
+            } catch (RuntimeException | Error failure) {
+                state = State.CLOSED;
+                rethrow(cleanup(failure));
+            }
+        }
+
+        public synchronized ForwardWorkspace getWorkspace() {
+            requireAllocated("getWorkspace");
             return workspace;
         }
 
-        public Object getMambaState() {
+        public synchronized Object getMambaState() {
+            ensureNotClosed("getMambaState");
             return mambaState;
         }
 
-        public void setMambaState(Object mambaState) {
+        public synchronized void setMambaState(Object mambaState) {
+            ensureNotClosed("setMambaState");
             this.mambaState = mambaState;
         }
 
         private void appendBlock(int layerIdx) {
             Integer block = blockManager.allocateBlock();
-            if (block != null) {
-                blockTables.get(layerIdx).add(block);
-            } else {
-                throw new RuntimeException("KVCache: Out of physical blocks!");
+            if (block == null) {
+                throw new IllegalStateException("KVCache: Out of physical blocks!");
             }
+            blockTables.get(layerIdx).add(block);
         }
 
-        public List<Integer> getBlockTable(int layerIdx) {
+        public synchronized List<Integer> getBlockTable(int layerIdx) {
+            ensureNotClosed("getBlockTable");
             return blockTables.get(layerIdx);
         }
 
-        /**
-         * Proactively ensure that enough blocks are allocated for the given token
-         * count.
-         * Call this before prefill or decode loops.
-         */
-        public void ensureCapacity(int totalTokensNeeded) {
-            int requiredBlocks = (totalTokensNeeded + tokensPerBlock - 1) / tokensPerBlock;
-            if (totalTokensNeeded <= 0)
+        /** Proactively allocates enough blocks for the requested token count. */
+        public synchronized void ensureCapacity(int totalTokensNeeded) {
+            requireAllocated("ensureCapacity");
+            if (totalTokensNeeded <= 0) {
                 return;
+            }
 
-            for (int i = 0; i < numLayers; i++) {
-                List<Integer> table = blockTables.get(i);
+            long required = ((long) totalTokensNeeded + tokensPerBlock - 1) / tokensPerBlock;
+            int requiredBlocks = Math.toIntExact(required);
+            for (int layer = 0; layer < numLayers; layer++) {
+                List<Integer> table = blockTables.get(layer);
                 while (table.size() < requiredBlocks) {
-                    appendBlock(i);
+                    appendBlock(layer);
                 }
             }
         }
 
-        public void advance(int seqLen) {
-            int prevBlockCount = (currentPos + tokensPerBlock - 1) / tokensPerBlock;
-            if (currentPos == 0)
-                prevBlockCount = 0;
+        public synchronized void advance(int seqLen) {
+            requireAllocated("advance");
+            if (seqLen < 0) {
+                throw new IllegalArgumentException("seqLen must not be negative");
+            }
 
-            this.currentPos += seqLen;
+            int previousPosition = currentPos;
+            int nextPosition = Math.addExact(currentPos, seqLen);
+            long previousBlocks = ((long) previousPosition + tokensPerBlock - 1) / tokensPerBlock;
+            long nextBlocks = ((long) nextPosition + tokensPerBlock - 1) / tokensPerBlock;
 
-            int newBlockCount = (currentPos + tokensPerBlock - 1) / tokensPerBlock;
-
-            // Allocate new blocks if we crossed a boundary
-            if (newBlockCount > prevBlockCount) {
-                for (int i = 0; i < numLayers; i++) {
-                    for (int b = prevBlockCount; b < newBlockCount; b++) {
-                        if (b >= blockTables.get(i).size()) {
-                            appendBlock(i);
-                        }
+            currentPos = nextPosition;
+            for (int layer = 0; layer < numLayers; layer++) {
+                List<Integer> table = blockTables.get(layer);
+                for (long block = previousBlocks; block < nextBlocks; block++) {
+                    if (block >= table.size()) {
+                        appendBlock(layer);
                     }
                 }
             }
         }
 
-        public int currentPos() {
+        public synchronized int currentPos() {
+            requireAllocated("currentPos");
             return currentPos;
         }
 
-        public int tokensPerBlock() {
+        public synchronized int tokensPerBlock() {
+            requireAllocated("tokensPerBlock");
             return tokensPerBlock;
         }
 
-        public int headDim() {
+        public synchronized int headDim() {
+            requireAllocated("headDim");
             return headDim;
         }
 
-        public int numKVHeads() {
+        public synchronized int numKVHeads() {
+            requireAllocated("numKVHeads");
             return numKVHeads;
         }
 
-        public java.lang.foreign.MemorySegment getRawKPool() {
+        public synchronized java.lang.foreign.MemorySegment getRawKPool() {
+            requireAllocated("getRawKPool");
             return blockManager.getRawKPool();
         }
 
-        public java.lang.foreign.MemorySegment getRawVPool() {
+        public synchronized java.lang.foreign.MemorySegment getRawVPool() {
+            requireAllocated("getRawVPool");
             return blockManager.getRawVPool();
         }
 
-        public int getBlockForToken(int layerIdx, int tokenIdx) {
+        public synchronized int getBlockForToken(int layerIdx, int tokenIdx) {
+            requireAllocated("getBlockForToken");
             List<Integer> table = blockTables.get(layerIdx);
             if (table == null || tokenIdx < 0) {
                 return -1;
             }
-            int blockIdxInTable = tokenIdx / tokensPerBlock;
-            while (blockIdxInTable >= table.size()) {
+            int blockIndex = tokenIdx / tokensPerBlock;
+            while (blockIndex >= table.size()) {
                 appendBlock(layerIdx);
             }
-            return table.get(blockIdxInTable);
+            return table.get(blockIndex);
         }
 
-        public List<Integer> getBlockIndices(int layerIdx) {
+        public synchronized List<Integer> getBlockIndices(int layerIdx) {
+            ensureNotClosed("getBlockIndices");
             return blockTables.get(layerIdx);
         }
 
-        public BlockManager blockManager() {
+        public synchronized BlockManager blockManager() {
+            ensureNotClosed("blockManager");
             return blockManager;
         }
 
-        public Map<Integer, SharedKvState> sharedKvStates() {
+        public synchronized Map<Integer, SharedKvState> sharedKvStates() {
+            ensureNotClosed("sharedKvStates");
             return sharedKvStates;
         }
 
-        public void clearSharedKvStates() {
-            for (SharedKvState state : sharedKvStates.values()) {
-                if (state != null) {
-                    state.close();
+        public synchronized void clearSharedKvStates() {
+            ensureNotClosed("clearSharedKvStates");
+            closeSharedKvStates();
+        }
+
+        private void closeSharedKvStates() {
+            Throwable failure = null;
+            for (SharedKvState sharedState : sharedKvStates.values()) {
+                if (sharedState != null) {
+                    try {
+                        sharedState.close();
+                    } catch (Throwable closeFailure) {
+                        failure = combine(failure, closeFailure);
+                    }
                 }
             }
             sharedKvStates.clear();
+            if (failure != null) {
+                rethrow(failure);
+            }
         }
 
-        public tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization kvQuantization() {
+        public synchronized tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization
+                kvQuantization() {
+            requireAllocated("kvQuantization");
             return kvQuantization;
         }
 
-        public boolean isQuantizedInt8() {
-            return kvQuantization == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT8;
+        public synchronized boolean isQuantizedInt8() {
+            requireAllocated("isQuantizedInt8");
+            return kvQuantization
+                    == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT8;
         }
 
-        public boolean isQuantizedInt4() {
-            return kvQuantization == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT4
-                    || kvQuantization == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.TURBO;
+        public synchronized boolean isQuantizedInt4() {
+            requireAllocated("isQuantizedInt4");
+            return kvQuantization
+                            == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.INT4
+                    || kvQuantization
+                            == tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.TURBO;
         }
 
-        public boolean isQuantized() {
-            return kvQuantization != tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
+        public synchronized boolean isQuantized() {
+            requireAllocated("isQuantized");
+            return kvQuantization
+                    != tech.kayys.aljabr.safetensor.generation.GenerationConfig.KvCacheQuantization.NONE;
         }
 
         @Override
-        public void close() {
-            if (workspace != null) workspace.close();
-            clearSharedKvStates();
-            blockTables.values().forEach(list -> {
-                list.forEach(blockManager::freeBlock);
-            });
-            blockTables.clear();
-            blockManager.close();
+        public synchronized void close() {
+            if (state == State.CLOSED) {
+                return;
+            }
+            state = State.CLOSED;
+            rethrow(cleanup(null));
         }
 
-        // Legacy compatibility - will be replaced by PagedAttention
+        private Throwable cleanup(Throwable failure) {
+            if (workspace != null) {
+                try {
+                    workspace.close();
+                } catch (Throwable closeFailure) {
+                    failure = combine(failure, closeFailure);
+                }
+                workspace = null;
+            }
+
+            for (SharedKvState sharedState : sharedKvStates.values()) {
+                if (sharedState != null) {
+                    try {
+                        sharedState.close();
+                    } catch (Throwable closeFailure) {
+                        failure = combine(failure, closeFailure);
+                    }
+                }
+            }
+            sharedKvStates.clear();
+            blockTables.clear();
+            mambaState = null;
+
+            try {
+                // The block manager is session-owned; closing it releases all leases
+                // and invalidates every MemorySegment view backed by its arena.
+                blockManager.close();
+            } catch (Throwable closeFailure) {
+                failure = combine(failure, closeFailure);
+            }
+            return failure;
+        }
+
+        private void requireAllocated(String operation) {
+            requireState(State.ALLOCATED, operation);
+        }
+
+        private void ensureNotClosed(String operation) {
+            if (state == State.CLOSED) {
+                throw new IllegalStateException("Cannot " + operation + " on a closed KV cache session");
+            }
+        }
+
+        private void requireState(State expected, String operation) {
+            if (state != expected) {
+                throw new IllegalStateException(
+                        "Cannot " + operation + " when KV cache session is " + state
+                                + " (expected " + expected + ")");
+            }
+        }
+
+        private static Throwable combine(Throwable primary, Throwable additional) {
+            if (primary == null) {
+                return additional;
+            }
+            if (primary != additional) {
+                primary.addSuppressed(additional);
+            }
+            return primary;
+        }
+
+        private static void rethrow(Throwable failure) {
+            if (failure == null) {
+                return;
+            }
+            if (failure instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("KV cache session cleanup failed", failure);
+        }
+
+        // Legacy compatibility - will be replaced by PagedAttention.
         public AccelTensor keyCache(int layerIdx) {
             throw new UnsupportedOperationException("KVCache is now paged. Use getBlockTable().");
         }
