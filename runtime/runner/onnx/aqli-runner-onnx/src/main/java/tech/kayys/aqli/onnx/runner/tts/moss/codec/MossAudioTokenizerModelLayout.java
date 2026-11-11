@@ -8,6 +8,8 @@ import java.util.stream.Stream;
 
 /** Resolves the on-disk layout of the MOSS audio-tokenizer companion model. */
 public final class MossAudioTokenizerModelLayout {
+    public static final String REPOSITORY_ID = "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
+    public static final String MODEL_SPEC = "hf:" + REPOSITORY_ID;
     public static final String METADATA_FILE_NAME = "codec_browser_onnx_meta.json";
 
     private MossAudioTokenizerModelLayout() {
