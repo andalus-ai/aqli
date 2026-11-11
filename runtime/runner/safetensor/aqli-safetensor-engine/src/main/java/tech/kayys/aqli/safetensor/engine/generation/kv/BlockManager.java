@@ -53,6 +53,10 @@ public final class BlockManager implements AutoCloseable {
         this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
     }
 
+    KvCacheMemoryBudget memoryBudget() {
+        return memoryBudget;
+    }
+
     public synchronized void initialize(
             int tokensPerBlock, int numHeads, int headDim, int maxBlocks) {
         initialize(tokensPerBlock, numHeads, headDim, maxBlocks, KvStorageType.FP32);
