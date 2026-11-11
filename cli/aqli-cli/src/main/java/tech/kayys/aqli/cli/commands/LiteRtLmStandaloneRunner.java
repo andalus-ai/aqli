@@ -495,6 +495,7 @@ public final class LiteRtLmStandaloneRunner {
                     args.temperature(),
                     args.maxTokens(),
                     timeout(),
+                    "LiteRT-LM fast path timed out",
                     delta -> {
                         out.print(delta);
                         out.flush();
@@ -1316,6 +1317,7 @@ public final class LiteRtLmStandaloneRunner {
                 args.temperature(),
                 maxWarmupTokens,
                 timeout(),
+                "LiteRT-LM prewarm timed out",
                 null);
     }
 
