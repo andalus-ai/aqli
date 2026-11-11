@@ -23,6 +23,9 @@ import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxGraphResolver;
+
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
@@ -46,20 +49,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class MossTtsOnnxRunner {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String ORT_JAVA_VERSIONED_MAC_DYLIB = "libonnxruntime.1.19.2.dylib";
-    private static final String OPTIMIZED_CACHE_ENABLED_PROPERTY = "aqli.onnx.optimized-model-cache.enabled";
-    private static final String OPTIMIZED_CACHE_ENABLED_ENV = "AQLI_ONNX_OPTIMIZED_MODEL_CACHE";
-    private static final String OPTIMIZED_CACHE_DIR_PROPERTY = "aqli.onnx.optimized-model-cache.dir";
-    private static final String OPTIMIZED_CACHE_DIR_ENV = "AQLI_ONNX_OPTIMIZED_MODEL_CACHE_DIR";
-    private static final String SESSION_CACHE_ENABLED_PROPERTY = "aqli.onnx.moss-tts.session-cache.enabled";
-    private static final String SESSION_CACHE_ENABLED_ENV = "AQLI_ONNX_MOSS_TTS_SESSION_CACHE";
-    private static final String SESSION_CACHE_MAX_ENTRIES_PROPERTY = "aqli.onnx.moss-tts.session-cache.max-entries";
-    private static final String SESSION_CACHE_MAX_ENTRIES_ENV = "AQLI_ONNX_MOSS_TTS_SESSION_CACHE_MAX_ENTRIES";
-    private static final String ASSET_CACHE_ENABLED_PROPERTY = "aqli.onnx.moss-tts.asset-cache.enabled";
-    private static final String ASSET_CACHE_ENABLED_ENV = "AQLI_ONNX_MOSS_TTS_ASSET_CACHE";
-    private static final String ASSET_CACHE_MAX_ENTRIES_PROPERTY = "aqli.onnx.moss-tts.asset-cache.max-entries";
-    private static final String ASSET_CACHE_MAX_ENTRIES_ENV = "AQLI_ONNX_MOSS_TTS_ASSET_CACHE_MAX_ENTRIES";
-    private static final String ORT_LOG_LEVEL_PROPERTY = "aqli.onnx.log-level";
-    private static final String ORT_LOG_LEVEL_ENV = "AQLI_ONNX_LOG_LEVEL";
     private static final MossTtsProgressListener NOOP_PROGRESS_LISTENER = progress -> {
     };
     private static final MossTtsPcmChunkListener NOOP_PCM_CHUNK_LISTENER = chunk -> {
@@ -332,58 +321,22 @@ public class MossTtsOnnxRunner {
     }
 
     private static boolean mossSessionCacheEnabled() {
-        String raw = firstNonBlank(
-                System.getProperty(SESSION_CACHE_ENABLED_PROPERTY),
-                System.getenv(SESSION_CACHE_ENABLED_ENV),
-                "true");
-        return !Set.of("0", "false", "no", "off", "disable", "disabled")
-                .contains(raw.trim().toLowerCase(Locale.ROOT));
+        return MossTtsCacheSettings.load().sessionCacheEnabled();
     }
 
     private static int mossSessionCacheMaxEntries() {
-        String raw = firstNonBlank(
-                System.getProperty(SESSION_CACHE_MAX_ENTRIES_PROPERTY),
-                System.getenv(SESSION_CACHE_MAX_ENTRIES_ENV),
-                "2");
-        try {
-            return Math.max(0, Integer.parseInt(raw.trim()));
-        } catch (NumberFormatException e) {
-            return 2;
-        }
+        return MossTtsCacheSettings.load().sessionCacheMaxEntries();
     }
 
     private static boolean mossAssetCacheEnabled() {
-        String raw = firstNonBlank(
-                System.getProperty(ASSET_CACHE_ENABLED_PROPERTY),
-                System.getenv(ASSET_CACHE_ENABLED_ENV),
-                "true");
-        return !Set.of("0", "false", "no", "off", "disable", "disabled")
-                .contains(raw.trim().toLowerCase(Locale.ROOT));
+        return MossTtsCacheSettings.load().assetCacheEnabled();
     }
 
     private static int mossAssetCacheMaxEntries() {
-        String raw = firstNonBlank(
-                System.getProperty(ASSET_CACHE_MAX_ENTRIES_PROPERTY),
-                System.getenv(ASSET_CACHE_MAX_ENTRIES_ENV),
-                "4");
-        try {
-            return Math.max(0, Integer.parseInt(raw.trim()));
-        } catch (NumberFormatException e) {
-            return 4;
-        }
+        return MossTtsCacheSettings.load().assetCacheMaxEntries();
     }
 
-    private static String firstNonBlank(String... values) {
-        if (values == null) {
-            return "";
-        }
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value.trim();
-            }
-        }
-        return "";
-    }
+
 
     @PreDestroy
     public void close() {
@@ -2065,15 +2018,7 @@ public class MossTtsOnnxRunner {
     }
 
     private static String ortLoggingLevelName() {
-        String raw = firstNonBlank(
-                System.getProperty(ORT_LOG_LEVEL_PROPERTY),
-                System.getenv(ORT_LOG_LEVEL_ENV),
-                "error");
-        String normalized = raw.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "verbose", "info", "warning", "warn", "error", "fatal" -> normalized;
-            default -> "error";
-        };
+        return MossTtsCacheSettings.load().onnxRuntimeLogLevel();
     }
 
     public record MossTtsAudio(
@@ -2495,7 +2440,7 @@ public class MossTtsOnnxRunner {
             }
             int prepared = 0;
             try {
-                List<Path> sidecars = externalDataSidecars(modelPath);
+                List<Path> sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(modelPath);
                 for (Path source : sidecars) {
                     try {
                         linkOrCopySidecar(source, cacheDir.resolve(source.getFileName().toString()));
@@ -2521,101 +2466,32 @@ public class MossTtsOnnxRunner {
         }
 
         private static Path optimizedModelCachePath(Path modelPath) {
-            if (!optimizedModelCacheEnabled()) {
+            MossTtsCacheSettings settings = MossTtsCacheSettings.load();
+            if (!settings.optimizedGraphCacheEnabled()) {
                 return null;
             }
             try {
-                String root = firstNonBlank(
-                        System.getProperty(OPTIMIZED_CACHE_DIR_PROPERTY),
-                        System.getenv(OPTIMIZED_CACHE_DIR_ENV));
-                Path cacheRoot = root.isBlank()
-                        ? Path.of(System.getProperty("user.home"), ".aqli", "cache", "onnx", "optimized", "moss-tts")
-                        : Path.of(root).resolve("moss-tts");
-                String fingerprint = optimizedModelFingerprint(modelPath);
-                String filename = sanitizeCacheFilename(modelPath.getFileName().toString())
-                        + "-" + fingerprint.substring(0, 16) + ".optimized.onnx";
-                return cacheRoot.resolve(filename);
+                return MossTtsOnnxGraphResolver.optimizedCachePath(modelPath, settings.optimizedGraphCacheRoot());
             } catch (Exception e) {
                 return null;
             }
         }
 
-        private static boolean optimizedModelCacheEnabled() {
-            String raw = firstNonBlank(
-                    System.getProperty(OPTIMIZED_CACHE_ENABLED_PROPERTY),
-                    System.getenv(OPTIMIZED_CACHE_ENABLED_ENV),
-                    "true");
-            return !Set.of("0", "false", "no", "off", "disable", "disabled")
-                    .contains(raw.trim().toLowerCase(Locale.ROOT));
-        }
 
-        private static String optimizedModelFingerprint(Path modelPath) throws Exception {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            updateDigestLine(digest, "os=" + System.getProperty("os.name", ""));
-            updateDigestLine(digest, "arch=" + System.getProperty("os.arch", ""));
-            updateDigestLine(digest, "runtime=ort-java");
-            updateDigestLine(digest, "optimization=all-opt");
-            updateDigestLine(digest, "backend=cpu");
-            updateGraphIdentityDigest(digest, modelPath);
-            return HexFormat.of().formatHex(digest.digest());
-        }
 
-        private static void updateGraphIdentityDigest(MessageDigest digest, Path modelPath) throws Exception {
-            updateFileIdentityDigest(digest, "onnx", modelPath);
-            List<Path> sidecars = externalDataSidecars(modelPath);
-            updateDigestLine(digest, "external_data_sidecars=" + sidecars.size());
-            for (Path sidecar : sidecars) {
-                updateFileIdentityDigest(digest, "data", sidecar);
-            }
-        }
 
-        private static void updateFileIdentityDigest(MessageDigest digest, String kind, Path path) throws Exception {
-            Path modelPath = path.toAbsolutePath().normalize();
-            updateDigestLine(digest, String.join("\t",
-                    kind,
-                    modelPath.toRealPath().toString(),
-                    String.valueOf(Files.size(modelPath)),
-                    String.valueOf(Files.getLastModifiedTime(modelPath).toMillis())));
-        }
 
-        private static void updateDigestLine(MessageDigest digest, String text) {
-            digest.update(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            digest.update((byte) '\n');
-        }
 
-        private static List<Path> externalDataSidecars(Path modelPath) throws Exception {
-            Path sourceDir = modelPath.toAbsolutePath().normalize().getParent();
-            if (sourceDir == null || !Files.isDirectory(sourceDir)) {
-                return List.of();
-            }
-            try (var stream = Files.list(sourceDir)) {
-                return stream
-                        .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(".data"))
-                        .sorted((left, right) -> left.getFileName().toString()
-                                .compareTo(right.getFileName().toString()))
-                        .toList();
-            }
-        }
 
-        private static String sanitizeCacheFilename(String value) {
-            String normalized = value == null ? "model" : value.toLowerCase(Locale.ROOT)
-                    .replaceAll("[^a-z0-9._-]+", "-")
-                    .replaceAll("[-_.]{2,}", "-")
-                    .replaceAll("^[-_.]+|[-_.]+$", "");
-            return normalized.isBlank() ? "model" : normalized;
-        }
 
-        private static String firstNonBlank(String... values) {
-            if (values == null) {
-                return "";
-            }
-            for (String value : values) {
-                if (value != null && !value.isBlank()) {
-                    return value.trim();
-                }
-            }
-            return "";
-        }
+
+
+
+
+
+
+
+
 
         @Override
         public void close() {
