@@ -72,6 +72,27 @@ class OptimizedCacheDirectoryScannerTest {
     }
 
     @Test
+    void doesNotClassifyAnotherSourceDirectoryGraphAsStaleByFilenamePrefix() throws Exception {
+        Path cacheRoot = Files.createDirectory(tempDir.resolve("cache"));
+        Path firstScope = Files.createDirectory(cacheRoot.resolve("source-first"));
+        Path secondScope = Files.createDirectory(cacheRoot.resolve("source-second"));
+        Path current = Files.writeString(firstScope.resolve("moss_tts_prefill-current.optimized.onnx"), "current");
+        Path otherModel = Files.writeString(secondScope.resolve("moss_tts_prefill-old.optimized.onnx"), "other");
+
+        OptimizedCacheDirectoryScanner.Stats stats =
+                OptimizedCacheDirectoryScanner.scan(
+                        cacheRoot,
+                        Set.of(current.toAbsolutePath().normalize()),
+                        Set.of("moss_tts_prefill-", "source-first/moss_tts_prefill-"));
+
+        assertEquals(2, stats.optimizedGraphFiles());
+        assertEquals(1, stats.currentOptimizedGraphFiles());
+        assertEquals(0, stats.staleOptimizedGraphFiles());
+        assertEquals(1, stats.unrelatedOptimizedGraphFiles());
+        assertEquals(otherModel.toAbsolutePath().normalize(), stats.unrelatedOptimizedGraphPaths().get(0));
+    }
+
+    @Test
     void marksSidecarsPruneableOnlyWhenNoOptimizedGraphsRemainAfterStaleCleanup() throws Exception {
         Path cacheRoot = Files.createDirectory(tempDir.resolve("cache"));
         Files.writeString(cacheRoot.resolve("tts-prefill-old.optimized.onnx"), "stale");

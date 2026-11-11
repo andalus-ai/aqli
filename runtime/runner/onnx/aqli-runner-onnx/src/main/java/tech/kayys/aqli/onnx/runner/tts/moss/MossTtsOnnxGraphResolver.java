@@ -79,6 +79,16 @@ public final class MossTtsOnnxGraphResolver {
         return sanitizeCacheFilename(modelPath.getFileName().toString()) + "-";
     }
 
+    /**
+     * Prefix for entries in the new source-scoped layout. The plain filename
+     * prefix remains available to recognize legacy root-level cache entries.
+     */
+    public static String cacheEntryPrefix(Path modelPath, Path cacheRoot) throws Exception {
+        Path relativeScope = cacheRoot.toAbsolutePath().normalize()
+                .relativize(cacheScopeDirectory(modelPath, cacheRoot).toAbsolutePath().normalize());
+        return relativeScope.resolve(cacheFilenamePrefix(modelPath)).toString();
+    }
+
     public static List<Path> externalDataSidecars(Path modelPath) throws Exception {
         Path sourceDir = modelPath.toAbsolutePath().normalize().getParent();
         if (sourceDir == null || !Files.isDirectory(sourceDir)) {

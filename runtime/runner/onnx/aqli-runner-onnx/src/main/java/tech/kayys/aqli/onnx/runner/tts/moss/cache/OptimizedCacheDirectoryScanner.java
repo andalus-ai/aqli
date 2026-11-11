@@ -77,7 +77,7 @@ public final class OptimizedCacheDirectoryScanner {
                 Path normalized = file.toAbsolutePath().normalize();
                 if (currentOptimizedPaths.contains(normalized)) {
                     currentOptimizedGraphFiles++;
-                } else if (hasOptimizedCachePrefix(filename, currentPrefixes)) {
+                } else if (hasOptimizedCachePrefix(root.relativize(normalized).toString(), currentPrefixes)) {
                     staleOptimizedGraphFiles++;
                     staleBytes += safeSize(file);
                     stalePaths.add(file.toAbsolutePath().normalize());
