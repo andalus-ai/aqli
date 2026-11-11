@@ -31,10 +31,6 @@ public class KvCacheMemoryBudget {
         this(maxBytes, true);
     }
 
-    KvCacheMemoryBudget(long maxBytes) {
-        this(maxBytes, true);
-    }
-
     private KvCacheMemoryBudget(long maxBytes, boolean validate) {
         if (validate && maxBytes <= 0) {
             throw new IllegalArgumentException("KV cache native memory budget must be positive");
