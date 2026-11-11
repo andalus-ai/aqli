@@ -12,11 +12,11 @@ public final class LiteRTTokenStreamLimiter {
     private boolean inToken;
     private boolean atLimit;
 
-public LiteRTTokenStreamLimiter(int maxTokens) {
+    public LiteRTTokenStreamLimiter(int maxTokens) {
         this.maxTokens = Math.max(1, maxTokens);
     }
 
-public String offer(String chunk) {
+    public String offer(String chunk) {
         if (chunk == null || chunk.isEmpty() || atLimit) {
             return "";
         }
@@ -47,11 +47,11 @@ public String offer(String chunk) {
         return delta.toString();
     }
 
-public boolean atLimit() {
+    public boolean atLimit() {
         return atLimit;
     }
 
-public int emittedTokenCount() {
+    public int emittedTokenCount() {
         return emittedTokenCount;
     }
 }
