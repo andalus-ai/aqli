@@ -10,18 +10,19 @@ import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
+import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
+
 /**
  * Resolves the ONNX graph set and optimized-cache identity for a local MOSS TTS model.
  */
 public final class MossTtsOnnxGraphResolver {
-    private static final String CODEC_META_FILE = "codec_browser_onnx_meta.json";
-
     private MossTtsOnnxGraphResolver() {
     }
 
     public static List<Graph> resolveGraphs(Path modelDir, Path codecDir) throws Exception {
-        JsonNode ttsMeta = new ObjectMapper().readTree(modelDir.resolve("tts_browser_onnx_meta.json").toFile());
-        JsonNode codecMeta = new ObjectMapper().readTree(codecDir.resolve(CODEC_META_FILE).toFile());
+        JsonNode ttsMeta = new ObjectMapper().readTree(modelDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME).toFile());
+        JsonNode codecMeta = new ObjectMapper().readTree(codecDir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME).toFile());
         JsonNode ttsFiles = ttsMeta.path("files");
         JsonNode codecFiles = codecMeta.path("files");
         return List.of(

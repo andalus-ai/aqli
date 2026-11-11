@@ -24,6 +24,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
+import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
+import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
 
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -453,9 +455,9 @@ public class MossTtsOnnxRunner {
                 boolean cacheEnabled,
                 int maxEntries,
                 int entries) throws Exception {
-            JsonNode manifest = readJson(ttsDir.resolve("browser_poc_manifest.json"));
-            JsonNode ttsMeta = readJson(ttsDir.resolve("tts_browser_onnx_meta.json"));
-            JsonNode codecMeta = readJson(codecDir.resolve("codec_browser_onnx_meta.json"));
+            JsonNode manifest = readJson(ttsDir.resolve(MossTtsModelLayout.MANIFEST_FILE_NAME));
+            JsonNode ttsMeta = readJson(ttsDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME));
+            JsonNode codecMeta = readJson(codecDir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME));
             MossSentencePieceTokenizer tokenizer = MossSentencePieceTokenizer.load(
                     ttsDir.resolve(manifest.path("model_files").path("tokenizer_model").asText("tokenizer.model")));
             return new MossModelAssets(
@@ -471,12 +473,12 @@ public class MossTtsOnnxRunner {
         }
 
         private static String cacheKey(Path ttsDir, Path codecDir) throws Exception {
-            Path manifestPath = ttsDir.resolve("browser_poc_manifest.json");
+            Path manifestPath = ttsDir.resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
             JsonNode manifest = readJson(manifestPath);
             List<Path> paths = List.of(
                     manifestPath,
-                    ttsDir.resolve("tts_browser_onnx_meta.json"),
-                    codecDir.resolve("codec_browser_onnx_meta.json"),
+                    ttsDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME),
+                    codecDir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME),
                     ttsDir.resolve(manifest.path("model_files").path("tokenizer_model").asText("tokenizer.model")));
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             for (Path path : paths) {
