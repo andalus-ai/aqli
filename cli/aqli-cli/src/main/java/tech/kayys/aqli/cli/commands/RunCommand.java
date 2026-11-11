@@ -73,6 +73,7 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -2000,24 +2001,15 @@ public class RunCommand implements Runnable {
                 System.err.println("Error: audio metadata replay file not found: " + audioMetadataReplayPath);
                 return false;
             }
-            JsonNode root = new ObjectMapper().readTree(sidecarPath.toFile());
-            if (root == null || !root.isObject()) {
+            AudioMetadataReplayParser.Plan plan = new AudioMetadataReplayParser().parse(sidecarPath);
+            if (plan == null) {
                 System.err.println("Error: invalid audio metadata replay file: " + audioMetadataReplayPath);
                 return false;
             }
-
             boolean outputExplicit = outputPath != null && !outputPath.isBlank();
-            String replayOutputPath = null;
-            JsonNode replayArgs = root.get("replay_args");
-            if (replayArgs != null && replayArgs.isArray()) {
-                replayOutputPath = applyAudioMetadataReplayArgs(replayArgs);
-            }
-            String payloadOutputPath = applyAudioMetadataReplayPayload(root);
-            if (replayOutputPath == null || replayOutputPath.isBlank()) {
-                replayOutputPath = payloadOutputPath;
-            }
+            applyAudioMetadataReplayPlan(plan);
             if (!outputExplicit && (outputPath == null || outputPath.isBlank())) {
-                outputPath = defaultAudioReplayOutputPath(replayOutputPath, audioFormat);
+                outputPath = defaultAudioReplayOutputPath(plan.outputPath(), audioFormat);
             }
             if (!ttsVoicesJsonOutput()) {
                 System.out.println("Loaded TTS replay metadata: " + sidecarPath.toAbsolutePath().normalize());
@@ -2029,207 +2021,38 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private String applyAudioMetadataReplayArgs(JsonNode replayArgs) {
-        String replayOutputPath = null;
-        for (int i = 0; i < replayArgs.size(); i++) {
-            String flag = jsonNodeText(replayArgs.get(i));
-            if (flag == null || !flag.startsWith("--")) {
-                continue;
-            }
-            switch (flag) {
-                case "--model" -> {
-                    applyReplayModelTarget(replayArgValue(replayArgs, ++i, flag));
-                }
-                case "--modelDir" -> {
-                    if (modelDir == null || modelDir.isBlank()) {
-                        modelDir = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--modelFile" -> {
-                    if (modelFile == null || modelFile.isBlank()) {
-                        modelFile = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--model-path" -> {
-                    if (modelPath == null || modelPath.isBlank()) {
-                        modelPath = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--provider" -> {
-                    if (providerId == null || providerId.isBlank()) {
-                        providerId = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--runner" -> {
-                    if (runner == null || runner.isBlank()) {
-                        runner = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--prompt" -> {
-                    if (prompt == null || prompt.isBlank()) {
-                        prompt = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--voice", "--tts-voice" -> {
-                    if (ttsVoice == null || ttsVoice.isBlank()) {
-                        ttsVoice = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--audio-format", "--tts-audio-format" -> {
-                    if (audioFormat == null || audioFormat.isBlank()) {
-                        audioFormat = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--seed" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (seed == null && !randomTtsSeed) {
-                        seed = parseReplayLong(flag, value);
-                    }
-                }
-                case "--output", "-o" -> {
-                    replayOutputPath = replayArgValue(replayArgs, ++i, flag);
-                }
-                case "--audio-quality", "--tts-audio-quality" -> {
-                    if (audioQuality == null || audioQuality.isBlank()) {
-                        audioQuality = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--audio-bitrate", "--audio-bitrate-kbps", "--tts-bitrate", "--tts-bitrate-kbps" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (audioBitrateKbps == null) {
-                        audioBitrateKbps = parseReplayInt(flag, value);
-                    }
-                }
-                case "--audio-channels", "--tts-audio-channels" -> {
-                    if (audioChannels == null || audioChannels.isBlank()) {
-                        audioChannels = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--tts-codec-decode", "--codec-decode" -> {
-                    if (ttsCodecDecode == null || ttsCodecDecode.isBlank()) {
-                        ttsCodecDecode = replayArgValue(replayArgs, ++i, flag);
-                    } else {
-                        i++;
-                    }
-                }
-                case "--tts-max-frames", "--max-frames" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (ttsMaxFrames == null) {
-                        ttsMaxFrames = parseReplayInt(flag, value);
-                    }
-                }
-                case "--tts-max-seconds", "--max-seconds", "--tts-duration" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (ttsMaxSeconds == null) {
-                        ttsMaxSeconds = parseReplayDouble(flag, value);
-                    }
-                }
-                case "--audio-gain-db", "--tts-gain-db" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (audioGainDb == null) {
-                        audioGainDb = parseReplayDouble(flag, value);
-                    }
-                }
-                case "--audio-peak-db", "--audio-peak-dbfs", "--tts-peak-db" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (audioPeakDb == null) {
-                        audioPeakDb = parseReplayDouble(flag, value);
-                    }
-                }
-                case "--audio-fade-ms", "--tts-fade-ms" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (audioFadeMs == null) {
-                        audioFadeMs = parseReplayDouble(flag, value);
-                    }
-                }
-                case "--audio-trim-db", "--audio-trim-dbfs", "--tts-trim-db" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (audioTrimDbfs == null) {
-                        audioTrimDbfs = parseReplayDouble(flag, value);
-                    }
-                }
-                case "--audio-trim-padding-ms", "--tts-trim-padding-ms" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (audioTrimPaddingMs == null) {
-                        audioTrimPaddingMs = parseReplayDouble(flag, value);
-                    }
-                }
-                case "--flac-compression" -> {
-                    String value = replayArgValue(replayArgs, ++i, flag);
-                    if (flacCompression == null) {
-                        flacCompression = parseReplayInt(flag, value);
-                    }
-                }
-                case "--no-audio-polish", "--no-tts-audio-polish" -> disableAudioPolish = true;
-                case "--no-audio-normalize", "--no-tts-audio-normalize" -> disableAudioNormalize = true;
-                case "--audio-trim-silence", "--tts-trim-silence" -> audioTrimSilence = true;
-                default -> {
-                    if (replayFlagTakesValue(flag) && i + 1 < replayArgs.size()) {
-                        i++;
-                    }
-                }
+    private void applyAudioMetadataReplayPlan(AudioMetadataReplayParser.Plan plan) {
+        for (AudioMetadataReplayParser.ReplayOption option : plan.options()) {
+            Object value = option.value();
+            switch (option.option()) {
+                case MODEL -> applyReplayModelTarget((String) value);
+                case MODEL_DIR -> { if (modelDir == null || modelDir.isBlank()) modelDir = (String) value; }
+                case MODEL_FILE -> { if (modelFile == null || modelFile.isBlank()) modelFile = (String) value; }
+                case MODEL_PATH -> { if (modelPath == null || modelPath.isBlank()) modelPath = (String) value; }
+                case PROVIDER -> { if (providerId == null || providerId.isBlank()) providerId = (String) value; }
+                case RUNNER -> { if (runner == null || runner.isBlank()) runner = (String) value; }
+                case PROMPT -> { if (prompt == null || prompt.isBlank()) prompt = (String) value; }
+                case VOICE -> { if (ttsVoice == null || ttsVoice.isBlank()) ttsVoice = (String) value; }
+                case AUDIO_FORMAT -> { if (audioFormat == null || audioFormat.isBlank()) audioFormat = (String) value; }
+                case SEED -> { if (seed == null && !randomTtsSeed) seed = (Long) value; }
+                case OUTPUT -> { /* output path is resolved from the plan after parsing */ }
+                case AUDIO_QUALITY -> { if (audioQuality == null || audioQuality.isBlank()) audioQuality = (String) value; }
+                case AUDIO_BITRATE -> { if (audioBitrateKbps == null) audioBitrateKbps = (Integer) value; }
+                case AUDIO_CHANNELS -> { if (audioChannels == null || audioChannels.isBlank()) audioChannels = (String) value; }
+                case CODEC_DECODE -> { if (ttsCodecDecode == null || ttsCodecDecode.isBlank()) ttsCodecDecode = (String) value; }
+                case MAX_FRAMES -> { if (ttsMaxFrames == null) ttsMaxFrames = (Integer) value; }
+                case MAX_SECONDS -> { if (ttsMaxSeconds == null) ttsMaxSeconds = (Double) value; }
+                case GAIN_DB -> { if (audioGainDb == null) audioGainDb = (Double) value; }
+                case PEAK_DB -> { if (audioPeakDb == null) audioPeakDb = (Double) value; }
+                case FADE_MS -> { if (audioFadeMs == null) audioFadeMs = (Double) value; }
+                case TRIM_DBFS -> { if (audioTrimDbfs == null) audioTrimDbfs = (Double) value; }
+                case TRIM_PADDING_MS -> { if (audioTrimPaddingMs == null) audioTrimPaddingMs = (Double) value; }
+                case FLAC_COMPRESSION -> { if (flacCompression == null) flacCompression = (Integer) value; }
+                case DISABLE_AUDIO_POLISH -> disableAudioPolish = true;
+                case DISABLE_AUDIO_NORMALIZE -> disableAudioNormalize = true;
+                case TRIM_SILENCE -> audioTrimSilence = true;
             }
         }
-        return replayOutputPath;
-    }
-
-    private String applyAudioMetadataReplayPayload(JsonNode root) {
-        applyReplayModelTarget(jsonText(root, "model"));
-        if (providerId == null || providerId.isBlank()) {
-            providerId = jsonText(root, "provider");
-        }
-        if (runner == null || runner.isBlank()) {
-            runner = jsonText(root, "runner");
-        }
-        if (prompt == null || prompt.isBlank()) {
-            prompt = jsonText(root, "prompt");
-        }
-        if (ttsVoice == null || ttsVoice.isBlank()) {
-            ttsVoice = jsonText(root, "voice_selector");
-        }
-        if (audioFormat == null || audioFormat.isBlank()) {
-            audioFormat = jsonText(root, "audio_format");
-        }
-
-        JsonNode metadata = root.get("metadata");
-        if (metadata != null && metadata.isObject()) {
-            if (seed == null && !randomTtsSeed) {
-                String metadataSeed = jsonText(metadata, "tts_seed");
-                if (metadataSeed != null && !metadataSeed.isBlank()) {
-                    seed = parseReplayLong("metadata.tts_seed", metadataSeed);
-                }
-            }
-            if (audioFormat == null || audioFormat.isBlank()) {
-                audioFormat = jsonText(metadata, "audio_format");
-            }
-            if (audioBitrateKbps == null) {
-                String bitrate = jsonText(metadata, "audio_bitrate_kbps");
-                if (bitrate != null && !bitrate.isBlank()) {
-                    audioBitrateKbps = parseReplayInt("metadata.audio_bitrate_kbps", bitrate);
-                }
-            }
-        }
-        return jsonText(root, "output_path");
     }
 
     private void applyReplayModelTarget(String value) {
@@ -2255,31 +2078,6 @@ public class RunCommand implements Runnable {
         modelId = value;
     }
 
-    private static boolean replayFlagTakesValue(String flag) {
-        return Set.of(
-                "--model", "--modelDir", "--modelFile", "--model-path", "--provider", "--runner", "--prompt",
-                "--voice", "--tts-voice", "--audio-format", "--tts-audio-format", "--seed", "--output", "-o",
-                "--audio-quality", "--tts-audio-quality", "--audio-bitrate", "--audio-bitrate-kbps",
-                "--tts-bitrate", "--tts-bitrate-kbps", "--audio-channels", "--tts-audio-channels",
-                "--tts-codec-decode", "--codec-decode", "--tts-max-frames", "--max-frames",
-                "--tts-max-seconds", "--max-seconds", "--tts-duration", "--audio-gain-db", "--tts-gain-db",
-                "--audio-peak-db", "--audio-peak-dbfs", "--tts-peak-db", "--audio-fade-ms", "--tts-fade-ms",
-                "--audio-trim-db", "--audio-trim-dbfs", "--tts-trim-db", "--audio-trim-padding-ms",
-                "--tts-trim-padding-ms", "--flac-compression")
-                .contains(flag);
-    }
-
-    private static String replayArgValue(JsonNode replayArgs, int index, String flag) {
-        if (index >= replayArgs.size()) {
-            throw new IllegalArgumentException("missing value for " + flag);
-        }
-        String value = jsonNodeText(replayArgs.get(index));
-        if (value == null) {
-            throw new IllegalArgumentException("missing value for " + flag);
-        }
-        return value;
-    }
-
     private static String jsonText(JsonNode node, String field) {
         if (node == null || field == null) {
             return null;
@@ -2294,14 +2092,6 @@ public class RunCommand implements Runnable {
         return node.asText();
     }
 
-    private static Long parseReplayLong(String option, String value) {
-        try {
-            return Long.parseLong(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
     private static Long parseOptionalReplayLong(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -2310,22 +2100,6 @@ public class RunCommand implements Runnable {
             return Long.parseLong(value.trim());
         } catch (Exception e) {
             throw new IllegalArgumentException("invalid integer value in replay metadata: " + value);
-        }
-    }
-
-    private static Integer parseReplayInt(String option, String value) {
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
-        }
-    }
-
-    private static Double parseReplayDouble(String option, String value) {
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid " + option + " value in replay metadata: " + value);
         }
     }
 
