@@ -1,6 +1,7 @@
 package tech.kayys.aqli.onnx.runner.tts.moss.cache;
 
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -53,9 +54,9 @@ public final class OptimizedCacheDirectoryScanner {
         List<Path> externalDataSidecarPaths = new ArrayList<>();
         List<Path> stalePaths = new ArrayList<>();
         List<Path> unrelatedPaths = new ArrayList<>();
-        try (var stream = Files.list(root)) {
-            for (Path file : stream.toList()) {
-                if (!Files.isRegularFile(file)) {
+        try (var stream = Files.walk(root, 2)) {
+            for (Path file : stream.filter(path -> !path.equals(root)).toList()) {
+                if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
                     continue;
                 }
                 fileCount++;
@@ -76,7 +77,7 @@ public final class OptimizedCacheDirectoryScanner {
                 Path normalized = file.toAbsolutePath().normalize();
                 if (currentOptimizedPaths.contains(normalized)) {
                     currentOptimizedGraphFiles++;
-                } else if (hasOptimizedCachePrefix(filename, currentPrefixes)) {
+                } else if (hasOptimizedCachePrefix(root.relativize(normalized).toString(), currentPrefixes)) {
                     staleOptimizedGraphFiles++;
                     staleBytes += safeSize(file);
                     stalePaths.add(file.toAbsolutePath().normalize());
@@ -88,10 +89,9 @@ public final class OptimizedCacheDirectoryScanner {
             }
         } catch (Exception ignored) {
         }
-        stalePaths.sort((left, right) -> left.getFileName().toString().compareTo(right.getFileName().toString()));
-        unrelatedPaths.sort((left, right) -> left.getFileName().toString().compareTo(right.getFileName().toString()));
-        externalDataSidecarPaths.sort((left, right) -> left.getFileName().toString()
-                .compareTo(right.getFileName().toString()));
+        stalePaths.sort((left, right) -> left.toString().compareTo(right.toString()));
+        unrelatedPaths.sort((left, right) -> left.toString().compareTo(right.toString()));
+        externalDataSidecarPaths.sort((left, right) -> left.toString().compareTo(right.toString()));
         List<Path> orphanSidecars = optimizedGraphFiles == 0 ? externalDataSidecarPaths : List.of();
         return new Stats(
                 root,

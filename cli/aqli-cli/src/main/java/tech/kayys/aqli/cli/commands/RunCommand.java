@@ -3302,6 +3302,7 @@ public class RunCommand implements Runnable {
         for (MossTtsOnnxGraphResolver.Graph graph : MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecPath)) {
             currentPaths.add(MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
             currentPrefixes.add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
+            currentPrefixes.add(MossTtsOnnxGraphResolver.cacheEntryPrefix(graph.path(), cacheRoot));
         }
         return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
