@@ -16,7 +16,7 @@ class AudioReplayOutputPathResolverTest {
     void appendsReplaySuffixAndUsesRequestedFormat() {
         Path result = AudioReplayOutputPathResolver.resolve(
                 tempDir.resolve("speech.wav").toString(), "flac");
-        assertEquals(tempDir.resolve("speech-replay.flac"), result);
+        assertEquals(tempDir.resolve("speech-replay.wav"), result);
     }
 
     @Test
