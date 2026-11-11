@@ -1,4 +1,5 @@
 package tech.kayys.aqli.cli.commands;
+
 import tech.kayys.aqli.provider.litert.LiteRTRunArguments;
 import tech.kayys.aqli.provider.litert.LiteRTRouteResolver;
 import tech.kayys.aqli.provider.litert.LiteRTDaemonProtocol;
@@ -1258,7 +1259,10 @@ public final class LiteRtLmStandaloneRunner {
         }
     }
 
-    private static boolean handleDaemonClient(Socket socket, LiteRTEngineCache<Engine> engineCache, RouteResolutionCache routeCache) {
+    private static boolean handleDaemonClient(
+            Socket socket,
+            LiteRTEngineCache<Engine> engineCache,
+            RouteResolutionCache routeCache) {
         try {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
@@ -1331,7 +1335,8 @@ public final class LiteRtLmStandaloneRunner {
         Engine.Companion.setNativeMinLogSeverity(nativeLogSeverity());
         int engineMaxNumTokens = maxNumTokens(args);
         String requestedBackend = normalizedBackend(args.backend());
-        try (LiteRTEngineLease<Engine> lease = acquireCachedEngine(engineCache, modelPath, requestedBackend, engineMaxNumTokens)) {
+        try (LiteRTEngineLease<Engine> lease =
+                     acquireCachedEngine(engineCache, modelPath, requestedBackend, engineMaxNumTokens)) {
             int decodeWarmupTokens = prewarmTokenCount();
             int targetWarmupIterations = prewarmIterationCount();
             int decodeWarmupIterations = 0;
@@ -1356,7 +1361,10 @@ public final class LiteRtLmStandaloneRunner {
         }
     }
 
-    private static void warmConversation(LiteRTEngineLease<Engine> lease, LiteRTRunArguments args, int maxWarmupTokens) throws Exception {
+    private static void warmConversation(
+            LiteRTEngineLease<Engine> lease,
+            LiteRTRunArguments args,
+            int maxWarmupTokens) throws Exception {
         SamplerConfig sampler = new SamplerConfig(
                 Math.max(1, args.topK()),
                 Math.max(0.0d, Math.min(1.0d, args.topP())),
