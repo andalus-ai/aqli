@@ -1,6 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
+import tech.kayys.aqli.inference.gguf.LlamaCppGgufLibraryPaths;
 import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
@@ -1113,23 +1114,19 @@ public final class GgufStandaloneRunner {
         return CONFIG.booleanValue("aqli.gguf.fast_run.daemon", false);
     }
 
-    static Path llamaLibDir() {
-        String configured = firstNonBlank(
+    static LlamaCppGgufLibraryPaths llamaCppLibraryPaths() {
+        return LlamaCppGgufLibraryPaths.resolve(
+                Path.of(System.getProperty("user.home")),
                 CONFIG.value("aqli.gguf.fast_run.llama_lib_dir"),
-                System.getenv("AQLI_LLAMA_LIB_DIR"),
-                null);
-        if (configured != null && !configured.isBlank()) {
-            return Path.of(configured).toAbsolutePath();
-        }
-        return Path.of(System.getProperty("user.home"), ".aqli", "libs", "llama").toAbsolutePath();
+                CONFIG.value("aqli.gguf.fast_run.bridge"));
+    }
+
+    static Path llamaLibDir() {
+        return llamaCppLibraryPaths().backendDirectory();
     }
 
     static Path bridgePath() {
-        String configured = CONFIG.value("aqli.gguf.fast_run.bridge");
-        if (configured != null && !configured.isBlank()) {
-            return Path.of(configured).toAbsolutePath();
-        }
-        return Path.of(System.getProperty("user.home"), ".aqli", "libs", "libaqli_gguf_fast.dylib").toAbsolutePath();
+        return llamaCppLibraryPaths().bridgeLibrary();
     }
 
     private static String briefMessage(Throwable throwable) {
