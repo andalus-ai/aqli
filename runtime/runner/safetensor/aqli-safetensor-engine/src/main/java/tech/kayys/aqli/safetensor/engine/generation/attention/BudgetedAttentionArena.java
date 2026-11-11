@@ -39,10 +39,15 @@ final class BudgetedAttentionArena implements AutoCloseable {
         }
         AttentionScratchMemoryBudget.Lease lease = budget.reserve(bytes);
         try {
-            MemorySegment segment = arena.allocate(bytes, alignment);
             leases.add(lease);
-            return segment;
         } catch (RuntimeException | Error failure) {
+            lease.close();
+            throw failure;
+        }
+        try {
+            return arena.allocate(bytes, alignment);
+        } catch (RuntimeException | Error failure) {
+            leases.remove(lease);
             try {
                 lease.close();
             } catch (RuntimeException | Error releaseFailure) {
