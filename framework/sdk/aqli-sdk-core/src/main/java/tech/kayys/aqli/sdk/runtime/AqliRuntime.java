@@ -1,5 +1,6 @@
 package tech.kayys.aqli.sdk.runtime;
 
+import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
 import tech.kayys.aqli.sdk.mcp.McpRegistryManager;
 import tech.kayys.aqli.spi.plugin.AqliPlugin;
@@ -38,7 +39,7 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
     /**
      * List all installed plugins and their metadata.
      */
-    default List<AqliPlugin.PluginMetadata> listPlugins() {
+    default List<AqliPlugin.PluginMetadata> listPlugins() throws SdkException {
         return List.of();
     }
 
@@ -46,7 +47,7 @@ public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperation
      * ML Kit-style feature entrypoint for face recognition, natural language, and
      * document scanning.
      */
-    default AqliFeatureKit featureKit() throws tech.kayys.aqli.sdk.exception.SdkException {
+    default AqliFeatureKit featureKit() throws SdkException {
         throw new UnsupportedOperationException(
                 "Feature kit is not supported by this SDK implementation.");
     }
