@@ -47,6 +47,53 @@ class SharedKvStateTest {
         }
     }
 
+    @Test
+    void accountsBackingAndPackedBuffersAndReleasesThemOnClose() {
+        KvCacheMemoryBudget budget = new KvCacheMemoryBudget(512);
+        SharedKvState state = new SharedKvState(
+                tensor(1.0f, 1, 2, 2, 2),
+                tensor(101.0f, 1, 2, 2, 2),
+                budget);
+        assertEquals(64, budget.reservedBytes());
+
+        state.packedKeyData();
+        assertEquals(128, budget.reservedBytes());
+
+        try (AccelTensor deltaKey = tensor(9.0f, 1, 1, 2, 2);
+                AccelTensor deltaValue = tensor(109.0f, 1, 1, 2, 2)) {
+            state.append(deltaKey, deltaValue);
+        }
+
+        assertEquals(256, budget.reservedBytes());
+        assertEquals(4, state.packedCapacityTokens());
+
+        state.close();
+        assertEquals(0, budget.reservedBytes());
+    }
+
+    @Test
+    void rejectsGrowthWhenPeakOldAndNewBuffersWouldExceedBudget() {
+        KvCacheMemoryBudget budget = new KvCacheMemoryBudget(383);
+        SharedKvState state = new SharedKvState(
+                tensor(1.0f, 1, 2, 2, 2),
+                tensor(101.0f, 1, 2, 2, 2),
+                budget);
+        state.packedKeyData();
+        assertEquals(128, budget.reservedBytes());
+
+        try (AccelTensor deltaKey = tensor(9.0f, 1, 1, 2, 2);
+                AccelTensor deltaValue = tensor(109.0f, 1, 1, 2, 2)) {
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () -> state.append(deltaKey, deltaValue));
+        }
+
+        assertEquals(128, budget.reservedBytes());
+        assertEquals(2, state.packedCapacityTokens());
+        state.close();
+        assertEquals(0, budget.reservedBytes());
+    }
+
     private static AccelTensor tensor(float start, long... shape) {
         AccelTensor tensor = AccelTensor.zeros(shape);
         for (int i = 0; i < tensor.numel(); i++) {
