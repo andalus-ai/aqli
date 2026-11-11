@@ -9,7 +9,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.aqli.sdk.api.AqliSdk;
+import tech.kayys.aqli.sdk.AqliSdk;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.Message;
@@ -17,7 +17,7 @@ import tech.kayys.aqli.spi.Message;
 import java.util.stream.Collectors;
 
 @GrpcService
-public class AqliGrpcService implements AqliService {
+public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(AqliGrpcService.class);
 

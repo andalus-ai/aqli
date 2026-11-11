@@ -43,29 +43,14 @@ public final class GgufSessionCache implements AutoCloseable {
         String reuseKind) implements AutoCloseable {
     public static SessionLease open(
             Path modelPath,
-            int context,
-            int batch,
-            int microBatch,
-            int threads,
-            int batchThreads,
-            int gpuLayers,
-            boolean useMmap,
-            boolean useMlock,
-            boolean swaFull,
+            LlamaCppGgufSessionParameters parameters,
             LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
-                return new SessionLease(LlamaCppGgufSession.open(
-                    modelPath,
-                    context,
-                    batch,
-                    microBatch,
-                    threads,
-                    batchThreads,
-                    gpuLayers,
-                    useMmap,
-                    useMlock,
-                    swaFull,
-                    libraryPaths), false, true, "cold");
-        }
+        return new SessionLease(
+                LlamaCppGgufSession.open(modelPath, parameters, libraryPaths),
+                false,
+                true,
+                "cold");
+    }
 
         @Override
     public void close() {
@@ -98,31 +83,23 @@ public final class GgufSessionCache implements AutoCloseable {
 
     public SessionLease acquire(
             Path modelPath,
-            int context,
-            int batch,
-            int microBatch,
-            int threads,
-            int batchThreads,
-            int gpuLayers,
-            boolean useMmap,
-            boolean useMlock,
-            boolean swaFull) throws Exception {
+            LlamaCppGgufSessionParameters parameters) throws Exception {
         SessionKey key = new SessionKey(
                 modelPath.toAbsolutePath().normalize(),
-                context,
-                batch,
-                microBatch,
-                threads,
-                batchThreads,
-                gpuLayers,
-                useMmap,
-                useMlock,
-                swaFull);
+                parameters.context(),
+                parameters.batch(),
+                parameters.microBatch(),
+                parameters.threads(),
+                parameters.batchThreads(),
+                parameters.gpuLayers(),
+                parameters.useMmap(),
+                parameters.useMlock(),
+                parameters.swaFull());
         LlamaCppGgufSession existing = sessions.get(key);
         if (existing != null) {
             log.accept("session cache hit: " + key.modelPath().getFileName()
-                    + ", context=" + context
-                    + ", gpuLayers=" + gpuLayers
+                    + ", context=" + parameters.context()
+                    + ", gpuLayers=" + parameters.gpuLayers()
                     + ", sessions=" + sessions.size());
             return new SessionLease(existing, true, false, "exact");
         }
@@ -131,21 +108,11 @@ public final class GgufSessionCache implements AutoCloseable {
             return compatible;
         }
         log.accept("session cache miss: " + key.modelPath().getFileName()
-                + ", context=" + context
-                + ", gpuLayers=" + gpuLayers
+                + ", context=" + parameters.context()
+                + ", gpuLayers=" + parameters.gpuLayers()
                 + ", sessions=" + sessions.size());
-        LlamaCppGgufSession opened = LlamaCppGgufSession.open(
-                key.modelPath(),
-                context,
-                batch,
-                microBatch,
-                threads,
-                batchThreads,
-                gpuLayers,
-                useMmap,
-                useMlock,
-                swaFull,
-                libraryPaths);
+        LlamaCppGgufSession opened =
+                LlamaCppGgufSession.open(key.modelPath(), parameters, libraryPaths);
         sessions.put(key, opened);
         evictOverflowSessions();
         return new SessionLease(opened, false, false, "cold");

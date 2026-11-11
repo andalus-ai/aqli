@@ -11,7 +11,6 @@ import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 import java.util.function.Supplier;
@@ -65,7 +64,7 @@ final class FlashAttentionMetalTiledAttention {
             }
         }
 
-        try (Arena arena = Arena.ofConfined()) {
+        try (BudgetedAttentionArena arena = new BudgetedAttentionArena(kvSession.attentionScratchMemoryBudget())) {
             if (!preferPagedMetalFirst && canUseFa4Path) {
                 AccelTensor fa4Out = fa4Gathered.tryCompute(q, kvSession, blockManager, kvLayerIdx, totalTokens,
                         numHeads, numKVHeads, headDim, scale, causal, softCap, batch, seqLen, arena,
@@ -91,6 +90,10 @@ final class FlashAttentionMetalTiledAttention {
                 }
             }
             DirectInferenceProfiler.recordAttentionPath("paged_java");
+            return PagedAttentionVectorAPI.compute(q, null, kvSession, kvLayerIdx, kvLayerIdx, startPos, numHeads,
+                    numKVHeads, headDim, scale, causal, softCap, pagedAttentionOptions, attentionContextBuffer);
+        } catch (tech.kayys.aqli.safetensor.engine.generation.kv.AttentionScratchMemoryBudget.ExceededException exhausted) {
+            DirectInferenceProfiler.recordAttentionPath("paged_java_scratch_budget_fallback");
             return PagedAttentionVectorAPI.compute(q, null, kvSession, kvLayerIdx, kvLayerIdx, startPos, numHeads,
                     numKVHeads, headDim, scale, causal, softCap, pagedAttentionOptions, attentionContextBuffer);
         }

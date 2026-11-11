@@ -19,7 +19,6 @@ publishing {
 }
 
 dependencies {
-    implementation(project(":sdk:aqli-sdk"))
     implementation(project(":sdk:aqli-sdk-core"))
     implementation("io.quarkus:quarkus-arc:3.32.2")
     implementation(project(":core:aqli-core"))

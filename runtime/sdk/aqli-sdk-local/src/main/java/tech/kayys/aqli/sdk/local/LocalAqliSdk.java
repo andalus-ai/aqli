@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
 import tech.kayys.aqli.sdk.config.SdkConfig;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 import tech.kayys.aljabr.spi.model.ModelInfo;
@@ -34,7 +34,7 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
  * operations remain unsupported until their corresponding runtime services
  * are composed here.</p>
  */
-public class LocalAqliSdk implements AqliSdk {
+public class LocalAqliSdk implements AqliRuntime {
 
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
