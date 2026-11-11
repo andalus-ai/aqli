@@ -2370,7 +2370,7 @@ public class MossTtsOnnxRunner {
             boolean staleCacheRebuilt = false;
             if (optimizedPath != null && Files.isRegularFile(optimizedPath)) {
                 try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-                    configureSessionLogging(options, cacheSettings)
+                    configureSessionLogging(options, cacheSettings);
                     options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.NO_OPT);
                     options.setIntraOpNumThreads(Math.max(1, threads));
                     options.setInterOpNumThreads(1);
@@ -2386,7 +2386,7 @@ public class MossTtsOnnxRunner {
                 }
             }
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-                configureSessionLogging(options, cacheSettings)
+                configureSessionLogging(options, cacheSettings);
                 options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
                 options.setIntraOpNumThreads(Math.max(1, threads));
                 options.setInterOpNumThreads(1);
