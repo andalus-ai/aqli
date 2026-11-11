@@ -61,6 +61,10 @@ class MossTtsOnnxCacheDiagnosticsTest {
         assertEquals(5, snapshot.graphs().size());
         assertEquals(1, snapshot.warmGraphCount());
         assertEquals(1, snapshot.graphs().get(0).externalDataSidecars());
+        assertEquals(1, snapshot.graphs().get(1).externalDataSidecars());
+        assertEquals(1, snapshot.graphs().get(2).externalDataSidecars());
+        assertEquals(0, snapshot.graphs().get(3).externalDataSidecars());
+        assertEquals(0, snapshot.graphs().get(4).externalDataSidecars());
         assertEquals(1, snapshot.cacheDirectory().currentOptimizedGraphFiles());
     }
 
