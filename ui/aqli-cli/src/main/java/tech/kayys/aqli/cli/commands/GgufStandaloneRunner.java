@@ -433,8 +433,8 @@ public final class GgufStandaloneRunner {
             int probeRows = Math.max(1, Integer.getInteger("aqli.gguf.java_probe_rows", 16));
             int probeMatVecRows = Math.max(1, Integer.getInteger("aqli.gguf.java_probe_matvec_rows", 4096));
             GgufRuntimeProbe probe = GgufRuntimeProbe.load(modelPath, probeRows, probeMatVecRows);
-            printProfile(label, probe.profile());
-            printRowDotProbe(label, probe);
+            GgufRuntimeProbeReporter.printProfile(System.out, label, probe.profile());
+            GgufRuntimeProbeReporter.printRowDotProbe(System.out, label, probe);
         } catch (Throwable throwable) {
             System.out.printf("%s: unavailable, reason=%s.%n", label, briefMessage(throwable));
             if (fastRunDebug()) {
@@ -1002,16 +1002,8 @@ public final class GgufStandaloneRunner {
         }
     }
 
-    private static void printProfile(String label, GgufRuntimeProfile profile) {
-        GgufRuntimeProbeReporter.printProfile(System.out, label, profile);
-    }
-
     static String javaReadinessSummary(GgufRuntimeProfile profile) {
         return GgufRuntimeProbeReporter.javaReadinessSummary(profile);
-    }
-
-    private static void printRowDotProbe(String label, GgufRuntimeProbe probe) {
-        GgufRuntimeProbeReporter.printRowDotProbe(System.out, label, probe);
     }
 
     static String formatPromptForModel(String prompt, Path modelPath) {
