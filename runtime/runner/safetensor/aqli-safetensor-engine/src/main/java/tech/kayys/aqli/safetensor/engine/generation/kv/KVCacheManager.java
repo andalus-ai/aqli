@@ -35,7 +35,7 @@ public class KVCacheManager {
     }
 
     public KVCacheSession createSession(int maxSeqLen) {
-        return new KVCacheSession(maxSeqLen, new BlockManager(memoryBudget));
+        return new KVCacheSession(maxSeqLen, new BlockManager(memoryBudget), memoryBudget);
     }
 
     public static class KVCacheSession implements AutoCloseable {
@@ -50,6 +50,7 @@ public class KVCacheManager {
         private final int maxSeqLen;
         private final int maxSupportedTokens;
         private final BlockManager blockManager;
+        private final KvCacheMemoryBudget memoryBudget;
         private final Map<Integer, List<Integer>> blockTables = new java.util.concurrent.ConcurrentHashMap<>();
 
         private State state = State.NEW;
@@ -66,12 +67,17 @@ public class KVCacheManager {
         private Object mambaState;
 
         public KVCacheSession(int maxSeqLen, BlockManager blockManager) {
+            this(maxSeqLen, blockManager, KvCacheMemoryBudget.unbounded());
+        }
+
+        KVCacheSession(int maxSeqLen, BlockManager blockManager, KvCacheMemoryBudget memoryBudget) {
             if (maxSeqLen <= 0) {
                 throw new IllegalArgumentException("maxSeqLen must be positive");
             }
             this.maxSeqLen = maxSeqLen;
             this.maxSupportedTokens = Math.min(maxSeqLen, MAX_PREALLOCATED_TOKENS);
             this.blockManager = Objects.requireNonNull(blockManager, "blockManager");
+            this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
         }
 
         /**
@@ -273,6 +279,12 @@ public class KVCacheManager {
         public synchronized BlockManager blockManager() {
             ensureNotClosed("blockManager");
             return blockManager;
+        }
+
+        /** Creates shared-layer K/V state under this session's process-wide native-memory budget. */
+        public synchronized SharedKvState createSharedKvState(AccelTensor key, AccelTensor value) {
+            requireAllocated("createSharedKvState");
+            return new SharedKvState(key, value, memoryBudget);
         }
 
         public synchronized Map<Integer, SharedKvState> sharedKvStates() {
