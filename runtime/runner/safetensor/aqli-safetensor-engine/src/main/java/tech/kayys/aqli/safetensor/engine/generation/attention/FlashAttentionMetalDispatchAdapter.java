@@ -22,7 +22,8 @@ final class FlashAttentionMetalDispatchAdapter implements FlashAttentionMetalDis
                 request.query(), request.key(), request.value(), request.sharedKvState(), request.config(),
                 request.modelPolicy(), request.layerIdx(), request.startPos(), request.numQueryHeads(),
                 request.numKeyValueHeads(), request.headDim(), request.scale(), request.causal(),
-                request.attentionSoftCap(), request.attentionContextBuffer());
+                request.attentionSoftCap(), request.attentionContextBuffer(),
+                request.kvSession().attentionScratchMemoryBudget());
     }
 
     @Override
