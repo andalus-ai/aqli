@@ -45,4 +45,10 @@ class ModelSourceRoutingPolicyTest {
         assertFalse(ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                 "custom:model", "onnx", false));
     }
+    @Test
+    void existingLocalPathsTakePrecedenceOverRepositorySyntax() throws Exception {
+        Path localDirectory = Files.createDirectory(tempDir.resolve("org-model"));
+        assertFalse(ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
+                localDirectory.toString(), "onnx", false));
+    }
 }
