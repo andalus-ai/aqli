@@ -19,6 +19,11 @@ record GgufLlamaCppRunOptions(
         boolean useMmap,
         boolean useMlock) {
 
+    GgufLlamaCppRunOptions withGpuLayers(int value) {
+        return new GgufLlamaCppRunOptions(
+                context, batch, microBatch, threads, batchThreads, value, swaFull, useMmap, useMlock);
+    }
+
     static GgufLlamaCppRunOptions resolve(
             String backend,
             String prompt,
