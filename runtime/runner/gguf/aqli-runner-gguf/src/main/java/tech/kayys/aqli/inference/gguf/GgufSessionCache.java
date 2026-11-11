@@ -1,7 +1,4 @@
-package tech.kayys.aqli.cli.commands;
-
-import tech.kayys.aqli.inference.gguf.LlamaCppGgufLibraryPaths;
-import tech.kayys.aqli.inference.gguf.LlamaCppGgufSession;
+package tech.kayys.aqli.inference.gguf;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -12,21 +9,21 @@ import java.util.function.IntSupplier;
 /**
  * Owns daemon-scoped GGUF sessions and Java backend sessions. It centralizes
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
- * Runtime configuration and logging remain supplied by the CLI boundary.
+ * Session limits, library paths, and logging are supplied by the application boundary.
  */
-final class GgufSessionCache implements AutoCloseable {
+public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
     private final Consumer<String> log;
     private final LlamaCppGgufLibraryPaths libraryPaths;
 
-    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
+    public GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
             LlamaCppGgufLibraryPaths libraryPaths) {
         this.maxSessionsSupplier = maxSessionsSupplier;
         this.log = log;
         this.libraryPaths = libraryPaths;
     }
 
-    private record SessionKey(
+    record SessionKey(
         Path modelPath,
         int context,
         int batch,
@@ -39,12 +36,12 @@ final class GgufSessionCache implements AutoCloseable {
         boolean swaFull) {
 }
 
-    record SessionLease(
+    public record SessionLease(
         LlamaCppGgufSession session,
         boolean reused,
         boolean closeOnClose,
         String reuseKind) implements AutoCloseable {
-    static SessionLease open(
+    public static SessionLease open(
             Path modelPath,
             int context,
             int batch,
@@ -56,21 +53,21 @@ final class GgufSessionCache implements AutoCloseable {
             boolean useMlock,
             boolean swaFull,
             LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
-        return new SessionLease(LlamaCppGgufSession.open(
-                modelPath,
-                context,
-                batch,
-                microBatch,
-                threads,
-                batchThreads,
-                gpuLayers,
-                useMmap,
-                useMlock,
-                swaFull,
-                libraryPaths), false, true, "cold");
-    }
+                return new SessionLease(LlamaCppGgufSession.open(
+                    modelPath,
+                    context,
+                    batch,
+                    microBatch,
+                    threads,
+                    batchThreads,
+                    gpuLayers,
+                    useMmap,
+                    useMlock,
+                    swaFull,
+                    libraryPaths), false, true, "cold");
+        }
 
-    @Override
+        @Override
     public void close() {
         if (closeOnClose) {
             session.close();
@@ -81,25 +78,25 @@ final class GgufSessionCache implements AutoCloseable {
 
 
     private final Map<SessionKey, LlamaCppGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
-    private final Map<Path, tech.kayys.aqli.inference.gguf.GgufJavaBackendSession> javaBackends =
+    private final Map<Path, GgufJavaBackendSession> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
 
-    synchronized tech.kayys.aqli.inference.gguf.GgufJavaBackendSession acquireJavaBackend(
+    public synchronized GgufJavaBackendSession acquireJavaBackend(
             Path modelPath) throws Exception {
         Path key = modelPath.toAbsolutePath().normalize();
-        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession existing = javaBackends.get(key);
+        GgufJavaBackendSession existing = javaBackends.get(key);
         if (existing != null) {
             log.accept("java backend cache hit: " + key.getFileName());
             return existing;
         }
         log.accept("java backend cache miss: " + key.getFileName());
-        tech.kayys.aqli.inference.gguf.GgufJavaBackendSession opened =
+        GgufJavaBackendSession opened =
                 tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
         javaBackends.put(key, opened);
         return opened;
     }
 
-    SessionLease acquire(
+    public SessionLease acquire(
             Path modelPath,
             int context,
             int batch,
@@ -179,7 +176,7 @@ final class GgufSessionCache implements AutoCloseable {
         return new SessionLease(session, true, false, "compatible");
     }
 
-    private static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
+    static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
         return warm.modelPath().equals(requested.modelPath())
                 && warm.context() >= requested.context()
                 && warm.batch() >= requested.batch()
@@ -192,7 +189,7 @@ final class GgufSessionCache implements AutoCloseable {
                 && warm.swaFull() == requested.swaFull();
     }
 
-    private static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
+    static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
         int contextCompare = Integer.compare(left.context(), right.context());
         if (contextCompare != 0) {
             return contextCompare < 0;
