@@ -128,22 +128,6 @@ public class ConversationSessionManager {
     private final AtomicInteger totalCreated = new AtomicInteger(0);
     private final AtomicInteger totalExpired = new AtomicInteger(0);
 
-    private PagedKVSessionRegistry sessionRegistry() {
-        if (sessionRegistry != null) {
-            return sessionRegistry;
-        }
-        try {
-            if (Arc.container() != null) {
-                var instance = Arc.container().instance(PagedKVSessionRegistry.class);
-                if (instance.isAvailable()) {
-                    sessionRegistry = instance.get();
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return sessionRegistry;
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
 
     @jakarta.annotation.PostConstruct
@@ -159,8 +143,14 @@ public class ConversationSessionManager {
     @PreDestroy
     void stop() {
         cleaner.shutdownNow();
-        sessions.values().forEach(ConversationSession::close);
-        SHARED_SESSIONS.clear();
+        synchronized (lifecycleLock) {
+            List<ConversationSession> ownedSessions = new ArrayList<>(sessions.values());
+            sessions.clear();
+            ownedSessions.forEach(session -> {
+                deregister(session.sessionId());
+                session.close();
+            });
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -186,7 +176,11 @@ public class ConversationSessionManager {
             }
             if (!session.modelKey().equals(modelKey) || isExpired(session) || session.isClosed()) {
                 if (sessions.remove(sessionId, session)) {
+                    deregister(sessionId);
                     session.close();
+                    if (isExpired(session)) {
+                        totalExpired.incrementAndGet();
+                    }
                     if (!session.modelKey().equals(modelKey)) {
                         log.debugf("Session %s found but model changed — discarding", sessionId);
                     }
@@ -648,7 +642,14 @@ public class ConversationSessionManager {
                 return;
             }
             if (activeLeases > 0) {
-                // Do not invalidate a cache currently used by an inference turn.
+                // A pending replacement is not visible to active leases; dispose
+                // of an earlier unpublished replacement before superseding it.
+                if (hasPendingKvCache && pendingKvCache != null && pendingKvCache != replacement) {
+                    try {
+                        pendingKvCache.close();
+                    } catch (Exception ignored) {
+                    }
+                }
                 pendingKvCache = replacement;
                 hasPendingKvCache = true;
                 return;
