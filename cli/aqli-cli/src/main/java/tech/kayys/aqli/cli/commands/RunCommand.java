@@ -6799,46 +6799,30 @@ public class RunCommand implements Runnable {
                     ? Path.of(imageMetadataOutputPath)
                     : replaceExtension(imagePath, "json");
             Path absoluteImagePath = imagePath.toAbsolutePath().normalize();
-            Path absoluteMetadataPath = metadataPath.toAbsolutePath().normalize();
-            if (absoluteMetadataPath.equals(absoluteImagePath)) {
+            List<String> replayArgs = imageMetadataReplayArgs(absoluteImagePath, metadata);
+            ImageMetadataSidecarStore.WriteResult result = ImageMetadataSidecarStore.write(
+                    new ImageMetadataSidecarStore.WriteRequest(
+                            absoluteImagePath,
+                            metadataPath,
+                            modelId,
+                            providerId,
+                            runner,
+                            prompt,
+                            imageOutputExtension(absoluteImagePath, metadata),
+                            imageReplaySeed(metadata),
+                            steps,
+                            guidanceScale,
+                            width,
+                            height,
+                            replayArgs,
+                            ReplayShellCommandFormatter.format(replayArgs),
+                            metadata));
+            if (result.skippedBecausePathsMatch()) {
                 System.err.println("\nWarning: image metadata path is the same as the image output; metadata sidecar skipped.");
                 return;
             }
-            Path parent = absoluteMetadataPath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("type", "aqli_image_metadata");
-            payload.put("schema_version", 1);
-            payload.put("created_at", Instant.now().toString());
-            payload.put("output_path", absoluteImagePath.toString());
-            payload.put("output_size_bytes", Files.size(absoluteImagePath));
-            payload.put("output_sha256", sha256Hex(absoluteImagePath));
-            payload.put("model", modelId);
-            payload.put("provider", providerId);
-            if (runner != null && !runner.isBlank()) {
-                payload.put("runner", runner);
-            }
-            payload.put("prompt", prompt);
-            payload.put("image_format", imageOutputExtension(absoluteImagePath, metadata));
-            addImageParameter(payload, "seed", imageReplaySeed(metadata));
-            addImageParameter(payload, "steps", steps);
-            addImageParameter(payload, "guidance_scale", guidanceScale);
-            addImageParameter(payload, "width", width);
-            addImageParameter(payload, "height", height);
-            List<String> replayArgs = imageMetadataReplayArgs(absoluteImagePath, metadata);
-            payload.put("replay_args", replayArgs);
-            payload.put("replay_command", ReplayShellCommandFormatter.format(replayArgs));
-            payload.put("metadata", metadata == null ? Map.of() : new LinkedHashMap<>(metadata));
-
-            String json = new ObjectMapper()
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(payload);
-            Files.writeString(absoluteMetadataPath, json);
             System.out.println(ChatUIRenderer.DIM + "Image metadata saved to: "
-                    + absoluteMetadataPath
+                    + result.sidecarPath()
                     + ChatUIRenderer.RESET);
         } catch (Exception e) {
             System.err.println("\nFailed to save image metadata: " + e.getMessage());
@@ -6860,16 +6844,6 @@ public class RunCommand implements Runnable {
         addStringArg(args, "--height", height);
         addStringArg(args, "--output", imagePath == null ? null : imagePath.toString());
         return args;
-    }
-
-    private static void addImageParameter(Map<String, Object> payload, String key, Object value) {
-        if (value == null) {
-            return;
-        }
-        String text = String.valueOf(value);
-        if (!text.isBlank()) {
-            payload.put(key, value);
-        }
     }
 
     private String imageReplaySeed(Map<String, Object> metadata) {
