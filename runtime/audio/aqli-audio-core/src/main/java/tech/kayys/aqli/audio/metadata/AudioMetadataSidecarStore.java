@@ -1,6 +1,7 @@
-package tech.kayys.aqli.cli.commands.audio;
+package tech.kayys.aqli.audio.metadata;
 
-import tech.kayys.aqli.cli.commands.MediaFileIntegrity;
+import tech.kayys.aqli.media.integrity.MediaFileIntegrity;
+
 
 import java.nio.file.Files;
 import java.nio.file.Path;
