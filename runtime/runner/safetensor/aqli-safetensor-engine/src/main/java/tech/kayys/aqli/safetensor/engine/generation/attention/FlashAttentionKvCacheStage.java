@@ -32,7 +32,7 @@ final class FlashAttentionKvCacheStage {
             return new CachedTensors(key, value, null);
         }
 
-        SharedKvState appended = appendSharedKvState(in.sharedKvStates.get(in.layerIdx), key, value);
+        SharedKvState appended = appendSharedKvState(in.sharedKvStates.get(in.layerIdx), key, value, kvSession);
         in.sharedKvStates.put(in.layerIdx, appended);
         return new CachedTensors(appended.key(), appended.value(), appended);
     }
@@ -65,9 +65,10 @@ final class FlashAttentionKvCacheStage {
         }
     }
 
-    private SharedKvState appendSharedKvState(SharedKvState existing, AccelTensor deltaKey, AccelTensor deltaValue) {
+    private SharedKvState appendSharedKvState(SharedKvState existing, AccelTensor deltaKey, AccelTensor deltaValue,
+            KVCacheManager.KVCacheSession kvSession) {
         if (existing == null) {
-            return new SharedKvState(deltaKey, deltaValue);
+            return kvSession.createSharedKvState(deltaKey, deltaValue);
         }
         existing.append(deltaKey, deltaValue);
         return existing;
