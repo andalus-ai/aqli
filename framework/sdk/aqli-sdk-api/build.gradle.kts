@@ -15,4 +15,7 @@ dependencies {
     // Model metadata is owned by Aljabr; the SDK API only re-exports its
     // stable model SPI and has no dependency on a runner or transport.
     api("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    api(project(":spi:aqli-spi"))
+    api(project(":spi:aqli-spi-inference"))
+    api(project(":spi:aqli-spi-multimodal"))
 }
