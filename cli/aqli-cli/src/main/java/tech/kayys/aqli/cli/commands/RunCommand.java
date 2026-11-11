@@ -127,7 +127,6 @@ public class RunCommand implements Runnable {
     @Inject
     Instance<HuggingFaceRepository> huggingFaceRepository;
     @Inject
-    @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")

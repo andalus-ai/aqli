@@ -104,7 +104,15 @@ public final class HuggingFaceRepository implements ModelRepository {
         manifest.setArchitecture(architecture == null || architecture.isBlank()
                 ? ManifestStore.detectArchitecture(manifest)
                 : architecture);
-        manifest.setMetadata(metadata);
+        Map<String, String> manifestMetadata = new java.util.LinkedHashMap<>();
+        if (metadata != null) {
+            manifestMetadata.putAll(metadata);
+        }
+        manifestMetadata.putIfAbsent("format", manifestFormat != null ? manifestFormat : "unknown");
+        if (preferredFormat != null && !preferredFormat.isBlank()) {
+            manifestMetadata.putIfAbsent("preferred_format", preferredFormat);
+        }
+        manifest.setMetadata(manifestMetadata);
         manifestStore.save(manifest);
         return targetDir;
     }
