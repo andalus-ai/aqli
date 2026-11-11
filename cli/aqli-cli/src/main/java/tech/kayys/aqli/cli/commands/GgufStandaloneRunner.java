@@ -760,14 +760,6 @@ public final class GgufStandaloneRunner {
         return stripped.stripLeading();
     }
 
-    private static Optional<String> safeMetrics(LlamaCppGgufSession session, boolean warmSession, String reuseKind) {
-        try {
-            return session.metrics(warmSession, reuseKind);
-        } catch (Throwable ignored) {
-            return Optional.empty();
-        }
-    }
-
     static String sessionReuseLabel(boolean daemonSession, boolean reused, String reuseKind) {
         if (!daemonSession) {
             return "one-shot";
