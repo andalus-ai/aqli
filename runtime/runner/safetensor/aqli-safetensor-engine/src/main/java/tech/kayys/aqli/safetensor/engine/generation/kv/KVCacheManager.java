@@ -78,6 +78,10 @@ public class KVCacheManager {
             this.maxSupportedTokens = Math.min(maxSeqLen, MAX_PREALLOCATED_TOKENS);
             this.blockManager = Objects.requireNonNull(blockManager, "blockManager");
             this.memoryBudget = Objects.requireNonNull(memoryBudget, "memoryBudget");
+            if (this.blockManager.memoryBudget() != this.memoryBudget) {
+                throw new IllegalArgumentException(
+                        "BlockManager and KVCacheSession must share the same native-memory budget");
+            }
         }
 
         /**
@@ -281,7 +285,10 @@ public class KVCacheManager {
             return blockManager;
         }
 
-        /** Creates shared-layer K/V state under this session's process-wide native-memory budget. */
+        /**
+         * Creates shared-layer K/V state under this session's process-wide native-memory budget.
+         * Ownership of both input tensors transfers to the returned state, including on failure.
+         */
         public synchronized SharedKvState createSharedKvState(AccelTensor key, AccelTensor value) {
             requireAllocated("createSharedKvState");
             return new SharedKvState(key, value, memoryBudget);
