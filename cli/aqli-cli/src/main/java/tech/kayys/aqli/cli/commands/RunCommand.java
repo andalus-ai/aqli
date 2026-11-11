@@ -1904,8 +1904,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
