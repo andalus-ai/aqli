@@ -6891,6 +6891,14 @@ public class RunCommand implements Runnable {
                 audioTrimSilence));
     }
 
+    private String replaySeed(Map<String, Object> metadata) {
+        String metadataSeed = metadataText(metadata, "tts_seed");
+        if (metadataSeed != null && !metadataSeed.isBlank()) {
+            return metadataSeed;
+        }
+        return seed == null ? null : seed.toString();
+    }
+
     private static void addStringArg(List<String> args, String flag, Object value) {
         if (value == null) {
             return;
