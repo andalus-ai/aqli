@@ -44,7 +44,17 @@ public final class MossTtsOnnxGraphResolver {
     }
 
     public static Path optimizedCachePath(Path modelPath, Path cacheRoot) throws Exception {
-        String fingerprint = optimizedModelFingerprint(modelPath.toAbsolutePath().normalize());
+        return optimizedCachePath(modelPath, cacheRoot, externalDataSidecars(modelPath));
+    }
+
+    /**
+     * Resolves an optimized graph path using a previously discovered sidecar inventory.
+     * This lets diagnostics reuse one directory scan for graphs that share a source directory.
+     */
+    public static Path optimizedCachePath(
+            Path modelPath, Path cacheRoot, List<Path> externalDataSidecars) throws Exception {
+        String fingerprint = optimizedModelFingerprint(
+                modelPath.toAbsolutePath().normalize(), externalDataSidecars);
         String filename = cacheFilenamePrefix(modelPath) + fingerprint.substring(0, 16) + ".optimized.onnx";
         return cacheRoot.resolve(filename);
     }
@@ -68,22 +78,26 @@ public final class MossTtsOnnxGraphResolver {
     }
 
     public static void updateGraphIdentityDigest(MessageDigest digest, Path modelPath) throws Exception {
+        updateGraphIdentityDigest(digest, modelPath, externalDataSidecars(modelPath));
+    }
+
+    private static void updateGraphIdentityDigest(
+            MessageDigest digest, Path modelPath, List<Path> sidecars) throws Exception {
         updateFileIdentityDigest(digest, "onnx", modelPath);
-        List<Path> sidecars = externalDataSidecars(modelPath);
         updateDigestLine(digest, "external_data_sidecars=" + sidecars.size());
         for (Path sidecar : sidecars) {
             updateFileIdentityDigest(digest, "data", sidecar);
         }
     }
 
-    private static String optimizedModelFingerprint(Path modelPath) throws Exception {
+    private static String optimizedModelFingerprint(Path modelPath, List<Path> sidecars) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         updateDigestLine(digest, "os=" + System.getProperty("os.name", ""));
         updateDigestLine(digest, "arch=" + System.getProperty("os.arch", ""));
         updateDigestLine(digest, "runtime=ort-java");
         updateDigestLine(digest, "optimization=all-opt");
         updateDigestLine(digest, "backend=cpu");
-        updateGraphIdentityDigest(digest, modelPath);
+        updateGraphIdentityDigest(digest, modelPath, sidecars);
         return HexFormat.of().formatHex(digest.digest());
     }
 

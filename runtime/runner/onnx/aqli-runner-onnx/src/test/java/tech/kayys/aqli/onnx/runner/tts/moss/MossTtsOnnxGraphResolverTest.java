@@ -72,6 +72,21 @@ class MossTtsOnnxGraphResolverTest {
     }
 
     @Test
+    void preResolvedSidecarsProduceTheSameOptimizedCacheIdentity() throws Exception {
+        Path source = Files.createDirectory(tempDir.resolve("pre-resolved"));
+        Path graph = Files.writeString(source.resolve("model.onnx"), "graph");
+        Files.writeString(source.resolve("z.data"), "z");
+        Files.writeString(source.resolve("a.data"), "a");
+        Path cache = tempDir.resolve("cache");
+        var sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(graph);
+
+        Path discovered = MossTtsOnnxGraphResolver.optimizedCachePath(graph, cache);
+        Path reused = MossTtsOnnxGraphResolver.optimizedCachePath(graph, cache, sidecars);
+
+        assertEquals(discovered, reused);
+    }
+
+    @Test
     void discoversExternalDataSidecarsInStableFilenameOrder() throws Exception {
         Path source = Files.createDirectory(tempDir.resolve("source"));
         Path graph = Files.writeString(source.resolve("model.onnx"), "graph");
