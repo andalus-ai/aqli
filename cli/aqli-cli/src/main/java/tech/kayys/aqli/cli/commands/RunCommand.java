@@ -75,6 +75,7 @@ import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
+import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -6774,7 +6775,7 @@ public class RunCommand implements Runnable {
                             effectiveTtsVoiceSelector(),
                             audioDefaultExtension(metadata),
                             replayArgs,
-                            shellCommand(replayArgs),
+                            ReplayShellCommandFormatter.format(replayArgs),
                             metadata));
             if (result.skippedBecausePathsMatch()) {
                 System.err.println("\nWarning: audio metadata path is the same as the audio output; metadata sidecar skipped.");
@@ -6829,7 +6830,7 @@ public class RunCommand implements Runnable {
             addImageParameter(payload, "height", height);
             List<String> replayArgs = imageMetadataReplayArgs(absoluteImagePath, metadata);
             payload.put("replay_args", replayArgs);
-            payload.put("replay_command", shellCommand(replayArgs));
+            payload.put("replay_command", ReplayShellCommandFormatter.format(replayArgs));
             payload.put("metadata", metadata == null ? Map.of() : new LinkedHashMap<>(metadata));
 
             String json = new ObjectMapper()
@@ -6958,24 +6959,6 @@ public class RunCommand implements Runnable {
         }
         args.add(flag);
         args.add(text);
-    }
-
-    private static String shellCommand(List<String> args) {
-        List<String> quoted = new ArrayList<>();
-        for (String arg : args) {
-            quoted.add(shellQuote(arg));
-        }
-        return String.join(" ", quoted);
-    }
-
-    private static String shellQuote(String value) {
-        if (value == null || value.isEmpty()) {
-            return "''";
-        }
-        if (value.matches("[A-Za-z0-9_@%+=:,./-]+")) {
-            return value;
-        }
-        return "'" + value.replace("'", "'\"'\"'") + "'";
     }
 
     private static String sha256Hex(Path path) throws Exception {
