@@ -97,7 +97,9 @@ public final class LiteRTConversationExecutor {
 
             if (!done.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 conversation.cancelProcess();
-                throw new IllegalStateException(timeoutMessage == null || timeoutMessage.isBlank()\n                        ? "LiteRT-LM conversation timed out"\n                        : timeoutMessage);
+                throw new IllegalStateException(timeoutMessage == null || timeoutMessage.isBlank()
+                        ? "LiteRT-LM conversation timed out"
+                        : timeoutMessage);
             }
             if (error.get() != null && !cancelled.get()) {
                 throw new IllegalStateException(error.get());
