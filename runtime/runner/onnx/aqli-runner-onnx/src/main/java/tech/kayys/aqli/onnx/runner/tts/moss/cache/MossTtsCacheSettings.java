@@ -1,11 +1,11 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.onnx.runner.tts.moss.cache;
 
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
 /** Immutable snapshot of MOSS TTS and ONNX cache-related CLI configuration. */
-record MossTtsCacheSettings(
+public record MossTtsCacheSettings(
         boolean optimizedGraphCacheEnabled,
         Path optimizedGraphCacheRoot,
         String onnxRuntimeLogLevel,
@@ -29,7 +29,7 @@ record MossTtsCacheSettings(
     private static final String ONNX_LOG_LEVEL_PROPERTY = "aqli.onnx.log-level";
     private static final String ONNX_LOG_LEVEL_ENV = "AQLI_ONNX_LOG_LEVEL";
 
-    static MossTtsCacheSettings load() {
+    public static MossTtsCacheSettings load() {
         Map<String, String> properties = System.getProperties().entrySet().stream()
                 .collect(java.util.stream.Collectors.toMap(
                         entry -> String.valueOf(entry.getKey()),
@@ -37,7 +37,7 @@ record MossTtsCacheSettings(
         return from(properties, System.getenv(), System.getProperty("user.home"));
     }
 
-    static MossTtsCacheSettings from(
+    public static MossTtsCacheSettings from(
             Map<String, String> properties,
             Map<String, String> environment,
             String userHome) {
