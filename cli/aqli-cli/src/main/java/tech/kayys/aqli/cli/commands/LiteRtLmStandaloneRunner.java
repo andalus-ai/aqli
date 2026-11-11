@@ -491,7 +491,7 @@ public final class LiteRtLmStandaloneRunner {
             }
             if (lease.fallbackReason() != null && args.banner()) {
                 err.printf("LiteRT-LM GPU backend failed; using official CPU fallback instead: %s%n",
-                        lease.fallbackReason);
+                        lease.fallbackReason());
             }
 
             SamplerConfig sampler = new SamplerConfig(
@@ -659,8 +659,8 @@ public final class LiteRtLmStandaloneRunner {
         out.printf("Provider: litert, format=%s%n", liteRtModelFormat(modelPath));
     }
 
-    static void printExecutionRoute(PrintStream out, EngineLease lease, String runnerName) {
-        out.println(executionRouteLine(lease.backendName, runnerName));
+    static void printExecutionRoute(PrintStream out, LiteRTEngineLease<Engine> lease, String runnerName) {
+        out.println(executionRouteLine(lease.backendName(), runnerName));
         out.println("--------------------------------------------------");
     }
 
@@ -760,7 +760,7 @@ public final class LiteRtLmStandaloneRunner {
                     engineMaxNumTokens,
                     null,
                     cacheDir().toString());
-            return new EngineLease(
+            return new LiteRTEngineLease<>(
                     initializeEngine(cpuEngineConfig),
                     "CPU",
                     speculativeDecoding,
@@ -1215,8 +1215,8 @@ public final class LiteRtLmStandaloneRunner {
         AtomicBoolean stop = new AtomicBoolean(false);
         int port = -1;
         try (ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
-             LiteRTEngineCache<Engine> engineCache = new LiteRTEngineCache<>();
-             RouteResolutionCache routeCache = new RouteResolutionCache()) {
+             LiteRTEngineCache<Engine> engineCache = new LiteRTEngineCache<>()) {
+            RouteResolutionCache routeCache = new RouteResolutionCache();
             port = server.getLocalPort();
             writeDaemonPort(port);
             final int daemonPort = port;
@@ -1258,7 +1258,7 @@ public final class LiteRtLmStandaloneRunner {
         }
     }
 
-    private static boolean handleDaemonClient(Socket socket, EngineCache engineCache) {
+    private static boolean handleDaemonClient(Socket socket, LiteRTEngineCache<Engine> engineCache, RouteResolutionCache routeCache) {
         try {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream framed = new DataOutputStream(socket.getOutputStream());
@@ -1331,7 +1331,7 @@ public final class LiteRtLmStandaloneRunner {
         Engine.Companion.setNativeMinLogSeverity(nativeLogSeverity());
         int engineMaxNumTokens = maxNumTokens(args);
         String requestedBackend = normalizedBackend(args.backend());
-        try (EngineLease lease = engineCache.acquire(modelPath, requestedBackend, engineMaxNumTokens)) {
+        try (LiteRTEngineLease<Engine> lease = acquireCachedEngine(engineCache, modelPath, requestedBackend, engineMaxNumTokens)) {
             int decodeWarmupTokens = prewarmTokenCount();
             int targetWarmupIterations = prewarmIterationCount();
             int decodeWarmupIterations = 0;
@@ -1345,10 +1345,10 @@ public final class LiteRtLmStandaloneRunner {
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             out.printf("Using official LiteRT-LM JVM daemon for %s (backend=%s, speculativeDecoding=%s, engineMaxNumTokens=%d, warmEngine=%s, decodeWarmupTokens=%d, decodeWarmupIterations=%d, warmupTargetIterations=%d).%n",
                     modelPath.getFileName(),
-                    lease.backendName,
-                    lease.speculativeDecoding,
+                    lease.backendName(),
+                    lease.speculativeDecoding(),
                     engineMaxNumTokens,
-                    lease.reused,
+                    lease.reused(),
                     decodeWarmupTokens,
                     decodeWarmupIterations,
                     targetWarmupIterations);
@@ -1356,7 +1356,7 @@ public final class LiteRtLmStandaloneRunner {
         }
     }
 
-    private static void warmConversation(EngineLease lease, LiteRTRunArguments args, int maxWarmupTokens) throws Exception {
+    private static void warmConversation(LiteRTEngineLease<Engine> lease, LiteRTRunArguments args, int maxWarmupTokens) throws Exception {
         SamplerConfig sampler = new SamplerConfig(
                 Math.max(1, args.topK()),
                 Math.max(0.0d, Math.min(1.0d, args.topP())),
@@ -1370,7 +1370,7 @@ public final class LiteRtLmStandaloneRunner {
                 false,
                 null,
                 Map.of());
-        try (Conversation conversation = lease.engine.createConversation(conversationConfig)) {
+        try (Conversation conversation = lease.engine().createConversation(conversationConfig)) {
             CountDownLatch done = new CountDownLatch(1);
             AtomicBoolean cancelled = new AtomicBoolean(false);
             AtomicReference<Throwable> error = new AtomicReference<>();
