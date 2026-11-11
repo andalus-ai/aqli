@@ -559,7 +559,7 @@ public final class GgufStandaloneRunner {
                     sessionCache);
             return 0;
         } catch (Throwable throwable) {
-            if (nGpuLayers == 0 || !fastRunCpuFallback()) {
+            if (options.gpuLayers() == 0 || !fastRunCpuFallback()) {
                 throw throwable;
             }
             err.printf("WARN: GGUF Metal prewarm failed (%s); retrying with CPU fallback.%n",
