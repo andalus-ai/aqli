@@ -100,8 +100,8 @@ public class KVCacheManager {
                             case NONE -> BlockManager.KvStorageType.FP32;
                         };
 
-                // The current pool is one fixed reservation. Do not expose a larger
-                // token limit than this reservation can support.
+                // Keep the configured maximum capacity bounded. Physical storage is
+                // materialized lazily and budgeted chunk by chunk as blocks are leased.
                 KvCacheMemoryEstimator.Estimate estimate = KvCacheMemoryEstimator.estimate(
                         maxSupportedTokens, numLayers, numKVHeads, headDim, tokensPerBlock,
                         storageType, KvCacheMemoryEstimator.DEFAULT_EXTRA_BLOCKS);
@@ -238,11 +238,13 @@ public class KVCacheManager {
             return numKVHeads;
         }
 
+        @Deprecated(forRemoval = false)
         public synchronized java.lang.foreign.MemorySegment getRawKPool() {
             requireAllocated("getRawKPool");
             return blockManager.getRawKPool();
         }
 
+        @Deprecated(forRemoval = false)
         public synchronized java.lang.foreign.MemorySegment getRawVPool() {
             requireAllocated("getRawVPool");
             return blockManager.getRawVPool();
