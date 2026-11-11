@@ -156,6 +156,40 @@ class KvCacheMemoryBudgetTest {
     }
 
     @Test
+    void sessionOwnsAndReleasesForwardWorkspaceReservations() {
+        ModelConfig config = modelConfig();
+        var generationConfig = tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults();
+        KvCacheMemoryBudget kvBudget = new KvCacheMemoryBudget(1024 * 1024);
+        ForwardWorkspaceMemoryBudget workspaceBudget = new ForwardWorkspaceMemoryBudget(1024 * 1024);
+        KVCacheManager.KVCacheSession session = new KVCacheManager.KVCacheSession(
+                128, new BlockManager(kvBudget), kvBudget, workspaceBudget);
+
+        session.allocate(config, generationConfig);
+
+        assertTrue(workspaceBudget.reservedBytes() > 0);
+        assertEquals(session.getWorkspace().allocatedNativeBytes(), workspaceBudget.reservedBytes());
+
+        session.close();
+        assertEquals(0, workspaceBudget.reservedBytes());
+        assertEquals(0, kvBudget.reservedBytes());
+    }
+
+    @Test
+    void failedWorkspaceAdmissionRollsBackSessionKvAllocations() {
+        ModelConfig config = modelConfig();
+        var generationConfig = tech.kayys.aljabr.safetensor.generation.GenerationConfig.defaults();
+        KvCacheMemoryBudget kvBudget = new KvCacheMemoryBudget(1024 * 1024);
+        ForwardWorkspaceMemoryBudget workspaceBudget = new ForwardWorkspaceMemoryBudget(1);
+        KVCacheManager.KVCacheSession session = new KVCacheManager.KVCacheSession(
+                128, new BlockManager(kvBudget), kvBudget, workspaceBudget);
+
+        assertThrows(IllegalStateException.class, () -> session.allocate(config, generationConfig));
+        assertEquals(0, kvBudget.reservedBytes());
+        assertEquals(0, workspaceBudget.reservedBytes());
+        session.close();
+    }
+
+    @Test
     void estimatorRejectsOverflowAndInvalidDimensions() {
         assertThrows(IllegalArgumentException.class, () -> KvCacheMemoryEstimator.estimate(
                 0, 1, 1, 1, 16, BlockManager.KvStorageType.FP32, 0));
