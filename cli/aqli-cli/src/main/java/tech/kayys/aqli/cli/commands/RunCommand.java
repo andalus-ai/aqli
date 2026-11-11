@@ -74,7 +74,7 @@ import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataSidecarStore;
-import tech.kayys.aqli.cli.commands.audio.StreamingAudioFileWriter;
+import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
