@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands.audio;
+package tech.kayys.aqli.audio.output;
 
 import java.util.Map;
 import javax.sound.sampled.AudioFormat;
