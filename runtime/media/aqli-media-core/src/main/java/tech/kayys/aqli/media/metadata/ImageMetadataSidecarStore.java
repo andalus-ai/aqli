@@ -79,14 +79,14 @@ public final class ImageMetadataSidecarStore {
         long actualBytes = Files.size(imagePath);
         Long expectedBytes = optionalLong(text(root, "output_size_bytes"));
         if (expectedBytes != null && expectedBytes != actualBytes) {
-            throw new UserMessageException("Image metadata verification failed: byte size mismatch.\n"
+            throw new ImageMetadataSidecarException("Image metadata verification failed: byte size mismatch.\n"
                     + "  expected: " + expectedBytes + "\n"
                     + "  actual:   " + actualBytes);
         }
 
         String actualSha256 = MediaFileIntegrity.sha256Hex(imagePath);
         if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
-            throw new UserMessageException("Image metadata verification failed: SHA-256 mismatch.\n"
+            throw new ImageMetadataSidecarException("Image metadata verification failed: SHA-256 mismatch.\n"
                     + "  expected: " + expectedSha256 + "\n"
                     + "  actual:   " + actualSha256);
         }
@@ -118,7 +118,7 @@ public final class ImageMetadataSidecarStore {
     private static JsonNode readObject(Path sidecarPath, String errorPrefix) throws Exception {
         JsonNode root = MAPPER.readTree(sidecarPath.toFile());
         if (root == null || !root.isObject()) {
-            throw new UserMessageException(errorPrefix + sidecarPath);
+            throw new ImageMetadataSidecarException(errorPrefix + sidecarPath);
         }
         return root;
     }
@@ -142,7 +142,7 @@ public final class ImageMetadataSidecarStore {
 
     private static void requireRegularFile(Path path, String errorPrefix) {
         if (!Files.isRegularFile(path)) {
-            throw new UserMessageException(errorPrefix + path);
+            throw new ImageMetadataSidecarException(errorPrefix + path);
         }
     }
 
@@ -187,11 +187,8 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static final class ImageMetadataSidecarException extends IllegalArgumentException {
-        private final String presentation;
-
         public ImageMetadataSidecarException(String presentation) {
             super(presentation);
-            this.presentation = presentation;
         }
     }
 
