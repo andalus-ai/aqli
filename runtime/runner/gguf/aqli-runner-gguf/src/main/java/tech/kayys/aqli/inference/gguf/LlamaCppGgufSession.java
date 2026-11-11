@@ -98,39 +98,39 @@ public final class LlamaCppGgufSession implements AutoCloseable {
             int topK,
             double topP) throws Exception {
         try {
-        ensureOpen();
-        MemorySegment promptSegment = promptSegment(prompt);
-        MemorySegment error = errorSegment();
-        long requestedOutputBytes = outputBufferBytesForTokens(maxTokens);
-        int retries = 0;
-        for (int attempt = 0; attempt <= OUTPUT_BUFFER_RETRY_LIMIT; ++attempt) {
-            MemorySegment output = outputSegment(requestedOutputBytes);
-            int generated = (int) bindings.generate.invokeExact(
-                    handle,
-                    promptSegment,
-                    maxTokens,
-                    (float) temperature,
-                    topK,
-                    (float) topP,
-                    0,
-                    output,
-                    outputBufferCapacity,
-                    error,
-                    ERROR_BUFFER_BYTES);
-            if (generated >= 0) {
-                lastGeneratedTokens = generated;
-                lastOutputBufferRetries = retries;
-                return output.getString(0, StandardCharsets.UTF_8);
+            ensureOpen();
+            MemorySegment promptSegment = promptSegment(prompt);
+            MemorySegment error = errorSegment();
+            long requestedOutputBytes = outputBufferBytesForTokens(maxTokens);
+            int retries = 0;
+            for (int attempt = 0; attempt <= OUTPUT_BUFFER_RETRY_LIMIT; ++attempt) {
+                MemorySegment output = outputSegment(requestedOutputBytes);
+                int generated = (int) bindings.generate.invokeExact(
+                        handle,
+                        promptSegment,
+                        maxTokens,
+                        (float) temperature,
+                        topK,
+                        (float) topP,
+                        0,
+                        output,
+                        outputBufferCapacity,
+                        error,
+                        ERROR_BUFFER_BYTES);
+                if (generated >= 0) {
+                    lastGeneratedTokens = generated;
+                    lastOutputBufferRetries = retries;
+                    return output.getString(0, StandardCharsets.UTF_8);
+                }
+                String message = error.getString(0);
+                if (!outputBufferTooSmall(generated, message) || attempt == OUTPUT_BUFFER_RETRY_LIMIT) {
+                    lastOutputBufferRetries = retries;
+                    throw new IllegalStateException(message);
+                }
+                retries++;
+                requestedOutputBytes = nextOutputBufferBytes(outputBufferCapacity);
             }
-            String message = error.getString(0);
-            if (!outputBufferTooSmall(generated, message) || attempt == OUTPUT_BUFFER_RETRY_LIMIT) {
-                lastOutputBufferRetries = retries;
-                throw new IllegalStateException(message);
-            }
-            retries++;
-            requestedOutputBytes = nextOutputBufferBytes(outputBufferCapacity);
-        }
-        throw new IllegalStateException("GGUF generation failed");
+            throw new IllegalStateException("GGUF generation failed");
     
         } catch (Throwable throwable) {
             throw nativeFailure(throwable);
