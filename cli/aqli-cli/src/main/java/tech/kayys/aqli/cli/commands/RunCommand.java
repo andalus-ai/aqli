@@ -2058,17 +2058,6 @@ public class RunCommand implements Runnable {
         return node.asText();
     }
 
-    private static Long parseOptionalReplayLong(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value.trim());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("invalid integer value in replay metadata: " + value);
-        }
-    }
-
     private String defaultAudioReplayOutputPath(String originalOutputPath, String replayAudioFormat) {
         return AudioReplayOutputPathResolver.resolve(originalOutputPath, replayAudioFormat).toString();
     }
@@ -6873,11 +6862,6 @@ public class RunCommand implements Runnable {
         args.add(flag);
         args.add(text);
     }
-
-    private static String sha256Hex(Path path) throws Exception {
-        return MediaFileIntegrity.sha256Hex(path);
-    }
-
 
     private static Double audioDurationSeconds(Map<String, Object> metadata) {
         Double duration = metadataDouble(metadata, "audio_duration_seconds");
