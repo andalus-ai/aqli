@@ -55,7 +55,7 @@ public final class LlamaCppGgufSession implements AutoCloseable {
             boolean useMmap,
             boolean useMlock,
             boolean swaFull,
-            LlamaCppGgufLibraryPaths libraryPaths) throws Throwable {
+            LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
         LlamaCppGgufNativeBindings binding =
                 LlamaCppGgufNativeBindings.load(libraryPaths.bridgeLibrary());
         try (Arena arena = Arena.ofConfined()) {
@@ -86,6 +86,8 @@ public final class LlamaCppGgufSession implements AutoCloseable {
                 backendName = backendPtr.reinterpret(128).getString(0);
             }
             return new LlamaCppGgufSession(binding, handle, backendName);
+        } catch (Throwable throwable) {
+            throw nativeFailure(throwable);
         }
     }
 
@@ -94,7 +96,7 @@ public final class LlamaCppGgufSession implements AutoCloseable {
             int maxTokens,
             double temperature,
             int topK,
-            double topP) throws Throwable {
+            double topP) throws Exception {
         ensureOpen();
         MemorySegment promptSegment = promptSegment(prompt);
         MemorySegment error = errorSegment();
@@ -138,11 +140,11 @@ public final class LlamaCppGgufSession implements AutoCloseable {
         return lastGeneratedTokens;
     }
 
-    public synchronized Optional<String> metrics() throws Throwable {
+    public synchronized Optional<String> metrics() throws Exception {
         return metrics(false, "cold");
     }
 
-    public synchronized Optional<String> metrics(boolean warmSession, String reuseKind) throws Throwable {
+    public synchronized Optional<String> metrics(boolean warmSession, String reuseKind) throws Exception {
         ensureOpen();
         if (bindings.metrics == null) {
             return Optional.empty();
@@ -157,6 +159,16 @@ public final class LlamaCppGgufSession implements AutoCloseable {
                 + ", sessionReuse=" + metricToken(reuseKind, warmSession ? "warm" : "cold")
                 + ", javaOutputBufferBytes=" + outputBufferCapacity
                 + ", javaOutputRetries=" + lastOutputBufferRetries);
+    }
+
+    private static Exception nativeFailure(Throwable throwable) {
+        if (throwable instanceof Error error) {
+            throw error;
+        }
+        if (throwable instanceof Exception exception) {
+            return exception;
+        }
+        return new IllegalStateException("GGUF native operation failed", throwable);
     }
 
     public static void invokeHardExit(Path bridgeLibrary, int status) {
