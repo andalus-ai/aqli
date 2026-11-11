@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonServerLoop;
 import tech.kayys.aqli.inference.gguf.LlamaCppGgufLibraryPaths;
+import tech.kayys.aqli.inference.gguf.LlamaCppGgufSession;
 import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
@@ -17,7 +18,6 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,7 +45,6 @@ public final class GgufStandaloneRunner {
     private static final String DAEMON_MAGIC = "AQLI_GGUF_FAST_DAEMON_V1";
     private static final String DAEMON_STOP_MAGIC = "AQLI_GGUF_FAST_DAEMON_STOP_V1";
     private static final String DAEMON_PREWARM_MAGIC = "AQLI_GGUF_FAST_DAEMON_PREWARM_V1";
-    private static final long MIN_OUTPUT_BUFFER_BYTES = 64L * 1024L;
     private static final int OUTPUT_BUFFER_RETRY_LIMIT = 2;
     private static final ThreadLocal<Boolean> REQUEST_TIMING = new ThreadLocal<>();
     private static final GgufStandaloneConfiguration CONFIG = GgufStandaloneConfiguration.system();
@@ -601,8 +600,7 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
-                        nGpuLayers,
-                        useMmap, useMlock, swaFull)
+                        nGpuLayers, useMmap, useMlock, swaFull, llamaCppLibraryPaths())
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
@@ -672,8 +670,7 @@ public final class GgufStandaloneRunner {
         long openStartNanos = System.nanoTime();
         GgufSessionCache.SessionLease opened = sessionCache == null
                 ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
-                        nGpuLayers,
-                        useMmap, useMlock, swaFull)
+                        nGpuLayers, useMmap, useMlock, swaFull, llamaCppLibraryPaths())
                 : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
                         useMmap, useMlock, swaFull);
         long openNanos = System.nanoTime() - openStartNanos;
@@ -809,24 +806,6 @@ public final class GgufStandaloneRunner {
         return "ctx<=" + Math.max(1, context)
                 + ",batch<=" + Math.max(1, batch)
                 + ",ubatch<=" + Math.max(1, microBatch);
-    }
-
-    static long outputBufferBytesForTokens(int maxTokens) {
-        long requested = Math.max(1L, (long) maxTokens) * 512L;
-        return Math.max(MIN_OUTPUT_BUFFER_BYTES, requested);
-    }
-
-    static long nextOutputBufferBytes(long currentBytes) {
-        long current = Math.max(MIN_OUTPUT_BUFFER_BYTES, currentBytes);
-        if (current > Long.MAX_VALUE / 2L) {
-            return Long.MAX_VALUE;
-        }
-        return Math.max(MIN_OUTPUT_BUFFER_BYTES, current * 2L);
-    }
-
-    static boolean outputBufferTooSmall(int nativeStatus, String message) {
-        return nativeStatus == -9
-                || (message != null && message.toLowerCase(Locale.ROOT).contains("output buffer too small"));
     }
 
     static void printFastRunStats(
@@ -1251,7 +1230,7 @@ public final class GgufStandaloneRunner {
             Files.createDirectories(daemonRunDir());
             try (ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
                     GgufSessionCache sessionCache = new GgufSessionCache(GgufStandaloneRunner::daemonMaxSessions,
-                            GgufStandaloneRunner::daemonLog)) {
+                            GgufStandaloneRunner::daemonLog, llamaCppLibraryPaths())) {
                 port = server.getLocalPort();
                 writeDaemonPort(port);
                 long idleSeconds = CONFIG.longValue("aqli.gguf.fast_run.daemon_idle_seconds", 900L);
@@ -1455,13 +1434,7 @@ public final class GgufStandaloneRunner {
     static void hardExitProcess(int status) {
         System.out.flush();
         System.err.flush();
-        try {
-            MethodHandle hardExit = LlamaCppGgufNativeBindings.INSTANCE.hardExit;
-            if (hardExit != null) {
-                hardExit.invokeExact(status);
-            }
-        } catch (Throwable ignored) {
-        }
+        LlamaCppGgufSession.invokeHardExit(llamaCppLibraryPaths().bridgeLibrary(), status);
         Runtime.getRuntime().halt(status);
     }
 
