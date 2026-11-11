@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands;
+package tech.kayys.aqli.onnx.runner.tts.moss.cache;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,11 +14,11 @@ import java.util.Map;
  * are safe to remove. This component performs the requested dry-run or deletion
  * and captures per-file outcomes; CLI presentation remains with the command.</p>
  */
-final class OptimizedCachePruner {
+public final class OptimizedCachePruner {
     private OptimizedCachePruner() {
     }
 
-    static List<Operation> prune(OptimizedCacheDirectoryScanner.Stats before, boolean dryRun) {
+    public static List<Operation> prune(OptimizedCacheDirectoryScanner.Stats before, boolean dryRun) {
         List<Operation> operations = new ArrayList<>();
         for (Path path : before.staleOptimizedGraphPaths()) {
             operations.add(pruneFile("optimized_graph", path, dryRun));
@@ -42,14 +42,14 @@ final class OptimizedCachePruner {
         }
     }
 
-    record Operation(
+    public record Operation(
             String kind,
             Path path,
             long sizeBytes,
             boolean deleted,
             boolean dryRun,
             String error) {
-        Map<String, Object> toJson() {
+        public Map<String, Object> toJson() {
             Map<String, Object> value = new LinkedHashMap<>();
             value.put("kind", kind);
             value.put("path", path.toString());
