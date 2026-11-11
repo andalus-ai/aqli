@@ -6846,16 +6846,6 @@ public class RunCommand implements Runnable {
         return args;
     }
 
-    private static void addImageParameter(Map<String, Object> payload, String key, Object value) {
-        if (value == null) {
-            return;
-        }
-        String text = String.valueOf(value);
-        if (!text.isBlank()) {
-            payload.put(key, value);
-        }
-    }
-
     private String imageReplaySeed(Map<String, Object> metadata) {
         for (String key : List.of("image_seed", "seed", "generation_seed")) {
             String metadataSeed = metadataText(metadata, key);
