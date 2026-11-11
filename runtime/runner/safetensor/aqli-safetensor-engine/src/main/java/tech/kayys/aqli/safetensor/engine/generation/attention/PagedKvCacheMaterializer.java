@@ -55,9 +55,10 @@ final class PagedKvCacheMaterializer {
             int numKVHeads, int headDim, BudgetedAttentionArena arena) {
         int blockSize = kvSession.tokensPerBlock();
         PagedKvCacheLayout layout = PagedKvCacheLayout.source(blockManager, numKVHeads, headDim, blockSize);
-        long totalElements = (long) blocks.size() * layout.blockElements();
-        MemorySegment packedK = arena.allocate(totalElements * Float.BYTES, 64);
-        MemorySegment packedV = arena.allocate(totalElements * Float.BYTES, 64);
+        long totalElements = Math.multiplyExact((long) blocks.size(), layout.blockElements());
+        long packedBytes = Math.multiplyExact(totalElements, (long) Float.BYTES);
+        MemorySegment packedK = arena.allocate(packedBytes, 64);
+        MemorySegment packedV = arena.allocate(packedBytes, 64);
         BlockManager.KvStorageType storageType = blockManager.getStorageType();
 
         for (int localBlockIdx = 0; localBlockIdx < blocks.size(); localBlockIdx++) {
