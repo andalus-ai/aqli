@@ -82,7 +82,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
                     generation,
                     ResumableSessionArtifact.descriptorOnly(descriptorFor(generation)),
                     new long[0],
-                    conversationSession);
+                    conversationSessionLease);
         }
         long[] inputIds = engine.encodePrompt(generation.prompt().formattedPrompt(), generation.model().modelPath());
         DirectPreparedGenerationHandle handle = handles().publish(generation, inputIds);
@@ -96,7 +96,7 @@ public class DirectTextExecutionBackend implements TextExecutionBackend {
                         "prepared_generation", true,
                         "pretokenized_prompt", true,
                         "artifact_strategy", generation.artifactPlan().strategy().name().toLowerCase()));
-        return new DirectTextExecutionSession(engine, generation, artifact, inputIds, conversationSession);
+        return new DirectTextExecutionSession(engine, generation, artifact, inputIds, conversationSessionLease);
     }
 
     @Override
