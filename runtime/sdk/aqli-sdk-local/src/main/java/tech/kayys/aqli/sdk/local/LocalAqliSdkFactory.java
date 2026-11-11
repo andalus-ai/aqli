@@ -12,10 +12,12 @@ import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 public class LocalAqliSdkFactory {
 
     private final LocalInferenceEngineCatalog engines;
+    private final LocalModelCatalog models;
 
     @Inject
-    public LocalAqliSdkFactory(LocalInferenceEngineCatalog engines) {
+    public LocalAqliSdkFactory(LocalInferenceEngineCatalog engines, LocalModelCatalog models) {
         this.engines = engines;
+        this.models = models;
     }
 
     @Produces
@@ -25,6 +27,6 @@ public class LocalAqliSdkFactory {
     }
 
     public LocalAqliSdk create(SdkConfig config) {
-        return new LocalAqliSdk(engines, config);
+        return new LocalAqliSdk(engines, config, models);
     }
 }
