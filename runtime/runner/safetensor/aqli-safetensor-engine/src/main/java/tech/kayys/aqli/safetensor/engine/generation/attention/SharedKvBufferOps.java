@@ -110,7 +110,7 @@ final class SharedKvBufferOps {
         }
     }
 
-    private static void copyTokenMajorRange(AccelTensor source, AccelTensor destination, int tokenCount,
+    static void copyTokenMajorRange(AccelTensor source, AccelTensor destination, int tokenCount,
             int numHeads, int headDim) {
         if (tokenCount <= 0) {
             return;
@@ -126,7 +126,7 @@ final class SharedKvBufferOps {
         }
     }
 
-    private static void copyHeadMajorRange(AccelTensor source, AccelTensor destination, int tokenCount,
+    static void copyHeadMajorRange(AccelTensor source, AccelTensor destination, int tokenCount,
             int numHeads, int headDim) {
         if (tokenCount <= 0) {
             return;
