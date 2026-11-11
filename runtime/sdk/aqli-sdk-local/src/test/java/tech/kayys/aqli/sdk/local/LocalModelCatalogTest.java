@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.when;\nimport static org.mockito.Mockito.thenThrow;
 
 import java.time.Instant;
 import java.util.List;
@@ -56,6 +56,24 @@ class LocalModelCatalogTest {
         assertEquals("org/model", info.getModelId());
         assertEquals("main", info.getVersion());
         assertEquals("aaaaaaaa", info.getShortId());
+    }
+
+    @Test
+    void defaultsMissingRevisionToMain() throws Exception {
+        AqliManifest stored = manifest(
+                "org/model", "aaaaaaaaaaaaaaaaaaaaaaaa", null, "Model", Instant.parse("2026-01-01T00:00:00Z"));
+        assertEquals("main", catalog(stored).findModel("org/model").orElseThrow().getVersion());
+    }
+
+    @Test
+    void wrapsManifestStoreFailuresAsSdkErrors() {
+        ManifestStore store = mock(ManifestStore.class);
+        when(store.listAll()).thenThrow(new IllegalStateException("disk unavailable"));
+        LocalModelCatalog catalog = new LocalModelCatalog(store);
+
+        SdkException error = assertThrows(SdkException.class, () -> catalog.listModels(0, 10));
+
+        assertEquals("SDK_ERR_MODEL_CATALOG", error.getErrorCode());
     }
 
     @Test
