@@ -563,6 +563,29 @@ public final class GgufStandaloneRunner {
         }
     }
 
+    private static GgufSessionCache.SessionLease acquireLlamaCppSession(
+            Path modelPath,
+            GgufLlamaCppRunOptions options,
+            GgufSessionCache sessionCache) throws Exception {
+        tech.kayys.aqli.inference.gguf.LlamaCppGgufSessionParameters parameters =
+                new tech.kayys.aqli.inference.gguf.LlamaCppGgufSessionParameters(
+                        options.context(),
+                        options.batch(),
+                        options.microBatch(),
+                        options.threads(),
+                        options.batchThreads(),
+                        options.gpuLayers(),
+                        options.useMmap(),
+                        options.useMlock(),
+                        options.swaFull());
+        tech.kayys.aqli.inference.gguf.LlamaCppGgufSessionAcquirer acquirer =
+                new tech.kayys.aqli.inference.gguf.LlamaCppGgufSessionAcquirer(llamaCppLibraryPaths());
+        return acquirer.acquire(
+                modelPath,
+                parameters,
+                java.util.Optional.ofNullable(sessionCache));
+    }
+
     private static void prewarmWithLlamaCppSession(
             Path modelPath,
             GgufRunArguments args,
@@ -583,11 +606,7 @@ public final class GgufStandaloneRunner {
         boolean useMmap = options.useMmap();
         boolean useMlock = options.useMlock();
         long openStartNanos = System.nanoTime();
-        GgufSessionCache.SessionLease opened = sessionCache == null
-                ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
-                        nGpuLayers, useMmap, useMlock, swaFull, llamaCppLibraryPaths())
-                : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
-                        useMmap, useMlock, swaFull);
+        GgufSessionCache.SessionLease opened = acquireLlamaCppSession(modelPath, options, sessionCache);
         long openNanos = System.nanoTime() - openStartNanos;
         try (GgufSessionCache.SessionLease lease = opened) {
             LlamaCppGgufSession session = lease.session();
@@ -655,11 +674,7 @@ public final class GgufStandaloneRunner {
         boolean useMmap = options.useMmap();
         boolean useMlock = options.useMlock();
         long openStartNanos = System.nanoTime();
-        GgufSessionCache.SessionLease opened = sessionCache == null
-                ? GgufSessionCache.SessionLease.open(modelPath, context, batch, microBatch, threads, batchThreads,
-                        nGpuLayers, useMmap, useMlock, swaFull, llamaCppLibraryPaths())
-                : sessionCache.acquire(modelPath, context, batch, microBatch, threads, batchThreads, nGpuLayers,
-                        useMmap, useMlock, swaFull);
+        GgufSessionCache.SessionLease opened = acquireLlamaCppSession(modelPath, options, sessionCache);
         long openNanos = System.nanoTime() - openStartNanos;
         try (GgufSessionCache.SessionLease lease = opened) {
             LlamaCppGgufSession session = lease.session();
