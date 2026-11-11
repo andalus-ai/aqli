@@ -6400,9 +6400,7 @@ public class RunCommand implements Runnable {
 
     private final class StreamingAudioOutput implements AutoCloseable {
         private final java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
-        private java.io.OutputStream stream;
-        private Path tempPath;
-        private Path finalPath;
+        private StreamingAudioFileWriter fileWriter;
         private long bytes;
         private boolean finished;
 
@@ -6412,7 +6410,7 @@ public class RunCommand implements Runnable {
             }
             if (shouldStreamEncodedAudioToFile(metadata)) {
                 ensureFile(metadata);
-                stream.write(chunk);
+                fileWriter.write(chunk);
             } else {
                 memory.write(chunk);
             }
@@ -6420,7 +6418,7 @@ public class RunCommand implements Runnable {
         }
 
         boolean hasOutput() {
-            return bytes > 0 || memory.size() > 0 || tempPath != null;
+            return bytes > 0 || memory.size() > 0 || fileWriter != null;
         }
 
         void finish(Map<String, Object> metadata) {
@@ -6429,15 +6427,14 @@ public class RunCommand implements Runnable {
             }
             finished = true;
             try {
-                if (stream != null) {
-                    stream.close();
-                    stream = null;
-                    moveTempToFinal();
+                if (fileWriter != null) {
+                    Path savedPath = fileWriter.finish();
+                    fileWriter = null;
                     System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
-                            + "✓ Audio saved to: " + ChatUIRenderer.RESET + finalPath.toAbsolutePath());
+                            + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
                     printAudioDetails(metadata);
-                    maybeWriteAudioMetadataSidecar(finalPath, metadata);
-                    autoOpenAudio(finalPath);
+                    maybeWriteAudioMetadataSidecar(savedPath, metadata);
+                    autoOpenAudio(savedPath);
                     return;
                 }
                 if (memory.size() > 0) {
@@ -6450,23 +6447,13 @@ public class RunCommand implements Runnable {
         }
 
         private void ensureFile(Map<String, Object> metadata) throws java.io.IOException {
-            if (stream != null) {
+            if (fileWriter != null) {
                 return;
             }
-            finalPath = resolveAudioOutputPath(metadata);
-            Path parent = finalPath.toAbsolutePath().getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Path tempDir = parent == null ? Path.of(".") : parent;
-            String name = finalPath.getFileName() == null ? "aqli-audio" : finalPath.getFileName().toString();
-            tempPath = Files.createTempFile(tempDir, "." + name + ".", ".part");
-            stream = Files.newOutputStream(
-                    tempPath,
-                    java.nio.file.StandardOpenOption.WRITE,
-                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+            fileWriter = new StreamingAudioFileWriter(resolveAudioOutputPath(metadata));
+            fileWriter.open();
             if (memory.size() > 0) {
-                memory.writeTo(stream);
+                fileWriter.write(memory.toByteArray());
                 memory.reset();
             }
         }
@@ -6494,31 +6481,15 @@ public class RunCommand implements Runnable {
             return outPath;
         }
 
-        private void moveTempToFinal() throws java.io.IOException {
-            if (tempPath == null || finalPath == null) {
-                return;
-            }
-            try {
-                Files.move(
-                        tempPath,
-                        finalPath,
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
-                Files.move(tempPath, finalPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
-            tempPath = null;
-        }
-
         private void cleanupTemp() {
-            if (tempPath == null) {
+            if (fileWriter == null) {
                 return;
             }
             try {
-                Files.deleteIfExists(tempPath);
+                fileWriter.abort();
             } catch (Exception ignored) {
             } finally {
-                tempPath = null;
+                fileWriter = null;
             }
         }
 
@@ -6534,9 +6505,8 @@ public class RunCommand implements Runnable {
 
         @Override
         public void close() throws java.io.IOException {
-            if (stream != null) {
-                stream.close();
-                stream = null;
+            if (fileWriter != null) {
+                fileWriter.close();
             }
         }
     }
