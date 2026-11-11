@@ -278,7 +278,7 @@ public class MossTtsOnnxRunner {
                     enabled, maxEntries);
         }
 
-        String key = MossSessions.sessionCacheKey(ttsDir, codecDir, ttsMeta, codecMeta, threads);
+        String key = MossSessions.sessionCacheKey(ttsDir, codecDir, ttsMeta, codecMeta, threads, cacheSettings);
         CachedMossSessions cached;
         boolean hit;
         synchronized (sessionCache) {
@@ -294,6 +294,15 @@ public class MossTtsOnnxRunner {
         }
         cached.lock.lock();
         return MossSessionLease.cached(this, cached, hit, maxEntries);
+    }
+
+    static String sessionCacheConfigurationIdentity(MossTtsCacheSettings cacheSettings) {
+        Path cacheRoot = cacheSettings.optimizedGraphCacheRoot();
+        String normalizedRoot = cacheRoot == null ? "" : cacheRoot.toAbsolutePath().normalize().toString();
+        return "optimizedGraphCacheEnabled=" + cacheSettings.optimizedGraphCacheEnabled()
+                + "\noptimizedGraphCacheRoot=" + normalizedRoot
+                + "\nonnxRuntimeLogLevel=" + cacheSettings.onnxRuntimeLogLevel()
+                + "\n";
     }
 
     private void releaseCachedSessions(CachedMossSessions cached, int maxEntries) {
@@ -2335,7 +2344,8 @@ public class MossTtsOnnxRunner {
                 Path codecDir,
                 JsonNode ttsMeta,
                 JsonNode codecMeta,
-                int threads) {
+                int threads,
+                MossTtsCacheSettings cacheSettings) {
             List<Path> paths = MossTtsOnnxGraphResolver
                     .resolveGraphs(ttsDir, codecDir, ttsMeta, codecMeta)
                     .stream()
@@ -2348,6 +2358,8 @@ public class MossTtsOnnxRunner {
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 digest.update(("arch=" + System.getProperty("os.arch", "") + "\n")
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                digest.update(sessionCacheConfigurationIdentity(cacheSettings)
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 for (Path path : paths) {
                     MossTtsOnnxGraphResolver.updateGraphIdentityDigest(digest, path.toAbsolutePath().normalize());
                 }
@@ -2355,7 +2367,8 @@ public class MossTtsOnnxRunner {
             } catch (Exception e) {
                 String fallback = ttsDir.toAbsolutePath().normalize()
                         + "|" + codecDir.toAbsolutePath().normalize()
-                        + "|threads=" + Math.max(1, threads);
+                        + "|threads=" + Math.max(1, threads)
+                        + "|" + sessionCacheConfigurationIdentity(cacheSettings);
                 return Integer.toHexString(fallback.hashCode());
             }
         }
