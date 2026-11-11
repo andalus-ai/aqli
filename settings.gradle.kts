@@ -79,6 +79,7 @@ fun includeOptionalProject(projectPath: String, vararg candidatePaths: String) {
 
 // Optional core and repository projects
 includeOptionalProject("adapter:aqli-adapter", "runtime/adapter/aqli-adapter")
+includeOptionalProject("audio:aqli-audio-core", "runtime/audio/aqli-audio-core")
 includeOptionalProject("core:aqli-core", "framework/core/aqli-core")
 includeOptionalProject("tokenizer:aqli-tokenizer-core", "framework/core/aqli-tokenizer-core")
 includeOptionalProject("repository:aqli-model-database", "runtime/repository/aqli-model-database")

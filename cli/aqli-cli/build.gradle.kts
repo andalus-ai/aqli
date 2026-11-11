@@ -50,6 +50,7 @@ dependencies {
     implementation("org.jline:jline-terminal-jna:3.26.3")
     implementation("com.github.albfernandez:juniversalchardet:2.4.0")
 
+    implementation(project(":audio:aqli-audio-core"))
     implementation(project(":sdk:aqli-sdk"))
     implementation(project(":sdk:aqli-sdk-api"))
     implementation(project(":sdk:aqli-sdk-core"))
