@@ -1880,48 +1880,13 @@ public class RunCommand implements Runnable {
     private boolean verifyImageMetadataSidecar() {
         try {
             Path sidecarPath = Path.of(imageMetadataVerifyPath);
-            if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: image metadata file not found: " + imageMetadataVerifyPath);
-                return false;
-            }
-            JsonNode root = new ObjectMapper().readTree(sidecarPath.toFile());
-            if (root == null || !root.isObject()) {
-                System.err.println("Error: invalid image metadata file: " + imageMetadataVerifyPath);
-                return false;
-            }
-            String expectedSha256 = jsonText(root, "output_sha256");
-            if (expectedSha256 == null || expectedSha256.isBlank()) {
-                System.err.println("Error: metadata does not contain output_sha256; refresh the sidecar with --image-metadata-refresh.");
-                return false;
-            }
-
-            Path imagePath = outputPathForMetadataVerification(sidecarPath, root, "image");
-            if (!Files.isRegularFile(imagePath)) {
-                System.err.println("Error: image output not found: " + imagePath);
-                return false;
-            }
-
-            long actualBytes = Files.size(imagePath);
-            Long expectedBytes = parseOptionalReplayLong(jsonText(root, "output_size_bytes"));
-            if (expectedBytes != null && expectedBytes != actualBytes) {
-                System.err.println("Image metadata verification failed: byte size mismatch.");
-                System.err.println("  expected: " + expectedBytes);
-                System.err.println("  actual:   " + actualBytes);
-                return false;
-            }
-
-            String actualSha256 = sha256Hex(imagePath);
-            if (!expectedSha256.equalsIgnoreCase(actualSha256)) {
-                System.err.println("Image metadata verification failed: SHA-256 mismatch.");
-                System.err.println("  expected: " + expectedSha256);
-                System.err.println("  actual:   " + actualSha256);
-                return false;
-            }
-
+            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
+            ImageMetadataSidecarStore.VerificationResult result =
+                    ImageMetadataSidecarStore.verify(sidecarPath, outputOverride);
             System.out.println(ChatUIRenderer.GREEN + "✓ Image metadata verified: " + ChatUIRenderer.RESET
-                    + imagePath.toAbsolutePath().normalize());
-            System.out.println(ChatUIRenderer.DIM + "Bytes: " + actualBytes
-                    + ", SHA-256: " + actualSha256
+                    + result.imagePath());
+            System.out.println(ChatUIRenderer.DIM + "Bytes: " + result.sizeBytes()
+                    + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
         } catch (Exception e) {
@@ -1933,65 +1898,21 @@ public class RunCommand implements Runnable {
     private boolean refreshImageMetadataSidecar() {
         try {
             Path sidecarPath = Path.of(imageMetadataRefreshPath);
-            if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: image metadata file not found: " + imageMetadataRefreshPath);
-                return false;
-            }
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode rootNode = mapper.readTree(sidecarPath.toFile());
-            if (rootNode == null || !rootNode.isObject()) {
-                System.err.println("Error: invalid image metadata file: " + imageMetadataRefreshPath);
-                return false;
-            }
-
-            com.fasterxml.jackson.databind.node.ObjectNode root =
-                    (com.fasterxml.jackson.databind.node.ObjectNode) rootNode;
-            Path imagePath = outputPathForMetadataVerification(sidecarPath, root, "image");
-            if (!Files.isRegularFile(imagePath)) {
-                System.err.println("Error: image output not found: " + imagePath);
-                return false;
-            }
-
-            long sizeBytes = Files.size(imagePath);
-            String sha256 = sha256Hex(imagePath);
-            root.put("type", "aqli_image_metadata");
-            root.put("schema_version", 1);
-            root.put("refreshed_at", Instant.now().toString());
-            root.put("output_path", imagePath.toAbsolutePath().normalize().toString());
-            root.put("output_size_bytes", sizeBytes);
-            root.put("output_sha256", sha256);
-
-            String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
-            Files.writeString(sidecarPath, json);
+            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
+            ImageMetadataSidecarStore.RefreshResult result =
+                    ImageMetadataSidecarStore.refresh(sidecarPath, outputOverride);
             System.out.println(ChatUIRenderer.GREEN + "✓ Image metadata refreshed: " + ChatUIRenderer.RESET
-                    + sidecarPath.toAbsolutePath().normalize());
+                    + result.sidecarPath());
             System.out.println(ChatUIRenderer.DIM + "Output: "
-                    + imagePath.toAbsolutePath().normalize()
-                    + ", bytes: " + sizeBytes
-                    + ", SHA-256: " + sha256
+                    + result.imagePath()
+                    + ", bytes: " + result.sizeBytes()
+                    + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
         } catch (Exception e) {
             System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
             return false;
         }
-    }
-
-    private Path outputPathForMetadataVerification(Path sidecarPath, JsonNode root, String mediaLabel) {
-        if (outputPath != null && !outputPath.isBlank()) {
-            return Path.of(outputPath).toAbsolutePath().normalize();
-        }
-        String storedOutputPath = jsonText(root, "output_path");
-        if (storedOutputPath == null || storedOutputPath.isBlank()) {
-            throw new IllegalArgumentException("metadata does not contain output_path; pass --output <"
-                    + mediaLabel + "-file> to verify manually");
-        }
-        Path audioPath = Path.of(storedOutputPath);
-        if (!audioPath.isAbsolute()) {
-            Path parent = sidecarPath.toAbsolutePath().normalize().getParent();
-            audioPath = (parent == null ? audioPath : parent.resolve(audioPath)).normalize();
-        }
-        return audioPath.toAbsolutePath().normalize();
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
