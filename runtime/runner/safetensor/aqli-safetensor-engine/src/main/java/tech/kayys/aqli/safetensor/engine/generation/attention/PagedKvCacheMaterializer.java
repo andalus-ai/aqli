@@ -9,7 +9,6 @@ import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 
@@ -53,7 +52,7 @@ final class PagedKvCacheMaterializer {
 
     static MaterializedKvPools materializeBlocksForMetal(BlockManager blockManager,
             KVCacheManager.KVCacheSession kvSession, List<Integer> blocks,
-            int numKVHeads, int headDim, Arena arena) {
+            int numKVHeads, int headDim, BudgetedAttentionArena arena) {
         int blockSize = kvSession.tokensPerBlock();
         PagedKvCacheLayout layout = PagedKvCacheLayout.source(blockManager, numKVHeads, headDim, blockSize);
         long totalElements = (long) blocks.size() * layout.blockElements();
