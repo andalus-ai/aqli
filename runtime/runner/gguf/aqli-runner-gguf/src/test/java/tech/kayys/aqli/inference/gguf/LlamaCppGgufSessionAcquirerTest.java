@@ -15,7 +15,8 @@ class LlamaCppGgufSessionAcquirerTest {
     @Test
     void delegatesSessionAcquisitionToDaemonCacheWithResolvedParameters() throws Exception {
         Path modelPath = Path.of("models/model.gguf");
-        LlamaCppGgufLibraryPaths libraryPaths = mock(LlamaCppGgufLibraryPaths.class);
+        LlamaCppGgufLibraryPaths libraryPaths = new LlamaCppGgufLibraryPaths(
+                Path.of("bridge.dylib"), Path.of("llama"));
         GgufSessionCache cache = mock(GgufSessionCache.class);
         LlamaCppGgufSession session = mock(LlamaCppGgufSession.class);
         GgufSessionCache.SessionLease expected =
