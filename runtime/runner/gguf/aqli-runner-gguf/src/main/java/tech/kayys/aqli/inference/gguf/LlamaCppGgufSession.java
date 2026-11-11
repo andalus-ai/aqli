@@ -151,20 +151,20 @@ public final class LlamaCppGgufSession implements AutoCloseable {
 
     public synchronized Optional<String> metrics(boolean warmSession, String reuseKind) throws Exception {
         try {
-        ensureOpen();
-        if (bindings.metrics == null) {
-            return Optional.empty();
-        }
-        MemorySegment output = metricsSegment();
-        int written = (int) bindings.metrics.invokeExact(handle, output, metricsBufferCapacity);
-        if (written <= 0) {
-            return Optional.empty();
-        }
-        return Optional.of(output.getString(0, StandardCharsets.UTF_8)
-                + ", warmSession=" + warmSession
-                + ", sessionReuse=" + metricToken(reuseKind, warmSession ? "warm" : "cold")
-                + ", javaOutputBufferBytes=" + outputBufferCapacity
-                + ", javaOutputRetries=" + lastOutputBufferRetries);
+            ensureOpen();
+            if (bindings.metrics == null) {
+                return Optional.empty();
+            }
+            MemorySegment output = metricsSegment();
+            int written = (int) bindings.metrics.invokeExact(handle, output, metricsBufferCapacity);
+            if (written <= 0) {
+                return Optional.empty();
+            }
+            return Optional.of(output.getString(0, StandardCharsets.UTF_8)
+                    + ", warmSession=" + warmSession
+                    + ", sessionReuse=" + metricToken(reuseKind, warmSession ? "warm" : "cold")
+                    + ", javaOutputBufferBytes=" + outputBufferCapacity
+                    + ", javaOutputRetries=" + lastOutputBufferRetries);
     
         } catch (Throwable throwable) {
             throw nativeFailure(throwable);
