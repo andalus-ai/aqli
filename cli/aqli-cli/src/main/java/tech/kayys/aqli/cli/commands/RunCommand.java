@@ -1524,9 +1524,7 @@ public class RunCommand implements Runnable {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
                 StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
                 LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(liveAudio);
-                CountDownLatch latch = new CountDownLatch(1);
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
-                java.util.concurrent.atomic.AtomicBoolean streamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
                 java.util.concurrent.atomic.AtomicLong lastTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
@@ -1557,106 +1555,7 @@ public class RunCommand implements Runnable {
                                 lastTokenTime);
                 long streamStartTime = System.currentTimeMillis();
                 String streamFinalLocalPath = finalLocalPath;
-                java.util.concurrent.atomic.AtomicBoolean llamaFallbackAttempted = new java.util.concurrent.atomic.AtomicBoolean(false);
 
-                // Helper to create a stream subscriber (used for primary and fallback)
-                java.util.function.Consumer<io.smallrye.mutiny.Multi<tech.kayys.aqli.spi.inference.StreamingInferenceChunk>> subscribeToStream = (multi) -> {
-                    multi.subscribe().with(
-                            chunkHandler::accept,
-                            error -> {
-                                // Attempt fallback to llama.cpp for streaming if available and not yet tried
-                                try {
-                                    if (!llamaFallbackAttempted.get() && pluginChecker != null && pluginChecker.hasProvider("llamacpp")) {
-                                        llamaFallbackAttempted.set(true);
-                                        System.err.println("Warning: stream provider failed: " + (error == null ? "unknown" : error.getMessage()));
-                                        System.err.println("Attempting streaming fallback to provider 'llamacpp' (llama.cpp)...");
-                                        try {  } catch (Throwable ignore) {}
-                                        // start fallback stream
-                                        try {
-                                            java.util.concurrent.atomic.AtomicBoolean fallbackStreamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
-                                            sdk.streamCompletion(request).subscribe().with(
-                                                    chunkHandler::accept,
-                                                    fallbackError -> {
-                                                        // fallback failed -> close sinks and report
-                                                        liveAudioSink.close();
-                                                        closeAudioOutputQuietly(audioOutput);
-                                                        fallbackStreamFailed.set(true);
-                                                        uiRenderer.printError(fallbackError == null ? "Fallback stream failed" : fallbackError.getMessage(), false);
-                                                        printProviderHintFromError(fallbackError);
-                                                        latch.countDown();
-                                                    },
-                                                    () -> {
-                                                        liveAudioSink.close();
-                                                        long duration = observedStreamDurationMillis(streamStartTime, System.currentTimeMillis(), lastTokenTime);
-                                                        handleOutputs(imageBuffer, audioOutput, metricsRef.get());
-                                                        double tps = (tokenCount.get() / (Math.max(1, duration) / 1000.0));
-                                                        Double ttftMs = ttftMillis(metricsRef.get(), streamStartTime, firstTokenTime);
-                                                        Map<String, Object> streamMetrics = observedStreamMetrics(effectiveExecutionRouteMetadata(metricsRef.get()), tokenCount.get(), duration, ttftMs);
-                                                        recordRouteBenchmarkProfile(request.getModel(), streamFinalLocalPath, streamMetrics, tokenCount.get(), duration, audioOutput.hasOutput());
-                                                        if (enableJsonSse) {
-                                                            printOpenAiSseFinal(request.getRequestId(), request.getModel());
-                                                        } else {
-                                                            printCompletionStatsForOutput(tokenCount.get(), duration, tps, ttftMs, streamMetrics, audioOutput.hasOutput());
-                                                        }
-                                                        latch.countDown();
-                                                    });
-                                        } catch (Throwable fallbackStartErr) {
-                                            liveAudioSink.close();
-                                            closeAudioOutputQuietly(audioOutput);
-                                            streamFailed.set(true);
-                                            uiRenderer.printError(fallbackStartErr.getMessage(), false);
-                                            printProviderHintFromError(fallbackStartErr);
-                                            latch.countDown();
-                                        }
-                                        return;
-                                    }
-                                } catch (Exception probeErr) {
-                                    // ignore probing errors, fall through to failure closing
-                                }
-
-                                // No fallback available or fallback already attempted: close resources and finish
-                                liveAudioSink.close();
-                                closeAudioOutputQuietly(audioOutput);
-                                streamFailed.set(true);
-                                uiRenderer.printError(error == null ? "Stream failed" : error.getMessage(), false);
-                                printProviderHintFromError(error);
-                                latch.countDown();
-                            },
-                            () -> {
-                                liveAudioSink.close();
-                                long duration = observedStreamDurationMillis(
-                                        streamStartTime, System.currentTimeMillis(), lastTokenTime);
-                                handleOutputs(imageBuffer, audioOutput, metricsRef.get());
-                                double tps = (tokenCount.get() / (Math.max(1, duration) / 1000.0));
-                                Double ttftMs = ttftMillis(metricsRef.get(), streamStartTime, firstTokenTime);
-                                Map<String, Object> streamMetrics = observedStreamMetrics(
-                                        effectiveExecutionRouteMetadata(metricsRef.get()),
-                                        tokenCount.get(),
-                                        duration,
-                                        ttftMs);
-                                recordRouteBenchmarkProfile(
-                                        request.getModel(),
-                                        streamFinalLocalPath,
-                                        streamMetrics,
-                                        tokenCount.get(),
-                                        duration,
-                                        audioOutput.hasOutput());
-                                if (enableJsonSse) {
-                                    printOpenAiSseFinal(request.getRequestId(), request.getModel());
-                                } else {
-                                    printCompletionStatsForOutput(
-                                            tokenCount.get(),
-                                            duration,
-                                            tps,
-                                            ttftMs,
-                                            streamMetrics,
-                                            audioOutput.hasOutput());
-                                }
-                                latch.countDown();
-                            });
-                    };
-
-                // Start primary stream
                 var stream = sdk.streamCompletion(request);
                 if (stream == null) {
                     System.err.println("Error: No provider available to handle inference for model '" + modelId
@@ -1664,17 +1563,62 @@ public class RunCommand implements Runnable {
                     requestProcessExit(1);
                     return;
                 }
-                subscribeToStream.accept(stream);
 
-                try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    liveAudioSink.close();
-                    closeAudioOutputQuietly(audioOutput);
-                    streamFailed.set(true);
-                }
-                requestProcessExit(streamFailed.get() ? 1 : 0);
+                RunStreamExecutionCoordinator.Result streamResult =
+                        new RunStreamExecutionCoordinator().execute(
+                                stream,
+                                () -> sdk.streamCompletion(request),
+                                () -> pluginChecker != null && pluginChecker.hasProvider("llamacpp"),
+                                chunkHandler::accept,
+                                () -> {
+                                    liveAudioSink.close();
+                                    long duration = observedStreamDurationMillis(
+                                            streamStartTime, System.currentTimeMillis(), lastTokenTime);
+                                    handleOutputs(imageBuffer, audioOutput, metricsRef.get());
+                                    double tps = tokenCount.get() / (Math.max(1, duration) / 1000.0);
+                                    Double ttftMs = ttftMillis(metricsRef.get(), streamStartTime, firstTokenTime);
+                                    Map<String, Object> streamMetrics = observedStreamMetrics(
+                                            effectiveExecutionRouteMetadata(metricsRef.get()),
+                                            tokenCount.get(),
+                                            duration,
+                                            ttftMs);
+                                    recordRouteBenchmarkProfile(
+                                            request.getModel(),
+                                            streamFinalLocalPath,
+                                            streamMetrics,
+                                            tokenCount.get(),
+                                            duration,
+                                            audioOutput.hasOutput());
+                                    if (enableJsonSse) {
+                                        printOpenAiSseFinal(request.getRequestId(), request.getModel());
+                                    } else {
+                                        printCompletionStatsForOutput(
+                                                tokenCount.get(),
+                                                duration,
+                                                tps,
+                                                ttftMs,
+                                                streamMetrics,
+                                                audioOutput.hasOutput());
+                                    }
+                                },
+                                error -> {
+                                    liveAudioSink.close();
+                                    closeAudioOutputQuietly(audioOutput);
+                                    uiRenderer.printError(
+                                            error == null ? "Stream failed" : error.getMessage(), false);
+                                    printProviderHintFromError(error);
+                                },
+                                () -> {
+                                    liveAudioSink.close();
+                                    closeAudioOutputQuietly(audioOutput);
+                                },
+                                error -> {
+                                    System.err.println("Warning: stream provider failed: "
+                                            + (error == null ? "unknown" : error.getMessage()));
+                                    System.err.println(
+                                            "Attempting streaming fallback to provider 'llamacpp' (llama.cpp)...");
+                                });
+                requestProcessExit(streamResult.failed() ? 1 : 0);
             } else {
                 try {
                     InferenceResponse response = sdk.createCompletion(request);
