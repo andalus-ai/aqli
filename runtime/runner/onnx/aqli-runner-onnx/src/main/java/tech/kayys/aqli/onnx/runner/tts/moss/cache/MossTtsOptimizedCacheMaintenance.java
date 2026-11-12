@@ -21,7 +21,10 @@ public final class MossTtsOptimizedCacheMaintenance {
         Objects.requireNonNull(modelDir, "modelDir");
         Objects.requireNonNull(codecDir, "codecDir");
         Objects.requireNonNull(cacheRoot, "cacheRoot");
+        return OptimizedModelCacheLock.withLock(cacheRoot, () -> pruneLocked(modelDir, codecDir, cacheRoot, dryRun));
+    }
 
+    private Result pruneLocked(Path modelDir, Path codecDir, Path cacheRoot, boolean dryRun) throws Exception {
         Set<Path> currentPaths = new HashSet<>();
         Set<String> currentPrefixes = new HashSet<>();
         for (MossTtsOnnxGraphResolver.Graph graph :
