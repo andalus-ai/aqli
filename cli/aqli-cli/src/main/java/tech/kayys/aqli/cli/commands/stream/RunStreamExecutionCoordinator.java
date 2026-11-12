@@ -5,9 +5,9 @@ import io.smallrye.mutiny.subscription.Cancellable;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -54,7 +54,7 @@ public final class RunStreamExecutionCoordinator {
         private final AtomicBoolean terminal = new AtomicBoolean();
         private final AtomicBoolean failed = new AtomicBoolean();
         private final AtomicBoolean fallbackAttempted = new AtomicBoolean();
-        private final AtomicReference<Cancellable> subscription = new AtomicReference<>();
+        private final ConcurrentLinkedQueue<Cancellable> subscriptions = new ConcurrentLinkedQueue<>();
         private final Supplier<Multi<StreamingInferenceChunk>> fallbackStream;
         private final BooleanSupplier fallbackAvailable;
         private final Consumer<StreamingInferenceChunk> onChunk;
@@ -108,7 +108,7 @@ public final class RunStreamExecutionCoordinator {
                         }
                     },
                     this::succeed);
-            subscription.set(current);
+            subscriptions.add(current);
             if (terminal.get()) {
                 current.cancel();
             }
@@ -161,8 +161,8 @@ public final class RunStreamExecutionCoordinator {
         }
 
         private void cancelSubscription() {
-            Cancellable current = subscription.get();
-            if (current != null) {
+            Cancellable current;
+            while ((current = subscriptions.poll()) != null) {
                 current.cancel();
             }
         }

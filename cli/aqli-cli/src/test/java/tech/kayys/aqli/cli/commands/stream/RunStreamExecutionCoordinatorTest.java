@@ -103,6 +103,31 @@ class RunStreamExecutionCoordinatorTest {
     }
 
     @Test
+    void chunkHandlerFailureTerminatesTheExecution() {
+        AtomicInteger chunks = new AtomicInteger();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        var result = coordinator.execute(
+                Multi.createFrom().items(
+                        mock(StreamingInferenceChunk.class),
+                        mock(StreamingInferenceChunk.class)),
+                () -> { throw new AssertionError("fallback must not be requested"); },
+                () -> false,
+                chunk -> {
+                    chunks.incrementAndGet();
+                    throw new IllegalArgumentException("chunk handler failed");
+                },
+                () -> { throw new AssertionError("failed chunk handling cannot complete"); },
+                failure::set,
+                () -> { },
+                error -> { });
+
+        assertTrue(result.failed());
+        assertEquals(1, chunks.get());
+        assertEquals("chunk handler failed", failure.get().getMessage());
+    }
+
+    @Test
     void interruptedWaitClosesResourcesAndRestoresInterruptFlag() throws Exception {
         AtomicInteger interrupted = new AtomicInteger();
         AtomicReference<RunStreamExecutionCoordinator.Result> result = new AtomicReference<>();
