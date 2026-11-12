@@ -23,11 +23,13 @@ public final class OptimizedModelCacheFiles {
      * a sidecar. Call only while holding the cache-root lock.
      */
     public static int cleanupAbandonedStages(Path cacheRoot) {
-        Path root = cacheRoot.toAbsolutePath().normalize();
-        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+        Path requestedRoot = cacheRoot.toAbsolutePath().normalize();
+        if (!Files.isDirectory(requestedRoot)) {
             return 0;
         }
-        try (Stream<Path> paths = Files.walk(root, 2)) {
+        try {
+            Path root = requestedRoot.toRealPath();
+            try (Stream<Path> paths = Files.walk(root, 2)) {
             return paths.filter(path -> !path.equals(root))
                     .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .filter(path -> {
@@ -42,6 +44,7 @@ public final class OptimizedModelCacheFiles {
                         }
                     })
                     .sum();
+            }
         } catch (IOException ignored) {
             return 0;
         }
