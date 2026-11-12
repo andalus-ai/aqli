@@ -9,7 +9,7 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GRADLEW="${PROJECT_ROOT}/gradlew"
 CLI_MODULE="cli/aqli-cli"
-SDK_MODULE="sdk/aqli-sdk-local"
+SDK_MODULE="runtime/sdk/aqli-sdk-local"
 SAFETENSOR_ENGINE_MODULE="runner/safetensor/aqli-safetensor-engine"
 METAL_MODULE="../aljabr/backend/metal/aljabr-backend-metal"
 BIN_DIR="${AQLI_BIN_DIR:-${HOME}/.local/bin}"
