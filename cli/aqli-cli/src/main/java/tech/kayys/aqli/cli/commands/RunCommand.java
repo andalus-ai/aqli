@@ -1530,6 +1530,28 @@ public class RunCommand implements Runnable {
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
                 java.util.concurrent.atomic.AtomicLong lastTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
+                tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler chunkHandler =
+                        new tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler(
+                                imageBuffer,
+                                chunk -> handleAudioChunk(chunk, audioOutput, liveAudioSink),
+                                delta -> {
+                                    if (enableJsonSse) {
+                                        printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
+                                    } else {
+                                        System.out.print(delta);
+                                        System.out.flush();
+                                    }
+                                },
+                                delta -> {
+                                    if (!enableJsonSse) {
+                                        System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
+                                        System.out.flush();
+                                    }
+                                },
+                                metricsRef::set,
+                                tokenCount,
+                                firstTokenTime,
+                                lastTokenTime);
                 long streamStartTime = System.currentTimeMillis();
                 String streamFinalLocalPath = finalLocalPath;
                 java.util.concurrent.atomic.AtomicBoolean llamaFallbackAttempted = new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -1537,48 +1559,7 @@ public class RunCommand implements Runnable {
                 // Helper to create a stream subscriber (used for primary and fallback)
                 java.util.function.Consumer<io.smallrye.mutiny.Multi<tech.kayys.aqli.spi.inference.StreamingInferenceChunk>> subscribeToStream = (multi) -> {
                     multi.subscribe().with(
-                            chunk -> {
-                                if (chunk.metadata() != null && !chunk.metadata().isEmpty()) {
-                                    metricsRef.set(chunk.metadata());
-                                }
-
-                                if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.IMAGE) {
-                                    if (chunk.imageDeltaBase64() != null) {
-                                        try {
-                                            byte[] decoded = java.util.Base64.getDecoder().decode(chunk.imageDeltaBase64());
-                                            imageBuffer.write(decoded);
-                                        } catch (Exception imageDecodeFailure) {}
-                                    }
-                                    return;
-                                }
-
-                                if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.AUDIO) {
-                                    handleAudioChunk(chunk, audioOutput, liveAudioSink);
-                                    return;
-                                }
-
-                                String delta = chunk.getDelta();
-                                if (delta != null) {
-                                    boolean progressDelta = delta.startsWith("[") && delta.contains("]");
-                                    if (!progressDelta && !delta.isEmpty()) {
-                                        long now = System.currentTimeMillis();
-                                        firstTokenTime.compareAndSet(0, now);
-                                        lastTokenTime.set(now);
-                                    }
-                                    if (progressDelta) {
-                                        if (!enableJsonSse) {
-                                            System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
-                                            System.out.flush();
-                                        }
-                                    } else if (enableJsonSse) {
-                                        printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
-                                    } else {
-                                        System.out.print(delta);
-                                        System.out.flush();
-                                    }
-                                    tokenCount.incrementAndGet();
-                                }
-                            },
+                            chunkHandler::accept,
                             error -> {
                                 // Attempt fallback to llama.cpp for streaming if available and not yet tried
                                 try {
@@ -1591,45 +1572,7 @@ public class RunCommand implements Runnable {
                                         try {
                                             java.util.concurrent.atomic.AtomicBoolean fallbackStreamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
                                             sdk.streamCompletion(request).subscribe().with(
-                                                    chunk -> {
-                                                        if (chunk.metadata() != null && !chunk.metadata().isEmpty()) {
-                                                            metricsRef.set(chunk.metadata());
-                                                        }
-                                                        if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.IMAGE) {
-                                                            if (chunk.imageDeltaBase64() != null) {
-                                                                try {
-                                                                    byte[] decoded = java.util.Base64.getDecoder().decode(chunk.imageDeltaBase64());
-                                                                    imageBuffer.write(decoded);
-                                                                } catch (Exception imageDecodeFailure) {}
-                                                            }
-                                                            return;
-                                                        }
-                                                        if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.AUDIO) {
-                                                            handleAudioChunk(chunk, audioOutput, liveAudioSink);
-                                                            return;
-                                                        }
-                                                        String delta = chunk.getDelta();
-                                                        if (delta != null) {
-                                                            boolean progressDelta = delta.startsWith("[") && delta.contains("]");
-                                                            if (!progressDelta && !delta.isEmpty()) {
-                                                                long now = System.currentTimeMillis();
-                                                                firstTokenTime.compareAndSet(0, now);
-                                                                lastTokenTime.set(now);
-                                                            }
-                                                            if (progressDelta) {
-                                                                if (!enableJsonSse) {
-                                                                    System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
-                                                                    System.out.flush();
-                                                                }
-                                                            } else if (enableJsonSse) {
-                                                                printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
-                                                            } else {
-                                                                System.out.print(delta);
-                                                                System.out.flush();
-                                                            }
-                                                            tokenCount.incrementAndGet();
-                                                        }
-                                                    },
+                                                    chunkHandler::accept,
                                                     fallbackError -> {
                                                         // fallback failed -> close sinks and report
                                                         liveAudioSink.close();
