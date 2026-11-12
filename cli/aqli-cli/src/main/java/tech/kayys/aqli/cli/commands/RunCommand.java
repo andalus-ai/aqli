@@ -68,7 +68,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
@@ -1565,7 +1564,7 @@ public class RunCommand implements Runnable {
                 }
 
                 RunStreamExecutionCoordinator.Result streamResult =
-                        new RunStreamExecutionCoordinator().execute(
+                        new tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator().execute(
                                 stream,
                                 () -> sdk.streamCompletion(request),
                                 () -> pluginChecker != null && pluginChecker.hasProvider("llamacpp"),
