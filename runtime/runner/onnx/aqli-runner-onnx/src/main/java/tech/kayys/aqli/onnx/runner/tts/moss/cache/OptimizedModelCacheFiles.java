@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.stream.Stream;
 
 /** Safe staging helpers for external-data files used by optimized ONNX graphs. */
 public final class OptimizedModelCacheFiles {
@@ -17,6 +18,35 @@ public final class OptimizedModelCacheFiles {
      * before replacing the published target. Readers never observe a partially
      * copied target file.
      */
+    /**
+     * Removes staging files left behind by a process that terminated while publishing
+     * a sidecar. Call only while holding the cache-root lock.
+     */
+    public static int cleanupAbandonedStages(Path cacheRoot) {
+        Path root = cacheRoot.toAbsolutePath().normalize();
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            return 0;
+        }
+        try (Stream<Path> paths = Files.walk(root, 2)) {
+            return paths.filter(path -> !path.equals(root))
+                    .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                    .filter(path -> {
+                        String name = path.getFileName().toString();
+                        return name.startsWith(".moss-sidecar-") && name.endsWith(".tmp");
+                    })
+                    .mapToInt(path -> {
+                        try {
+                            return Files.deleteIfExists(path) ? 1 : 0;
+                        } catch (IOException ignored) {
+                            return 0;
+                        }
+                    })
+                    .sum();
+        } catch (IOException ignored) {
+            return 0;
+        }
+    }
+
     public static void linkOrCopySidecar(Path source, Path target) throws IOException {
         if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) && Files.mismatch(source, target) == -1L) {
             return;

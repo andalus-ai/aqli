@@ -25,6 +25,7 @@ public final class MossTtsOptimizedCacheMaintenance {
     }
 
     private Result pruneLocked(Path modelDir, Path codecDir, Path cacheRoot, boolean dryRun) throws Exception {
+        OptimizedModelCacheFiles.cleanupAbandonedStages(cacheRoot);
         Set<Path> currentPaths = new HashSet<>();
         Set<String> currentPrefixes = new HashSet<>();
         for (MossTtsOnnxGraphResolver.Graph graph :

@@ -2417,6 +2417,9 @@ public class MossTtsOnnxRunner {
                 OrtEnvironment env, Path path, int threads, MossTtsCacheSettings cacheSettings) throws OrtException {
             Path modelPath = path.toAbsolutePath().normalize();
             Path optimizedPath = optimizedModelCachePath(modelPath, cacheSettings);
+            if (optimizedPath != null) {
+                OptimizedModelCacheFiles.cleanupAbandonedStages(cacheSettings.optimizedGraphCacheRoot());
+            }
             int sidecars = 0;
             if (optimizedPath != null) {
                 sidecars = prepareOptimizedModelSidecars(modelPath, optimizedPath);
