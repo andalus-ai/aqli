@@ -1530,10 +1530,13 @@ public class RunCommand implements Runnable {
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
                 java.util.concurrent.atomic.AtomicLong lastTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
+                tech.kayys.aqli.audio.output.StreamingAudioChunkRouter audioChunkRouter =
+                        new tech.kayys.aqli.audio.output.StreamingAudioChunkRouter(
+                                audioOutput, liveAudioSink, this::resolveAudioOutputPath);
                 tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler chunkHandler =
                         new tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler(
                                 imageBuffer,
-                                chunk -> handleAudioChunk(chunk, audioOutput, liveAudioSink),
+                                chunk -> audioChunkRouter.accept(chunk.getDelta(), chunk.metadata()),
                                 delta -> {
                                     if (enableJsonSse) {
                                         printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
@@ -5303,32 +5306,6 @@ private String indentBlock(String text, String indent) {
         }
     }
 
-    private void handleAudioChunk(
-            StreamingInferenceChunk chunk,
-            StreamingAudioOutputSession encodedAudioOutput,
-            LivePcmAudioPlayer liveAudioSink) {
-        if (chunk == null || chunk.getDelta() == null) {
-            return;
-        }
-        try {
-            byte[] decoded = java.util.Base64.getDecoder().decode(chunk.getDelta());
-            if (isPcmStreamChunk(chunk.metadata())) {
-                liveAudioSink.write(decoded, chunk.metadata());
-                return;
-            }
-            boolean streamToFile = shouldStreamEncodedAudioToFile(chunk.metadata());
-            Path targetPath = streamToFile ? resolveAudioOutputPath(chunk.metadata()) : null;
-            encodedAudioOutput.write(decoded, streamToFile, targetPath);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private static boolean isPcmStreamChunk(Map<String, Object> metadata) {
-        String payload = metadataText(metadata, "audio_stream_payload");
-        return "pcm_s16le".equalsIgnoreCase(payload)
-                || "true".equalsIgnoreCase(metadataText(metadata, "audio_stream_preview"));
-    }
-
     private static void warnIfAudioExtensionWasOverridden(MediaOutputPathResolver.Resolution output) {
         if (output.requestedExtensionOverridden()) {
             System.err.println("\nWarning: requested --ext " + output.requestedExtension()
@@ -5372,13 +5349,6 @@ private String indentBlock(String text, String indent) {
                         outputPath, extension, audioDefaultExtension(metadata), true));
         warnIfAudioExtensionWasOverridden(output);
         return output.path();
-    }
-
-    private static boolean shouldStreamEncodedAudioToFile(Map<String, Object> metadata) {
-        String payload = metadataText(metadata, "audio_stream_payload");
-        return "encoded".equalsIgnoreCase(payload)
-                || metadataText(metadata, "audio_format") != null
-                || metadataText(metadata, "audio_mime") != null;
     }
 
     private void printAudioDetails(Map<String, Object> metadata) {
