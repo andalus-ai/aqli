@@ -90,7 +90,7 @@ final class LocalModelIndex {
         }
         String needle = LocalModelIndexReferenceMatcher.stripProviderPrefix(ref.trim());
         List<Entry> entries = readOrRefresh();
-        Optional<Entry> cached = findBestMatch(entries.stream()
+        Optional<Entry> cached = LocalModelIndexReferenceMatcher.findBestMatch(entries.stream()
                 .filter(e -> LocalModelIndexReferenceMatcher.formatMatches(e, preferredFormat))
                 .toList(), needle);
         if (cached.isPresent()) {
