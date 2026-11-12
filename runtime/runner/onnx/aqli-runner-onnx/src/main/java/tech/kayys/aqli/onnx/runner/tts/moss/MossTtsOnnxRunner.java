@@ -19,11 +19,13 @@ import tech.kayys.suling.audio.EncodedMedia;
 import tech.kayys.suling.audio.PcmAudio;
 import tech.kayys.suling.audio.Suling;
 
+import java.io.UncheckedIOException;
 import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedModelCacheFiles;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedModelCacheLock;
 import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
 import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
 
@@ -2390,11 +2392,38 @@ public class MossTtsOnnxRunner {
 
         private static SessionOpen createSession(
                 OrtEnvironment env, Path path, int threads, MossTtsCacheSettings cacheSettings) throws OrtException {
+            if (!cacheSettings.optimizedGraphCacheEnabled()) {
+                return createSessionLocked(env, path, threads, cacheSettings);
+            }
+            try {
+                return OptimizedModelCacheLock.withLock(
+                        cacheSettings.optimizedGraphCacheRoot(),
+                        () -> createSessionLocked(env, path, threads, cacheSettings));
+            } catch (UncheckedIOException lockFailure) {
+                // Cache coordination is an optimization, not a prerequisite for inference.
+                MossTtsCacheSettings uncachedSettings = new MossTtsCacheSettings(
+                        false,
+                        cacheSettings.optimizedGraphCacheRoot(),
+                        cacheSettings.onnxRuntimeLogLevel(),
+                        cacheSettings.sessionCacheEnabled(),
+                        cacheSettings.sessionCacheMaxEntries(),
+                        cacheSettings.assetCacheEnabled(),
+                        cacheSettings.assetCacheMaxEntries());
+                return createSessionLocked(env, path, threads, uncachedSettings);
+            }
+        }
+
+        private static SessionOpen createSessionLocked(
+                OrtEnvironment env, Path path, int threads, MossTtsCacheSettings cacheSettings) throws OrtException {
             Path modelPath = path.toAbsolutePath().normalize();
             Path optimizedPath = optimizedModelCachePath(modelPath, cacheSettings);
             int sidecars = 0;
             if (optimizedPath != null) {
                 sidecars = prepareOptimizedModelSidecars(modelPath, optimizedPath);
+                if (sidecars < 0) {
+                    optimizedPath = null;
+                    sidecars = 0;
+                }
             }
             boolean staleCacheRebuilt = false;
             if (optimizedPath != null && Files.isRegularFile(optimizedPath)) {
@@ -2442,38 +2471,24 @@ public class MossTtsOnnxRunner {
             Path sourceDir = modelPath.getParent();
             Path cacheDir = optimizedPath.getParent();
             if (sourceDir == null || cacheDir == null || !Files.isDirectory(sourceDir)) {
-                return 0;
+                return -1;
             }
             try {
                 Files.createDirectories(cacheDir);
-            } catch (Exception e) {
-                return 0;
-            }
-            int prepared = 0;
-            try {
+                int prepared = 0;
                 List<Path> sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(modelPath);
                 for (Path source : sidecars) {
-                    try {
-                        linkOrCopySidecar(source, cacheDir.resolve(source.getFileName().toString()));
-                        prepared++;
-                    } catch (Exception ignored) {
-                    }
+                    linkOrCopySidecar(source, cacheDir.resolve(source.getFileName().toString()));
+                    prepared++;
                 }
+                return prepared;
             } catch (Exception ignored) {
+                return -1;
             }
-            return prepared;
         }
 
         private static void linkOrCopySidecar(Path source, Path target) throws Exception {
-            if (Files.isRegularFile(target) && Files.size(target) == Files.size(source)) {
-                return;
-            }
-            try {
-                Files.deleteIfExists(target);
-                Files.createLink(target, source);
-            } catch (Exception e) {
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-            }
+            OptimizedModelCacheFiles.linkOrCopySidecar(source, target);
         }
 
         private static Path optimizedModelCachePath(Path modelPath, MossTtsCacheSettings cacheSettings) {
