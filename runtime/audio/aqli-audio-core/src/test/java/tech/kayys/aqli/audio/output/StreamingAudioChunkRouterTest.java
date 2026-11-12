@@ -13,22 +13,23 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class StreamingAudioChunkRouterTest {
 
+    @TempDir
+    Path tempDir;
+
     @Test
-    void routesPcmPreviewToLivePlayerWithoutWritingEncodedOutput() {
+    void routesPcmPreviewToLiveWriterWithoutWritingEncodedOutput() {
         StreamingAudioOutputSession output = new StreamingAudioOutputSession();
         AtomicReference<byte[]> played = new AtomicReference<>();
-        LivePcmAudioPlayer player = new LivePcmAudioPlayer(true) {
-            @Override
-            public void write(byte[] pcm, Map<String, Object> metadata) {
-                played.set(pcm.clone());
-            }
-        };
-        StreamingAudioChunkRouter router = new StreamingAudioChunkRouter(output, player, ignored -> {
-            throw new AssertionError("PCM preview must not resolve an output path");
-        });
+        StreamingAudioChunkRouter router = new StreamingAudioChunkRouter(
+                output,
+                ignored -> {
+                    throw new AssertionError("PCM preview must not resolve an output path");
+                },
+                (pcm, metadata) -> played.set(pcm.clone()));
 
         router.accept("AQID", Map.of("audio_stream_payload", "pcm_s16le"));
 
@@ -38,15 +39,17 @@ class StreamingAudioChunkRouterTest {
 
     @Test
     void routesEncodedChunksToFileWhenMetadataRequestsIt() throws Exception {
-        Path target = Path.of("audio.wav");
+        Path target = tempDir.resolve("audio.wav");
         List<Path> resolved = new ArrayList<>();
         StreamingAudioOutputSession output = new StreamingAudioOutputSession();
         StreamingAudioChunkRouter router = new StreamingAudioChunkRouter(
                 output,
-                new LivePcmAudioPlayer(false),
                 metadata -> {
                     resolved.add(target);
                     return target;
+                },
+                (pcm, metadata) -> {
+                    throw new AssertionError("Encoded chunks must not be sent to the PCM writer");
                 });
 
         router.accept("aGVsbG8=", Map.of("audio_stream_payload", "encoded"));
@@ -55,6 +58,7 @@ class StreamingAudioChunkRouterTest {
         assertTrue(output.hasOutput());
         StreamingAudioOutputSession.Output result = output.finish();
         assertTrue(result instanceof StreamingAudioOutputSession.FileOutput);
+        assertTrue(java.nio.file.Files.exists(target));
         output.close();
     }
 
@@ -62,7 +66,9 @@ class StreamingAudioChunkRouterTest {
     void buffersEncodedChunksWhenNoFileMetadataIsPresent() throws Exception {
         StreamingAudioOutputSession output = new StreamingAudioOutputSession();
         StreamingAudioChunkRouter router = new StreamingAudioChunkRouter(
-                output, new LivePcmAudioPlayer(false), ignored -> null);
+                output, ignored -> null, (pcm, metadata) -> {
+                    throw new AssertionError("Encoded chunks must not be sent to the PCM writer");
+                });
 
         router.accept("aGVsbG8=", Map.of());
 
@@ -77,7 +83,9 @@ class StreamingAudioChunkRouterTest {
     void ignoresMalformedBase64WithoutFailingTheStream() {
         StreamingAudioOutputSession output = new StreamingAudioOutputSession();
         StreamingAudioChunkRouter router = new StreamingAudioChunkRouter(
-                output, new LivePcmAudioPlayer(false), ignored -> null);
+                output, ignored -> null, (pcm, metadata) -> {
+                    throw new AssertionError("Malformed chunks must not reach the PCM writer");
+                });
 
         router.accept("not-base64%%%", Map.of());
 

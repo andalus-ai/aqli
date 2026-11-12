@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
@@ -15,16 +16,16 @@ import java.util.function.Function;
  */
 public final class StreamingAudioChunkRouter {
     private final StreamingAudioOutputSession encodedOutput;
-    private final LivePcmAudioPlayer livePcmPlayer;
     private final Function<Map<String, Object>, Path> outputPathResolver;
+    private final BiConsumer<byte[], Map<String, Object>> livePcmWriter;
 
     public StreamingAudioChunkRouter(
             StreamingAudioOutputSession encodedOutput,
-            LivePcmAudioPlayer livePcmPlayer,
-            Function<Map<String, Object>, Path> outputPathResolver) {
+            Function<Map<String, Object>, Path> outputPathResolver,
+            BiConsumer<byte[], Map<String, Object>> livePcmWriter) {
         this.encodedOutput = Objects.requireNonNull(encodedOutput, "encodedOutput");
-        this.livePcmPlayer = Objects.requireNonNull(livePcmPlayer, "livePcmPlayer");
         this.outputPathResolver = Objects.requireNonNull(outputPathResolver, "outputPathResolver");
+        this.livePcmWriter = Objects.requireNonNull(livePcmWriter, "livePcmWriter");
     }
 
     /**
@@ -38,7 +39,7 @@ public final class StreamingAudioChunkRouter {
         try {
             byte[] decoded = Base64.getDecoder().decode(base64Delta);
             if (isPcmStreamChunk(metadata)) {
-                livePcmPlayer.write(decoded, metadata);
+                livePcmWriter.accept(decoded, metadata);
                 return;
             }
             boolean streamToFile = shouldStreamEncodedAudioToFile(metadata);
