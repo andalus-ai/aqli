@@ -1532,7 +1532,7 @@ public class RunCommand implements Runnable {
                 java.util.concurrent.atomic.AtomicLong lastTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
                 tech.kayys.aqli.audio.output.StreamingAudioChunkRouter audioChunkRouter =
                         new tech.kayys.aqli.audio.output.StreamingAudioChunkRouter(
-                                audioOutput, liveAudioSink, this::resolveAudioOutputPath);
+                                audioOutput, this::resolveAudioOutputPath, liveAudioSink::write);
                 tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler chunkHandler =
                         new tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler(
                                 imageBuffer,
