@@ -1,11 +1,13 @@
 package tech.kayys.aqli.cli.commands.stream;
 
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.subscription.Cancellable;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -52,6 +54,7 @@ public final class RunStreamExecutionCoordinator {
         private final AtomicBoolean terminal = new AtomicBoolean();
         private final AtomicBoolean failed = new AtomicBoolean();
         private final AtomicBoolean fallbackAttempted = new AtomicBoolean();
+        private final AtomicReference<Cancellable> subscription = new AtomicReference<>();
         private final Supplier<Multi<StreamingInferenceChunk>> fallbackStream;
         private final BooleanSupplier fallbackAvailable;
         private final Consumer<StreamingInferenceChunk> onChunk;
@@ -82,7 +85,7 @@ public final class RunStreamExecutionCoordinator {
                 fail(new IllegalStateException("Streaming inference returned no stream"));
                 return;
             }
-            stream.subscribe().with(
+            Cancellable current = stream.subscribe().with(
                     chunk -> {
                         if (!terminal.get()) {
                             try {
@@ -105,6 +108,10 @@ public final class RunStreamExecutionCoordinator {
                         }
                     },
                     this::succeed);
+            subscription.set(current);
+            if (terminal.get()) {
+                current.cancel();
+            }
         }
 
         private boolean canAttemptFallback() {
@@ -143,6 +150,7 @@ public final class RunStreamExecutionCoordinator {
                 return;
             }
             failed.set(true);
+            cancelSubscription();
             try {
                 onFailure.accept(error);
             } catch (Throwable ignored) {
@@ -152,12 +160,20 @@ public final class RunStreamExecutionCoordinator {
             }
         }
 
+        private void cancelSubscription() {
+            Cancellable current = subscription.get();
+            if (current != null) {
+                current.cancel();
+            }
+        }
+
         private Result await() {
             try {
                 completed.await();
             } catch (InterruptedException interrupted) {
                 failed.set(true);
                 if (terminal.compareAndSet(false, true)) {
+                    cancelSubscription();
                     try {
                         onInterrupted.run();
                     } catch (Throwable ignored) {

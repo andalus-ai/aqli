@@ -87,6 +87,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
+import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -1564,7 +1565,7 @@ public class RunCommand implements Runnable {
                 }
 
                 RunStreamExecutionCoordinator.Result streamResult =
-                        new tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator().execute(
+                        new RunStreamExecutionCoordinator().execute(
                                 stream,
                                 () -> sdk.streamCompletion(request),
                                 () -> pluginChecker != null && pluginChecker.hasProvider("llamacpp"),
