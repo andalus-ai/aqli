@@ -36,6 +36,19 @@ public final class GgufJavaBackendSession implements AutoCloseable {
         return new GgufJavaBackendSession(backend, true);
     }
 
+    /**
+     * Executes one request while holding the session monitor. Cached sessions may
+     * be shared by concurrent callers, but the underlying backend is not assumed
+     * to support overlapping executions on the same model instance.
+     */
+    public synchronized tech.kayys.aljabr.spi.inference.InferenceResponse execute(
+            tech.kayys.aljabr.spi.inference.InferenceRequest request) throws Exception {
+        if (closed) {
+            throw new IllegalStateException("GGUF backend session is closed");
+        }
+        return backend.execute(Objects.requireNonNull(request, "request"));
+    }
+
     /** Returns the backend while this session remains open. */
     public synchronized GgufBackend backend() {
         if (closed) {
