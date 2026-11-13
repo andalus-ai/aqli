@@ -27,34 +27,35 @@ public final class GgufSessionCache implements AutoCloseable {
     }
 
     public record SessionLease(
-            LlamaCppGgufSession session,
-            boolean reused,
-            boolean closeOnClose,
-            String reuseKind) implements AutoCloseable {
-        public static SessionLease open(
-                Path modelPath,
-                LlamaCppGgufSessionParameters parameters,
-                LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
-            return new SessionLease(
-                    LlamaCppGgufSession.open(modelPath, parameters, libraryPaths),
-                    false,
-                    true,
-                    "cold");
-        }
+        LlamaCppGgufSession session,
+        boolean reused,
+        boolean closeOnClose,
+        String reuseKind) implements AutoCloseable {
+    public static SessionLease open(
+            Path modelPath,
+            LlamaCppGgufSessionParameters parameters,
+            LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
+        return new SessionLease(
+                LlamaCppGgufSession.open(modelPath, parameters, libraryPaths),
+                false,
+                true,
+                "cold");
+    }
 
         @Override
-        public void close() {
-            if (closeOnClose) {
-                session.close();
-            }
+    public void close() {
+        if (closeOnClose) {
+            session.close();
         }
     }
+}
 
     private final Map<SessionKey, LlamaCppGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
     private final Map<Path, GgufJavaBackendSession> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
 
-    public synchronized GgufJavaBackendSession acquireJavaBackend(Path modelPath) throws Exception {
+    public synchronized GgufJavaBackendSession acquireJavaBackend(
+            Path modelPath) throws Exception {
         Path key = modelPath.toAbsolutePath().normalize();
         GgufJavaBackendSession existing = javaBackends.get(key);
         if (existing != null) {
@@ -62,7 +63,8 @@ public final class GgufSessionCache implements AutoCloseable {
             return existing;
         }
         log.accept("java backend cache miss: " + key.getFileName());
-        GgufJavaBackendSession opened = GgufJavaBackendSession.open(key);
+        GgufJavaBackendSession opened =
+                tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
         javaBackends.put(key, opened);
         return opened;
     }
@@ -167,7 +169,7 @@ public final class GgufSessionCache implements AutoCloseable {
             session.close();
         }
         sessions.clear();
-        for (GgufJavaBackendSession backendSession : javaBackends.values()) {
+        for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
             try {
                 backendSession.close();
             } catch (Exception ignored) {
