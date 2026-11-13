@@ -219,7 +219,7 @@ final class LocalModelIndex {
 
                     // Preserve the legacy pipeline-tag fallback when taskType was omitted/defaulted.
                     e.taskType = manifest.getTaskType();
-                    if (e.taskType == null || e.taskType.isBlank() || "text".equals(e.taskType)) {
+                    if (!manifest.isTaskTypeSpecified() || e.taskType == null || e.taskType.isBlank()) {
                         String tag = manifest.getMetadata() == null
                                 ? null : manifest.getMetadata().get("pipeline_tag");
                         String mappedTaskType = pipelineTagToTaskType(tag);
