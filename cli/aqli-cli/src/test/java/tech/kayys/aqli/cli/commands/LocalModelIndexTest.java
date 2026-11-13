@@ -99,6 +99,42 @@ class LocalModelIndexTest {
     }
 
     @Test
+    void refreshReadsLegacyManifestThroughManifestStoreAndPreservesMetadata() throws Exception {
+        Path blobDir = tempDir.resolve("models").resolve("blobs").resolve("org").resolve("moss-tts");
+        Files.createDirectories(blobDir);
+        Files.write(blobDir.resolve("model.onnx"), new byte[] { 1, 2, 3 });
+
+        Path manifestDir = tempDir.resolve("models").resolve("manifests");
+        Files.createDirectories(manifestDir);
+        Files.writeString(manifestDir.resolve("moss-tts.json"), """
+                {
+                  "id": "moss-tts",
+                  "modelId": "org/moss-tts",
+                  "shortId": "abcdef",
+                  "name": "MOSS TTS",
+                  "format": "onnx",
+                  "blobPath": "%s",
+                  "source": "huggingface",
+                  "updatedAt": "2026-10-12T08:30:00Z",
+                  "enabled": false,
+                  "metadata": { "pipeline_tag": "text-to-speech" }
+                }
+                """.formatted(blobDir.toAbsolutePath()));
+
+        LocalModelIndex.Entry entry = LocalModelIndex.refreshFromDisk().stream()
+                .filter(candidate -> "org/moss-tts".equals(candidate.id))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("abcdef", entry.shortId);
+        assertEquals("2026-10-12T08:30:00Z", entry.updatedAt);
+        assertEquals("tts", entry.taskType);
+        assertEquals("onnx", entry.format);
+        assertTrue(entry.runnable);
+        assertEquals(false, entry.enabled);
+    }
+
+    @Test
     void findAcceptsLegacyRepositoryFileShortId() throws Exception {
         Path repoDir = tempDir.resolve("models")
                 .resolve("safetensors")
