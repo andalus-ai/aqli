@@ -4,12 +4,14 @@ set -euo pipefail
 # Guard against machine-specific/invalid markdown paths.
 # Supports running from either inference-aqli root or monorepo root.
 
-if [ -d "./docs" ] && [ -d "./ui" ]; then
+if [ -f "./settings.gradle.kts" ] && [ -d "./cli" ] && [ -d "./runtime" ]; then
+  # Current AQLI repository layout (docs/ui are not required to exist).
   REPO_ROOT="."
-elif [ -d "./inference-aqli/docs" ] && [ -d "./inference-aqli/ui" ]; then
+elif [ -d "./inference-aqli" ] && [ -f "./inference-aqli/settings.gradle.kts" ]; then
+  # Legacy monorepo checkout layout.
   REPO_ROOT="./inference-aqli"
 else
-  echo "Unable to locate inference-aqli root."
+  echo "Unable to locate AQLI repository root."
   exit 1
 fi
 
