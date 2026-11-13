@@ -15,6 +15,7 @@ public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
     private final Consumer<String> log;
     private final LlamaCppGgufLibraryPaths libraryPaths;
+    private boolean closed;
 
     public GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
             LlamaCppGgufLibraryPaths libraryPaths) {
@@ -56,6 +57,7 @@ public final class GgufSessionCache implements AutoCloseable {
 
     public synchronized GgufJavaBackendSession acquireJavaBackend(
             Path modelPath) throws Exception {
+        ensureOpen();
         Path key = modelPath.toAbsolutePath().normalize();
         GgufJavaBackendSession existing = javaBackends.get(key);
         if (existing != null) {
@@ -69,9 +71,10 @@ public final class GgufSessionCache implements AutoCloseable {
         return opened;
     }
 
-    public SessionLease acquire(
+    public synchronized SessionLease acquire(
             Path modelPath,
             LlamaCppGgufSessionParameters parameters) throws Exception {
+        ensureOpen();
         SessionKey key = new SessionKey(modelPath.toAbsolutePath().normalize(), parameters);
         LlamaCppGgufSession existing = sessions.get(key);
         if (existing != null) {
@@ -163,8 +166,18 @@ public final class GgufSessionCache implements AutoCloseable {
         }
     }
 
+    private void ensureOpen() {
+        if (closed) {
+            throw new IllegalStateException("GGUF session cache is closed");
+        }
+    }
+
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         for (LlamaCppGgufSession session : sessions.values()) {
             session.close();
         }
