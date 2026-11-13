@@ -560,24 +560,6 @@ final class LocalModelIndex {
         }
     }
 
-    private static boolean isLikelyWeightFile(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".gguf")
-                || name.endsWith(".safetensors")
-                || name.endsWith(".safetensor")
-                || name.endsWith(".onnx")
-                || name.endsWith(".tflite")
-                || name.endsWith(".litert")
-                || name.endsWith(".pb")
-                || name.endsWith(".ckpt")
-                || name.endsWith(".pt")
-                || name.endsWith(".pth")
-                || name.endsWith(".bin")
-                || name.endsWith(".litertlm")
-                || name.endsWith(".task")
-                || !name.contains(".");
-    }
-
     private static String detectFormat(Path file, String fallback) {
         String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
         if (name.endsWith(".gguf")) {
