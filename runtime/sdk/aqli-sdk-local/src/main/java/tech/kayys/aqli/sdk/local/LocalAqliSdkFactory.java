@@ -22,7 +22,7 @@ public class LocalAqliSdkFactory {
 
     @Produces
     @ApplicationScoped
-    public AqliRuntime defaultSdk() {
+    public LocalAqliSdk defaultSdk() {
         return create(null);
     }
 

@@ -7,11 +7,13 @@ import tech.kayys.aqli.safetensor.engine.route.*;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.InjectMock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 import jakarta.inject.Inject;
 
+import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
@@ -50,8 +52,17 @@ public class RunCommandTest {
         @InjectMock
         AqliSdk sdk;
 
+        @InjectMock
+        PluginAvailabilityChecker pluginChecker;
+
         @TempDir
         Path tempDir;
+
+        @BeforeEach
+        void setUp() {
+                Mockito.when(pluginChecker.hasProviders()).thenReturn(true);
+                Mockito.when(pluginChecker.hasRunnerPlugins()).thenReturn(true);
+        }
 
         @Test
         public void testRunCommand() throws Exception {
