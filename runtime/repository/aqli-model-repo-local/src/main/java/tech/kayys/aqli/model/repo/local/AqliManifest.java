@@ -66,7 +66,7 @@ public class AqliManifest {
     public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
     @JsonProperty("shortId")
     public void setPersistedShortId(String shortId) { this.persistedShortId = shortId; }
-    @JsonIgnore
+    @JsonProperty(value = "shortId", access = JsonProperty.Access.WRITE_ONLY)
     public String getPersistedShortId() { return persistedShortId; }
     public long getSizeBytes() { return sizeBytes; }
     public void setSizeBytes(long sizeBytes) { this.sizeBytes = sizeBytes; }
