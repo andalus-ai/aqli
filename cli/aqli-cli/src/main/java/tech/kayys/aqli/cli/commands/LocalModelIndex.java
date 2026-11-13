@@ -1,4 +1,6 @@
 package tech.kayys.aqli.cli.commands;
+
+import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
@@ -158,23 +160,14 @@ final class LocalModelIndex {
     }
 
     private static void scanFlat(Path base, String fallbackFormat, boolean runnable, List<Entry> out, Set<String> seenPaths) {
-        if (!Files.isDirectory(base)) {
-            return;
-        }
         Map<String, Entry> discovered = new LinkedHashMap<>();
-        try (var files = Files.walk(base, 4)) {
-            files.filter(Files::isRegularFile)
-                    .filter(p -> !p.getFileName().toString().startsWith("."))
-                    .filter(LocalModelIndex::isLikelyWeightFile)
-                    .forEach(p -> {
-                        String normalized = normalizePath(p);
-                        if (seenPaths.add(normalized)) {
-                            Entry entry = toEntry(base, p, fallbackFormat, runnable);
-                            discovered.putIfAbsent(entryKey(entry), entry);
-                        }
-                    });
-        } catch (Exception ignored) {
-            // best effort
+        for (LocalModelFileInventory.Candidate candidate :
+                new LocalModelFileInventory().discover(base, fallbackFormat, runnable)) {
+            Path file = candidate.file();
+            if (seenPaths.add(normalizePath(file))) {
+                Entry entry = toEntry(candidate.base(), file, candidate.fallbackFormat(), candidate.runnable());
+                discovered.putIfAbsent(entryKey(entry), entry);
+            }
         }
         out.addAll(discovered.values());
     }
@@ -558,24 +551,6 @@ final class LocalModelIndex {
         } catch (Exception ignored) {
             // best effort — skip if malformed
         }
-    }
-
-    private static boolean isLikelyWeightFile(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".gguf")
-                || name.endsWith(".safetensors")
-                || name.endsWith(".safetensor")
-                || name.endsWith(".onnx")
-                || name.endsWith(".tflite")
-                || name.endsWith(".litert")
-                || name.endsWith(".pb")
-                || name.endsWith(".ckpt")
-                || name.endsWith(".pt")
-                || name.endsWith(".pth")
-                || name.endsWith(".bin")
-                || name.endsWith(".litertlm")
-                || name.endsWith(".task")
-                || !name.contains(".");
     }
 
     private static String detectFormat(Path file, String fallback) {
