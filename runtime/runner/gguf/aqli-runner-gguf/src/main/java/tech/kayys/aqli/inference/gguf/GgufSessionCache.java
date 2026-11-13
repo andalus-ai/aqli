@@ -23,18 +23,8 @@ public final class GgufSessionCache implements AutoCloseable {
         this.libraryPaths = libraryPaths;
     }
 
-    record SessionKey(
-        Path modelPath,
-        int context,
-        int batch,
-        int microBatch,
-        int threads,
-        int batchThreads,
-        int gpuLayers,
-        boolean useMmap,
-        boolean useMlock,
-        boolean swaFull) {
-}
+    record SessionKey(Path modelPath, LlamaCppGgufSessionParameters parameters) {
+    }
 
     public record SessionLease(
         LlamaCppGgufSession session,
@@ -60,8 +50,6 @@ public final class GgufSessionCache implements AutoCloseable {
     }
 }
 
-
-
     private final Map<SessionKey, LlamaCppGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
     private final Map<Path, GgufJavaBackendSession> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
@@ -84,17 +72,7 @@ public final class GgufSessionCache implements AutoCloseable {
     public SessionLease acquire(
             Path modelPath,
             LlamaCppGgufSessionParameters parameters) throws Exception {
-        SessionKey key = new SessionKey(
-                modelPath.toAbsolutePath().normalize(),
-                parameters.context(),
-                parameters.batch(),
-                parameters.microBatch(),
-                parameters.threads(),
-                parameters.batchThreads(),
-                parameters.gpuLayers(),
-                parameters.useMmap(),
-                parameters.useMlock(),
-                parameters.swaFull());
+        SessionKey key = new SessionKey(modelPath.toAbsolutePath().normalize(), parameters);
         LlamaCppGgufSession existing = sessions.get(key);
         if (existing != null) {
             log.accept("session cache hit: " + key.modelPath().getFileName()
@@ -134,38 +112,42 @@ public final class GgufSessionCache implements AutoCloseable {
         SessionKey selected = best.getKey();
         LlamaCppGgufSession session = sessions.get(selected);
         log.accept("session cache compatible hit: " + selected.modelPath().getFileName()
-                + ", requestedContext=" + requested.context()
-                + ", warmContext=" + selected.context()
-                + ", requestedBatch=" + requested.batch()
-                + ", warmBatch=" + selected.batch()
-                + ", gpuLayers=" + selected.gpuLayers()
+                + ", requestedContext=" + requested.parameters().context()
+                + ", warmContext=" + selected.parameters().context()
+                + ", requestedBatch=" + requested.parameters().batch()
+                + ", warmBatch=" + selected.parameters().batch()
+                + ", gpuLayers=" + selected.parameters().gpuLayers()
                 + ", sessions=" + sessions.size());
         return new SessionLease(session, true, false, "compatible");
     }
 
     static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
+        LlamaCppGgufSessionParameters warmParameters = warm.parameters();
+        LlamaCppGgufSessionParameters requestedParameters = requested.parameters();
         return warm.modelPath().equals(requested.modelPath())
-                && warm.context() >= requested.context()
-                && warm.batch() >= requested.batch()
-                && warm.microBatch() >= requested.microBatch()
-                && warm.threads() == requested.threads()
-                && warm.batchThreads() == requested.batchThreads()
-                && warm.gpuLayers() == requested.gpuLayers()
-                && warm.useMmap() == requested.useMmap()
-                && warm.useMlock() == requested.useMlock()
-                && warm.swaFull() == requested.swaFull();
+                && warmParameters.context() >= requestedParameters.context()
+                && warmParameters.batch() >= requestedParameters.batch()
+                && warmParameters.microBatch() >= requestedParameters.microBatch()
+                && warmParameters.threads() == requestedParameters.threads()
+                && warmParameters.batchThreads() == requestedParameters.batchThreads()
+                && warmParameters.gpuLayers() == requestedParameters.gpuLayers()
+                && warmParameters.useMmap() == requestedParameters.useMmap()
+                && warmParameters.useMlock() == requestedParameters.useMlock()
+                && warmParameters.swaFull() == requestedParameters.swaFull();
     }
 
     static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
-        int contextCompare = Integer.compare(left.context(), right.context());
+        LlamaCppGgufSessionParameters leftParameters = left.parameters();
+        LlamaCppGgufSessionParameters rightParameters = right.parameters();
+        int contextCompare = Integer.compare(leftParameters.context(), rightParameters.context());
         if (contextCompare != 0) {
             return contextCompare < 0;
         }
-        int batchCompare = Integer.compare(left.batch(), right.batch());
+        int batchCompare = Integer.compare(leftParameters.batch(), rightParameters.batch());
         if (batchCompare != 0) {
             return batchCompare < 0;
         }
-        return Integer.compare(left.microBatch(), right.microBatch()) < 0;
+        return Integer.compare(leftParameters.microBatch(), rightParameters.microBatch()) < 0;
     }
 
     private void evictOverflowSessions() {
@@ -174,8 +156,8 @@ public final class GgufSessionCache implements AutoCloseable {
             Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
             sessions.remove(eldest.getKey());
             log.accept("session cache evict: " + eldest.getKey().modelPath().getFileName()
-                    + ", context=" + eldest.getKey().context()
-                    + ", gpuLayers=" + eldest.getKey().gpuLayers()
+                    + ", context=" + eldest.getKey().parameters().context()
+                    + ", gpuLayers=" + eldest.getKey().parameters().gpuLayers()
                     + ", maxSessions=" + maxSessions);
             eldest.getValue().close();
         }

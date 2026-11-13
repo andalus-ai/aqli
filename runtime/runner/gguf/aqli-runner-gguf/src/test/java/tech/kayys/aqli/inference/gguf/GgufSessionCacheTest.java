@@ -69,14 +69,8 @@ class GgufSessionCacheTest {
             boolean swaFull) {
         return new GgufSessionCache.SessionKey(
                 Path.of("/models/model.gguf"),
-                context,
-                batch,
-                microBatch,
-                threads,
-                batchThreads,
-                gpuLayers,
-                useMmap,
-                useMlock,
-                swaFull);
+                new LlamaCppGgufSessionParameters(
+                        context, batch, microBatch, threads, batchThreads, gpuLayers,
+                        useMmap, useMlock, swaFull));
     }
 }
