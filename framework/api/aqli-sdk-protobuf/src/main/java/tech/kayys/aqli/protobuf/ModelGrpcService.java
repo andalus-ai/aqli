@@ -51,7 +51,7 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
     }
 
     @Override
-    public void getModelManifest getModelManifest(GetModelManifestRequest request) {
+    public void getModelManifest(GetModelManifestRequest request, StreamObserver<GetModelManifestResponse> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received getModelManifest request for model: {}", request.getModelId());
         
