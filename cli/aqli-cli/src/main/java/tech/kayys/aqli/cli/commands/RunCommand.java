@@ -1567,7 +1567,7 @@ public class RunCommand implements Runnable {
                 RunStreamExecutionCoordinator.Result streamResult =
                         new RunStreamExecutionCoordinator().execute(
                                 stream,
-                                () -> sdk.streamCompletion(request),
+                                () -> sdk.streamCompletion(llamaCppFallbackRequest(request)),
                                 () -> pluginChecker != null && pluginChecker.hasProvider("llamacpp"),
                                 chunkHandler::accept,
                                 () -> {
@@ -1646,6 +1646,13 @@ public class RunCommand implements Runnable {
         }
     }
 
+    static InferenceRequest llamaCppFallbackRequest(InferenceRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Inference request is required for llama.cpp fallback");
+        }
+        return request.toBuilder().preferredProvider("llamacpp").build();
+    }
+
     private boolean tryFallbackToLlamaCpp(Throwable cause, InferenceRequest request, long startTime) {
         try {
             if (pluginChecker == null) return false;
@@ -1660,7 +1667,7 @@ public class RunCommand implements Runnable {
             try {
                 
             } catch (Throwable ignore) {}
-            InferenceResponse fallbackResponse = sdk.createCompletion(request);
+            InferenceResponse fallbackResponse = sdk.createCompletion(llamaCppFallbackRequest(request));
             printResponse(fallbackResponse, startTime);
             requestProcessExit();
             return true;
