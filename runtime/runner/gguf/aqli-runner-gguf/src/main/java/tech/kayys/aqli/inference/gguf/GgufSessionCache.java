@@ -15,7 +15,7 @@ import java.util.function.IntSupplier;
  * Session limits, library paths, and logging are supplied by the application boundary.
  * The session limit is a count cap, not an estimate of native memory consumption.
  * Cache operations and lease accounting are serialized. Eviction and shutdown retire
- * cached sessions and defer native close until their final borrowed lease is released.
+ * cached sessions and defer backend close until their final borrowed lease is released.
  */
 public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;

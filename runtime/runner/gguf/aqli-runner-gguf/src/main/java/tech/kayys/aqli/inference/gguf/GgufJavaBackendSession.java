@@ -40,7 +40,13 @@ public final class GgufJavaBackendSession implements AutoCloseable {
     /** Creates a one-shot lease which closes its session when released. */
     public static Lease ownedLease(GgufJavaBackendSession session) {
         Objects.requireNonNull(session, "session");
-        return new Lease(session, session::close);
+        return new Lease(session, () -> {
+            try {
+                session.close();
+            } catch (Exception exception) {
+                throw new IllegalStateException("Failed to close one-shot Java GGUF session", exception);
+            }
+        });
     }
 
     static Lease borrowedLease(GgufJavaBackendSession session, Runnable release) {
