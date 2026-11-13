@@ -47,10 +47,10 @@ Invoke-WebRequest -Uri "https://github.com/bhangun/aqli/releases/latest/download
 
 ```bash
 # JVM build (Gradle)
-./gradlew :ui:aqli-cli:quarkusBuild -x test
+./gradlew :cli:aqli-cli:quarkusBuild -x test
 
 # Native image (requires GraalVM 25)
-./gradlew :ui:aqli-cli:buildNative -x test
+./gradlew :cli:aqli-cli:buildNative -x test
 ```
 
 > **Note**: The GGUF runner uses Panama FFM to bridge llama.cpp.  

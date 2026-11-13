@@ -72,8 +72,8 @@
     ":ml:aqli-ml-cnn",
     ":ml:aqli-ml-multimodal",
     ":ml:aqli-ml-vision",
-    ":ui:aqli-api",
-    ":ui:aqli-cli"
+    ":framework:api:aqli-api",
+    ":cli:aqli-cli"
   ],
   "backendProperty": "cpu,metal",
   "platformTags": [

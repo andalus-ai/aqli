@@ -107,7 +107,7 @@ fi
 
     if [[ "${BUILD_ONLY:-false}" == "true" || "${1:-}" == "--build-only" ]]; then
       echo "${BOLD}${YELLOW}:) Building latest CLI...${RESET}"
-      ./gradlew :ui:aqli-cli:quarkusBuild \
+      ./gradlew :cli:aqli-cli:quarkusBuild \
         -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
         -Paqli.profile="${BUILD_PROFILE}" \
         -Paqli.model.formats="${FORMAT_TARGETS}" \

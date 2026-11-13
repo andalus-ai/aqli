@@ -18,14 +18,20 @@
       ":spi:aqli-spi-plugin",
       ":spi:aqli-spi-provider",
       ":spi:aqli-spi-runtime",
-      ":ui:aqli-api",
-      ":ui:aqli-cli"
+      ":framework:api:aqli-api",
+      ":cli:aqli-cli"
     ]
   },
   "backends": {
     "metal": {
-      "platforms": ["macos", "cpu"],
-      "gradleBackends": ["cpu", "metal"],
+      "platforms": [
+        "macos",
+        "cpu"
+      ],
+      "gradleBackends": [
+        "cpu",
+        "metal"
+      ],
       "modules": [
         ":backend:metal:aqli-backend-metal",
         ":backend:metal:aqli-mlx-binding",
@@ -33,8 +39,14 @@
       ]
     },
     "cuda": {
-      "platforms": ["linux", "windows"],
-      "gradleBackends": ["cpu", "cuda"],
+      "platforms": [
+        "linux",
+        "windows"
+      ],
+      "gradleBackends": [
+        "cpu",
+        "cuda"
+      ],
       "modules": [
         ":backend:cuda:aqli-backend-cuda",
         ":backend:cuda:aqli-kernel-cuda",
@@ -43,13 +55,23 @@
       ]
     },
     "vulkan": {
-      "platforms": ["linux", "windows"],
-      "gradleBackends": ["cpu"],
+      "platforms": [
+        "linux",
+        "windows"
+      ],
+      "gradleBackends": [
+        "cpu"
+      ],
       "modules": []
     },
     "opencl": {
-      "platforms": ["linux", "windows"],
-      "gradleBackends": ["cpu"],
+      "platforms": [
+        "linux",
+        "windows"
+      ],
+      "gradleBackends": [
+        "cpu"
+      ],
       "modules": []
     },
     "all": {

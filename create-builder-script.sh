@@ -92,8 +92,8 @@ ALWAYS_MODULES=(
   ":spi:aqli-spi-plugin"
   ":spi:aqli-spi-provider"
   ":spi:aqli-spi-runtime"
-  ":ui:aqli-api"
-  ":ui:aqli-cli"
+  ":framework:api:aqli-api"
+  ":cli:aqli-cli"
 )
 
 BACKEND_PROPERTY=()

@@ -65,10 +65,10 @@ git clone https://github.com/kayys-tech/aqli.git
 cd aqli
 
 # Build JVM jar
-./gradlew :ui:aqli-cli:quarkusBuild -x test
+./gradlew :cli:aqli-cli:quarkusBuild -x test
 
 # Build native binary (requires GraalVM 25)
-./gradlew :ui:aqli-cli:buildNative -x test
+./gradlew :cli:aqli-cli:buildNative -x test
 ```
 
 ### Run the CLI
@@ -370,12 +370,12 @@ FILE: available_projects.txt
 :suling
 :ui
 :ui
-:ui:aqli-api
-:ui:aqli-api
-:ui:aqli-cli
-:ui:aqli-cli
-:ui:aqli-sdk-protobuf
-:ui:aqli-sdk-protobuf
+:framework:api:aqli-api
+:framework:api:aqli-api
+:cli:aqli-cli
+:cli:aqli-cli
+:framework:api:aqli-sdk-protobuf
+:framework:api:aqli-sdk-protobuf
 
 
 
@@ -897,8 +897,8 @@ ALWAYS_MODULES=(
   ":spi:aqli-spi-plugin"
   ":spi:aqli-spi-provider"
   ":spi:aqli-spi-runtime"
-  ":ui:aqli-api"
-  ":ui:aqli-cli"
+  ":framework:api:aqli-api"
+  ":cli:aqli-cli"
 )
 
 BACKEND_PROPERTY=()

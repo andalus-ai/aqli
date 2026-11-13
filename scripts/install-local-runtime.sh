@@ -1135,7 +1135,7 @@ if [[ "$BUILD_ARGS" != *"-t"* ]]; then
     GRADLE_ARGS+=("-x" "test")
 fi
 
-GRADLE_TASKS=(":ui:aqli-cli:quarkusBuild" ":ui:aqli-api:quarkusBuild")
+GRADLE_TASKS=(":cli:aqli-cli:quarkusBuild" ":framework:api:aqli-api:quarkusBuild")
 if [[ "$BUILD_ARGS" == *"-c"* ]]; then
     GRADLE_TASKS=("clean" "${GRADLE_TASKS[@]}")
 fi
