@@ -1,6 +1,8 @@
 package tech.kayys.aqli.inference.gguf;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -103,19 +105,16 @@ public final class GgufSessionCache implements AutoCloseable {
     }
 
     private SessionLease findCompatible(SessionKey requested) {
-        Map.Entry<SessionKey, LlamaCppGgufSession> best = null;
-        for (Map.Entry<SessionKey, LlamaCppGgufSession> entry : sessions.entrySet()) {
-            if (!isCompatibleWarmSession(entry.getKey(), requested)) {
-                continue;
-            }
-            if (best == null || smallerCompatibleSession(entry.getKey(), best.getKey())) {
-                best = entry;
+        List<SessionKey> compatibleKeys = new ArrayList<>();
+        for (SessionKey candidate : sessions.keySet()) {
+            if (isCompatibleWarmSession(candidate, requested)) {
+                compatibleKeys.add(candidate);
             }
         }
-        if (best == null) {
+        SessionKey selected = selectCompatibleSession(compatibleKeys);
+        if (selected == null) {
             return null;
         }
-        SessionKey selected = best.getKey();
         LlamaCppGgufSession session = sessions.get(selected);
         log.accept("session cache compatible hit: " + selected.modelPath().getFileName()
                 + ", requestedContext=" + requested.parameters().context()
@@ -142,18 +141,35 @@ public final class GgufSessionCache implements AutoCloseable {
                 && warmParameters.swaFull() == requestedParameters.swaFull();
     }
 
-    static boolean smallerCompatibleSession(SessionKey left, SessionKey right) {
+    static SessionKey selectCompatibleSession(List<SessionKey> candidates) {
+        SessionKey selected = null;
+        for (SessionKey candidate : candidates) {
+            boolean dominated = false;
+            for (SessionKey other : candidates) {
+                if (!candidate.equals(other) && lessOverprovisioned(other, candidate)) {
+                    dominated = true;
+                    break;
+                }
+            }
+            // Candidates arrive in LRU-to-MRU order. Among equally non-dominated
+            // capacity trade-offs, prefer the most recently used warm session.
+            if (!dominated) {
+                selected = candidate;
+            }
+        }
+        return selected;
+    }
+
+    static boolean lessOverprovisioned(SessionKey left, SessionKey right) {
         LlamaCppGgufSessionParameters leftParameters = left.parameters();
         LlamaCppGgufSessionParameters rightParameters = right.parameters();
-        int contextCompare = Integer.compare(leftParameters.context(), rightParameters.context());
-        if (contextCompare != 0) {
-            return contextCompare < 0;
-        }
-        int batchCompare = Integer.compare(leftParameters.batch(), rightParameters.batch());
-        if (batchCompare != 0) {
-            return batchCompare < 0;
-        }
-        return Integer.compare(leftParameters.microBatch(), rightParameters.microBatch()) < 0;
+        boolean noLarger = leftParameters.context() <= rightParameters.context()
+                && leftParameters.batch() <= rightParameters.batch()
+                && leftParameters.microBatch() <= rightParameters.microBatch();
+        boolean strictlySmaller = leftParameters.context() < rightParameters.context()
+                || leftParameters.batch() < rightParameters.batch()
+                || leftParameters.microBatch() < rightParameters.microBatch();
+        return noLarger && strictlySmaller;
     }
 
     private void evictOverflowSessions() {
