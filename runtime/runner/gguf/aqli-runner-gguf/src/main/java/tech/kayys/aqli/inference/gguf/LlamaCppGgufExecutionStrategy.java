@@ -1,6 +1,7 @@
 package tech.kayys.aqli.inference.gguf;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Executes a llama.cpp GGUF session and captures execution results independently
@@ -14,7 +15,7 @@ public final class LlamaCppGgufExecutionStrategy {
             int outputTokens,
             long executionNanos,
             long completedAtNanos,
-            java.util.Optional<String> nativeMetrics) {
+            Optional<String> nativeMetrics) {
     }
 
     public Execution execute(
