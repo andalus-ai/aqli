@@ -423,8 +423,8 @@ public final class GgufStandaloneRunner {
                 request,
                 sessionCache != null
                         ? sessionCache::acquireJavaBackend
-                        : tech.kayys.aqli.inference.gguf.GgufJavaBackendSession::open,
-                sessionCache == null);
+                        : path -> tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.ownedLease(
+                                tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(path)));
     }
 
     private static void printJavaNativeProbe(Path modelPath, String label) {

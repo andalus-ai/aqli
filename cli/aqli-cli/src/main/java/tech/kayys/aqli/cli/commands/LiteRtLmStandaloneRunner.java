@@ -16,6 +16,10 @@ import io.opentelemetry.api.common.AttributesBuilder;
 import com.google.ai.edge.litertlm.Backend;
 import com.google.ai.edge.litertlm.Conversation;
 import com.google.ai.edge.litertlm.ConversationConfig;
+<<<<<<< HEAD
+=======
+import com.google.ai.edge.litertlm.SamplerConfig;
+>>>>>>> 4cd138dda55b56dac3e52ba490dd92c45d3d5a22
 import com.google.ai.edge.litertlm.Engine;
 import com.google.ai.edge.litertlm.EngineConfig;
 import com.google.ai.edge.litertlm.ExperimentalFlags;

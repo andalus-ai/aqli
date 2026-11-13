@@ -1,7 +1,7 @@
 package tech.kayys.aqli.cli;
 
 import tech.kayys.aqli.factory.AqliSdkFactory;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
@@ -23,7 +23,11 @@ public class BenchmarkCli {
         System.out.println("== Seamless Model Orchestration Benchmark ==");
         System.out.println("Target Model Path: " + modelPath);
         
+<<<<<<< HEAD
         AqliSdk sdk = (AqliSdk) AqliSdkFactory.createLocalSdk();
+=======
+        AqliRuntime sdk = AqliSdkFactory.createLocalSdk();
+>>>>>>> 4cd138dda55b56dac3e52ba490dd92c45d3d5a22
         
         if (provider == null || provider.isBlank()) {
             // Auto-detect format based on path extension roughly for test
