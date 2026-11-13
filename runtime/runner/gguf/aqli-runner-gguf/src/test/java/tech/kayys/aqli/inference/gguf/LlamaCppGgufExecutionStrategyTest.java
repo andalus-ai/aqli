@@ -15,10 +15,10 @@ class LlamaCppGgufExecutionStrategyTest {
     @Test
     void executesSessionAndCapturesBackendTokenAndMetricResults() throws Exception {
         LlamaCppGgufSession session = mock(LlamaCppGgufSession.class);
-        when(session.generate("hello", 32, 0.7d, 40, 0.9d)).thenReturn("world");
+        when(session.generateWithMetrics("hello", 32, 0.7d, 40, 0.9d, true, "compatible"))
+                .thenReturn(new LlamaCppGgufSession.GenerationResult(
+                        "world", 7, System.nanoTime(), Optional.of("decode_ms=12")));
         when(session.backendName()).thenReturn("metal");
-        when(session.lastGeneratedTokens()).thenReturn(7);
-        when(session.metrics(true, "compatible")).thenReturn(Optional.of("decode_ms=12"));
 
         LlamaCppGgufExecutionStrategy.Execution result =
                 new LlamaCppGgufExecutionStrategy().execute(
@@ -29,16 +29,16 @@ class LlamaCppGgufExecutionStrategyTest {
         assertEquals(7, result.outputTokens());
         assertEquals(Optional.of("decode_ms=12"), result.nativeMetrics());
         assertTrue(result.executionNanos() >= 0);
-        verify(session).generate("hello", 32, 0.7d, 40, 0.9d);
-        verify(session).metrics(true, "compatible");
+        verify(session).generateWithMetrics("hello", 32, 0.7d, 40, 0.9d, true, "compatible");
     }
 
     @Test
-    void metricsFailureDoesNotFailInferenceResult() throws Exception {
+    void missingMetricsDoNotFailInferenceResult() throws Exception {
         LlamaCppGgufSession session = mock(LlamaCppGgufSession.class);
-        when(session.generate("hello", 2, 0.0d, 1, 1.0d)).thenReturn("");
+        when(session.generateWithMetrics("hello", 2, 0.0d, 1, 1.0d, false, "cold"))
+                .thenReturn(new LlamaCppGgufSession.GenerationResult(
+                        "", 0, System.nanoTime(), Optional.empty()));
         when(session.backendName()).thenReturn("cpu");
-        when(session.metrics(false, "cold")).thenThrow(new IllegalStateException("metrics unavailable"));
 
         LlamaCppGgufExecutionStrategy.Execution result =
                 new LlamaCppGgufExecutionStrategy().execute(
