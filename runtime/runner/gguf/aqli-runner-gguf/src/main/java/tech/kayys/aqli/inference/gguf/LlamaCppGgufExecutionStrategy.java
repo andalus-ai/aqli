@@ -1,7 +1,6 @@
 package tech.kayys.aqli.inference.gguf;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Executes a llama.cpp GGUF session and captures execution results independently
@@ -15,7 +14,7 @@ public final class LlamaCppGgufExecutionStrategy {
             int outputTokens,
             long executionNanos,
             long completedAtNanos,
-            Optional<String> nativeMetrics) {
+            java.util.Optional<String> nativeMetrics) {
     }
 
     public Execution execute(
@@ -30,20 +29,14 @@ public final class LlamaCppGgufExecutionStrategy {
         Objects.requireNonNull(session, "session");
         Objects.requireNonNull(prompt, "prompt");
         long startNanos = System.nanoTime();
-        String output = session.generate(prompt, maxTokens, temperature, topK, topP);
-        long completedAtNanos = System.nanoTime();
-        Optional<String> nativeMetrics;
-        try {
-            nativeMetrics = session.metrics(warmSession, reuseKind);
-        } catch (Throwable ignored) {
-            nativeMetrics = Optional.empty();
-        }
+        LlamaCppGgufSession.GenerationResult result = session.generateWithMetrics(
+                prompt, maxTokens, temperature, topK, topP, warmSession, reuseKind);
         return new Execution(
-                output,
+                result.output(),
                 session.backendName(),
-                session.lastGeneratedTokens(),
-                completedAtNanos - startNanos,
-                completedAtNanos,
-                nativeMetrics);
+                result.outputTokens(),
+                result.completedAtNanos() - startNanos,
+                result.completedAtNanos(),
+                result.nativeMetrics());
     }
 }
