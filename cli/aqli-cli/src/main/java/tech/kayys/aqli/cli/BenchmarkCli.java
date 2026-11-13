@@ -23,7 +23,7 @@ public class BenchmarkCli {
         System.out.println("== Seamless Model Orchestration Benchmark ==");
         System.out.println("Target Model Path: " + modelPath);
         
-        AqliSdk sdk = AqliSdkFactory.createLocalSdk();
+        AqliSdk sdk = (AqliSdk) AqliSdkFactory.createLocalSdk();
         
         if (provider == null || provider.isBlank()) {
             // Auto-detect format based on path extension roughly for test

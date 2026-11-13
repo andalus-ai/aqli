@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufRunArguments;
+import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 
 import java.io.PrintStream;
 import java.io.ByteArrayOutputStream;

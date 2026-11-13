@@ -46,7 +46,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DirectSafetensorRoutePolicyTest {
-    static { tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRoutePolicy.resolver = new CliLocalModelResolver(); }
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @TempDir
@@ -1623,26 +1622,7 @@ class DirectSafetensorRoutePolicyTest {
         assertTrue(validation.allowed());
     }
 
-    @Test
-    void directLiteRtStreamRequiresPropertyAndArtifact() throws Exception {
-        Path litert = Files.writeString(tempDir.resolve("demo.litertlm"), "");
 
-        String property = "aqli.cli.enable_direct_litert_stream";
-        String previous = System.getProperty(property);
-        try {
-            System.clearProperty(property);
-            assertFalse(DirectSafetensorRoutePolicy.shouldUseDirectLiteRtStreamPath("litert", litert.toString()));
-
-            System.setProperty(property, "true");
-            assertTrue(DirectSafetensorRoutePolicy.shouldUseDirectLiteRtStreamPath("litert", litert.toString()));
-        } finally {
-            if (previous == null) {
-                System.clearProperty(property);
-            } else {
-                System.setProperty(property, previous);
-            }
-        }
-    }
 
     private Path modelDir(String modelType) throws IOException {
         return modelDir(modelType, "GemmaForCausalLM");

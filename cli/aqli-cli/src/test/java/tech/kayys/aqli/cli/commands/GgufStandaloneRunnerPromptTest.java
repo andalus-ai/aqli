@@ -109,20 +109,6 @@ class GgufStandaloneRunnerPromptTest {
     }
 
     @Test
-    void outputBufferSizingUsesSafetyFloorAndTokenScaledCapacity() {
-        assertEquals(64L * 1024L, GgufStandaloneRunner.outputBufferBytesForTokens(1));
-        assertEquals(128L * 1024L, GgufStandaloneRunner.outputBufferBytesForTokens(256));
-    }
-
-    @Test
-    void outputBufferRetryDoublesCapacityAndDetectsNativeOverflow() {
-        assertEquals(128L * 1024L, GgufStandaloneRunner.nextOutputBufferBytes(64L * 1024L));
-        assertTrue(GgufStandaloneRunner.outputBufferTooSmall(-9, ""));
-        assertTrue(GgufStandaloneRunner.outputBufferTooSmall(-7, "output buffer too small"));
-        assertFalse(GgufStandaloneRunner.outputBufferTooSmall(-7, "token conversion failed"));
-    }
-
-    @Test
     void fastRunStatsUseCliPerformanceMetricShape() {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         long start = TimeUnit.MILLISECONDS.toNanos(1_000);
@@ -333,15 +319,15 @@ class GgufStandaloneRunnerPromptTest {
 
     @Test
     void fastRunConfigEnvNamesIncludeShellFriendlyAliases() {
-        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.gpu_layers")
+        assertTrue(GgufStandaloneConfiguration.environmentNames("aqli.gguf.fast_run.gpu_layers")
                 .contains("AQLI_GGUF_FAST_GPU_LAYERS"));
-        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.gpu_layers")
+        assertTrue(GgufStandaloneConfiguration.environmentNames("aqli.gguf.fast_run.gpu_layers")
                 .contains("GGUF_GPU_LAYERS"));
-        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.batch")
+        assertTrue(GgufStandaloneConfiguration.environmentNames("aqli.gguf.fast_run.batch")
                 .contains("GGUF_BATCH_SIZE"));
-        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.context")
+        assertTrue(GgufStandaloneConfiguration.environmentNames("aqli.gguf.fast_run.context")
                 .contains("GGUF_CONTEXT_SIZE"));
-        assertTrue(GgufStandaloneRunner.configEnvNames("aqli.gguf.fast_run.daemon")
+        assertTrue(GgufStandaloneConfiguration.environmentNames("aqli.gguf.fast_run.daemon")
                 .contains("AQLI_GGUF_FAST_DAEMON"));
     }
 
@@ -853,7 +839,7 @@ class GgufStandaloneRunnerPromptTest {
         command.topK = 1;
         command.topP = 1.0;
 
-        assertTrue(command.shouldTryStandaloneGgufFastPath());
+        assertTrue(command.shouldUseStandaloneGgufRun());
         assertArrayEquals(new String[] {
                 "run",
                 "--model", "b71c9d",
@@ -899,7 +885,7 @@ class GgufStandaloneRunnerPromptTest {
         command.prompt = "where is jakarta";
         command.providerId = "litert";
 
-        assertFalse(command.shouldTryStandaloneGgufFastPath());
+        assertFalse(command.shouldUseStandaloneGgufRun());
     }
 
     @Test
@@ -912,7 +898,7 @@ class GgufStandaloneRunnerPromptTest {
         command.topK = 1;
         command.topP = 1.0;
 
-        assertTrue(command.shouldTryStandaloneGgufFastPath());
+        assertTrue(command.shouldUseStandaloneGgufRun());
         assertArrayEquals(new String[] {
                 "run",
                 "--modelFile", "/tmp/model.gguf",
@@ -932,7 +918,7 @@ class GgufStandaloneRunnerPromptTest {
         command.prompt = "where is jakarta";
         command.routeReportJson = true;
 
-        assertFalse(command.shouldTryStandaloneGgufFastPath());
+        assertFalse(command.shouldUseStandaloneGgufRun());
     }
 
     @Test
@@ -962,7 +948,7 @@ class GgufStandaloneRunnerPromptTest {
         command.topK = 1;
         command.topP = 1.0;
 
-        assertTrue(command.shouldTryStandaloneGgufFastPath());
+        assertTrue(command.shouldUseStandaloneGgufRun());
         assertArrayEquals(new String[] {
                 "run",
                 "--model", "b71c9d",

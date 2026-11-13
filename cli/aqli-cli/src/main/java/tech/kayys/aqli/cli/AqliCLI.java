@@ -61,7 +61,7 @@ public class AqliCLI implements Callable<Integer> {
 
     static synchronized AqliSdk getSdk() throws Exception {
         if (sdk == null) {
-            sdk = AqliSdkFactory.createLocalSdk();
+            sdk = (AqliSdk) AqliSdkFactory.createLocalSdk();
         }
         return sdk;
     }
