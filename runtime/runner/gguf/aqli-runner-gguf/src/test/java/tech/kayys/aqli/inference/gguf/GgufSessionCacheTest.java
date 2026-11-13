@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,26 @@ class GgufSessionCacheTest {
         GgufSessionCache.SessionKey requested = key(4096, 256, 128, 8, 4, 99, true, false, false);
 
         assertTrue(GgufSessionCache.isCompatibleWarmSession(warm, requested));
-        assertTrue(GgufSessionCache.smallerCompatibleSession(requested, warm));
+        assertTrue(GgufSessionCache.lessOverprovisioned(requested, warm));
+    }
+
+    @Test
+    void compatibleSelectionPrefersCandidateThatUsesNoMoreCapacityInAnyDimension() {
+        GgufSessionCache.SessionKey larger = key(8192, 512, 256, 8, 4, 99, true, false, false);
+        GgufSessionCache.SessionKey smaller = key(4096, 256, 128, 8, 4, 99, true, false, false);
+
+        assertEquals(smaller, GgufSessionCache.selectCompatibleSession(List.of(larger, smaller)));
+    }
+
+    @Test
+    void compatibleSelectionUsesMostRecentlyUsedWhenCapacityTradeoffsAreIncomparable() {
+        GgufSessionCache.SessionKey largerContext = key(8192, 256, 128, 8, 4, 99, true, false, false);
+        GgufSessionCache.SessionKey largerBatch = key(4096, 512, 128, 8, 4, 99, true, false, false);
+
+        assertFalse(GgufSessionCache.lessOverprovisioned(largerContext, largerBatch));
+        assertFalse(GgufSessionCache.lessOverprovisioned(largerBatch, largerContext));
+        assertEquals(largerBatch,
+                GgufSessionCache.selectCompatibleSession(List.of(largerContext, largerBatch)));
     }
 
     @Test
