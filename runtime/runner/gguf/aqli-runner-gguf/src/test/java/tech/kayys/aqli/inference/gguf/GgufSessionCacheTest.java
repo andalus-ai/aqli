@@ -80,6 +80,13 @@ class GgufSessionCacheTest {
                                 4096, 256, 128, 8, 4, 0, true, false, false)));
     }
 
+    @Test
+    void sessionLimitAlwaysRetainsCapacityForTheSessionBeingAcquired() {
+        assertEquals(1, GgufSessionCache.effectiveMaxSessions(0));
+        assertEquals(1, GgufSessionCache.effectiveMaxSessions(-3));
+        assertEquals(2, GgufSessionCache.effectiveMaxSessions(2));
+    }
+
     private static GgufSessionCache.SessionKey key(
             int context,
             int batch,
