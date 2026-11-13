@@ -5,11 +5,10 @@ import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
 import io.grpc.stub.StreamObserver;
 import io.smallrye.mutiny.Uni;
-import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.aqli.sdk.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.Message;
@@ -21,15 +20,11 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(AqliGrpcService.class);
 
-    private AqliSdk sdk;
+    @Inject
+    AqliRuntime sdk;
 
     @Inject
     MeterRegistry meterRegistry;
-
-    @PostConstruct
-    void init() {
-        sdk = AqliSdk.builder().provider("local").build();
-    }
 
     @Override
     public void chat(ChatRequest request, StreamObserver<ChatResponse> observer) {
