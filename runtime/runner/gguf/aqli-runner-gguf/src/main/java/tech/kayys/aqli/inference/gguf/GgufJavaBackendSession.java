@@ -7,6 +7,8 @@ import java.util.Objects;
 import tech.kayys.aljabr.gguf.api.GgufBackend;
 import tech.kayys.aljabr.gguf.api.GgufBackendProvider;
 import tech.kayys.aljabr.gguf.javabackend.JavaGgufBackendProvider;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 /**
  * Owns or borrows a Java-native GGUF backend for a runner operation.
@@ -41,15 +43,18 @@ public final class GgufJavaBackendSession implements AutoCloseable {
      * be shared by concurrent callers, but the underlying backend is not assumed
      * to support overlapping executions on the same model instance.
      */
-    public synchronized tech.kayys.aljabr.spi.inference.InferenceResponse execute(
-            tech.kayys.aljabr.spi.inference.InferenceRequest request) throws Exception {
+    public synchronized InferenceResponse execute(InferenceRequest request) throws Exception {
         if (closed) {
             throw new IllegalStateException("GGUF backend session is closed");
         }
         return backend.execute(Objects.requireNonNull(request, "request"));
     }
 
-    /** Returns the backend while this session remains open. */
+    /**
+     * Returns the underlying backend while this session remains open.
+     * Direct backend calls bypass this session's execution serialization; callers
+     * should prefer {@link #execute(InferenceRequest)}.
+     */
     public synchronized GgufBackend backend() {
         if (closed) {
             throw new IllegalStateException("GGUF backend session is closed");
