@@ -2,6 +2,7 @@ package tech.kayys.aqli.onnx.runner.tts.moss.cache;
 
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,6 +22,18 @@ public final class MossTtsOnnxCacheDiagnostics {
     }
 
     public static Snapshot inspect(Path modelDir, Optional<Path> codecDir, MossTtsCacheSettings settings) {
+        Path cacheRoot = settings.optimizedGraphCacheRoot();
+        try {
+            return OptimizedModelCacheLock.withLock(
+                    cacheRoot, () -> inspectUnlocked(modelDir, codecDir, settings));
+        } catch (UncheckedIOException lockFailure) {
+            // Diagnostics are read-only; retain their best-effort behavior if locking is unavailable.
+            return inspectUnlocked(modelDir, codecDir, settings);
+        }
+    }
+
+    private static Snapshot inspectUnlocked(
+            Path modelDir, Optional<Path> codecDir, MossTtsCacheSettings settings) {
         Path cacheRoot = settings.optimizedGraphCacheRoot();
         Set<Path> currentPaths = new HashSet<>();
         Set<String> currentPrefixes = new HashSet<>();
