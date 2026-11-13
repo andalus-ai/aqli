@@ -24,6 +24,7 @@ class ManifestStoreTest {
         manifest.setFormat("SAFETENSORS");
         manifest.setBlobPath(temporaryDirectory.resolve("model.safetensors").toString());
         manifest.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        manifest.setUpdatedAt("2026-01-02T00:00:00Z");
         manifest.setFiles(List.of("model.safetensors", "config.json"));
         manifest.setSizeBytes(42);
 
@@ -34,6 +35,7 @@ class ManifestStoreTest {
         assertEquals("main", restored.getRevision());
         assertEquals(List.of("model.safetensors", "config.json"), restored.getFiles());
         assertEquals(42, restored.getSizeBytes());
+        assertEquals("2026-01-02T00:00:00Z", restored.getUpdatedAt());
         assertTrue(store.findByModelId("org/model", "dev").isEmpty());
     }
 

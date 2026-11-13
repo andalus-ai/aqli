@@ -2,6 +2,7 @@ package tech.kayys.aqli.model.repo.local;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,8 @@ public class AqliManifest {
     private String blobPath;
     private List<String> files = new ArrayList<>();
     private Instant createdAt;
+    private String updatedAt;
+    private String persistedShortId;
     private long sizeBytes;
 
     public static String computeName(String modelId, String revision) {
@@ -59,6 +62,12 @@ public class AqliManifest {
     public void setFiles(List<String> files) { this.files = files == null ? new ArrayList<>() : new ArrayList<>(files); }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
+    @JsonProperty("shortId")
+    public void setPersistedShortId(String shortId) { this.persistedShortId = shortId; }
+    @JsonIgnore
+    public String getPersistedShortId() { return persistedShortId; }
     public long getSizeBytes() { return sizeBytes; }
     public void setSizeBytes(long sizeBytes) { this.sizeBytes = sizeBytes; }
     private String architecture;
@@ -66,6 +75,7 @@ public class AqliManifest {
     private boolean pipeline;
     private String branch = "main";
     private String taskType = "text";
+    private boolean taskTypeSpecified;
     private java.util.Map<String, String> metadata = new java.util.LinkedHashMap<>();
     private String group;
     private boolean enabled = true;
@@ -82,7 +92,9 @@ public class AqliManifest {
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
     public String getTaskType() { return taskType; }
-    public void setTaskType(String taskType) { this.taskType = taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; this.taskTypeSpecified = true; }
+    @JsonIgnore
+    public boolean isTaskTypeSpecified() { return taskTypeSpecified; }
     public java.util.Map<String, String> getMetadata() { return metadata; }
     public void setMetadata(java.util.Map<String, String> metadata) { this.metadata = metadata == null ? new java.util.LinkedHashMap<>() : new java.util.LinkedHashMap<>(metadata); }
     public String getGroup() { return group; }
