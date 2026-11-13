@@ -2,6 +2,7 @@ package tech.kayys.aqli.model.repo.local;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,8 @@ public class AqliManifest {
     private String blobPath;
     private List<String> files = new ArrayList<>();
     private Instant createdAt;
+    private String updatedAt;
+    private String persistedShortId;
     private long sizeBytes;
 
     public static String computeName(String modelId, String revision) {
@@ -59,6 +62,12 @@ public class AqliManifest {
     public void setFiles(List<String> files) { this.files = files == null ? new ArrayList<>() : new ArrayList<>(files); }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
+    @JsonProperty("shortId")
+    public void setPersistedShortId(String shortId) { this.persistedShortId = shortId; }
+    @JsonIgnore
+    public String getPersistedShortId() { return persistedShortId; }
     public long getSizeBytes() { return sizeBytes; }
     public void setSizeBytes(long sizeBytes) { this.sizeBytes = sizeBytes; }
     private String architecture;
