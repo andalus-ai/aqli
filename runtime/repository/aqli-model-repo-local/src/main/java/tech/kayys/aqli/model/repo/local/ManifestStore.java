@@ -41,7 +41,7 @@ public class ManifestStore {
         this(defaultManifestDir());
     }
 
-    ManifestStore(Path manifestDir) {
+    public ManifestStore(Path manifestDir) {
         this.manifestDir = manifestDir;
         this.mapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
