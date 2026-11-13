@@ -2,8 +2,8 @@ package tech.kayys.aqli.inference.gguf;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -14,8 +14,8 @@ import java.util.function.IntSupplier;
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
  * Session limits, library paths, and logging are supplied by the application boundary.
  * The session limit is a count cap, not an estimate of native memory consumption.
- * Cache operations are serialized; callers must stop request dispatch and release
- * borrowed session leases before closing the cache.
+ * Cache operations and lease accounting are serialized. Eviction and shutdown retire
+ * cached sessions and defer native close until their final borrowed lease is released.
  */
 public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
@@ -132,7 +132,7 @@ public final class GgufSessionCache implements AutoCloseable {
             LlamaCppGgufSessionParameters parameters) throws Exception {
         ensureOpen();
         SessionKey key = new SessionKey(modelPath.toAbsolutePath().normalize(), parameters);
-        LlamaCppGgufSession existing = sessions.get(key);
+        CachedSession existing = sessions.get(key);
         if (existing != null) {
             log.accept("session cache hit: " + key.modelPath().getFileName()
                     + ", context=" + parameters.context()
@@ -169,7 +169,6 @@ public final class GgufSessionCache implements AutoCloseable {
             return null;
         }
         CachedSession cached = sessions.get(selected);
-        LlamaCppGgufSession session = cached.session;
         log.accept("session cache compatible hit: " + selected.modelPath().getFileName()
                 + ", requestedContext=" + requested.parameters().context()
                 + ", warmContext=" + selected.parameters().context()
