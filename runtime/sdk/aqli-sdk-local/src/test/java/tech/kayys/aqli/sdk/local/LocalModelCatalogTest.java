@@ -145,7 +145,8 @@ class LocalModelCatalogTest {
 
     private static LocalModelCatalog catalog(AqliManifest... entries) {
         ManifestStore store = mock(ManifestStore.class);
-        when(store.listAll()).thenReturn(List.of(entries));
+        when(store.listAllWithDiagnostics()).thenReturn(
+                new ManifestStore.ManifestListing(List.of(entries), List.of()));
         return new LocalModelCatalog(store);
     }
 
