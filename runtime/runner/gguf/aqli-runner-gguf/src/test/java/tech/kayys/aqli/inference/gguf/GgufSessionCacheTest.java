@@ -2,6 +2,7 @@ package tech.kayys.aqli.inference.gguf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -55,6 +56,35 @@ class GgufSessionCacheTest {
 
         verify(session, times(0)).close();
         assertEquals("exact", lease.reuseKind());
+    }
+
+
+    @Test
+    void closeIsIdempotentAndRejectsFurtherAcquisition() {
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 2,
+                ignored -> { },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"),
+                        Path.of("/native/llama")));
+
+        cache.close();
+        cache.close();
+
+        assertThrows(IllegalStateException.class,
+                () -> cache.acquireJavaBackend(Path.of("/models/model.gguf")));
+        assertThrows(IllegalStateException.class,
+                () -> cache.acquire(
+                        Path.of("/models/model.gguf"),
+                        new LlamaCppGgufSessionParameters(
+                                4096, 256, 128, 8, 4, 0, true, false, false)));
+    }
+
+    @Test
+    void sessionLimitAlwaysRetainsCapacityForTheSessionBeingAcquired() {
+        assertEquals(1, GgufSessionCache.effectiveMaxSessions(0));
+        assertEquals(1, GgufSessionCache.effectiveMaxSessions(-3));
+        assertEquals(2, GgufSessionCache.effectiveMaxSessions(2));
     }
 
     private static GgufSessionCache.SessionKey key(
