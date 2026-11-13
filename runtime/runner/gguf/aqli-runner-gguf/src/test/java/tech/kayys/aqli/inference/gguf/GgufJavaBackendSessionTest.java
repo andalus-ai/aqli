@@ -1,6 +1,8 @@
 package tech.kayys.aqli.inference.gguf;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -8,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import org.junit.jupiter.api.Test;
 
 import tech.kayys.aljabr.gguf.api.GgufBackend;
+import tech.kayys.aljabr.spi.inference.InferenceRequest;
+import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 class GgufJavaBackendSessionTest {
 
