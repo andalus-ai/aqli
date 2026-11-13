@@ -5,15 +5,16 @@ import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
 import io.grpc.stub.StreamObserver;
 import io.smallrye.mutiny.Uni;
-import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.kayys.aqli.sdk.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.Message;
 
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 @GrpcService
@@ -21,15 +22,11 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(AqliGrpcService.class);
 
-    private AqliSdk sdk;
+    @Inject
+    AqliRuntime sdk;
 
     @Inject
     MeterRegistry meterRegistry;
-
-    @PostConstruct
-    void init() {
-        sdk = AqliSdk.builder().provider("local").build();
-    }
 
     @Override
     public void chat(ChatRequest request, StreamObserver<ChatResponse> observer) {
@@ -46,7 +43,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
                     .maxTokens(request.getMaxTokens())
                     .build();
             
-            InferenceResponse response = sdk.createCompletion(internalRequest);
+            InferenceResponse response = createCompletion(internalRequest);
             
             sample.stop(meterRegistry.timer("aqli.grpc.chat.duration"));
             meterRegistry.counter("aqli.grpc.chat.count").increment();
@@ -83,7 +80,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
                     .maxTokens(request.getMaxTokens())
                     .build();
             
-            InferenceResponse response = sdk.createCompletion(internalRequest);
+            InferenceResponse response = createCompletion(internalRequest);
             
             sample.stop(meterRegistry.timer("aqli.grpc.complete.duration"));
             meterRegistry.counter("aqli.grpc.complete.count").increment();
@@ -104,6 +101,14 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     public void streamComplete(CompletionRequest request, StreamObserver<CompletionResponse> observer) {
         LOG.info("Received streamComplete request for model: {}", request.getModelId());
         GrpcResponseObserver.unimplemented("streamComplete", observer);
+    }
+
+    private InferenceResponse createCompletion(InferenceRequest request) {
+        try {
+            return sdk.createCompletion(request);
+        } catch (SdkException exception) {
+            throw new CompletionException("AQLI inference request failed", exception);
+        }
     }
 
     private ChatResponse mapChatResponse(InferenceResponse response) {
