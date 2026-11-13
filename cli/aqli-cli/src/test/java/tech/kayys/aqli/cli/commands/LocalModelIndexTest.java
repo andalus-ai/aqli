@@ -6,6 +6,7 @@ import tech.kayys.aqli.sdk.route.RunnerRouteReportContract;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -131,7 +132,7 @@ class LocalModelIndexTest {
         assertEquals("tts", entry.taskType);
         assertEquals("onnx", entry.format);
         assertTrue(entry.runnable);
-        assertEquals(false, entry.enabled);
+        assertFalse(entry.enabled);
     }
 
     @Test
