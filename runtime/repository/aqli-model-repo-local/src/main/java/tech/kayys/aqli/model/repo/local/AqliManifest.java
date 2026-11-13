@@ -75,6 +75,7 @@ public class AqliManifest {
     private boolean pipeline;
     private String branch = "main";
     private String taskType = "text";
+    private boolean taskTypeSpecified;
     private java.util.Map<String, String> metadata = new java.util.LinkedHashMap<>();
     private String group;
     private boolean enabled = true;
@@ -91,7 +92,9 @@ public class AqliManifest {
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
     public String getTaskType() { return taskType; }
-    public void setTaskType(String taskType) { this.taskType = taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; this.taskTypeSpecified = true; }
+    @JsonIgnore
+    public boolean isTaskTypeSpecified() { return taskTypeSpecified; }
     public java.util.Map<String, String> getMetadata() { return metadata; }
     public void setMetadata(java.util.Map<String, String> metadata) { this.metadata = metadata == null ? new java.util.LinkedHashMap<>() : new java.util.LinkedHashMap<>(metadata); }
     public String getGroup() { return group; }
