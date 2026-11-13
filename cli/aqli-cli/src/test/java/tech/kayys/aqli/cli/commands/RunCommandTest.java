@@ -214,6 +214,30 @@ public class RunCommandTest {
                 }
         }
 
+        @Test
+        public void llamaCppFallbackRequestOverridesOnlyThePreferredProvider() {
+                InferenceRequest original = InferenceRequest.builder()
+                                .requestId("fallback-request")
+                                .model("model.gguf")
+                                .prompt("hello")
+                                .preferredProvider("native")
+                                .parameter("temperature", 0.4)
+                                .metadata("origin", "run-command-test")
+                                .streaming(true)
+                                .build();
+
+                InferenceRequest fallback = RunCommand.llamaCppFallbackRequest(original);
+
+                assertEquals("llamacpp", fallback.getPreferredProvider().orElseThrow());
+                assertEquals(original.getRequestId(), fallback.getRequestId());
+                assertEquals(original.getModel(), fallback.getModel());
+                assertEquals(original.getMessages(), fallback.getMessages());
+                assertEquals(original.getParameters(), fallback.getParameters());
+                assertEquals(original.getMetadata(), fallback.getMetadata());
+                assertEquals(original.isStreaming(), fallback.isStreaming());
+                assertEquals("native", original.getPreferredProvider().orElseThrow());
+        }
+
         private static Path compileExternalRunModelFamilyFixture(Path tempDir) throws Exception {
                 JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
                 assertTrue(compiler != null, "Java compiler must be available for external run fixture compilation");

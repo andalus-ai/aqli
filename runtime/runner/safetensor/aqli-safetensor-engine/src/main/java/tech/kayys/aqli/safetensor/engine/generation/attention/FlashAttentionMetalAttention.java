@@ -7,6 +7,7 @@ package tech.kayys.aqli.safetensor.engine.generation.attention;
 
 import tech.kayys.aljabr.safetensor.core.tensor.AccelTensor;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
+import tech.kayys.aqli.safetensor.engine.generation.kv.AttentionScratchMemoryBudget;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 
 import java.lang.foreign.MemorySegment;
@@ -28,9 +29,10 @@ final class FlashAttentionMetalAttention {
     AccelTensor denseSharedAttention(AccelTensor q, AccelTensor k, AccelTensor v,
             SharedKvState sharedKvState, ModelConfig config, FlashAttentionModelPolicy modelPolicy,
             int layerIdx, int startPos, int numQHeads, int numKVHeads, int headDim,
-            float scale, boolean causal, float softCap, MemorySegment attentionContextBuffer) {
+            float scale, boolean causal, float softCap, MemorySegment attentionContextBuffer,
+            AttentionScratchMemoryBudget scratchMemoryBudget) {
         return denseShared.compute(q, k, v, sharedKvState, config, modelPolicy, layerIdx, startPos, numQHeads,
-                numKVHeads, headDim, scale, causal, softCap, attentionContextBuffer);
+                numKVHeads, headDim, scale, causal, softCap, attentionContextBuffer, scratchMemoryBudget);
     }
 
     AccelTensor tiledAttention(AccelTensor q, KVCacheManager.KVCacheSession kvSession, int kvLayerIdx,

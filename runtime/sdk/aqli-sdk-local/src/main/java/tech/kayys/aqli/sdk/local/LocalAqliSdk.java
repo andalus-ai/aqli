@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
 import tech.kayys.aqli.sdk.config.SdkConfig;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 import tech.kayys.aljabr.spi.model.ModelInfo;
@@ -34,14 +34,20 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
  * operations remain unsupported until their corresponding runtime services
  * are composed here.</p>
  */
-public class LocalAqliSdk implements AqliSdk {
+public class LocalAqliSdk implements AqliRuntime {
 
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
+    private final LocalModelCatalog models;
 
     public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config) {
+        this(engines, config, new LocalModelCatalog(new tech.kayys.aqli.model.repo.local.ManifestStore()));
+    }
+
+    public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config, LocalModelCatalog models) {
         this.engines = java.util.Objects.requireNonNull(engines, "engines");
         this.config = config != null ? config : SdkConfig.builder().build();
+        this.models = java.util.Objects.requireNonNull(models, "models");
     }
 
     @Override
@@ -106,17 +112,17 @@ public class LocalAqliSdk implements AqliSdk {
 
     @Override
     public List<ModelInfo> listModels() throws SdkException {
-        throw unsupported("Model catalogue");
+        return models.listModels(0, Integer.MAX_VALUE);
     }
 
     @Override
     public List<ModelInfo> listModels(int offset, int limit) throws SdkException {
-        throw unsupported("Model catalogue");
+        return models.listModels(offset, limit);
     }
 
     @Override
     public Optional<ModelInfo> getModelInfo(String modelId) throws SdkException {
-        throw unsupported("Model lookup");
+        return models.findModel(modelId);
     }
 
     @Override

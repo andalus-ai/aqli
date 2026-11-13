@@ -22,6 +22,7 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("commons-codec:commons-codec:1.16.1")
     implementation("commons-io:commons-io:2.18.0")
+    testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
 sourceSets {
@@ -29,4 +30,8 @@ sourceSets {
         java {
         }
     }
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }

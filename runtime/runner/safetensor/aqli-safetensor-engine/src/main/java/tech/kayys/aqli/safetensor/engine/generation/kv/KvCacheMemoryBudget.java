@@ -12,10 +12,11 @@ import jakarta.inject.Inject;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Process-wide admission budget for native Safetensors KV-cache slabs.
+ * Process-wide admission budget for persistent native Safetensors KV storage.
  *
- * <p>The budget accounts reservations, not JVM heap. A lease remains held
- * while its KV session is alive, including when a conversation retains it.
+ * <p>The budget accounts paged block chunks and retained shared-layer K/V
+ * tensors, including their packed copies. It does not account model weights,
+ * forward workspaces, or transient attention allocations.
  */
 @ApplicationScoped
 public class KvCacheMemoryBudget {
@@ -28,10 +29,6 @@ public class KvCacheMemoryBudget {
     public KvCacheMemoryBudget(
             @ConfigProperty(name = "aqli.safetensor.kv-cache.max-native-bytes",
                     defaultValue = "8589934592") long maxBytes) {
-        this(maxBytes, true);
-    }
-
-    KvCacheMemoryBudget(long maxBytes) {
         this(maxBytes, true);
     }
 

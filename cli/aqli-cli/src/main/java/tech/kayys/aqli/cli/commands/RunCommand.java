@@ -19,13 +19,16 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
-import tech.kayys.aljabr.spi.download.DownloadProgressListener;
-import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
-import tech.kayys.aqli.model.repo.local.AqliManifest;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
+
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
-import tech.kayys.aqli.onnx.runner.MossTtsOnnxRunner;
-import tech.kayys.aqli.onnx.runner.MossTtsOnnxGraphCatalog;
+import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
+import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
+import tech.kayys.aqli.onnx.runner.tts.moss.diagnostics.MossTtsModelDiagnostics;
+import tech.kayys.aqli.onnx.runner.tts.moss.voice.MossTtsVoiceCatalog;
+import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
+import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLocator;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
@@ -55,7 +58,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,26 +68,26 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.SourceDataLine;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
+import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
+import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
-import tech.kayys.aqli.audio.output.StreamingAudioFileWriter;
-import tech.kayys.aqli.audio.tts.moss.MossTtsCacheSettings;
-import tech.kayys.aqli.audio.tts.moss.MossTtsOnnxGraphResolver;
-import tech.kayys.aqli.audio.tts.moss.MossTtsOnnxCacheDiagnostics;
-import tech.kayys.aqli.audio.tts.moss.OptimizedCacheDirectoryScanner;
-import tech.kayys.aqli.audio.tts.moss.OptimizedCachePruner;
+import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
+import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
+import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxCacheDiagnostics;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCacheDirectoryScanner;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
+import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
+import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
@@ -107,11 +109,6 @@ import tech.kayys.suling.audio.Suling;
 @Unremovable
 @Command(name = "run", description = "Run inference using a specified model")
 public class RunCommand implements Runnable {
-    private static final String MOSS_AUDIO_TOKENIZER_REPOSITORY =
-            "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX";
-    private static final String MOSS_AUDIO_TOKENIZER_MODEL_SPEC =
-            "hf:" + MOSS_AUDIO_TOKENIZER_REPOSITORY;
-    private static final String MOSS_CODEC_META_FILE = MossAudioTokenizerModelLayout.METADATA_FILE_NAME;
     private Map<String, Object> forcedExecutionRouteMetadata = Map.of();
 
     @ParentCommand
@@ -126,9 +123,7 @@ public class RunCommand implements Runnable {
     @Inject
     DirectInferenceEngine directInferenceEngine;
     @Inject
-    Instance<HuggingFaceClient> huggingFaceClient;
-    @Inject
-    Instance<ManifestStore> manifestStore;
+    Instance<HuggingFaceRepository> huggingFaceRepository;
     @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
 
@@ -892,7 +887,8 @@ public class RunCommand implements Runnable {
                                 if (!quietRouteResolutionOutput()) {
                                     System.out.println("Model ready at: " + displayPath(Path.of(finalLocalPath)));
                                 }
-                            } else if (requiresLocalHfRepositoryResolution(requestedModelRef, providerId)) {
+                            } else if (ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
+                                    requestedModelRef, providerId, isMcpProvider())) {
                                 return;
                             }
                         }
@@ -1526,195 +1522,40 @@ public class RunCommand implements Runnable {
                 requestProcessExit();
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
-                StreamingAudioOutput audioOutput = new StreamingAudioOutput();
-                LivePcmAudioSink liveAudioSink = new LivePcmAudioSink(liveAudio);
-                CountDownLatch latch = new CountDownLatch(1);
+                StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
+                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(liveAudio);
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
-                java.util.concurrent.atomic.AtomicBoolean streamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
                 java.util.concurrent.atomic.AtomicLong lastTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
-                long streamStartTime = System.currentTimeMillis();
-                String streamFinalLocalPath = finalLocalPath;
-                java.util.concurrent.atomic.AtomicBoolean llamaFallbackAttempted = new java.util.concurrent.atomic.AtomicBoolean(false);
-
-                // Helper to create a stream subscriber (used for primary and fallback)
-                java.util.function.Consumer<io.smallrye.mutiny.Multi<tech.kayys.aqli.spi.inference.StreamingInferenceChunk>> subscribeToStream = (multi) -> {
-                    multi.subscribe().with(
-                            chunk -> {
-                                if (chunk.metadata() != null && !chunk.metadata().isEmpty()) {
-                                    metricsRef.set(chunk.metadata());
-                                }
-
-                                if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.IMAGE) {
-                                    if (chunk.imageDeltaBase64() != null) {
-                                        try {
-                                            byte[] decoded = java.util.Base64.getDecoder().decode(chunk.imageDeltaBase64());
-                                            imageBuffer.write(decoded);
-                                        } catch (Exception imageDecodeFailure) {}
-                                    }
-                                    return;
-                                }
-
-                                if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.AUDIO) {
-                                    handleAudioChunk(chunk, audioOutput, liveAudioSink);
-                                    return;
-                                }
-
-                                String delta = chunk.getDelta();
-                                if (delta != null) {
-                                    boolean progressDelta = delta.startsWith("[") && delta.contains("]");
-                                    if (!progressDelta && !delta.isEmpty()) {
-                                        long now = System.currentTimeMillis();
-                                        firstTokenTime.compareAndSet(0, now);
-                                        lastTokenTime.set(now);
-                                    }
-                                    if (progressDelta) {
-                                        if (!enableJsonSse) {
-                                            System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
-                                            System.out.flush();
-                                        }
-                                    } else if (enableJsonSse) {
+                tech.kayys.aqli.audio.output.StreamingAudioChunkRouter audioChunkRouter =
+                        new tech.kayys.aqli.audio.output.StreamingAudioChunkRouter(
+                                audioOutput, this::resolveAudioOutputPath, liveAudioSink::write);
+                tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler chunkHandler =
+                        new tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler(
+                                imageBuffer,
+                                chunk -> audioChunkRouter.accept(chunk.getDelta(), chunk.metadata()),
+                                delta -> {
+                                    if (enableJsonSse) {
                                         printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
                                     } else {
                                         System.out.print(delta);
                                         System.out.flush();
                                     }
-                                    tokenCount.incrementAndGet();
-                                }
-                            },
-                            error -> {
-                                // Attempt fallback to llama.cpp for streaming if available and not yet tried
-                                try {
-                                    if (!llamaFallbackAttempted.get() && pluginChecker != null && pluginChecker.hasProvider("llamacpp")) {
-                                        llamaFallbackAttempted.set(true);
-                                        System.err.println("Warning: stream provider failed: " + (error == null ? "unknown" : error.getMessage()));
-                                        System.err.println("Attempting streaming fallback to provider 'llamacpp' (llama.cpp)...");
-                                        try {  } catch (Throwable ignore) {}
-                                        // start fallback stream
-                                        try {
-                                            java.util.concurrent.atomic.AtomicBoolean fallbackStreamFailed = new java.util.concurrent.atomic.AtomicBoolean(false);
-                                            sdk.streamCompletion(request).subscribe().with(
-                                                    chunk -> {
-                                                        if (chunk.metadata() != null && !chunk.metadata().isEmpty()) {
-                                                            metricsRef.set(chunk.metadata());
-                                                        }
-                                                        if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.IMAGE) {
-                                                            if (chunk.imageDeltaBase64() != null) {
-                                                                try {
-                                                                    byte[] decoded = java.util.Base64.getDecoder().decode(chunk.imageDeltaBase64());
-                                                                    imageBuffer.write(decoded);
-                                                                } catch (Exception imageDecodeFailure) {}
-                                                            }
-                                                            return;
-                                                        }
-                                                        if (chunk.modality() == tech.kayys.aljabr.spi.model.ModalityType.AUDIO) {
-                                                            handleAudioChunk(chunk, audioOutput, liveAudioSink);
-                                                            return;
-                                                        }
-                                                        String delta = chunk.getDelta();
-                                                        if (delta != null) {
-                                                            boolean progressDelta = delta.startsWith("[") && delta.contains("]");
-                                                            if (!progressDelta && !delta.isEmpty()) {
-                                                                long now = System.currentTimeMillis();
-                                                                firstTokenTime.compareAndSet(0, now);
-                                                                lastTokenTime.set(now);
-                                                            }
-                                                            if (progressDelta) {
-                                                                if (!enableJsonSse) {
-                                                                    System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
-                                                                    System.out.flush();
-                                                                }
-                                                            } else if (enableJsonSse) {
-                                                                printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
-                                                            } else {
-                                                                System.out.print(delta);
-                                                                System.out.flush();
-                                                            }
-                                                            tokenCount.incrementAndGet();
-                                                        }
-                                                    },
-                                                    fallbackError -> {
-                                                        // fallback failed -> close sinks and report
-                                                        liveAudioSink.close();
-                                                        audioOutput.closeQuietly();
-                                                        fallbackStreamFailed.set(true);
-                                                        uiRenderer.printError(fallbackError == null ? "Fallback stream failed" : fallbackError.getMessage(), false);
-                                                        printProviderHintFromError(fallbackError);
-                                                        latch.countDown();
-                                                    },
-                                                    () -> {
-                                                        liveAudioSink.close();
-                                                        long duration = observedStreamDurationMillis(streamStartTime, System.currentTimeMillis(), lastTokenTime);
-                                                        handleOutputs(imageBuffer, audioOutput, metricsRef.get());
-                                                        double tps = (tokenCount.get() / (Math.max(1, duration) / 1000.0));
-                                                        Double ttftMs = ttftMillis(metricsRef.get(), streamStartTime, firstTokenTime);
-                                                        Map<String, Object> streamMetrics = observedStreamMetrics(effectiveExecutionRouteMetadata(metricsRef.get()), tokenCount.get(), duration, ttftMs);
-                                                        recordRouteBenchmarkProfile(request.getModel(), streamFinalLocalPath, streamMetrics, tokenCount.get(), duration, audioOutput.hasOutput());
-                                                        if (enableJsonSse) {
-                                                            printOpenAiSseFinal(request.getRequestId(), request.getModel());
-                                                        } else {
-                                                            printCompletionStatsForOutput(tokenCount.get(), duration, tps, ttftMs, streamMetrics, audioOutput.hasOutput());
-                                                        }
-                                                        latch.countDown();
-                                                    });
-                                        } catch (Throwable fallbackStartErr) {
-                                            liveAudioSink.close();
-                                            audioOutput.closeQuietly();
-                                            streamFailed.set(true);
-                                            uiRenderer.printError(fallbackStartErr.getMessage(), false);
-                                            printProviderHintFromError(fallbackStartErr);
-                                            latch.countDown();
-                                        }
-                                        return;
+                                },
+                                delta -> {
+                                    if (!enableJsonSse) {
+                                        System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
+                                        System.out.flush();
                                     }
-                                } catch (Exception probeErr) {
-                                    // ignore probing errors, fall through to failure closing
-                                }
+                                },
+                                metricsRef::set,
+                                tokenCount,
+                                firstTokenTime,
+                                lastTokenTime);
+                long streamStartTime = System.currentTimeMillis();
+                String streamFinalLocalPath = finalLocalPath;
 
-                                // No fallback available or fallback already attempted: close resources and finish
-                                liveAudioSink.close();
-                                audioOutput.closeQuietly();
-                                streamFailed.set(true);
-                                uiRenderer.printError(error == null ? "Stream failed" : error.getMessage(), false);
-                                printProviderHintFromError(error);
-                                latch.countDown();
-                            },
-                            () -> {
-                                liveAudioSink.close();
-                                long duration = observedStreamDurationMillis(
-                                        streamStartTime, System.currentTimeMillis(), lastTokenTime);
-                                handleOutputs(imageBuffer, audioOutput, metricsRef.get());
-                                double tps = (tokenCount.get() / (Math.max(1, duration) / 1000.0));
-                                Double ttftMs = ttftMillis(metricsRef.get(), streamStartTime, firstTokenTime);
-                                Map<String, Object> streamMetrics = observedStreamMetrics(
-                                        effectiveExecutionRouteMetadata(metricsRef.get()),
-                                        tokenCount.get(),
-                                        duration,
-                                        ttftMs);
-                                recordRouteBenchmarkProfile(
-                                        request.getModel(),
-                                        streamFinalLocalPath,
-                                        streamMetrics,
-                                        tokenCount.get(),
-                                        duration,
-                                        audioOutput.hasOutput());
-                                if (enableJsonSse) {
-                                    printOpenAiSseFinal(request.getRequestId(), request.getModel());
-                                } else {
-                                    printCompletionStatsForOutput(
-                                            tokenCount.get(),
-                                            duration,
-                                            tps,
-                                            ttftMs,
-                                            streamMetrics,
-                                            audioOutput.hasOutput());
-                                }
-                                latch.countDown();
-                            });
-                    };
-
-                // Start primary stream
                 var stream = sdk.streamCompletion(request);
                 if (stream == null) {
                     System.err.println("Error: No provider available to handle inference for model '" + modelId
@@ -1722,17 +1563,62 @@ public class RunCommand implements Runnable {
                     requestProcessExit(1);
                     return;
                 }
-                subscribeToStream.accept(stream);
 
-                try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    liveAudioSink.close();
-                    audioOutput.closeQuietly();
-                    streamFailed.set(true);
-                }
-                requestProcessExit(streamFailed.get() ? 1 : 0);
+                RunStreamExecutionCoordinator.Result streamResult =
+                        new RunStreamExecutionCoordinator().execute(
+                                stream,
+                                () -> sdk.streamCompletion(llamaCppFallbackRequest(request)),
+                                () -> pluginChecker != null && pluginChecker.hasProvider("llamacpp"),
+                                chunkHandler::accept,
+                                () -> {
+                                    liveAudioSink.close();
+                                    long duration = observedStreamDurationMillis(
+                                            streamStartTime, System.currentTimeMillis(), lastTokenTime);
+                                    handleOutputs(imageBuffer, audioOutput, metricsRef.get());
+                                    double tps = tokenCount.get() / (Math.max(1, duration) / 1000.0);
+                                    Double ttftMs = ttftMillis(metricsRef.get(), streamStartTime, firstTokenTime);
+                                    Map<String, Object> streamMetrics = observedStreamMetrics(
+                                            effectiveExecutionRouteMetadata(metricsRef.get()),
+                                            tokenCount.get(),
+                                            duration,
+                                            ttftMs);
+                                    recordRouteBenchmarkProfile(
+                                            request.getModel(),
+                                            streamFinalLocalPath,
+                                            streamMetrics,
+                                            tokenCount.get(),
+                                            duration,
+                                            audioOutput.hasOutput());
+                                    if (enableJsonSse) {
+                                        printOpenAiSseFinal(request.getRequestId(), request.getModel());
+                                    } else {
+                                        printCompletionStatsForOutput(
+                                                tokenCount.get(),
+                                                duration,
+                                                tps,
+                                                ttftMs,
+                                                streamMetrics,
+                                                audioOutput.hasOutput());
+                                    }
+                                },
+                                error -> {
+                                    liveAudioSink.close();
+                                    closeAudioOutputQuietly(audioOutput);
+                                    uiRenderer.printError(
+                                            error == null ? "Stream failed" : error.getMessage(), false);
+                                    printProviderHintFromError(error);
+                                },
+                                () -> {
+                                    liveAudioSink.close();
+                                    closeAudioOutputQuietly(audioOutput);
+                                },
+                                error -> {
+                                    System.err.println("Warning: stream provider failed: "
+                                            + (error == null ? "unknown" : error.getMessage()));
+                                    System.err.println(
+                                            "Attempting streaming fallback to provider 'llamacpp' (llama.cpp)...");
+                                });
+                requestProcessExit(streamResult.failed() ? 1 : 0);
             } else {
                 try {
                     InferenceResponse response = sdk.createCompletion(request);
@@ -1760,6 +1646,13 @@ public class RunCommand implements Runnable {
         }
     }
 
+    static InferenceRequest llamaCppFallbackRequest(InferenceRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Inference request is required for llama.cpp fallback");
+        }
+        return request.toBuilder().preferredProvider("llamacpp").build();
+    }
+
     private boolean tryFallbackToLlamaCpp(Throwable cause, InferenceRequest request, long startTime) {
         try {
             if (pluginChecker == null) return false;
@@ -1774,7 +1667,7 @@ public class RunCommand implements Runnable {
             try {
                 
             } catch (Throwable ignore) {}
-            InferenceResponse fallbackResponse = sdk.createCompletion(request);
+            InferenceResponse fallbackResponse = sdk.createCompletion(llamaCppFallbackRequest(request));
             printResponse(fallbackResponse, startTime);
             requestProcessExit();
             return true;
@@ -1884,8 +1777,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to verify image metadata: " + e.getMessage());
@@ -1907,8 +1800,8 @@ public class RunCommand implements Runnable {
                     + ", SHA-256: " + result.sha256()
                     + ChatUIRenderer.RESET);
             return true;
-        } catch (ImageMetadataSidecarStore.UserMessageException e) {
-            System.err.println(e.presentation());
+        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
+            System.err.println(e.getMessage());
             return false;
         } catch (Exception e) {
             System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
@@ -2228,7 +2121,7 @@ public class RunCommand implements Runnable {
     }
 
     private int printTtsVoices(String modelId, String finalLocalPath) {
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             System.err.println("Error: --list-voices is only available for local MOSS TTS ONNX model directories.");
             System.err.println("Resolved model path: " + (finalLocalPath == null || finalLocalPath.isBlank()
@@ -2237,7 +2130,7 @@ public class RunCommand implements Runnable {
             return 1;
         }
 
-        Path manifestPath = ttsDir.get().resolve("browser_poc_manifest.json");
+        Path manifestPath = ttsDir.get().resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
         try {
             JsonNode manifest = new ObjectMapper().readTree(manifestPath.toFile());
             JsonNode voices = manifest.path("builtin_voices");
@@ -2249,7 +2142,7 @@ public class RunCommand implements Runnable {
             TtsVoiceListFilter filter = ttsVoiceListFilter();
             List<JsonNode> matchedVoices = new ArrayList<>();
             for (JsonNode voice : voices) {
-                if (ttsVoiceMatchesListFilter(voice, filter)) {
+                if (MossTtsVoiceCatalog.matches(voice, filter.language(), filter.gender(), filter.terms())) {
                     matchedVoices.add(voice);
                 }
             }
@@ -2274,11 +2167,11 @@ public class RunCommand implements Runnable {
                 for (JsonNode voice : matchedVoices) {
                     System.out.printf("%-7s %-12s %-8s %-11s %-18s %s%n",
                             voice == voices.get(0) ? "*" : "",
-                            ttsVoiceId(voice),
-                            ttsVoiceLanguageLabel(voice),
-                            ttsVoiceGenderLabel(voice),
-                            truncateDisplay(ttsVoiceGroup(voice), 18),
-                            ttsVoiceDisplayName(voice));
+                            MossTtsVoiceCatalog.voiceId(voice),
+                            MossTtsVoiceCatalog.languageLabel(voice),
+                            MossTtsVoiceCatalog.genderLabel(voice),
+                            truncateDisplay(MossTtsVoiceCatalog.group(voice), 18),
+                            MossTtsVoiceCatalog.displayName(voice));
                 }
             }
             System.out.println();
@@ -2327,24 +2220,24 @@ public class RunCommand implements Runnable {
         payload.put("model_path", ttsDir.toAbsolutePath().normalize().toString());
         payload.put("total", voices.size());
         payload.put("matched", matchedVoices.size());
-        payload.put("default_voice", voices.isEmpty() ? null : ttsVoiceId(voices.get(0)));
+        payload.put("default_voice", voices.isEmpty() ? null : MossTtsVoiceCatalog.voiceId(voices.get(0)));
         payload.put("filter", ttsVoiceFilterJson(filter));
 
         List<Map<String, Object>> voiceItems = new ArrayList<>();
         for (JsonNode voice : matchedVoices) {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("default", voice.equals(voices.get(0)));
-            item.put("voice", ttsVoiceId(voice));
-            item.put("language", ttsVoiceLanguageLabel(voice));
-            item.put("gender", ttsVoiceGenderLabel(voice));
-            item.put("group", ttsVoiceGroup(voice));
-            item.put("display_name", ttsVoiceDisplayName(voice));
-            item.put("selector", ttsVoiceSelectorExample(voice));
+            item.put("voice", MossTtsVoiceCatalog.voiceId(voice));
+            item.put("language", MossTtsVoiceCatalog.languageLabel(voice));
+            item.put("gender", MossTtsVoiceCatalog.genderLabel(voice));
+            item.put("group", MossTtsVoiceCatalog.group(voice));
+            item.put("display_name", MossTtsVoiceCatalog.displayName(voice));
+            item.put("selector", MossTtsVoiceCatalog.selectorExample(voice));
             voiceItems.add(item);
         }
         payload.put("voices", voiceItems);
         payload.put("examples", List.of(
-                "--voice " + (voices.isEmpty() ? "Junhao" : ttsVoiceId(voices.get(0))),
+                "--voice " + (voices.isEmpty() ? "Junhao" : MossTtsVoiceCatalog.voiceId(voices.get(0))),
                 "--voice en",
                 "--voice jp female",
                 "--voice-search bitter"));
@@ -2361,37 +2254,25 @@ public class RunCommand implements Runnable {
         return value;
     }
 
-    private String ttsVoiceSelectorExample(JsonNode voice) {
-        String language = ttsVoiceLanguageLabel(voice);
-        String gender = ttsVoiceGenderLabel(voice);
-        if (!"other".equals(language) && !"unspecified".equals(gender)) {
-            return language + " " + gender;
-        }
-        if (!"other".equals(language)) {
-            return language;
-        }
-        return ttsVoiceId(voice);
-    }
-
     private TtsVoiceListFilter ttsVoiceListFilter() {
-        String language = normalizeTtsVoiceLanguageFilter(ttsVoiceLanguage);
-        String gender = normalizeTtsVoiceGenderFilter(ttsVoiceGender);
+        String language = MossTtsVoiceCatalog.normalizeLanguageFilter(ttsVoiceLanguage);
+        String gender = MossTtsVoiceCatalog.normalizeGenderFilter(ttsVoiceGender);
         List<String> terms = new ArrayList<>();
 
         if (ttsVoiceGender != null && !ttsVoiceGender.isBlank() && gender == null) {
-            terms.addAll(ttsVoiceFilterTerms(ttsVoiceGender));
+            terms.addAll(MossTtsVoiceCatalog.filterTerms(ttsVoiceGender));
         }
 
         String selectorText = ttsVoiceSearch != null && !ttsVoiceSearch.isBlank()
                 ? ttsVoiceSearch
                 : ttsVoice;
-        for (String term : ttsVoiceFilterTerms(selectorText)) {
-            String termLanguage = normalizeTtsVoiceLanguageFilter(term);
+        for (String term : MossTtsVoiceCatalog.filterTerms(selectorText)) {
+            String termLanguage = MossTtsVoiceCatalog.normalizeLanguageFilter(term);
             if (termLanguage != null) {
                 language = termLanguage;
                 continue;
             }
-            String termGender = normalizeTtsVoiceGenderFilter(term);
+            String termGender = MossTtsVoiceCatalog.normalizeGenderFilter(term);
             if (termGender != null) {
                 gender = termGender;
                 continue;
@@ -2402,65 +2283,6 @@ public class RunCommand implements Runnable {
         }
 
         return new TtsVoiceListFilter(language, gender, List.copyOf(terms));
-    }
-
-    private List<String> ttsVoiceFilterTerms(String value) {
-        String normalized = normalizeTtsVoiceFilterText(value);
-        if (normalized.isBlank()) {
-            return List.of();
-        }
-        return List.of(normalized.split(" "));
-    }
-
-    private boolean ttsVoiceMatchesListFilter(JsonNode voice, TtsVoiceListFilter filter) {
-        if (filter == null || !filter.hasFilters()) {
-            return true;
-        }
-        if (filter.language() != null && !filter.language().equals(ttsVoiceLanguageLabel(voice))) {
-            return false;
-        }
-        if (filter.gender() != null && !filter.gender().equals(ttsVoiceGenderLabel(voice))) {
-            return false;
-        }
-        if (!filter.terms().isEmpty()) {
-            String searchText = ttsVoiceSearchText(voice);
-            for (String term : filter.terms()) {
-                if (!searchText.contains(term)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private String normalizeTtsVoiceLanguageFilter(String value) {
-        String normalized = normalizeTtsVoiceFilterText(value);
-        return switch (normalized) {
-            case "en", "eng", "english" -> "en";
-            case "jp", "ja", "jpn", "japanese" -> "jp";
-            case "cn", "zh", "zho", "chi", "chinese", "mandarin" -> "zh";
-            default -> null;
-        };
-    }
-
-    private String normalizeTtsVoiceGenderFilter(String value) {
-        String normalized = normalizeTtsVoiceFilterText(value);
-        return switch (normalized) {
-            case "f", "female", "woman", "women", "girl" -> "female";
-            case "m", "male", "man", "men", "boy" -> "male";
-            default -> null;
-        };
-    }
-
-    private String normalizeTtsVoiceFilterText(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.trim()
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^\\p{L}\\p{N}]+", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
@@ -2967,36 +2789,32 @@ public class RunCommand implements Runnable {
         System.out.println("Requested model: " + nullToDash(modelId));
         System.out.println("Resolved path: " + nullToDash(finalLocalPath));
 
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             System.err.println();
             System.err.println("Error: resolved model is not a local MOSS TTS ONNX directory.");
-            System.err.println("Expected files: browser_poc_manifest.json and tts_browser_onnx_meta.json");
+            System.err.println("Expected files: " + MossTtsModelLayout.MANIFEST_FILE_NAME + " and "
+                    + MossTtsModelLayout.METADATA_FILE_NAME);
             return 1;
         }
 
         Path modelDir = ttsDir.get().toAbsolutePath().normalize();
         System.out.println("TTS directory: " + displayPath(modelDir));
-        Path manifestPath = modelDir.resolve("browser_poc_manifest.json");
-        Path ttsMetaPath = modelDir.resolve("tts_browser_onnx_meta.json");
+        Path manifestPath = modelDir.resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
+        Path ttsMetaPath = modelDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME);
         System.out.println("Manifest: " + diagnosticFileStatus(manifestPath));
         System.out.println("TTS metadata: " + diagnosticFileStatus(ttsMetaPath));
 
-        JsonNode manifest = null;
-        try {
-            manifest = new ObjectMapper().readTree(manifestPath.toFile());
-            JsonNode voices = manifest.path("builtin_voices");
-            int voiceCount = voices.isArray() ? voices.size() : 0;
-            System.out.println("Voices: " + voiceCount + (voiceCount == 0 ? " (missing)" : ""));
-            if (voiceCount > 0) {
-                System.out.println("Voice groups: " + ttsVoiceGroupSummary(voices));
-                System.out.println("Default voice: " + ttsVoiceId(voices.get(0))
-                        + " (" + ttsVoiceDisplayName(voices.get(0)) + ")");
-            } else {
-                exitCode = 1;
-            }
-        } catch (Exception e) {
-            System.err.println("Manifest read error: " + e.getMessage());
+        MossTtsModelDiagnostics.Snapshot modelDiagnostics =
+                MossTtsModelDiagnostics.inspect(modelDir);
+        System.out.println("Voices: " + modelDiagnostics.voiceCount()
+                + (modelDiagnostics.voiceCount() == 0 ? " (missing)" : ""));
+        if (modelDiagnostics.defaultVoice() != null) {
+            System.out.println("Voice groups: " + modelDiagnostics.voiceGroupSummary());
+            MossTtsModelDiagnostics.VoiceSummary voice = modelDiagnostics.defaultVoice();
+            System.out.println("Default voice: " + voice.id() + " (" + voice.displayName() + ")");
+        } else {
+            System.err.println("Manifest read error: " + modelDiagnostics.manifestError());
             exitCode = 1;
         }
 
@@ -3015,7 +2833,7 @@ public class RunCommand implements Runnable {
         if (codecDir.isPresent()) {
             Path dir = codecDir.get().toAbsolutePath().normalize();
             System.out.println("Codec directory: " + displayPath(dir));
-            System.out.println("Codec metadata: " + diagnosticFileStatus(dir.resolve(MOSS_CODEC_META_FILE)));
+            System.out.println("Codec metadata: " + diagnosticFileStatus(dir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME)));
         } else {
             exitCode = 1;
             System.out.println("Codec directory: missing");
@@ -3028,7 +2846,7 @@ public class RunCommand implements Runnable {
             } else {
                 System.out.println("Auto pull: enabled for generation");
             }
-            System.out.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.out.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
         }
 
         System.out.println();
@@ -3108,7 +2926,7 @@ public class RunCommand implements Runnable {
         payload.put("requested_model", modelId);
         payload.put("resolved_path", finalLocalPath);
 
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             payload.put("status", "attention_needed");
             payload.put("error", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3117,40 +2935,38 @@ public class RunCommand implements Runnable {
         }
 
         Path modelDir = ttsDir.get().toAbsolutePath().normalize();
-        Path manifestPath = modelDir.resolve("browser_poc_manifest.json");
-        Path ttsMetaPath = modelDir.resolve("tts_browser_onnx_meta.json");
+        Path manifestPath = modelDir.resolve(MossTtsModelLayout.MANIFEST_FILE_NAME);
+        Path ttsMetaPath = modelDir.resolve(MossTtsModelLayout.METADATA_FILE_NAME);
         Map<String, Object> tts = new LinkedHashMap<>();
         tts.put("directory", modelDir.toString());
         tts.put("manifest", diagnosticFileJson(manifestPath));
         tts.put("metadata", diagnosticFileJson(ttsMetaPath));
         payload.put("tts", tts);
 
-        try {
-            JsonNode manifest = new ObjectMapper().readTree(manifestPath.toFile());
-            JsonNode voices = manifest.path("builtin_voices");
-            Map<String, Object> voiceInfo = new LinkedHashMap<>();
-            int voiceCount = voices.isArray() ? voices.size() : 0;
-            voiceInfo.put("count", voiceCount);
-            voiceInfo.put("groups", voices.isArray() ? ttsVoiceGroupCounts(voices) : Map.of());
-            if (voiceCount > 0) {
-                Map<String, Object> defaultVoice = new LinkedHashMap<>();
-                defaultVoice.put("voice", ttsVoiceId(voices.get(0)));
-                defaultVoice.put("display_name", ttsVoiceDisplayName(voices.get(0)));
-                defaultVoice.put("language", ttsVoiceLanguageLabel(voices.get(0)));
-                defaultVoice.put("gender", ttsVoiceGenderLabel(voices.get(0)));
-                voiceInfo.put("default", defaultVoice);
-            } else {
-                exitCode = 1;
-            }
-            String selector = effectiveTtsVoiceSelector();
-            if (selector != null && !selector.isBlank()) {
-                voiceInfo.put("requested_selector", selector);
-            }
-            tts.put("voices", voiceInfo);
-        } catch (Exception e) {
-            tts.put("manifest_error", e.getMessage());
+        MossTtsModelDiagnostics.Snapshot modelDiagnostics =
+                MossTtsModelDiagnostics.inspect(modelDir);
+        Map<String, Object> voiceInfo = new LinkedHashMap<>();
+        voiceInfo.put("count", modelDiagnostics.voiceCount());
+        voiceInfo.put("groups", modelDiagnostics.voiceGroups());
+        if (modelDiagnostics.defaultVoice() != null) {
+            MossTtsModelDiagnostics.VoiceSummary voice = modelDiagnostics.defaultVoice();
+            Map<String, Object> defaultVoice = new LinkedHashMap<>();
+            defaultVoice.put("voice", voice.id());
+            defaultVoice.put("display_name", voice.displayName());
+            defaultVoice.put("language", voice.language());
+            defaultVoice.put("gender", voice.gender());
+            voiceInfo.put("default", defaultVoice);
+        } else {
             exitCode = 1;
         }
+        if (modelDiagnostics.manifestError() != null) {
+            tts.put("manifest_error", modelDiagnostics.manifestError());
+        }
+        String selector = effectiveTtsVoiceSelector();
+        if (selector != null && !selector.isBlank()) {
+            voiceInfo.put("requested_selector", selector);
+        }
+        tts.put("voices", voiceInfo);
 
         Optional<Path> codecDir = diagnosticCodecDirectory();
         Map<String, Object> codec = new LinkedHashMap<>();
@@ -3158,10 +2974,10 @@ public class RunCommand implements Runnable {
             Path dir = codecDir.get().toAbsolutePath().normalize();
             codec.put("present", true);
             codec.put("directory", dir.toString());
-            codec.put("metadata", diagnosticFileJson(dir.resolve(MOSS_CODEC_META_FILE)));
+            codec.put("metadata", diagnosticFileJson(dir.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME)));
         } else {
             codec.put("present", false);
-            codec.put("install_command", "aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            codec.put("install_command", "aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             exitCode = 1;
         }
         payload.put("codec", codec);
@@ -3207,7 +3023,7 @@ public class RunCommand implements Runnable {
             System.out.println("MOSS TTS warmup");
             System.out.println("==============");
         }
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_warmup", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3223,7 +3039,7 @@ public class RunCommand implements Runnable {
                 return 1;
             }
             System.err.println("Error: MOSS TTS companion codec is not installed.");
-            System.err.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return 1;
         }
 
@@ -3236,10 +3052,11 @@ public class RunCommand implements Runnable {
             System.out.println("Threads: " + threads);
         }
         try {
-            MossTtsOnnxRunner runner = mossTtsWarmupRunner != null && !mossTtsWarmupRunner.isUnsatisfied()
-                    ? mossTtsWarmupRunner.get()
-                    : new MossTtsOnnxRunner();
-            MossTtsOnnxRunner.MossTtsWarmup warmup = runner.warmup(modelDir, codecPath, threads);
+            if (mossTtsWarmupRunner == null || mossTtsWarmupRunner.isUnsatisfied()) {
+                throw new IllegalStateException("MOSS TTS ONNX runner is not available in this runtime");
+            }
+            MossTtsOnnxRunner.MossTtsWarmup warmup =
+                    mossTtsWarmupRunner.get().warmup(modelDir, codecPath, threads);
             Map<String, Object> metadata = warmup.metadata();
             if (jsonMode) {
                 printMossTtsWarmupJson(modelId, modelDir, codecPath, threads, warmup, metadata);
@@ -3289,7 +3106,7 @@ public class RunCommand implements Runnable {
 
     private int pruneMossTtsOptimizedCache(String modelId, String finalLocalPath) {
         boolean dryRun = !ttsCachePruneApply;
-        Optional<Path> ttsDir = resolveMossTtsDirectory(finalLocalPath, modelId);
+        Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_cache_prune", "resolved model is not a local MOSS TTS ONNX directory");
@@ -3305,7 +3122,7 @@ public class RunCommand implements Runnable {
                 return 1;
             }
             System.err.println("Error: MOSS TTS companion codec is not installed.");
-            System.err.println("Install with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Install with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return 1;
         }
 
@@ -3313,27 +3130,8 @@ public class RunCommand implements Runnable {
         Path codecPath = codecDir.get().toAbsolutePath().normalize();
         Path cacheRoot = MossTtsCacheSettings.load().optimizedGraphCacheRoot();
         try {
-            OptimizedCacheScope cacheScope = currentMossTtsOptimizedCacheScope(modelDir, codecPath, cacheRoot);
-            OptimizedCacheDirectoryScanner.Stats before = OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
-            List<OptimizedCachePruner.Operation> operations = OptimizedCachePruner.prune(before, dryRun);
-            int errors = 0;
-            long affectedBytes = 0L;
-            if (!dryRun) {
-                for (OptimizedCachePruner.Operation operation : operations) {
-                    if (operation.error() != null && !operation.error().isBlank()) {
-                        errors++;
-                    } else if (operation.deleted()) {
-                        affectedBytes += operation.sizeBytes();
-                    }
-                }
-            } else {
-                for (OptimizedCachePruner.Operation operation : operations) {
-                    affectedBytes += operation.sizeBytes();
-                }
-            }
-            OptimizedCacheDirectoryScanner.Stats after = dryRun
-                    ? before
-                    : OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes());
+            MossTtsOptimizedCacheMaintenance.Result result =
+                    new MossTtsOptimizedCacheMaintenance().prune(modelDir, codecPath, cacheRoot, dryRun);
             if (jsonMode) {
                 printMossTtsCachePruneJson(
                         modelId,
@@ -3341,24 +3139,24 @@ public class RunCommand implements Runnable {
                         codecPath,
                         cacheRoot,
                         dryRun,
-                        before,
-                        after,
-                        operations,
-                        affectedBytes,
-                        errors);
+                        result.before(),
+                        result.after(),
+                        result.operations(),
+                        result.affectedBytes(),
+                        result.errors());
             } else {
                 printMossTtsCachePrune(
                         modelDir,
                         codecPath,
                         cacheRoot,
                         dryRun,
-                        before,
-                        after,
-                        operations,
-                        affectedBytes,
-                        errors);
+                        result.before(),
+                        result.after(),
+                        result.operations(),
+                        result.affectedBytes(),
+                        result.errors());
             }
-            return errors == 0 ? 0 : 1;
+            return result.errors() == 0 ? 0 : 1;
         } catch (Exception e) {
             if (jsonMode) {
                 printTtsJsonError("moss_tts_cache_prune", "MOSS TTS cache prune failed: " + e.getMessage());
@@ -3367,19 +3165,6 @@ public class RunCommand implements Runnable {
             System.err.println("Error: MOSS TTS cache prune failed: " + e.getMessage());
             return 1;
         }
-    }
-
-    private OptimizedCacheScope currentMossTtsOptimizedCacheScope(
-            Path modelDir,
-            Path codecPath,
-            Path cacheRoot) throws Exception {
-        Set<Path> currentPaths = new java.util.HashSet<>();
-        Set<String> currentPrefixes = new java.util.HashSet<>();
-        for (MossTtsOnnxGraphCatalog.Graph graph : MossTtsOnnxGraphCatalog.resolveGraphs(modelDir, codecPath)) {
-            currentPaths.add(MossTtsOnnxGraphCatalog.optimizedCachePath(graph.path(), cacheRoot).toAbsolutePath().normalize());
-            currentPrefixes.add(MossTtsOnnxGraphCatalog.cacheFilenamePrefix(graph.path()));
-        }
-        return new OptimizedCacheScope(currentPaths, currentPrefixes);
     }
 
     private void printMossTtsCachePruneJson(
@@ -3562,15 +3347,6 @@ public class RunCommand implements Runnable {
         return value;
     }
 
-    private Map<String, Integer> ttsVoiceGroupCounts(JsonNode voices) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (JsonNode voice : voices) {
-            String key = ttsVoiceLanguageLabel(voice) + " " + ttsVoiceGenderLabel(voice);
-            counts.put(key, counts.getOrDefault(key, 0) + 1);
-        }
-        return counts;
-    }
-
     private Map<String, Object> ttsOnnxCacheDiagnosticsJson(Path modelDir, Optional<Path> codecDir) {
         MossTtsOnnxCacheDiagnostics.Snapshot snapshot =
                 MossTtsOnnxCacheDiagnostics.inspect(modelDir, codecDir, MossTtsCacheSettings.load());
@@ -3631,50 +3407,21 @@ public class RunCommand implements Runnable {
         } else if (!snapshot.graphsAvailable()) {
             System.out.println("Optimized graph files: unavailable (" + snapshot.graphError() + ")");
         } else {
-            try {
-                List<MossTtsOnnxGraphResolver.Graph> graphs = MossTtsOnnxGraphResolver.resolveGraphs(modelDir, codecDir.get());
-                long present = 0L;
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
-                    cacheScope.currentPaths().add(optimizedPath.toAbsolutePath().normalize());
-                    cacheScope.currentPrefixes().add(MossTtsOnnxGraphResolver.cacheFilenamePrefix(graph.path()));
-                    if (Files.isRegularFile(optimizedPath)) {
-                        present++;
-                    }
-                }
-                System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
-                System.out.println("Optimized graph files: " + present + "/" + graphs.size()
-                        + (graphCacheEnabled ? " present" : " present but cache disabled"));
-                for (MossTtsOnnxGraphResolver.Graph graph : graphs) {
-                    Path optimizedPath = MossTtsOnnxGraphResolver.optimizedCachePath(graph.path(), cacheRoot);
-                    String status = Files.isRegularFile(optimizedPath) ? "warm" : "cold";
-                    int sidecars = MossTtsOnnxGraphResolver.externalDataSidecars(graph.path()).size();
-                    System.out.println("  " + graph.label() + ": " + status
-                            + " -> " + optimizedPath.getFileName()
-                            + (sidecars > 0 ? " (" + sidecars + " external data sidecars)" : ""));
-                }
-            } catch (Exception e) {
-                System.out.println("Optimized graph files: unavailable (" + e.getMessage() + ")");
+            List<MossTtsOnnxCacheDiagnostics.GraphStatus> graphs = snapshot.graphs();
+            System.out.println("Warmable graphs: " + graphs.size() + " (normal generation opens 4)");
+            System.out.println("Optimized graph files: " + snapshot.warmGraphCount() + "/" + graphs.size()
+                    + (settings.optimizedGraphCacheEnabled() ? " present" : " present but cache disabled"));
+            for (MossTtsOnnxCacheDiagnostics.GraphStatus graph : graphs) {
+                System.out.println("  " + graph.graph().label() + ": "
+                        + (graph.warm() ? "warm" : "cold")
+                        + " -> " + graph.optimizedPath().getFileName()
+                        + (graph.externalDataSidecars() > 0
+                                ? " (" + graph.externalDataSidecars() + " external data sidecars)"
+                                : ""));
             }
         }
-        printOptimizedCacheDirectoryStats(OptimizedCacheDirectoryScanner.scan(cacheRoot, cacheScope.currentPaths(), cacheScope.currentPrefixes()));
+        printOptimizedCacheDirectoryStats(snapshot.cacheDirectory());
 
-        boolean sessionCacheEnabled = cacheBoolean(
-                MOSS_SESSION_CACHE_ENABLED_PROPERTY,
-                MOSS_SESSION_CACHE_ENABLED_ENV,
-                true);
-        int sessionCacheMax = cacheInt(
-                MOSS_SESSION_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_SESSION_CACHE_MAX_ENTRIES_ENV,
-                2);
-        boolean assetCacheEnabled = cacheBoolean(
-                MOSS_ASSET_CACHE_ENABLED_PROPERTY,
-                MOSS_ASSET_CACHE_ENABLED_ENV,
-                true);
-        int assetCacheMax = cacheInt(
-                MOSS_ASSET_CACHE_MAX_ENTRIES_PROPERTY,
-                MOSS_ASSET_CACHE_MAX_ENTRIES_ENV,
-                4);
         System.out.println("Session cache: "
                 + (settings.sessionCacheEnabled() && settings.sessionCacheMaxEntries() > 0 ? "enabled" : "disabled")
                 + " (max entries " + settings.sessionCacheMaxEntries() + ", in-process)");
@@ -3789,54 +3536,7 @@ public class RunCommand implements Runnable {
         }
     }
 
-private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPrefixes) {
-    }
-
-    private String ttsVoiceGroupSummary(JsonNode voices) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (JsonNode voice : voices) {
-            String key = ttsVoiceLanguageLabel(voice) + " " + ttsVoiceGenderLabel(voice);
-            counts.put(key, counts.getOrDefault(key, 0) + 1);
-        }
-        List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            parts.add(entry.getKey() + "=" + entry.getValue());
-        }
-        return parts.isEmpty() ? "(none)" : String.join(", ", parts);
-    }
-
-    private String ttsVoiceLanguageLabel(JsonNode voice) {
-        String text = ttsVoiceSearchText(voice);
-        if (text.contains("english") || text.contains(" en ") || text.startsWith("en ")) {
-            return "en";
-        }
-        if (text.contains("japanese") || text.contains(" jp ") || text.startsWith("jp ")) {
-            return "jp";
-        }
-        if (text.contains("chinese") || text.contains(" cn ") || text.contains(" zh ")
-                || text.startsWith("cn ") || text.startsWith("zh ")) {
-            return "zh";
-        }
-        return "other";
-    }
-
-    private String ttsVoiceGenderLabel(JsonNode voice) {
-        String text = ttsVoiceSearchText(voice);
-        if (text.contains("female")) {
-            return "female";
-        }
-        if (text.contains("male")) {
-            return "male";
-        }
-        return "unspecified";
-    }
-
-    private String ttsVoiceSearchText(JsonNode voice) {
-        String raw = ttsVoiceId(voice) + " " + ttsVoiceGroup(voice) + " " + ttsVoiceDisplayName(voice);
-        return " " + normalizeTtsVoiceFilterText(raw) + " ";
-    }
-
-    private String indentBlock(String text, String indent) {
+private String indentBlock(String text, String indent) {
         if (text == null || text.isBlank()) {
             return indent + "(empty)";
         }
@@ -3845,44 +3545,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
     private String nullToDash(String value) {
         return value == null || value.isBlank() ? "-" : value;
-    }
-
-    private Optional<Path> resolveMossTtsDirectory(String finalLocalPath, String modelId) {
-        for (String candidate : new String[] { finalLocalPath, modelId }) {
-            if (candidate == null || candidate.isBlank()) {
-                continue;
-            }
-            Path path;
-            try {
-                path = Paths.get(candidate);
-            } catch (Exception ignored) {
-                continue;
-            }
-            Optional<Path> resolved = mossTtsDirectoryFrom(path);
-            if (resolved.isPresent()) {
-                return resolved;
-            }
-        }
-        return Optional.empty();
-    }
-
-    private Optional<Path> mossTtsDirectoryFrom(Path path) {
-        if (path == null) {
-            return Optional.empty();
-        }
-        if (isMossTtsDirectory(path)) {
-            return Optional.of(path);
-        }
-        Path parent = path.getParent();
-        if (parent != null && isMossTtsDirectory(parent)) {
-            return Optional.of(parent);
-        }
-        return Optional.empty();
-    }
-
-    private boolean isMossTtsDirectory(Path path) {
-        return Files.isRegularFile(path.resolve("browser_poc_manifest.json"))
-                && Files.isRegularFile(path.resolve("tts_browser_onnx_meta.json"));
     }
 
     private boolean allowsPromptlessExtensionRun(String modelId, String finalLocalPath) {
@@ -3991,7 +3653,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
         String repoId = hfRepoIdFromModelRef(requestedModel);
-        if (repoId == null || isCloudProviderName(providerId) || isMcpProvider()) {
+        if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
 
@@ -4006,25 +3668,24 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             System.err.println("Run once online: aqli pull " + repoId);
             return null;
         }
-        if (huggingFaceClient == null || huggingFaceClient.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository downloader is not available in this runtime");
+        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
+            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
         }
 
         String revision = branch == null || branch.isBlank() ? "main" : branch.trim();
-        String manifestName = AqliManifest.computeName(repoId, revision);
-        Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
-        Files.createDirectories(targetDir);
-
         if (!ttsVoicesJsonOutput()) {
             System.out.println("Model not found locally; pulling hf:" + repoId
                     + ("main".equalsIgnoreCase(revision) ? "" : "@" + revision) + "...");
         }
-        HuggingFaceClient client = huggingFaceClient.get();
-        List<String> files = client.listFiles(repoId, revision);
-        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(files == null ? 0 : files.size())) {
-            client.downloadRepository(repoId, revision, targetDir, progress);
+        try (TerminalDownloadProgressRenderer progress = new TerminalDownloadProgressRenderer(0)) {
+            huggingFaceRepository.get().pullRepository(
+                    repoId,
+                    revision,
+                    preferredFormat,
+                    null,
+                    Map.of("fallback", "automatic-run-huggingface-repository"),
+                    progress);
         }
-        saveRunHfDownloadManifest(repoId, targetDir, files, manifestName, revision, preferredFormat);
         LocalModelIndex.refreshFromDisk();
 
         Optional<LocalModelIndex.Entry> downloaded = findLocalIndexEntry(repoId, preferredFormat);
@@ -4050,83 +3711,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
                 ? source.reference()
                 : null;
-    }
-
-    private boolean isCloudProviderName(String provider) {
-        if (provider == null || provider.isBlank()) {
-            return false;
-        }
-        return switch (provider.trim().toLowerCase(Locale.ROOT)) {
-            case "openai", "mistral", "anthropic", "gemini", "cerebras", "deepseek", "ollama" -> true;
-            default -> false;
-        };
-    }
-
-    private boolean requiresLocalHfRepositoryResolution(String requestedModel, String requestedProvider) {
-        return hfRepoIdFromModelRef(requestedModel) != null
-                && !isCloudProviderName(requestedProvider)
-                && !isMcpProvider();
-    }
-
-    private void saveRunHfDownloadManifest(
-            String repoId,
-            Path targetDir,
-            List<String> files,
-            String manifestName,
-            String revision,
-            String preferredFormat) throws Exception {
-        ManifestStore store = manifestStore != null && !manifestStore.isUnsatisfied()
-                ? manifestStore.get()
-                : new ManifestStore();
-
-        String detectedFormat = ManifestStore.detectFormat(targetDir);
-        String manifestFormat = "unknown".equalsIgnoreCase(detectedFormat) && preferredFormat != null
-                ? preferredFormat
-                : detectedFormat;
-        AqliManifest manifest = new AqliManifest();
-        manifest.setId(manifestName);
-        manifest.setModelId(repoId);
-        manifest.setName(manifestName);
-        manifest.setFormat(manifestFormat);
-        manifest.setPipeline(files != null && files.stream().anyMatch(name -> name.endsWith("model_index.json")));
-        manifest.setSource("huggingface");
-        manifest.setRepository(repoId);
-        manifest.setBranch(revision == null || revision.isBlank() ? "main" : revision);
-        manifest.setBlobPath(targetDir.toAbsolutePath().toString());
-        manifest.setFiles(ManifestStore.listBlobFiles(targetDir));
-        manifest.setCreatedAt(Instant.now());
-        manifest.setSizeBytes(computePathSize(targetDir));
-        manifest.setArchitecture(ManifestStore.detectArchitecture(manifest));
-
-        Map<String, String> metadata = new LinkedHashMap<>();
-        metadata.put("fallback", "automatic-run-huggingface-repository");
-        metadata.put("format", manifestFormat != null ? manifestFormat : "unknown");
-        if (preferredFormat != null) {
-            metadata.put("preferred_format", preferredFormat);
-        }
-        manifest.setMetadata(metadata);
-
-        store.save(manifest);
-    }
-
-    private String ttsVoiceId(JsonNode voice) {
-        for (String field : List.of("voice", "id", "name", "display_name")) {
-            String value = voice.path(field).asText("");
-            if (!value.isBlank()) {
-                return value;
-            }
-        }
-        return "default";
-    }
-
-    private String ttsVoiceDisplayName(JsonNode voice) {
-        String displayName = voice.path("display_name").asText("");
-        return displayName.isBlank() ? ttsVoiceId(voice) : displayName;
-    }
-
-    private String ttsVoiceGroup(JsonNode voice) {
-        String group = voice.path("group").asText("");
-        return group.isBlank() ? "-" : group;
     }
 
     private String truncateDisplay(String value, int width) {
@@ -4176,7 +3760,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         if (ttsCodec != null && !ttsCodec.isBlank()) {
             return true;
         }
-        if (resolveMossTtsDirectory(finalLocalPath, modelId).isEmpty()) {
+        if (MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId).isEmpty()) {
             return true;
         }
         Optional<Path> installedCodec = findInstalledMossAudioCodecDir();
@@ -4185,16 +3769,16 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
         if (offline) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and --offline/--local disables automatic downloads.");
-            System.err.println("Run once online: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Run once online: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
         if (disableTtsAutoCodec) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and automatic codec pull is disabled.");
-            System.err.println("Pull it with: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("Pull it with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
 
-        System.out.println("MOSS TTS companion codec not found; pulling " + MOSS_AUDIO_TOKENIZER_REPOSITORY + "...");
+        System.out.println("MOSS TTS companion codec not found; pulling " + MossAudioTokenizerModelLayout.REPOSITORY_ID + "...");
         try {
             pullMossAudioCodecRepository();
             LocalModelIndex.refreshFromDisk();
@@ -4203,7 +3787,7 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             if (e.getCause() != null && e.getCause().getMessage() != null) {
                 System.err.println("Detail: " + e.getCause().getMessage());
             }
-            System.err.println("You can also run manually: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+            System.err.println("You can also run manually: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
 
@@ -4213,45 +3797,28 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
             return true;
         }
 
-        System.err.println("Error: Codec pull finished, but " + MOSS_CODEC_META_FILE + " was not found.");
-        System.err.println("Try manually: aqli pull " + MOSS_AUDIO_TOKENIZER_REPOSITORY);
+        System.err.println("Error: Codec pull finished, but " + MossAudioTokenizerModelLayout.METADATA_FILE_NAME + " was not found.");
+        System.err.println("Try manually: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
         return false;
     }
 
     private Optional<Path> findInstalledMossAudioCodecDir() {
-        for (String ref : List.of(MOSS_AUDIO_TOKENIZER_REPOSITORY, MOSS_AUDIO_TOKENIZER_MODEL_SPEC)) {
+        List<Path> indexedPaths = new ArrayList<>();
+        for (String ref : List.of(MossAudioTokenizerModelLayout.REPOSITORY_ID, MossAudioTokenizerModelLayout.MODEL_SPEC)) {
             try {
-                Optional<LocalModelIndex.Entry> indexed = LocalModelIndex.find(ref);
-                if (indexed.isPresent() && indexed.get().path != null) {
-                    Optional<Path> dir = MossAudioTokenizerModelLayout.directoryFrom(Path.of(indexed.get().path));
-                    if (dir.isPresent()) {
-                        return dir;
-                    }
-                }
+                LocalModelIndex.find(ref)
+                        .map(entry -> entry.path)
+                        .filter(path -> path != null && !path.isBlank())
+                        .map(Path::of)
+                        .ifPresent(indexedPaths::add);
             } catch (Exception ignored) {
-                // Fall back to scanning the model directory.
+                // Fall back to the model repository scan.
             }
         }
-
-        Path modelsRoot = AqliHome.path("models");
-        if (!Files.isDirectory(modelsRoot)) {
-            return Optional.empty();
-        }
-        try (Stream<Path> walk = Files.walk(modelsRoot, 8)) {
-            List<Path> codecDirs = walk.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals(MOSS_CODEC_META_FILE))
-                    .map(Path::getParent)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .sorted((left, right) -> left.toString().compareToIgnoreCase(right.toString()))
-                    .toList();
-            Optional<Path> official = codecDirs.stream()
-                    .filter(path -> MossAudioTokenizerModelLayout.looksLikeRepository(path, MOSS_AUDIO_TOKENIZER_REPOSITORY))
-                    .findFirst();
-            return official.isPresent() ? official : codecDirs.stream().findFirst();
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
+        return MossAudioTokenizerModelLocator.findInstalled(
+                AqliHome.path("models"),
+                indexedPaths,
+                MossAudioTokenizerModelLayout.REPOSITORY_ID);
     }
 
 
@@ -4263,72 +3830,18 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
 
     private void pullMossAudioCodecRepository() throws Exception {
-        if (huggingFaceClient == null || huggingFaceClient.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository downloader is not available in this runtime");
+        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
+            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
         }
 
-        String repoId = MOSS_AUDIO_TOKENIZER_REPOSITORY;
-        String manifestName = AqliManifest.computeName(repoId, "main");
-        Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
-        Files.createDirectories(targetDir);
-
-        HuggingFaceClient client = huggingFaceClient.get();
-        List<String> files = client.listFiles(repoId);
-        try (CodecPullProgressRenderer progress = new CodecPullProgressRenderer(files.size())) {
-            client.downloadRepository(repoId, targetDir, progress);
-        }
-        saveMossAudioCodecManifest(repoId, targetDir, files, manifestName);
-    }
-
-    private void saveMossAudioCodecManifest(String repoId, Path targetDir, List<String> files, String manifestName)
-            throws Exception {
-        ManifestStore store = manifestStore != null && !manifestStore.isUnsatisfied()
-                ? manifestStore.get()
-                : new ManifestStore();
-
-        String format = ManifestStore.detectFormat(targetDir);
-        AqliManifest manifest = new AqliManifest();
-        manifest.setId(manifestName);
-        manifest.setModelId(repoId);
-        manifest.setName(manifestName);
-        manifest.setFormat(format);
-        manifest.setPipeline(files != null && files.stream().anyMatch(name -> name.endsWith("model_index.json")));
-        manifest.setSource("huggingface");
-        manifest.setRepository(repoId);
-        manifest.setBranch("main");
-        manifest.setBlobPath(targetDir.toAbsolutePath().toString());
-        manifest.setFiles(ManifestStore.listBlobFiles(targetDir));
-        manifest.setCreatedAt(Instant.now());
-        manifest.setSizeBytes(computePathSize(targetDir));
-        manifest.setArchitecture("moss-audio-tokenizer");
-        manifest.setMetadata(Map.of(
-                "fallback", "automatic-moss-tts-codec",
-                "format", format != null ? format : "unknown"));
-
-        store.save(manifest);
-    }
-
-    private long computePathSize(Path path) {
-        if (path == null || !Files.exists(path)) {
-            return 0L;
-        }
-        try {
-            if (Files.isRegularFile(path)) {
-                return Files.size(path);
-            }
-            try (Stream<Path> walk = Files.walk(path)) {
-                return walk.filter(Files::isRegularFile)
-                        .mapToLong(file -> {
-                            try {
-                                return Files.size(file);
-                            } catch (Exception ignored) {
-                                return 0L;
-                            }
-                        })
-                        .sum();
-            }
-        } catch (Exception ignored) {
-            return 0L;
+        try (TerminalDownloadProgressRenderer progress = new TerminalDownloadProgressRenderer(0)) {
+            huggingFaceRepository.get().pullRepository(
+                    MossAudioTokenizerModelLayout.REPOSITORY_ID,
+                    "main",
+                    null,
+                    "moss-audio-tokenizer",
+                    Map.of("fallback", "automatic-moss-tts-codec"),
+                    progress);
         }
     }
 
@@ -4346,71 +3859,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
     private boolean allowCpuFallbackWhenMetalRequested() {
         return CliMetalRuntime.allowCpuFallbackWhenMetalRequested();
-    }
-
-    private static final class CodecPullProgressRenderer implements DownloadProgressListener, AutoCloseable {
-        private static final String[] SPINNER = { "|", "/", "-", "\\" };
-        private static final int BAR_WIDTH = 30;
-        private static final long MIN_REDRAW_NS = 80_000_000L;
-
-        private final int totalFiles;
-        private int completedFiles;
-        private int spinnerTick;
-        private long fileStartNanos = System.nanoTime();
-        private long lastRedrawNanos;
-
-        private CodecPullProgressRenderer(int totalFiles) {
-            this.totalFiles = Math.max(1, totalFiles);
-        }
-
-        @Override
-        public synchronized void onProgress(long downloadedBytes, long totalBytes, double progress) {
-            long now = System.nanoTime();
-            if (now - lastRedrawNanos < MIN_REDRAW_NS && downloadedBytes < totalBytes) {
-                return;
-            }
-            lastRedrawNanos = now;
-
-            double pct = Math.max(0.0, Math.min(1.0, progress));
-            int filled = Math.min(BAR_WIDTH, (int) Math.round(BAR_WIDTH * pct));
-            StringBuilder bar = new StringBuilder(BAR_WIDTH);
-            for (int i = 0; i < BAR_WIDTH; i++) {
-                bar.append(i < filled ? "=" : ".");
-            }
-
-            double elapsedSec = Math.max(0.001, (now - fileStartNanos) / 1_000_000_000.0);
-            double mbDone = downloadedBytes / 1024.0 / 1024.0;
-            double mbTotal = totalBytes > 0 ? totalBytes / 1024.0 / 1024.0 : 0.0;
-            double speed = mbDone / elapsedSec;
-            String spin = SPINNER[spinnerTick++ % SPINNER.length];
-
-            System.out.printf("\r%s [%-30s] %3d%% %.1f/%.1f MB %.1f MB/s file %d/%d",
-                    spin,
-                    bar,
-                    (int) Math.round(pct * 100.0),
-                    mbDone,
-                    mbTotal,
-                    speed,
-                    Math.min(completedFiles + 1, totalFiles),
-                    totalFiles);
-            System.out.flush();
-        }
-
-        @Override
-        public synchronized void onComplete(long totalBytes) {
-            completedFiles++;
-            fileStartNanos = System.nanoTime();
-            System.out.printf("\r* [%-30s] 100%% file %d/%d done%n",
-                    "==============================",
-                    Math.min(completedFiles, totalFiles),
-                    totalFiles);
-            System.out.flush();
-        }
-
-        @Override
-        public void close() {
-            System.out.flush();
-        }
     }
 
     private void printQuantizationInfo() {
@@ -5772,36 +5220,41 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
 
     private void handleOutputs(
             java.io.ByteArrayOutputStream imageBuffer,
-            StreamingAudioOutput audioOutput,
+            StreamingAudioOutputSession audioOutput,
             Map<String, Object> metadata) {
         if (imageBuffer.size() > 0) saveBuffer(imageBuffer, "png", "Image", metadata);
-        if (audioOutput != null && audioOutput.hasOutput()) {
-            audioOutput.finish(metadata);
-        }
-    }
-
-    private void handleAudioChunk(
-            StreamingInferenceChunk chunk,
-            StreamingAudioOutput encodedAudioOutput,
-            LivePcmAudioSink liveAudioSink) {
-        if (chunk == null || chunk.getDelta() == null) {
+        if (audioOutput == null || !audioOutput.hasOutput()) {
             return;
         }
         try {
-            byte[] decoded = java.util.Base64.getDecoder().decode(chunk.getDelta());
-            if (isPcmStreamChunk(chunk.metadata())) {
-                liveAudioSink.write(decoded, chunk.metadata());
-                return;
+            StreamingAudioOutputSession.Output output = audioOutput.finish();
+            if (output instanceof StreamingAudioOutputSession.FileOutput fileOutput) {
+                Path savedPath = fileOutput.path();
+                System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
+                        + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
+                printAudioDetails(metadata);
+                maybeWriteAudioMetadataSidecar(savedPath, metadata);
+                autoOpenAudio(savedPath);
+            } else if (output instanceof StreamingAudioOutputSession.BufferedOutput bufferedOutput) {
+                java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
+                memory.write(bufferedOutput.bytes());
+                saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
             }
-            encodedAudioOutput.write(decoded, chunk.metadata());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println("\\nFailed to save audio: " + e.getMessage());
+            closeAudioOutputQuietly(audioOutput);
         }
     }
 
-    private static boolean isPcmStreamChunk(Map<String, Object> metadata) {
-        String payload = metadataText(metadata, "audio_stream_payload");
-        return "pcm_s16le".equalsIgnoreCase(payload)
-                || "true".equalsIgnoreCase(metadataText(metadata, "audio_stream_preview"));
+    private void closeAudioOutputQuietly(StreamingAudioOutputSession audioOutput) {
+        if (audioOutput == null) {
+            return;
+        }
+        try {
+            audioOutput.close();
+        } catch (Exception ignored) {
+            // Best-effort cleanup after a failed or interrupted stream.
+        }
     }
 
     private static void warnIfAudioExtensionWasOverridden(MediaOutputPathResolver.Resolution output) {
@@ -5841,109 +5294,12 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         }
     }
 
-    private final class StreamingAudioOutput implements AutoCloseable {
-        private final java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
-        private StreamingAudioFileWriter fileWriter;
-        private long bytes;
-        private boolean finished;
-
-        void write(byte[] chunk, Map<String, Object> metadata) throws java.io.IOException {
-            if (chunk == null || chunk.length == 0) {
-                return;
-            }
-            if (shouldStreamEncodedAudioToFile(metadata)) {
-                ensureFile(metadata);
-                fileWriter.write(chunk);
-            } else {
-                memory.write(chunk);
-            }
-            bytes += chunk.length;
-        }
-
-        boolean hasOutput() {
-            return bytes > 0 || memory.size() > 0 || fileWriter != null;
-        }
-
-        void finish(Map<String, Object> metadata) {
-            if (finished) {
-                return;
-            }
-            finished = true;
-            try {
-                if (fileWriter != null) {
-                    Path savedPath = fileWriter.finish();
-                    fileWriter = null;
-                    System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
-                            + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
-                    printAudioDetails(metadata);
-                    maybeWriteAudioMetadataSidecar(savedPath, metadata);
-                    autoOpenAudio(savedPath);
-                    return;
-                }
-                if (memory.size() > 0) {
-                    saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
-                }
-            } catch (Exception e) {
-                System.err.println("\nFailed to save audio: " + e.getMessage());
-                cleanupTemp();
-            }
-        }
-
-        private void ensureFile(Map<String, Object> metadata) throws java.io.IOException {
-            if (fileWriter != null) {
-                return;
-            }
-            fileWriter = new StreamingAudioFileWriter(resolveAudioOutputPath(metadata));
-            fileWriter.open();
-            if (memory.size() > 0) {
-                fileWriter.write(memory.toByteArray());
-                memory.reset();
-            }
-        }
-
-        private Path resolveAudioOutputPath(Map<String, Object> metadata) {
-            MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
-                    new MediaOutputPathResolver.Request(
-                            outputPath, extension, audioDefaultExtension(metadata), true));
-            warnIfAudioExtensionWasOverridden(output);
-            return output.path();
-        }
-
-        private void cleanupTemp() {
-            if (fileWriter == null) {
-                return;
-            }
-            try {
-                fileWriter.abort();
-            } catch (Exception ignored) {
-            } finally {
-                fileWriter = null;
-            }
-        }
-
-        void closeQuietly() {
-            try {
-                close();
-            } catch (Exception ignored) {
-            }
-            if (!finished) {
-                cleanupTemp();
-            }
-        }
-
-        @Override
-        public void close() throws java.io.IOException {
-            if (fileWriter != null) {
-                fileWriter.close();
-            }
-        }
-    }
-
-    private static boolean shouldStreamEncodedAudioToFile(Map<String, Object> metadata) {
-        String payload = metadataText(metadata, "audio_stream_payload");
-        return "encoded".equalsIgnoreCase(payload)
-                || metadataText(metadata, "audio_format") != null
-                || metadataText(metadata, "audio_mime") != null;
+    private Path resolveAudioOutputPath(Map<String, Object> metadata) {
+        MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
+                new MediaOutputPathResolver.Request(
+                        outputPath, extension, audioDefaultExtension(metadata), true));
+        warnIfAudioExtensionWasOverridden(output);
+        return output.path();
     }
 
     private void printAudioDetails(Map<String, Object> metadata) {
@@ -6325,89 +5681,6 @@ private record OptimizedCacheScope(Set<Path> currentPaths, Set<String> currentPr
         MediaOutputOpener.openAudio(audioPath);
     }
 
-    private static final class LivePcmAudioSink implements AutoCloseable {
-        private final boolean enabled;
-        private SourceDataLine line;
-        private AudioFormat format;
-        private boolean warned;
-
-        private LivePcmAudioSink(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        void write(byte[] pcm, Map<String, Object> metadata) {
-            if (!enabled || pcm == null || pcm.length == 0) {
-                return;
-            }
-            try {
-                ensureOpen(metadata);
-                if (line != null) {
-                    line.write(pcm, 0, pcm.length);
-                }
-            } catch (Exception e) {
-                warnOnce(e);
-            }
-        }
-
-        private void ensureOpen(Map<String, Object> metadata) throws Exception {
-            int sampleRate = (int) Math.round(optionalMetadataDouble(metadata, "audio_sample_rate", 48_000.0));
-            int channels = Math.max(1, (int) Math.round(optionalMetadataDouble(metadata, "audio_channels", 1.0)));
-            AudioFormat requested = new AudioFormat(
-                    AudioFormat.Encoding.PCM_SIGNED,
-                    sampleRate,
-                    16,
-                    channels,
-                    channels * Short.BYTES,
-                    sampleRate,
-                    false);
-            if (line != null && requested.matches(format)) {
-                return;
-            }
-            closeLine();
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, requested);
-            line = (SourceDataLine) AudioSystem.getLine(info);
-            int bufferSize = Math.max(requested.getFrameSize(), sampleRate * requested.getFrameSize() / 4);
-            line.open(requested, bufferSize);
-            line.start();
-            format = requested;
-        }
-
-        private static double optionalMetadataDouble(
-                Map<String, Object> metadata,
-                String key,
-                double fallback) {
-            Double value = metadataDouble(metadata, key);
-            return value == null || value <= 0.0 ? fallback : value;
-        }
-
-        private void warnOnce(Exception e) {
-            if (warned) {
-                return;
-            }
-            warned = true;
-            System.err.println("\nWarning: live audio preview unavailable: " + e.getMessage());
-        }
-
-        @Override
-        public void close() {
-            closeLine();
-        }
-
-        private void closeLine() {
-            if (line == null) {
-                return;
-            }
-            try {
-                line.drain();
-                line.stop();
-                line.close();
-            } catch (Exception ignored) {
-            } finally {
-                line = null;
-                format = null;
-            }
-        }
-    }
 
     private void requestProcessExit() {
         requestProcessExit(0);

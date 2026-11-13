@@ -11,7 +11,6 @@ import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceProfiler;
 import tech.kayys.aqli.safetensor.engine.generation.kv.BlockManager;
 import tech.kayys.aqli.safetensor.engine.generation.kv.KVCacheManager;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.function.Supplier;
 
@@ -32,7 +31,7 @@ final class FlashAttentionMetalFa4GatheredAttention {
 
     AccelTensor tryCompute(AccelTensor q, KVCacheManager.KVCacheSession kvSession, BlockManager blockManager,
             int kvLayerIdx, int totalTokens, int numHeads, int numKVHeads, int headDim, float scale, boolean causal,
-            float softCap, long batch, long seqLen, Arena arena, String successPath,
+            float softCap, long batch, long seqLen, BudgetedAttentionArena arena, String successPath,
             MemorySegment attentionContextBuffer) {
         MetalFlashAttentionBinding fa4 = metalFa4();
         if (fa4 == null || !fa4.isNativeAvailable()) {
@@ -41,7 +40,9 @@ final class FlashAttentionMetalFa4GatheredAttention {
         AccelTensor out = FlashAttentionContextOutputBuffer.viewOrAllocate(attentionContextBuffer, q);
         boolean success = false;
         try {
-            long gatherBytes = (long) totalTokens * numKVHeads * headDim * Float.BYTES;
+            long gatherBytes = Math.multiplyExact(
+                    Math.multiplyExact(Math.multiplyExact((long) totalTokens, numKVHeads), headDim),
+                    (long) Float.BYTES);
             MemorySegment kGathered = arena.allocate(gatherBytes, 64);
             MemorySegment vGathered = arena.allocate(gatherBytes, 64);
             PagedKvCacheIO.gather(blockManager, kvSession, kvLayerIdx, totalTokens, numKVHeads, headDim,

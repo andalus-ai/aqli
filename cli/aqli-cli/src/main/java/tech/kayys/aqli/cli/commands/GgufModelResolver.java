@@ -180,7 +180,7 @@ final class GgufModelResolver {
     }
 
     private static void addCanonicalModelKey(List<String> keys, String value) {
-        String key = LiteRtLmFastRun.canonicalModelKey(value);
+        String key = LiteRtLmStandaloneRunner.canonicalModelKey(value);
         if (!key.isBlank() && !keys.contains(key)) {
             keys.add(key);
         }

@@ -39,6 +39,39 @@ class ManifestStoreTest {
 
 
     @Test
+    void reportsMalformedManifestFilesWithoutHidingReadableManifests() throws Exception {
+        Path manifestDirectory = temporaryDirectory.resolve("manifests");
+        ManifestStore store = new ManifestStore(manifestDirectory);
+        AqliManifest valid = new AqliManifest();
+        valid.setId("valid-manifest");
+        valid.setModelId("org/model");
+        valid.setRevision("main");
+        valid.setName("Model");
+        store.save(valid);
+        Files.writeString(manifestDirectory.resolve("broken.json"), "{ invalid json");
+
+        ManifestStore.ManifestListing listing = store.listAllWithDiagnostics();
+
+        assertEquals(1, listing.manifests().size());
+        assertEquals("valid-manifest", listing.manifests().get(0).getId());
+        assertEquals(1, listing.issues().size());
+        assertEquals("broken.json", listing.issues().get(0).fileName());
+        assertFalse(listing.issues().get(0).message().isBlank());
+        // Existing callers retain the resilient list-only behavior.
+        assertEquals(1, store.listAll().size());
+    }
+
+    @Test
+    void returnsEmptyDiagnosticsWhenManifestDirectoryDoesNotExist() {
+        ManifestStore store = new ManifestStore(temporaryDirectory.resolve("missing"));
+
+        ManifestStore.ManifestListing listing = store.listAllWithDiagnostics();
+
+        assertTrue(listing.manifests().isEmpty());
+        assertTrue(listing.issues().isEmpty());
+    }
+
+    @Test
     void failsWhenManifestLocationIsNotADirectory() throws Exception {
         Path manifestLocation = temporaryDirectory.resolve("not-a-directory");
         Files.writeString(manifestLocation, "not a directory");

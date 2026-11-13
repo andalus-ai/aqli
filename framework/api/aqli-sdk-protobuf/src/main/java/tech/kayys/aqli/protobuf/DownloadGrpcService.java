@@ -12,10 +12,9 @@ import tech.kayys.aqli.model.domain.download.ModelDownloadManager;
 import tech.kayys.aqli.model.domain.download.ModelDownloadState;
 import tech.kayys.aqli.registry.service.ModelRegistryService;
 
-import java.util.Optional;
 
 @GrpcService
-public class DownloadGrpcService implements DownloadService {
+public class DownloadGrpcService extends DownloadServiceGrpc.DownloadServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(DownloadGrpcService.class);
 

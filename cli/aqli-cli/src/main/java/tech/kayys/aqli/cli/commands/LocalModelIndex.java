@@ -1,4 +1,6 @@
 package tech.kayys.aqli.cli.commands;
+
+import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
@@ -71,14 +73,14 @@ final class LocalModelIndex {
         if (ref == null || ref.isBlank()) {
             return Optional.empty();
         }
-        String needle = stripProviderPrefix(ref.trim());
+        String needle = LocalModelIndexReferenceMatcher.stripProviderPrefix(ref.trim());
         List<Entry> entries = readOrRefresh();
-        Optional<Entry> cached = findBestMatch(entries, needle);
+        Optional<Entry> cached = LocalModelIndexReferenceMatcher.findBestMatch(entries, needle);
         if (cached.isPresent()) {
             return cached;
         }
         List<Entry> refreshed = refreshFromDisk();
-        return findBestMatch(refreshed, needle);
+        return LocalModelIndexReferenceMatcher.findBestMatch(refreshed, needle);
     }
 
     static synchronized Optional<Entry> find(String ref, String preferredFormat) {
@@ -88,180 +90,22 @@ final class LocalModelIndex {
         if (ref == null || ref.isBlank()) {
             return Optional.empty();
         }
-        String needle = stripProviderPrefix(ref.trim());
+        String needle = LocalModelIndexReferenceMatcher.stripProviderPrefix(ref.trim());
         List<Entry> entries = readOrRefresh();
-        Optional<Entry> cached = findBestMatch(entries.stream()
-                .filter(e -> formatMatches(e, preferredFormat))
+        Optional<Entry> cached = LocalModelIndexReferenceMatcher.findBestMatch(entries.stream()
+                .filter(e -> LocalModelIndexReferenceMatcher.formatMatches(e, preferredFormat))
                 .toList(), needle);
         if (cached.isPresent()) {
             return cached;
         }
         List<Entry> refreshed = refreshFromDisk();
-        return findBestMatch(refreshed.stream()
-                .filter(e -> formatMatches(e, preferredFormat))
+        return LocalModelIndexReferenceMatcher.findBestMatch(refreshed.stream()
+                .filter(e -> LocalModelIndexReferenceMatcher.formatMatches(e, preferredFormat))
                 .toList(), needle);
     }
 
     static synchronized List<Entry> entries() {
         return new ArrayList<>(readOrRefresh());
-    }
-
-    private static Optional<Entry> findBestMatch(List<Entry> entries, String ref) {
-        if (entries == null || entries.isEmpty()) {
-            return Optional.empty();
-        }
-        Optional<Entry> exact = entries.stream().filter(e -> matchesExact(e, ref)).findFirst();
-        if (exact.isPresent()) {
-            return exact;
-        }
-        Optional<Entry> legacyShort = entries.stream().filter(e -> matchesLegacyShortId(e, ref)).findFirst();
-        if (legacyShort.isPresent()) {
-            return legacyShort;
-        }
-        return entries.stream().filter(e -> matchesPathSuffix(e, ref)).findFirst();
-    }
-
-    private static boolean matchesExact(Entry e, String ref) {
-        if (e == null) {
-            return false;
-        }
-        String normalizedRef = stripProviderPrefix(ref);
-        return equalsRef(ref, e.id)
-                || equalsRef(ref, e.shortId)
-                || equalsRef(ref, e.name)
-                || equalsRef(ref, e.path)
-                || equalsRef(normalizedRef, e.id)
-                || equalsRef(normalizedRef, e.shortId)
-                || equalsRef(normalizedRef, e.name)
-                || equalsRef(normalizedRef, e.path);
-    }
-
-    private static boolean matchesPathSuffix(Entry e, String ref) {
-        if (e == null || ref == null || ref.isBlank() || looksLikeShortId(ref)) {
-            return false;
-        }
-        String normalizedRef = stripProviderPrefix(ref);
-        if (looksLikeShortId(normalizedRef)) {
-            return false;
-        }
-        String normalized = normalizedRef.replace("\\", "/").toLowerCase(Locale.ROOT);
-        String path = e.path != null ? e.path.replace("\\", "/").toLowerCase(Locale.ROOT) : "";
-        return !normalized.isBlank() && path.endsWith(normalized);
-    }
-
-    private static boolean matchesLegacyShortId(Entry e, String ref) {
-        String normalizedRef = stripProviderPrefix(ref);
-        if (e == null || !looksLikeShortId(normalizedRef)) {
-            return false;
-        }
-        for (String legacyBasis : legacyShortIdBases(e)) {
-            if (equalsRef(normalizedRef, CLIUtils.generateShortId(legacyBasis))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static List<String> legacyShortIdBases(Entry e) {
-        List<String> bases = new ArrayList<>();
-        addIfPresent(bases, e.id);
-        addIfPresent(bases, e.name);
-        addIfPresent(bases, e.path);
-        addIfPresent(bases, repositoryRelativePath(e.path));
-        return bases;
-    }
-
-    private static void addIfPresent(List<String> values, String value) {
-        if (value == null || value.isBlank() || values.contains(value)) {
-            return;
-        }
-        values.add(value);
-    }
-
-    private static String repositoryRelativePath(String absolutePath) {
-        if (absolutePath == null || absolutePath.isBlank()) {
-            return null;
-        }
-        try {
-            Path path = Path.of(absolutePath).toAbsolutePath().normalize();
-            Path root = AqliHome.path("models").toAbsolutePath().normalize();
-            if (!path.startsWith(root)) {
-                return null;
-            }
-            Path relative = root.relativize(path);
-            if (relative.getNameCount() < 3) {
-                return null;
-            }
-            return relative.subpath(1, relative.getNameCount()).toString().replace("\\", "/");
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private static boolean equalsRef(String left, String right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        return left.equals(right) || left.equalsIgnoreCase(right);
-    }
-
-    private static boolean looksLikeShortId(String ref) {
-        if (ref == null) {
-            return false;
-        }
-        String value = ref.trim();
-        if (value.length() < 4 || value.length() > 12) {
-            return false;
-        }
-        for (int i = 0; i < value.length(); i++) {
-            if (!isHexChar(value.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean matches(Entry e, String ref) {
-        if (matchesExact(e, ref)) {
-            return true;
-        }
-        return matchesPathSuffix(e, ref);
-    }
-
-    private static boolean formatMatches(Entry entry, String preferredFormat) {
-        if (entry == null || preferredFormat == null || preferredFormat.isBlank()) {
-            return false;
-        }
-        String entryFormat = canonicalFormat(entry.format);
-        String requestedFormat = canonicalFormat(preferredFormat);
-        return !entryFormat.isBlank() && entryFormat.equals(requestedFormat);
-    }
-
-    private static String canonicalFormat(String value) {
-        if (value == null) {
-            return "";
-        }
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "safetensor" -> "safetensors";
-            case "tflite", "task", "litertlm" -> "litert";
-            case "pt", "pth", "pts", "pytorch" -> "torchscript";
-            default -> normalized;
-        };
-    }
-
-    private static String stripProviderPrefix(String ref) {
-        if (ref == null) {
-            return "";
-        }
-        String value = ref.trim();
-        if (value.startsWith("hf:")) {
-            return value.substring("hf:".length()).trim();
-        }
-        if (value.startsWith("huggingface:")) {
-            return value.substring("huggingface:".length()).trim();
-        }
-        return value;
     }
 
     private static List<Entry> readOrRefresh() {
@@ -316,23 +160,14 @@ final class LocalModelIndex {
     }
 
     private static void scanFlat(Path base, String fallbackFormat, boolean runnable, List<Entry> out, Set<String> seenPaths) {
-        if (!Files.isDirectory(base)) {
-            return;
-        }
         Map<String, Entry> discovered = new LinkedHashMap<>();
-        try (var files = Files.walk(base, 4)) {
-            files.filter(Files::isRegularFile)
-                    .filter(p -> !p.getFileName().toString().startsWith("."))
-                    .filter(LocalModelIndex::isLikelyWeightFile)
-                    .forEach(p -> {
-                        String normalized = normalizePath(p);
-                        if (seenPaths.add(normalized)) {
-                            Entry entry = toEntry(base, p, fallbackFormat, runnable);
-                            discovered.putIfAbsent(entryKey(entry), entry);
-                        }
-                    });
-        } catch (Exception ignored) {
-            // best effort
+        for (LocalModelFileInventory.Candidate candidate :
+                new LocalModelFileInventory().discover(base, fallbackFormat, runnable)) {
+            Path file = candidate.file();
+            if (seenPaths.add(normalizePath(file))) {
+                Entry entry = toEntry(candidate.base(), file, candidate.fallbackFormat(), candidate.runnable());
+                discovered.putIfAbsent(entryKey(entry), entry);
+            }
         }
         out.addAll(discovered.values());
     }
@@ -716,24 +551,6 @@ final class LocalModelIndex {
         } catch (Exception ignored) {
             // best effort — skip if malformed
         }
-    }
-
-    private static boolean isLikelyWeightFile(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".gguf")
-                || name.endsWith(".safetensors")
-                || name.endsWith(".safetensor")
-                || name.endsWith(".onnx")
-                || name.endsWith(".tflite")
-                || name.endsWith(".litert")
-                || name.endsWith(".pb")
-                || name.endsWith(".ckpt")
-                || name.endsWith(".pt")
-                || name.endsWith(".pth")
-                || name.endsWith(".bin")
-                || name.endsWith(".litertlm")
-                || name.endsWith(".task")
-                || !name.contains(".");
     }
 
     private static String detectFormat(Path file, String fallback) {

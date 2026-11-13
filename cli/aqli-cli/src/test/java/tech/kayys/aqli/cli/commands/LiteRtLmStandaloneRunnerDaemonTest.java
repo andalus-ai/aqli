@@ -1,4 +1,5 @@
 package tech.kayys.aqli.cli.commands;
+import tech.kayys.aqli.provider.litert.LiteRTTokenStreamLimiter;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.sdk.route.RunnerRouteBenchmarkCache;
 import tech.kayys.aqli.sdk.route.RunnerRoutePolicy;
@@ -630,32 +631,6 @@ class LiteRtLmStandaloneRunnerDaemonTest {
     }
 
     @Test
-    void approximateTokenStreamLimiterMatchesChunkedFastRunLimit() {
-        LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter limiter =
-                new LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter(3);
-
-        String output = limiter.offer("hello ")
-                + limiter.offer("world\nfrom ")
-                + limiter.offer("aqli now");
-
-        assertEquals("hello world\nfrom", output);
-        assertEquals(3, limiter.emittedTokenCount());
-        assertTrue(limiter.atLimit());
-    }
-
-    @Test
-    void approximateTokenStreamLimiterDefersTrailingWhitespace() {
-        LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter limiter =
-                new LiteRtLmStandaloneRunner.ApproximateTokenStreamLimiter(2);
-
-        assertEquals("hello", limiter.offer("hello "));
-        assertEquals("", limiter.offer("\n"));
-        assertEquals(" \nworld", limiter.offer("world"));
-        assertEquals(2, limiter.emittedTokenCount());
-        assertFalse(limiter.atLimit());
-    }
-
-    @Test
     void bareQuestionPromptsAreNormalizedForGemmaChatQuality() {
         assertEquals(
                 "Answer directly and concisely in one or two sentences. Do not ask a clarification question. "
@@ -679,28 +654,6 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         } finally {
             restoreProperty("aqli.litert.fast_run.normalize_short_questions", previous);
         }
-    }
-
-    @Test
-    void warmupStateTracksOnlyMissingIterations() {
-        LiteRtLmStandaloneRunner.WarmupState state = new LiteRtLmStandaloneRunner.WarmupState();
-
-        assertEquals(3, state.remainingIterations(3));
-        state.markCompleted(1);
-        assertEquals(2, state.remainingIterations(3));
-        state.markCompleted(3);
-        assertEquals(0, state.remainingIterations(3));
-    }
-
-    @Test
-    void warmupStateNeverRegresses() {
-        LiteRtLmStandaloneRunner.WarmupState state = new LiteRtLmStandaloneRunner.WarmupState();
-
-        state.markCompleted(3);
-        state.markCompleted(1);
-
-        assertEquals(0, state.remainingIterations(3));
-        assertEquals(2, state.remainingIterations(5));
     }
 
     private static void restoreProperty(String name, String value) {

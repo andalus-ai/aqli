@@ -8,8 +8,8 @@ set -e
 # --- Default Options ---
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GRADLEW="${PROJECT_ROOT}/gradlew"
-CLI_MODULE="ui/aqli-cli"
-SDK_MODULE="sdk/aqli-sdk-local"
+CLI_MODULE="cli/aqli-cli"
+SDK_MODULE="runtime/sdk/aqli-sdk-local"
 SAFETENSOR_ENGINE_MODULE="runner/safetensor/aqli-safetensor-engine"
 METAL_MODULE="../aljabr/backend/metal/aljabr-backend-metal"
 BIN_DIR="${AQLI_BIN_DIR:-${HOME}/.local/bin}"
@@ -1123,7 +1123,7 @@ GRADLE_ARGS=("--no-daemon" "--no-build-cache")
 # Allow skipping strict model-family validations during local installs
 GRADLE_ARGS+=("-Paqli.skipModelFamilyBundlePresetValidation=true")
 GRADLE_ARGS+=("-Paqli.skipModelFamilyModuleCatalogValidation=true")
-# Task-level switch recognized by ui/aqli-cli: skipModelFamilyModuleCatalogValidation (no aqli. prefix)
+# Task-level switch recognized by cli/aqli-cli: skipModelFamilyModuleCatalogValidation (no aqli. prefix)
 GRADLE_ARGS+=("-PskipModelFamilyModuleCatalogValidation=true")
 if [ -n "${JAVA_HOME:-}" ]; then
     GRADLE_ARGS=("-Dorg.gradle.java.home=${JAVA_HOME}" "${GRADLE_ARGS[@]}")

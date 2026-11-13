@@ -35,6 +35,17 @@ class MossAudioTokenizerModelLayoutTest {
     }
 
     @Test
+    void choosesNestedCodecDirectoryDeterministically() throws Exception {
+        Path repository = Files.createDirectory(tempDir.resolve("repository"));
+        Path later = Files.createDirectories(repository.resolve("z-codec"));
+        Path earlier = Files.createDirectories(repository.resolve("a-codec"));
+        Files.writeString(later.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME), "{}");
+        Files.writeString(earlier.resolve(MossAudioTokenizerModelLayout.METADATA_FILE_NAME), "{}");
+
+        assertEquals(earlier, MossAudioTokenizerModelLayout.directoryFrom(repository).orElseThrow());
+    }
+
+    @Test
     void matchesOfficialRepositoryPathAfterNormalization() throws Exception {
         Path official = Files.createDirectories(
                 tempDir.resolve("OpenMOSS-Team").resolve("MOSS-Audio-Tokenizer-Nano-ONNX"));

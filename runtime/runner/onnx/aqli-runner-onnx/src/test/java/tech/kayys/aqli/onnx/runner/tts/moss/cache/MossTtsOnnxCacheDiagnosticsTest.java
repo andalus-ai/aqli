@@ -17,6 +17,20 @@ class MossTtsOnnxCacheDiagnosticsTest {
     Path tempDir;
 
     @Test
+    void diagnosticsCoordinatesItsSnapshotWithoutCreatingTheCacheRoot() throws Exception {
+        Path cacheRoot = tempDir.resolve("cache");
+        var snapshot = MossTtsOnnxCacheDiagnostics.inspect(
+                tempDir.resolve("model"), Optional.empty(), settings(cacheRoot));
+
+        assertFalse(snapshot.cacheDirectory().exists());
+        assertFalse(Files.exists(cacheRoot));
+        try (var files = Files.list(tempDir)) {
+            assertTrue(files.anyMatch(path -> path.getFileName().toString().startsWith(".moss-optimized-cache-")
+                    && path.getFileName().toString().endsWith(".lock")));
+        }
+    }
+
+    @Test
     void reportsGraphsUnavailableWhenCompanionCodecIsMissing() {
         var settings = settings(tempDir.resolve("cache"));
         var snapshot = MossTtsOnnxCacheDiagnostics.inspect(
@@ -61,6 +75,10 @@ class MossTtsOnnxCacheDiagnosticsTest {
         assertEquals(5, snapshot.graphs().size());
         assertEquals(1, snapshot.warmGraphCount());
         assertEquals(1, snapshot.graphs().get(0).externalDataSidecars());
+        assertEquals(1, snapshot.graphs().get(1).externalDataSidecars());
+        assertEquals(1, snapshot.graphs().get(2).externalDataSidecars());
+        assertEquals(0, snapshot.graphs().get(3).externalDataSidecars());
+        assertEquals(0, snapshot.graphs().get(4).externalDataSidecars());
         assertEquals(1, snapshot.cacheDirectory().currentOptimizedGraphFiles());
     }
 
