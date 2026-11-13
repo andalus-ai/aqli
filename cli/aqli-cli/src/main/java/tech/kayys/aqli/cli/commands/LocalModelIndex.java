@@ -1,6 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.model.repo.local.AqliManifest;
+import tech.kayys.aqli.model.repo.local.LocalModelArchitectureDetector;
 import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.sdk.route.*;
@@ -60,6 +61,7 @@ final class LocalModelIndex {
     }
 
     private static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    private static final LocalModelArchitectureDetector ARCHITECTURE_DETECTOR = new LocalModelArchitectureDetector();
 
     private LocalModelIndex() {
     }
@@ -518,18 +520,7 @@ final class LocalModelIndex {
             e.architecture = "moss-audio-tokenizer";
             return;
         }
-        Path configJson = modelDir.resolve("config.json");
-        if (!Files.isRegularFile(configJson)) return;
-        try {
-            var node = JSON.readTree(configJson.toFile());
-            if (node.has("architectures") && node.get("architectures").isArray() && node.get("architectures").size() > 0) {
-                e.architecture = node.get("architectures").get(0).asText();
-            } else if (node.has("model_type")) {
-                e.architecture = node.get("model_type").asText();
-            }
-        } catch (Exception ignored) {
-            // best effort
-        }
+        ARCHITECTURE_DETECTOR.detect(modelDir).ifPresent(architecture -> e.architecture = architecture);
     }
 
     private static boolean isUnknownArchitecture(String architecture) {
