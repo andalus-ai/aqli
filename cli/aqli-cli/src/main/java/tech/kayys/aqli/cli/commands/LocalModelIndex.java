@@ -1,6 +1,8 @@
 package tech.kayys.aqli.cli.commands;
 
+import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
+import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
@@ -176,83 +178,85 @@ final class LocalModelIndex {
         if (!Files.isDirectory(manifestsDir)) {
             return;
         }
-        try (var files = Files.list(manifestsDir)) {
-            files.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().endsWith(".json"))
-                    .forEach(path -> {
-                        try {
-                            var node = JSON.readTree(path.toFile());
-                            String blobPath = text(node, "blobPath");
-                            if (blobPath == null || blobPath.isBlank()) {
-                                return;
-                            }
-                            Path resolved = Path.of(blobPath).toAbsolutePath().normalize();
-                            if (!Files.exists(resolved)) {
-                                return;
-                            }
-                            if (!seenPaths.add(normalizePath(resolved))) {
-                                return;
-                            }
+        try {
+            ManifestStore.ManifestListing listing = new ManifestStore(manifestsDir).listAllWithDiagnostics();
+            for (AqliManifest manifest : listing.manifests()) {
+                try {
+                    String blobPath = manifest.getBlobPath();
+                    if (blobPath == null || blobPath.isBlank()) {
+                        continue;
+                    }
+                    Path resolved = Path.of(blobPath).toAbsolutePath().normalize();
+                    if (!Files.exists(resolved) || !seenPaths.add(normalizePath(resolved))) {
+                        continue;
+                    }
 
-                            Entry e = new Entry();
-                            e.id = text(node, "modelId");
-                            if (e.id == null || e.id.isBlank()) {
-                                e.id = text(node, "id");
-                            }
-                            e.shortId = normalizeShortId(
-                                    text(node, "shortId"),
-                                    e.id != null ? e.id : resolved.getFileName().toString());
-                            e.name = text(node, "name");
-                            if (e.name == null || e.name.isBlank()) {
-                                e.name = resolved.getFileName().toString();
-                            }
-                            e.architecture = text(node, "architecture");
-                            e.format = text(node, "format");
-                            e.path = resolved.toString();
-                            e.source = text(node, "source");
-                            e.updatedAt = text(node, "updatedAt");
-                            e.runnable = isRunnableFormat(e.format);
-                            e.enabled = node.path("enabled").asBoolean(true);
+                    Entry e = new Entry();
+                    e.id = manifest.getModelId();
+                    if (e.id == null || e.id.isBlank()) {
+                        e.id = manifest.getId();
+                    }
+                    e.shortId = normalizeShortId(
+                            manifest.getPersistedShortId(),
+                            e.id != null ? e.id : resolved.getFileName().toString());
+                    e.name = manifest.getName();
+                    if (e.name == null || e.name.isBlank()) {
+                        e.name = resolved.getFileName().toString();
+                    }
+                    e.architecture = manifest.getArchitecture();
+                    e.format = manifest.getFormat();
+                    e.path = resolved.toString();
+                    e.source = manifest.getSource();
+                    e.updatedAt = manifest.getUpdatedAt();
+                    e.runnable = isRunnableFormat(e.format);
+                    e.enabled = manifest.isEnabled();
 
-                            long sizeBytes = node.path("sizeBytes").asLong(0L);
-                            if (sizeBytes <= 0L) {
-                                sizeBytes = computeSize(resolved);
-                            }
-                            e.sizeBytes = sizeBytes;
+                    long sizeBytes = manifest.getSizeBytes();
+                    if (sizeBytes <= 0L) {
+                        sizeBytes = computeSize(resolved);
+                    }
+                    e.sizeBytes = sizeBytes;
 
-                            // ── Task type / modality ─────────────────────────────
-                            e.taskType = text(node, "taskType");
-                            if (e.taskType == null || e.taskType.isBlank()) {
-                                // fall back to metadata.pipeline_tag
-                                var metaNode = node.path("metadata");
-                                if (!metaNode.isMissingNode() && metaNode.isObject()) {
-                                    String tag = metaNode.path("pipeline_tag").asText(null);
-                                    e.taskType = pipelineTagToTaskType(tag);
-                                }
-                            }
-                            if (e.taskType == null || e.taskType.isBlank() || "text".equals(e.taskType)) {
-                                String lowerId = (e.id != null ? e.id : "").toLowerCase(Locale.ROOT);
-                                String lowerName = (e.name != null ? e.name : "").toLowerCase(Locale.ROOT);
-                                if (lowerId.contains("ocr") || lowerName.contains("ocr") || lowerId.contains("pix2text") || lowerName.contains("pix2text") || lowerId.contains("trocr") || lowerId.contains("nougat")) {
-                                    e.taskType = "ocr";
-                                } else if (lowerId.contains("3d") || lowerName.contains("3d") || lowerId.contains("block3d") || lowerName.contains("block3d") || lowerId.contains("trellis") || lowerName.contains("trellis") || lowerId.contains("shap-e") || lowerName.contains("shap-e") || lowerId.contains("mesh") || lowerName.contains("mesh") || lowerId.contains("splat") || lowerName.contains("splat")) {
-                                    e.taskType = "3d";
-                                } else if (e.taskType == null || e.taskType.isBlank()) {
-                                    e.taskType = "text";
-                                }
-                            }
-
-                            if (isUnknownArchitecture(e.architecture)) {
-                                detectArchitecture(e, Files.isDirectory(resolved) ? resolved : resolved.getParent());
-                            }
-                            populateQuantMetadata(e, Files.isDirectory(resolved) ? resolved : resolved.getParent());
-                            out.add(e);
-                        } catch (Exception ignored) {
-                            // best effort
+                    // Preserve the legacy pipeline-tag fallback when taskType was omitted/defaulted.
+                    e.taskType = manifest.getTaskType();
+                    if (e.taskType == null || e.taskType.isBlank() || "text".equals(e.taskType)) {
+                        String tag = manifest.getMetadata() == null
+                                ? null : manifest.getMetadata().get("pipeline_tag");
+                        String mappedTaskType = pipelineTagToTaskType(tag);
+                        if (mappedTaskType != null) {
+                            e.taskType = mappedTaskType;
                         }
-                    });
+                    }
+                    if (e.taskType == null || e.taskType.isBlank() || "text".equals(e.taskType)) {
+                        String lowerId = (e.id != null ? e.id : "").toLowerCase(Locale.ROOT);
+                        String lowerName = (e.name != null ? e.name : "").toLowerCase(Locale.ROOT);
+                        if (lowerId.contains("ocr") || lowerName.contains("ocr")
+                                || lowerId.contains("pix2text") || lowerName.contains("pix2text")
+                                || lowerId.contains("trocr") || lowerId.contains("nougat")) {
+                            e.taskType = "ocr";
+                        } else if (lowerId.contains("3d") || lowerName.contains("3d")
+                                || lowerId.contains("block3d") || lowerName.contains("block3d")
+                                || lowerId.contains("trellis") || lowerName.contains("trellis")
+                                || lowerId.contains("shap-e") || lowerName.contains("shap-e")
+                                || lowerId.contains("mesh") || lowerName.contains("mesh")
+                                || lowerId.contains("splat") || lowerName.contains("splat")) {
+                            e.taskType = "3d";
+                        } else if (e.taskType == null || e.taskType.isBlank()) {
+                            e.taskType = "text";
+                        }
+                    }
+
+                    if (isUnknownArchitecture(e.architecture)) {
+                        detectArchitecture(e, Files.isDirectory(resolved) ? resolved : resolved.getParent());
+                    }
+                    populateQuantMetadata(e, Files.isDirectory(resolved) ? resolved : resolved.getParent());
+                    out.add(e);
+                } catch (Exception ignored) {
+                    // Keep legacy best-effort behavior: one malformed manifest must not stop the scan.
+                }
+            }
         } catch (Exception ignored) {
-            // best effort
+            // Best effort; the local index remains available from flat model directories.
         }
     }
 
