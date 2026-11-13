@@ -50,5 +50,15 @@ public final class LlamaCppGgufExecutionStrategy {
                     completedAtNanos,
                     nativeMetrics);
         }
+        long startNanos = System.nanoTime();
+        LlamaCppGgufSession.GenerationResult result = session.generateWithMetrics(
+                prompt, maxTokens, temperature, topK, topP, warmSession, reuseKind);
+        return new Execution(
+                result.output(),
+                session.backendName(),
+                result.outputTokens(),
+                result.completedAtNanos() - startNanos,
+                result.completedAtNanos(),
+                result.nativeMetrics());
     }
 }

@@ -129,6 +129,37 @@ public final class LlamaCppGgufSession implements AutoCloseable {
         }
     }
 
+    public record GenerationResult(
+            String output,
+            int outputTokens,
+            long completedAtNanos,
+            Optional<String> nativeMetrics) {
+    }
+
+    /**
+     * Runs generation and captures its token/metric snapshot under one session lock.
+     * This prevents another borrower from overwriting the reusable native buffers
+     * or per-generation counters between these related operations.
+     */
+    public synchronized GenerationResult generateWithMetrics(
+            String prompt,
+            int maxTokens,
+            double temperature,
+            int topK,
+            double topP,
+            boolean warmSession,
+            String reuseKind) throws Exception {
+        String output = generate(prompt, maxTokens, temperature, topK, topP);
+        long completedAtNanos = System.nanoTime();
+        Optional<String> nativeMetrics;
+        try {
+            nativeMetrics = metrics(warmSession, reuseKind);
+        } catch (Throwable ignored) {
+            nativeMetrics = Optional.empty();
+        }
+        return new GenerationResult(output, lastGeneratedTokens, completedAtNanos, nativeMetrics);
+    }
+
     public String backendName() {
         return backendName;
     }
