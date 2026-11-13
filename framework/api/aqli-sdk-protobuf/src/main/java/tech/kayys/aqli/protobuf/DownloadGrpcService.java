@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
+import io.grpc.stub.StreamObserver;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +29,11 @@ public class DownloadGrpcService extends DownloadServiceGrpc.DownloadServiceImpl
     MeterRegistry meterRegistry;
 
     @Override
-    public Uni<DownloadState> startDownload(StartDownloadRequest request) {
+    public void startDownload(StartDownloadRequest request, StreamObserver<DownloadState> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received startDownload request for model: {}", request.getModelId());
         
-        return registryService.getManifest("default", request.getModelId(), "latest")
+        Uni<DownloadState> result = registryService.getManifest("default", request.getModelId(), "latest")
                 .onItem().transformToUni(manifest -> {
                     String downloadUri = resolveUri(manifest);
                     if (downloadUri == null) {
@@ -51,6 +52,7 @@ public class DownloadGrpcService extends DownloadServiceGrpc.DownloadServiceImpl
                     LOG.error("Failed to start download for model: {}", request.getModelId(), th);
                     meterRegistry.counter("aqli.grpc.download.start.error").increment();
                 });
+        GrpcResponseObserver.respond(result, observer);
     }
 
     private String resolveUri(ModelManifest manifest) {
@@ -61,11 +63,11 @@ public class DownloadGrpcService extends DownloadServiceGrpc.DownloadServiceImpl
     }
 
     @Override
-    public Uni<DownloadState> pauseDownload(PauseDownloadRequest request) {
+    public void pauseDownload(PauseDownloadRequest request, StreamObserver<DownloadState> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received pauseDownload request for model: {}", request.getModelId());
         
-        return Uni.createFrom().item(() -> {
+        Uni<DownloadState> result = Uni.createFrom().item(() -> {
             ModelDownloadState state = downloadManager.getDownloadState(request.getModelId());
             if (state != null) {
                 state.setStatus("PAUSED");
@@ -75,14 +77,15 @@ public class DownloadGrpcService extends DownloadServiceGrpc.DownloadServiceImpl
             meterRegistry.counter("aqli.grpc.download.pause.count").increment();
             return mapState(state);
         });
+        GrpcResponseObserver.respond(result, observer);
     }
 
     @Override
-    public Uni<DownloadState> resumeDownload(ResumeDownloadRequest request) {
+    public void resumeDownload(ResumeDownloadRequest request, StreamObserver<DownloadState> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received resumeDownload request for model: {}", request.getModelId());
         
-        return Uni.createFrom().item(() -> {
+        Uni<DownloadState> result = Uni.createFrom().item(() -> {
             ModelDownloadState state = downloadManager.getDownloadState(request.getModelId());
             if (state != null) {
                 state.setStatus("DOWNLOADING");
@@ -92,17 +95,19 @@ public class DownloadGrpcService extends DownloadServiceGrpc.DownloadServiceImpl
             meterRegistry.counter("aqli.grpc.download.resume.count").increment();
             return mapState(state);
         });
+        GrpcResponseObserver.respond(result, observer);
     }
 
     @Override
-    public Uni<DownloadState> getDownloadStatus(GetDownloadStatusRequest request) {
-        return Uni.createFrom().item(() -> {
+    public void getDownloadStatus(GetDownloadStatusRequest request, StreamObserver<DownloadState> observer) {
+        Uni<DownloadState> result = Uni.createFrom().item(() -> {
             ModelDownloadState state = downloadManager.getDownloadState(request.getModelId());
             if (state == null) {
                 throw new RuntimeException("Download not found");
             }
             return mapState(state);
         });
+        GrpcResponseObserver.respond(result, observer);
     }
 
     private DownloadState mapState(ModelDownloadState state) {
