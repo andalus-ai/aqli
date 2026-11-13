@@ -80,7 +80,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
                     .maxTokens(request.getMaxTokens())
                     .build();
             
-            InferenceResponse response = sdk.createCompletion(internalRequest);
+            InferenceResponse response = createCompletion(internalRequest);
             
             sample.stop(meterRegistry.timer("aqli.grpc.complete.duration"));
             meterRegistry.counter("aqli.grpc.complete.count").increment();
