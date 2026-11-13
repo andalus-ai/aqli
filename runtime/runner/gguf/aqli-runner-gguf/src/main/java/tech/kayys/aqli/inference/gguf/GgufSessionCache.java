@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 
@@ -20,43 +21,93 @@ public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
     private final Consumer<String> log;
     private final LlamaCppGgufLibraryPaths libraryPaths;
+    private final SessionOpener sessionOpener;
     private boolean closed;
 
     public GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
             LlamaCppGgufLibraryPaths libraryPaths) {
+        this(maxSessionsSupplier, log, libraryPaths, LlamaCppGgufSession::open);
+    }
+
+    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
+            LlamaCppGgufLibraryPaths libraryPaths, SessionOpener sessionOpener) {
         this.maxSessionsSupplier = maxSessionsSupplier;
         this.log = log;
         this.libraryPaths = libraryPaths;
+        this.sessionOpener = sessionOpener;
     }
 
     record SessionKey(Path modelPath, LlamaCppGgufSessionParameters parameters) {
     }
 
-    public record SessionLease(
-        LlamaCppGgufSession session,
-        boolean reused,
-        boolean closeOnClose,
-        String reuseKind) implements AutoCloseable {
-    public static SessionLease open(
-            Path modelPath,
-            LlamaCppGgufSessionParameters parameters,
-            LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
-        return new SessionLease(
-                LlamaCppGgufSession.open(modelPath, parameters, libraryPaths),
-                false,
-                true,
-                "cold");
+    @FunctionalInterface
+    interface SessionOpener {
+        LlamaCppGgufSession open(
+                Path modelPath,
+                LlamaCppGgufSessionParameters parameters,
+                LlamaCppGgufLibraryPaths libraryPaths) throws Exception;
     }
 
-        @Override
-    public void close() {
-        if (closeOnClose) {
-            session.close();
+    private static final class CachedSession {
+        private final LlamaCppGgufSession session;
+        private int activeLeases;
+        private boolean retired;
+        private boolean sessionClosed;
+
+        private CachedSession(LlamaCppGgufSession session) {
+            this.session = session;
         }
     }
-}
 
-    private final Map<SessionKey, LlamaCppGgufSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
+    public static final class SessionLease implements AutoCloseable {
+        private final LlamaCppGgufSession session;
+        private final boolean reused;
+        private final boolean closeOnClose;
+        private final String reuseKind;
+        private final Runnable release;
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        public SessionLease(LlamaCppGgufSession session, boolean reused,
+                boolean closeOnClose, String reuseKind) {
+            this(session, reused, closeOnClose, reuseKind, null);
+        }
+
+        private SessionLease(LlamaCppGgufSession session, boolean reused,
+                boolean closeOnClose, String reuseKind, Runnable release) {
+            this.session = session;
+            this.reused = reused;
+            this.closeOnClose = closeOnClose;
+            this.reuseKind = reuseKind;
+            this.release = release;
+        }
+
+        public LlamaCppGgufSession session() { return session; }
+        public boolean reused() { return reused; }
+        public boolean closeOnClose() { return closeOnClose; }
+        public String reuseKind() { return reuseKind; }
+
+        public static SessionLease open(Path modelPath,
+                LlamaCppGgufSessionParameters parameters,
+                LlamaCppGgufLibraryPaths libraryPaths) throws Exception {
+            return new SessionLease(
+                    LlamaCppGgufSession.open(modelPath, parameters, libraryPaths),
+                    false, true, "cold");
+        }
+
+        @Override
+        public void close() {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            if (release != null) {
+                release.run();
+            } else if (closeOnClose) {
+                session.close();
+            }
+        }
+    }
+
+    private final Map<SessionKey, CachedSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
     private final Map<Path, GgufJavaBackendSession> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
 
@@ -87,7 +138,7 @@ public final class GgufSessionCache implements AutoCloseable {
                     + ", context=" + parameters.context()
                     + ", gpuLayers=" + parameters.gpuLayers()
                     + ", sessions=" + sessions.size());
-            return new SessionLease(existing, true, false, "exact");
+            return lease(existing, true, "exact");
         }
         SessionLease compatible = findCompatible(key);
         if (compatible != null) {
@@ -98,10 +149,12 @@ public final class GgufSessionCache implements AutoCloseable {
                 + ", gpuLayers=" + parameters.gpuLayers()
                 + ", sessions=" + sessions.size());
         LlamaCppGgufSession opened =
-                LlamaCppGgufSession.open(key.modelPath(), parameters, libraryPaths);
-        sessions.put(key, opened);
+                sessionOpener.open(key.modelPath(), parameters, libraryPaths);
+        CachedSession cached = new CachedSession(opened);
+        sessions.put(key, cached);
+        SessionLease lease = lease(cached, false, "cold");
         evictOverflowSessions();
-        return new SessionLease(opened, false, false, "cold");
+        return lease;
     }
 
     private SessionLease findCompatible(SessionKey requested) {
@@ -115,7 +168,8 @@ public final class GgufSessionCache implements AutoCloseable {
         if (selected == null) {
             return null;
         }
-        LlamaCppGgufSession session = sessions.get(selected);
+        CachedSession cached = sessions.get(selected);
+        LlamaCppGgufSession session = cached.session;
         log.accept("session cache compatible hit: " + selected.modelPath().getFileName()
                 + ", requestedContext=" + requested.parameters().context()
                 + ", warmContext=" + selected.parameters().context()
@@ -123,7 +177,7 @@ public final class GgufSessionCache implements AutoCloseable {
                 + ", warmBatch=" + selected.parameters().batch()
                 + ", gpuLayers=" + selected.parameters().gpuLayers()
                 + ", sessions=" + sessions.size());
-        return new SessionLease(session, true, false, "compatible");
+        return lease(cached, true, "compatible");
     }
 
     static boolean isCompatibleWarmSession(SessionKey warm, SessionKey requested) {
@@ -175,18 +229,48 @@ public final class GgufSessionCache implements AutoCloseable {
     private void evictOverflowSessions() {
         int maxSessions = effectiveMaxSessions(maxSessionsSupplier.getAsInt());
         while (sessions.size() > maxSessions) {
-            Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
+            Map.Entry<SessionKey, CachedSession> eldest = sessions.entrySet().iterator().next();
             sessions.remove(eldest.getKey());
             log.accept("session cache evict: " + eldest.getKey().modelPath().getFileName()
                     + ", context=" + eldest.getKey().parameters().context()
                     + ", gpuLayers=" + eldest.getKey().parameters().gpuLayers()
                     + ", maxSessions=" + maxSessions);
-            eldest.getValue().close();
+            retire(eldest.getValue());
         }
     }
 
     static int effectiveMaxSessions(int configuredMaxSessions) {
         return Math.max(1, configuredMaxSessions);
+    }
+
+    private SessionLease lease(CachedSession cached, boolean reused, String reuseKind) {
+        cached.activeLeases++;
+        return new SessionLease(cached.session, reused, false, reuseKind, () -> release(cached));
+    }
+
+    private synchronized void release(CachedSession cached) {
+        if (cached.activeLeases <= 0) {
+            throw new IllegalStateException("GGUF session lease released more than once");
+        }
+        cached.activeLeases--;
+        if (cached.retired && cached.activeLeases == 0) {
+            closeRetired(cached);
+        }
+    }
+
+    private void retire(CachedSession cached) {
+        cached.retired = true;
+        if (cached.activeLeases == 0) {
+            closeRetired(cached);
+        }
+    }
+
+    private static void closeRetired(CachedSession cached) {
+        if (cached.sessionClosed) {
+            return;
+        }
+        cached.sessionClosed = true;
+        cached.session.close();
     }
 
     private void ensureOpen() {
@@ -201,8 +285,8 @@ public final class GgufSessionCache implements AutoCloseable {
             return;
         }
         closed = true;
-        for (LlamaCppGgufSession session : sessions.values()) {
-            session.close();
+        for (CachedSession session : sessions.values()) {
+            retire(session);
         }
         sessions.clear();
         for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
