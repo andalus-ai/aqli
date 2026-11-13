@@ -10,6 +10,8 @@ import java.util.function.IntSupplier;
  * Owns daemon-scoped GGUF sessions and Java backend sessions. It centralizes
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
  * Session limits, library paths, and logging are supplied by the application boundary.
+ * Cache operations are serialized; callers must stop request dispatch and release
+ * borrowed session leases before closing the cache.
  */
 public final class GgufSessionCache implements AutoCloseable {
     private final IntSupplier maxSessionsSupplier;
