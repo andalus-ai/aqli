@@ -10,6 +10,7 @@ import java.util.function.IntSupplier;
  * Owns daemon-scoped GGUF sessions and Java backend sessions. It centralizes
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
  * Session limits, library paths, and logging are supplied by the application boundary.
+ * The session limit is a count cap, not an estimate of native memory consumption.
  * Cache operations are serialized; callers must stop request dispatch and release
  * borrowed session leases before closing the cache.
  */
@@ -156,7 +157,7 @@ public final class GgufSessionCache implements AutoCloseable {
     }
 
     private void evictOverflowSessions() {
-        int maxSessions = maxSessionsSupplier.getAsInt();
+        int maxSessions = effectiveMaxSessions(maxSessionsSupplier.getAsInt());
         while (sessions.size() > maxSessions) {
             Map.Entry<SessionKey, LlamaCppGgufSession> eldest = sessions.entrySet().iterator().next();
             sessions.remove(eldest.getKey());
@@ -166,6 +167,10 @@ public final class GgufSessionCache implements AutoCloseable {
                     + ", maxSessions=" + maxSessions);
             eldest.getValue().close();
         }
+    }
+
+    static int effectiveMaxSessions(int configuredMaxSessions) {
+        return Math.max(1, configuredMaxSessions);
     }
 
     private void ensureOpen() {
