@@ -133,7 +133,7 @@ public final class LlamaCppGgufSession implements AutoCloseable {
         return backendName;
     }
 
-    public int lastGeneratedTokens() {
+    public synchronized int lastGeneratedTokens() {
         return lastGeneratedTokens;
     }
 
