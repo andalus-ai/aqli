@@ -25,7 +25,7 @@ class GgufJavaExecutionStrategyTest {
         when(backend.execute(request)).thenReturn(response);
 
         GgufJavaExecutionStrategy.Execution result = new GgufJavaExecutionStrategy().execute(
-                Path.of("model.gguf"), request, ignored -> session, true);
+                Path.of("model.gguf"), request, ignored -> GgufJavaBackendSession.ownedLease(session));
 
         assertEquals(response, result.response());
         verify(backend).execute(request);
@@ -40,7 +40,7 @@ class GgufJavaExecutionStrategyTest {
         when(backend.execute(request)).thenReturn(mock(InferenceResponse.class));
 
         new GgufJavaExecutionStrategy().execute(
-                Path.of("model.gguf"), request, ignored -> session, false);
+                Path.of("model.gguf"), request, ignored -> GgufJavaBackendSession.borrowedLease(session, () -> { }));
 
         verify(backend).execute(request);
         verify(backend, never()).close();

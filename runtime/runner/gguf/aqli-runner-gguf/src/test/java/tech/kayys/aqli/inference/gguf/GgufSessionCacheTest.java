@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
+import tech.kayys.aljabr.gguf.api.GgufBackend;
+
 class GgufSessionCacheTest {
 
     @Test
@@ -165,6 +167,33 @@ class GgufSessionCacheTest {
         verify(session, never()).close();
         cache.close();
         verify(session).close();
+    }
+
+    @Test
+    void cacheShutdownDefersClosingJavaBackendUntilLastLeaseCloses() throws Exception {
+        GgufBackend backend = mock(GgufBackend.class);
+        GgufJavaBackendSession session = GgufJavaBackendSession.owned(backend);
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 2,
+                ignored -> { },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"), Path.of("/native/llama")),
+                (path, parameters, paths) -> mock(LlamaCppGgufSession.class),
+                path -> session);
+
+        GgufJavaBackendSession.Lease first = cache.acquireJavaBackend(Path.of("/models/model.gguf"));
+        GgufJavaBackendSession.Lease second = cache.acquireJavaBackend(Path.of("/models/model.gguf"));
+
+        cache.close();
+        verify(backend, never()).close();
+
+        first.close();
+        first.close();
+        verify(backend, never()).close();
+
+        second.close();
+        second.close();
+        verify(backend, times(1)).close();
     }
 
     private static GgufSessionCache cache(

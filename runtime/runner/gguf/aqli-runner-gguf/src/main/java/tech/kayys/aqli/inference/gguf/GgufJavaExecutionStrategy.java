@@ -18,7 +18,7 @@ public final class GgufJavaExecutionStrategy {
 
     @FunctionalInterface
     public interface SessionProvider {
-        GgufJavaBackendSession acquire(Path modelPath) throws Exception;
+        GgufJavaBackendSession.Lease acquire(Path modelPath) throws Exception;
     }
 
     public record Execution(
@@ -31,14 +31,13 @@ public final class GgufJavaExecutionStrategy {
     public Execution execute(
             Path modelPath,
             InferenceRequest request,
-            SessionProvider sessionProvider,
-            boolean closeSessionAfterExecution) throws Exception {
+            SessionProvider sessionProvider) throws Exception {
         Objects.requireNonNull(modelPath, "modelPath");
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(sessionProvider, "sessionProvider");
 
         long openStartNanos = System.nanoTime();
-        GgufJavaBackendSession session = sessionProvider.acquire(modelPath);
+        GgufJavaBackendSession.Lease session = sessionProvider.acquire(modelPath);
         long openNanos = System.nanoTime() - openStartNanos;
         try {
             long executionStartNanos = System.nanoTime();
@@ -50,9 +49,7 @@ public final class GgufJavaExecutionStrategy {
                     completedAtNanos - executionStartNanos,
                     completedAtNanos);
         } finally {
-            if (closeSessionAfterExecution) {
-                session.close();
-            }
+            session.close();
         }
     }
 }

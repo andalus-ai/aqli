@@ -22,22 +22,36 @@ public final class GgufSessionCache implements AutoCloseable {
     private final Consumer<String> log;
     private final LlamaCppGgufLibraryPaths libraryPaths;
     private final SessionOpener sessionOpener;
+    private final JavaBackendOpener javaBackendOpener;
     private boolean closed;
 
     public GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
             LlamaCppGgufLibraryPaths libraryPaths) {
-        this(maxSessionsSupplier, log, libraryPaths, LlamaCppGgufSession::open);
+        this(maxSessionsSupplier, log, libraryPaths, LlamaCppGgufSession::open,
+                GgufJavaBackendSession::open);
     }
 
     GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
             LlamaCppGgufLibraryPaths libraryPaths, SessionOpener sessionOpener) {
+        this(maxSessionsSupplier, log, libraryPaths, sessionOpener, GgufJavaBackendSession::open);
+    }
+
+    GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
+            LlamaCppGgufLibraryPaths libraryPaths, SessionOpener sessionOpener,
+            JavaBackendOpener javaBackendOpener) {
         this.maxSessionsSupplier = maxSessionsSupplier;
         this.log = log;
         this.libraryPaths = libraryPaths;
         this.sessionOpener = sessionOpener;
+        this.javaBackendOpener = javaBackendOpener;
     }
 
     record SessionKey(Path modelPath, LlamaCppGgufSessionParameters parameters) {
+    }
+
+    @FunctionalInterface
+    interface JavaBackendOpener {
+        GgufJavaBackendSession open(Path modelPath) throws Exception;
     }
 
     @FunctionalInterface
@@ -46,6 +60,17 @@ public final class GgufSessionCache implements AutoCloseable {
                 Path modelPath,
                 LlamaCppGgufSessionParameters parameters,
                 LlamaCppGgufLibraryPaths libraryPaths) throws Exception;
+    }
+
+    private static final class CachedJavaBackend {
+        private final GgufJavaBackendSession session;
+        private int activeLeases;
+        private boolean retired;
+        private boolean sessionClosed;
+
+        private CachedJavaBackend(GgufJavaBackendSession session) {
+            this.session = session;
+        }
     }
 
     private static final class CachedSession {
@@ -108,23 +133,56 @@ public final class GgufSessionCache implements AutoCloseable {
     }
 
     private final Map<SessionKey, CachedSession> sessions = new LinkedHashMap<>(4, 0.75f, true);
-    private final Map<Path, GgufJavaBackendSession> javaBackends =
+    private final Map<Path, CachedJavaBackend> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
 
-    public synchronized GgufJavaBackendSession acquireJavaBackend(
+    public synchronized GgufJavaBackendSession.Lease acquireJavaBackend(
             Path modelPath) throws Exception {
         ensureOpen();
         Path key = modelPath.toAbsolutePath().normalize();
-        GgufJavaBackendSession existing = javaBackends.get(key);
+        CachedJavaBackend existing = javaBackends.get(key);
         if (existing != null) {
             log.accept("java backend cache hit: " + key.getFileName());
-            return existing;
+            return lease(existing);
         }
         log.accept("java backend cache miss: " + key.getFileName());
-        GgufJavaBackendSession opened =
-                tech.kayys.aqli.inference.gguf.GgufJavaBackendSession.open(key);
-        javaBackends.put(key, opened);
-        return opened;
+        GgufJavaBackendSession opened = javaBackendOpener.open(key);
+        CachedJavaBackend cached = new CachedJavaBackend(opened);
+        javaBackends.put(key, cached);
+        return lease(cached);
+    }
+
+    private GgufJavaBackendSession.Lease lease(CachedJavaBackend cached) {
+        cached.activeLeases++;
+        return GgufJavaBackendSession.borrowedLease(cached.session, () -> release(cached));
+    }
+
+    private synchronized void release(CachedJavaBackend cached) {
+        if (cached.activeLeases <= 0) {
+            throw new IllegalStateException("Java GGUF backend lease released more than once");
+        }
+        cached.activeLeases--;
+        if (cached.retired && cached.activeLeases == 0) {
+            closeRetired(cached);
+        }
+    }
+
+    private void retire(CachedJavaBackend cached) {
+        cached.retired = true;
+        if (cached.activeLeases == 0) {
+            closeRetired(cached);
+        }
+    }
+
+    private static void closeRetired(CachedJavaBackend cached) {
+        if (cached.sessionClosed) {
+            return;
+        }
+        cached.sessionClosed = true;
+        try {
+            cached.session.close();
+        } catch (Exception ignored) {
+        }
     }
 
     public synchronized SessionLease acquire(
@@ -288,11 +346,8 @@ public final class GgufSessionCache implements AutoCloseable {
             retire(session);
         }
         sessions.clear();
-        for (tech.kayys.aqli.inference.gguf.GgufJavaBackendSession backendSession : javaBackends.values()) {
-            try {
-                backendSession.close();
-            } catch (Exception ignored) {
-            }
+        for (CachedJavaBackend backendSession : javaBackends.values()) {
+            retire(backendSession);
         }
         javaBackends.clear();
     }
