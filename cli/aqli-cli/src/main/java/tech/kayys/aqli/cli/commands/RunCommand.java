@@ -75,6 +75,7 @@ import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
+import tech.kayys.aqli.media.output.MediaOutputPathResolver;
 import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;

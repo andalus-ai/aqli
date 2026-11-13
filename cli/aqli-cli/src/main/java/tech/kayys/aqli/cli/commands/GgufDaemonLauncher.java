@@ -85,7 +85,7 @@ final class GgufDaemonLauncher {
         if (!Files.isExecutable(Path.of(launchctl))) {
             return false;
         }
-        removeLaunchctl(label);
+        removeLaunchctl(label, true);
         Process launcher = new ProcessBuilder(
                 launchctl,
                 "submit",

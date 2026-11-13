@@ -15,6 +15,8 @@ import io.opentelemetry.api.common.AttributesBuilder;
 
 import com.google.ai.edge.litertlm.Backend;
 import com.google.ai.edge.litertlm.Conversation;
+import com.google.ai.edge.litertlm.ConversationConfig;
+import com.google.ai.edge.litertlm.SamplerConfig;
 import com.google.ai.edge.litertlm.Engine;
 import com.google.ai.edge.litertlm.EngineConfig;
 import com.google.ai.edge.litertlm.ExperimentalFlags;
@@ -266,7 +268,7 @@ public final class LiteRtLmStandaloneRunner {
             return Optional.empty();
         }
         return new LiteRTRouteResolver()
-                .resolve(null, ref, modelIndexPath(), equivalentLiteRtRouteEnabled())
+                .resolve(null, ref, modelIndexPath(), equivalentLiteRtFastPathEnabled())
                 .map(LiteRTRouteResolver.RouteMatch::path);
     }
 
@@ -340,7 +342,7 @@ public final class LiteRtLmStandaloneRunner {
                         args.modelFile(),
                         args.model(),
                         modelIndexPath(),
-                        equivalentLiteRtRouteEnabled())
+                        equivalentLiteRtFastPathEnabled())
                 .map(match -> new RouteMatch(match.path(), match.source(), match.cacheHit()));
         if (resolved.isPresent() || args.model() == null) {
             return resolved;
