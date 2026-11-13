@@ -42,7 +42,7 @@ public final class GgufJavaExecutionStrategy {
         long openNanos = System.nanoTime() - openStartNanos;
         try {
             long executionStartNanos = System.nanoTime();
-            InferenceResponse response = session.backend().execute(request);
+            InferenceResponse response = session.execute(request);
             long completedAtNanos = System.nanoTime();
             return new Execution(
                     response,
