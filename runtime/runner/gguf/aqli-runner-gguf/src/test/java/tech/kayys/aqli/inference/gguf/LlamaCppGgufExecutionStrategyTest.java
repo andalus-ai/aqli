@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,6 +46,7 @@ class LlamaCppGgufExecutionStrategyTest {
         CountDownLatch firstMetricsEntered = new CountDownLatch(1);
         CountDownLatch releaseFirstMetrics = new CountDownLatch(1);
         CountDownLatch secondGenerationEntered = new CountDownLatch(1);
+        AtomicInteger metricsCalls = new AtomicInteger();
 
         when(session.generate(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyInt(),
@@ -59,9 +61,11 @@ class LlamaCppGgufExecutionStrategyTest {
                     return prompt + "-output";
                 });
         when(session.metrics(false, "cold")).thenAnswer(invocation -> {
-            firstMetricsEntered.countDown();
-            if (!releaseFirstMetrics.await(2, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("test did not release first metrics call");
+            if (metricsCalls.incrementAndGet() == 1) {
+                firstMetricsEntered.countDown();
+                if (!releaseFirstMetrics.await(2, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("test did not release first metrics call");
+                }
             }
             return Optional.empty();
         });
