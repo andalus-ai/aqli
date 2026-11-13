@@ -30,20 +30,14 @@ public final class LlamaCppGgufExecutionStrategy {
         Objects.requireNonNull(session, "session");
         Objects.requireNonNull(prompt, "prompt");
         long startNanos = System.nanoTime();
-        String output = session.generate(prompt, maxTokens, temperature, topK, topP);
-        long completedAtNanos = System.nanoTime();
-        Optional<String> nativeMetrics;
-        try {
-            nativeMetrics = session.metrics(warmSession, reuseKind);
-        } catch (Throwable ignored) {
-            nativeMetrics = Optional.empty();
-        }
+        LlamaCppGgufSession.GenerationResult result = session.generateWithMetrics(
+                prompt, maxTokens, temperature, topK, topP, warmSession, reuseKind);
         return new Execution(
-                output,
+                result.output(),
                 session.backendName(),
-                session.lastGeneratedTokens(),
-                completedAtNanos - startNanos,
-                completedAtNanos,
-                nativeMetrics);
+                result.outputTokens(),
+                result.completedAtNanos() - startNanos,
+                result.completedAtNanos(),
+                result.nativeMetrics());
     }
 }

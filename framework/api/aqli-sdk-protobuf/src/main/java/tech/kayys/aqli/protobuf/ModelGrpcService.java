@@ -3,7 +3,7 @@ package tech.kayys.aqli.protobuf;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
-import io.smallrye.mutiny.Uni;
+import io.grpc.stub.StreamObserver;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,11 +23,11 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
     MeterRegistry meterRegistry;
 
     @Override
-    public Uni<ListModelsResponse> listModels(ListModelsRequest request) {
+    public void listModels(ListModelsRequest request, StreamObserver<ListModelsResponse> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received listModels request with query: {}", request.getQuery());
         
-        return registryService.findByTenant("default", null)
+        GrpcResponseObserver.respond(registryService.findByTenant("default", null)
                 .map(models -> {
                     sample.stop(meterRegistry.timer("aqli.grpc.model.list.duration"));
                     meterRegistry.counter("aqli.grpc.model.list.count").increment();
@@ -47,15 +47,15 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
                 .onFailure().invoke(th -> {
                     LOG.error("Failed listModels request", th);
                     meterRegistry.counter("aqli.grpc.model.list.error").increment();
-                });
+                }), observer);
     }
 
     @Override
-    public Uni<GetModelManifestResponse> getModelManifest(GetModelManifestRequest request) {
+    public void getModelManifest(GetModelManifestRequest request, StreamObserver<GetModelManifestResponse> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received getModelManifest request for model: {}", request.getModelId());
         
-        return registryService.getManifest("default", request.getModelId(), "latest")
+        GrpcResponseObserver.respond(registryService.getManifest("default", request.getModelId(), "latest")
                 .map(manifest -> {
                     sample.stop(meterRegistry.timer("aqli.grpc.model.manifest.duration"));
                     meterRegistry.counter("aqli.grpc.model.manifest.count").increment();
@@ -68,6 +68,6 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
                 .onFailure().invoke(th -> {
                     LOG.error("Failed getModelManifest request for model: {}", request.getModelId(), th);
                     meterRegistry.counter("aqli.grpc.model.manifest.error").increment();
-                });
+                }), observer);
     }
 }

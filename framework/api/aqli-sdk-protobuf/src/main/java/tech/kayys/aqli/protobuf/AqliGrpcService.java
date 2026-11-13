@@ -3,7 +3,7 @@ package tech.kayys.aqli.protobuf;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
-import io.smallrye.mutiny.Multi;
+import io.grpc.stub.StreamObserver;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
@@ -32,11 +32,11 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     }
 
     @Override
-    public Uni<ChatResponse> chat(ChatRequest request) {
+    public void chat(ChatRequest request, StreamObserver<ChatResponse> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received chat request for model: {}", request.getModelId());
         
-        return Uni.createFrom().item(() -> {
+        Uni<ChatResponse> result = Uni.createFrom().item(() -> {
             InferenceRequest internalRequest = InferenceRequest.builder()
                     .model(request.getModelId())
                     .messages(request.getMessagesList().stream()
@@ -60,20 +60,21 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
             LOG.error("Failed chat request for model: {}", request.getModelId(), th);
             meterRegistry.counter("aqli.grpc.chat.error").increment();
         });
+        GrpcResponseObserver.respond(result, observer);
     }
 
     @Override
-    public Multi<ChatResponse> streamChat(ChatRequest request) {
+    public void streamChat(ChatRequest request, StreamObserver<ChatResponse> observer) {
         LOG.info("Received streamChat request for model: {}", request.getModelId());
-        throw new UnsupportedOperationException("Streaming not implemented via gRPC mutiny currently");
+        GrpcResponseObserver.unimplemented("streamChat", observer);
     }
 
     @Override
-    public Uni<CompletionResponse> complete(CompletionRequest request) {
+    public void complete(CompletionRequest request, StreamObserver<CompletionResponse> observer) {
         Timer.Sample sample = Timer.start(meterRegistry);
         LOG.info("Received complete request for model: {}", request.getModelId());
         
-        return Uni.createFrom().item(() -> {
+        Uni<CompletionResponse> result = Uni.createFrom().item(() -> {
             InferenceRequest internalRequest = InferenceRequest.builder()
                     .model(request.getModelId())
                     .prompt(request.getPrompt())
@@ -96,12 +97,13 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
             LOG.error("Failed complete request for model: {}", request.getModelId(), th);
             meterRegistry.counter("aqli.grpc.complete.error").increment();
         });
+        GrpcResponseObserver.respond(result, observer);
     }
 
     @Override
-    public Multi<CompletionResponse> streamComplete(CompletionRequest request) {
+    public void streamComplete(CompletionRequest request, StreamObserver<CompletionResponse> observer) {
         LOG.info("Received streamComplete request for model: {}", request.getModelId());
-        throw new UnsupportedOperationException("Streaming not implemented via gRPC mutiny currently");
+        GrpcResponseObserver.unimplemented("streamComplete", observer);
     }
 
     private ChatResponse mapChatResponse(InferenceResponse response) {

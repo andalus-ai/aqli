@@ -44,7 +44,7 @@ final class GgufModelResolver {
     }
 
     private static boolean hasNonGgufExtension(String value) {
-        String normalized = value.replace('\', '/').toLowerCase(Locale.ROOT);
+        String normalized = value.replace('\\', '/').toLowerCase(Locale.ROOT);
         return normalized.endsWith(".litertlm")
                 || normalized.endsWith(".task")
                 || normalized.endsWith(".tflite")
