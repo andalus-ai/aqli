@@ -29,21 +29,26 @@ public final class LlamaCppGgufExecutionStrategy {
             String reuseKind) throws Exception {
         Objects.requireNonNull(session, "session");
         Objects.requireNonNull(prompt, "prompt");
-        long startNanos = System.nanoTime();
-        String output = session.generate(prompt, maxTokens, temperature, topK, topP);
-        long completedAtNanos = System.nanoTime();
-        Optional<String> nativeMetrics;
-        try {
-            nativeMetrics = session.metrics(warmSession, reuseKind);
-        } catch (Throwable ignored) {
-            nativeMetrics = Optional.empty();
+        // Generation updates session-owned counters and scratch state that metrics
+        // reads immediately afterward. Keep the complete operation atomic per
+        // session while allowing independent sessions to execute concurrently.
+        synchronized (session) {
+            long startNanos = System.nanoTime();
+            String output = session.generate(prompt, maxTokens, temperature, topK, topP);
+            long completedAtNanos = System.nanoTime();
+            Optional<String> nativeMetrics;
+            try {
+                nativeMetrics = session.metrics(warmSession, reuseKind);
+            } catch (Throwable ignored) {
+                nativeMetrics = Optional.empty();
+            }
+            return new Execution(
+                    output,
+                    session.backendName(),
+                    session.lastGeneratedTokens(),
+                    completedAtNanos - startNanos,
+                    completedAtNanos,
+                    nativeMetrics);
         }
-        return new Execution(
-                output,
-                session.backendName(),
-                session.lastGeneratedTokens(),
-                completedAtNanos - startNanos,
-                completedAtNanos,
-                nativeMetrics);
     }
 }
