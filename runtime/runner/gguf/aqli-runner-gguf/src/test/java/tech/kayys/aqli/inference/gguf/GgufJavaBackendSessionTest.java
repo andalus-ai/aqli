@@ -26,4 +26,26 @@ class GgufJavaBackendSessionTest {
         verify(backend, times(1)).close();
         assertThrows(IllegalStateException.class, session::backend);
     }
+
+    @Test
+    void executesRequestThroughOpenSession() throws Exception {
+        GgufBackend backend = mock(GgufBackend.class);
+        GgufJavaBackendSession session = GgufJavaBackendSession.owned(backend);
+        InferenceRequest request = mock(InferenceRequest.class);
+        InferenceResponse response = mock(InferenceResponse.class);
+        when(backend.execute(request)).thenReturn(response);
+
+        assertEquals(response, session.execute(request));
+
+        verify(backend).execute(request);
+    }
+
+    @Test
+    void rejectsExecutionAfterSessionClose() throws Exception {
+        GgufBackend backend = mock(GgufBackend.class);
+        GgufJavaBackendSession session = GgufJavaBackendSession.owned(backend);
+        session.close();
+
+        assertThrows(IllegalStateException.class, () -> session.execute(mock(InferenceRequest.class)));
+    }
 }
