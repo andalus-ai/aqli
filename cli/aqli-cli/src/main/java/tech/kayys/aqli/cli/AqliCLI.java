@@ -311,7 +311,7 @@ public class AqliCLI implements Callable<Integer> {
                 return 1;
             }
 
-            AqliSdk sdk = getSdk();
+            AqliRuntime sdk = getSdk();
 
             InferenceRequest request = buildRequest(
                     entry,
@@ -379,7 +379,7 @@ public class AqliCLI implements Callable<Integer> {
                 return 1;
             }
 
-            AqliSdk sdk = getSdk();
+            AqliRuntime sdk = getSdk();
 
             ChatSession session = new ChatSessionImpl(sdk, logicalModelId(entry), selectedProvider);
             session.setAutoContinue(true);
