@@ -157,5 +157,6 @@ class LocalModelIndexTest {
 
         assertEquals("google/functiongemma-270m-it", entry.id);
         assertEquals("functiongemma-270m-it", entry.name);
+        assertEquals("Gemma3ForCausalLM", entry.architecture);
     }
 }
