@@ -342,7 +342,7 @@ public final class LiteRtLmStandaloneRunner {
                         args.modelFile(),
                         args.model(),
                         modelIndexPath(),
-                        equivalentLiteRtRouteEnabled())
+                        equivalentLiteRtFastPathEnabled())
                 .map(match -> new RouteMatch(match.path(), match.source(), match.cacheHit()));
         if (resolved.isPresent() || args.model() == null) {
             return resolved;
