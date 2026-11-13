@@ -91,7 +91,7 @@ public final class GgufJavaBackendSession implements AutoCloseable {
             this.release = Objects.requireNonNull(release, "release");
         }
 
-        public InferenceResponse execute(InferenceRequest request) throws Exception {
+        public synchronized InferenceResponse execute(InferenceRequest request) throws Exception {
             if (closed.get()) {
                 throw new IllegalStateException("GGUF backend lease is closed");
             }
@@ -99,7 +99,7 @@ public final class GgufJavaBackendSession implements AutoCloseable {
         }
 
         @Override
-        public void close() {
+        public synchronized void close() {
             if (closed.compareAndSet(false, true)) {
                 release.run();
             }
