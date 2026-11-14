@@ -373,8 +373,9 @@ class GgufSessionCacheTest {
 
         firstLease.close();
         assertEquals(2, cache.snapshot().activeJavaBackendLeases());
-        verify(firstBackend).close();
+        verify(firstBackend, never()).close();
         reusedLease.close();
+        verify(firstBackend).close();
         secondLease.close();
         assertEquals(0, cache.snapshot().activeJavaBackendLeases());
         cache.close();
