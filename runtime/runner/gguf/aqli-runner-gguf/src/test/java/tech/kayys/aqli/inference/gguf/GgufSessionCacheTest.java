@@ -196,6 +196,66 @@ class GgufSessionCacheTest {
         verify(backend, times(1)).close();
     }
 
+    @Test
+    void javaBackendCacheEvictsLeastRecentlyUsedSessionAtConfiguredCapacity() throws Exception {
+        GgufBackend firstBackend = mock(GgufBackend.class);
+        GgufBackend secondBackend = mock(GgufBackend.class);
+        GgufBackend thirdBackend = mock(GgufBackend.class);
+        AtomicInteger opened = new AtomicInteger();
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 2,
+                ignored -> { },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"), Path.of("/native/llama")),
+                (path, parameters, paths) -> mock(LlamaCppGgufSession.class),
+                path -> switch (opened.getAndIncrement()) {
+                    case 0 -> GgufJavaBackendSession.owned(firstBackend);
+                    case 1 -> GgufJavaBackendSession.owned(secondBackend);
+                    default -> GgufJavaBackendSession.owned(thirdBackend);
+                });
+
+        cache.acquireJavaBackend(Path.of("/models/first.gguf")).close();
+        cache.acquireJavaBackend(Path.of("/models/second.gguf")).close();
+        cache.acquireJavaBackend(Path.of("/models/first.gguf")).close();
+        cache.acquireJavaBackend(Path.of("/models/third.gguf")).close();
+
+        verify(firstBackend, never()).close();
+        verify(secondBackend).close();
+        verify(thirdBackend, never()).close();
+
+        cache.close();
+        verify(firstBackend).close();
+        verify(thirdBackend).close();
+    }
+
+    @Test
+    void javaBackendEvictionDefersCloseUntilBorrowedLeaseIsReleased() throws Exception {
+        GgufBackend firstBackend = mock(GgufBackend.class);
+        GgufBackend secondBackend = mock(GgufBackend.class);
+        AtomicInteger opened = new AtomicInteger();
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 1,
+                ignored -> { },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"), Path.of("/native/llama")),
+                (path, parameters, paths) -> mock(LlamaCppGgufSession.class),
+                path -> GgufJavaBackendSession.owned(
+                        opened.getAndIncrement() == 0 ? firstBackend : secondBackend));
+
+        GgufJavaBackendSession.Lease firstLease =
+                cache.acquireJavaBackend(Path.of("/models/first.gguf"));
+        GgufJavaBackendSession.Lease secondLease =
+                cache.acquireJavaBackend(Path.of("/models/second.gguf"));
+
+        verify(firstBackend, never()).close();
+        firstLease.close();
+        verify(firstBackend).close();
+
+        secondLease.close();
+        cache.close();
+        verify(secondBackend).close();
+    }
+
     private static GgufSessionCache cache(
             int capacity, GgufSessionCache.SessionOpener opener) {
         return new GgufSessionCache(
