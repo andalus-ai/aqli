@@ -6,11 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.io.InputStream;
 import org.junit.jupiter.api.Test;
 
 class GgufDaemonMetricsServerTest {
@@ -24,10 +24,9 @@ class GgufDaemonMetricsServerTest {
 
         try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(registry, 0)) {
             assertTrue(server.isLoopbackBound());
-            assertTrue(InetAddress.getLoopbackAddress().isLoopbackAddress());
-
-            HttpURLConnection connection = (HttpURLConnection) new URL("http", InetAddress.getLoopbackAddress().getHostAddress(),
-                    server.port(), "/metrics").openConnection();
+            URL metricsUrl = new URL(
+                    "http", InetAddress.getLoopbackAddress().getHostAddress(), server.port(), "/metrics");
+            HttpURLConnection connection = (HttpURLConnection) metricsUrl.openConnection();
             connection.setConnectTimeout(2_000);
             connection.setReadTimeout(2_000);
             assertEquals(200, connection.getResponseCode());
@@ -45,8 +44,9 @@ class GgufDaemonMetricsServerTest {
     void rejectsPathsOtherThanMetrics() throws Exception {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(registry, 0)) {
-            HttpURLConnection connection = (HttpURLConnection) new URL("http", InetAddress.getLoopbackAddress().getHostAddress(),
-                    server.port(), "/").openConnection();
+            URL rootUrl = new URL(
+                    "http", InetAddress.getLoopbackAddress().getHostAddress(), server.port(), "/");
+            HttpURLConnection connection = (HttpURLConnection) rootUrl.openConnection();
             connection.setConnectTimeout(2_000);
             connection.setReadTimeout(2_000);
             assertEquals(404, connection.getResponseCode());
