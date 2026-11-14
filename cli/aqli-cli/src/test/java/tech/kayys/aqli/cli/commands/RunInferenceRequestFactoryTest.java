@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 
 class RunInferenceRequestFactoryTest {
@@ -34,7 +36,11 @@ class RunInferenceRequestFactoryTest {
         assertNotNull(request.getRequestId());
         assertEquals("model.gguf", request.getModel());
         assertEquals("hello", request.getPrompt());
-        assertEquals("native", request.getPlugin());
+        assertEquals(Optional.of("native"), request.getPlugin());
+        assertEquals(Optional.of("session-1"), request.getSessionId());
+        assertEquals(2, request.getMirostat());
+        assertEquals("root ::= \"hello\"", request.getGrammar());
+        assertTrue(request.isCacheBypass());
         assertTrue(request.isStreaming());
         assertEquals(0.2, request.getParameters().get("temperature"));
         assertEquals(0.9, request.getParameters().get("top_p"));
