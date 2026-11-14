@@ -88,6 +88,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -1331,16 +1332,14 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("gguf.backend", ggufEngineHint);
                 requestBuilder.parameter("gguf.backend", ggufEngineHint);
             }
-            if (featurePipelineId != null && !featurePipelineId.isBlank()) {
-                String pipelineId = featurePipelineId.trim();
-                requestBuilder.parameter("pipeline", pipelineId);
-                requestBuilder.parameter("feature", pipelineId);
-                requestBuilder.parameter("feature_pipeline", true);
-            }
-            if (guidanceScale != null) requestBuilder.parameter("guidance_scale", guidanceScale);
-            if (outputPath != null) requestBuilder.parameter("output_path", outputPath);
-            if (width != null) requestBuilder.parameter("width", width);
-            if (height != null) requestBuilder.parameter("height", height);
+            ImageGenerationRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale,
+                            outputPath,
+                            width,
+                            height));
             requestBuilder.parameter("raw", raw);
             requestBuilder.parameter("debug_prompt", debugPrompt);
             tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.apply(
