@@ -4,6 +4,7 @@ import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.LocalModelArchitectureDetector;
 import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
 import tech.kayys.aqli.model.repo.local.LocalModelQuantizationMetadataReader;
+import tech.kayys.aqli.model.repo.local.LocalModelTaskClassifier;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -222,34 +223,13 @@ final class LocalModelIndex {
                     }
                     e.sizeBytes = sizeBytes;
 
-                    // Preserve the legacy pipeline-tag fallback when taskType was omitted/defaulted.
-                    e.taskType = manifest.getTaskType();
-                    if (!manifest.isTaskTypeSpecified() || e.taskType == null || e.taskType.isBlank()) {
-                        String tag = manifest.getMetadata() == null
-                                ? null : manifest.getMetadata().get("pipeline_tag");
-                        String mappedTaskType = pipelineTagToTaskType(tag);
-                        if (mappedTaskType != null) {
-                            e.taskType = mappedTaskType;
-                        }
-                    }
-                    if (e.taskType == null || e.taskType.isBlank() || "text".equals(e.taskType)) {
-                        String lowerId = (e.id != null ? e.id : "").toLowerCase(Locale.ROOT);
-                        String lowerName = (e.name != null ? e.name : "").toLowerCase(Locale.ROOT);
-                        if (lowerId.contains("ocr") || lowerName.contains("ocr")
-                                || lowerId.contains("pix2text") || lowerName.contains("pix2text")
-                                || lowerId.contains("trocr") || lowerId.contains("nougat")) {
-                            e.taskType = "ocr";
-                        } else if (lowerId.contains("3d") || lowerName.contains("3d")
-                                || lowerId.contains("block3d") || lowerName.contains("block3d")
-                                || lowerId.contains("trellis") || lowerName.contains("trellis")
-                                || lowerId.contains("shap-e") || lowerName.contains("shap-e")
-                                || lowerId.contains("mesh") || lowerName.contains("mesh")
-                                || lowerId.contains("splat") || lowerName.contains("splat")) {
-                            e.taskType = "3d";
-                        } else if (e.taskType == null || e.taskType.isBlank()) {
-                            e.taskType = "text";
-                        }
-                    }
+                    Map<String, String> metadata = manifest.getMetadata();
+                    e.taskType = LocalModelTaskClassifier.classify(
+                            manifest.getTaskType(),
+                            manifest.isTaskTypeSpecified(),
+                            metadata == null ? null : metadata.get("pipeline_tag"),
+                            e.id,
+                            e.name);
 
                     if (isUnknownArchitecture(e.architecture)) {
                         detectArchitecture(e, Files.isDirectory(resolved) ? resolved : resolved.getParent());
@@ -396,47 +376,6 @@ final class LocalModelIndex {
         return lower.endsWith(".onnx");
     }
 
-    /**
-     * Maps a HuggingFace {@code pipeline_tag} value to a aqli task-type label.
-     * Returns {@code null} when the tag is blank or unrecognised (caller decides default).
-     */
-    static String pipelineTagToTaskType(String pipelineTag) {
-        if (pipelineTag == null || pipelineTag.isBlank()) {
-            return null;
-        }
-        return switch (pipelineTag.trim().toLowerCase(Locale.ROOT)) {
-            case "text-generation",
-                 "text2text-generation",
-                 "conversational",
-                 "fill-mask"             -> "text";
-            case "automatic-speech-recognition",
-                 "audio-classification"  -> "stt";
-            case "text-to-audio",
-                 "text-to-speech"        -> "tts";
-            case "ocr",
-                 "optical-character-recognition" -> "ocr";
-            case "image-to-text",
-                 "document-question-answering",
-                 "visual-question-answering",
-                 "image-text-to-text"    -> "vision";
-            case "image-classification",
-                 "object-detection",
-                 "image-segmentation",
-                 "image-to-image"        -> "vision";
-            case "feature-extraction",
-                 "sentence-similarity"   -> "embedding";
-            case "time-series-forecasting",
-                 "time-series-classification",
-                 "tabular-regression",
-                 "tabular-classification" -> "timeseries";
-            case "text-to-3d",
-                 "image-to-3d",
-                 "3d-generation",
-                 "mesh-generation",
-                 "3d"                    -> "3d";
-            default                      -> null;
-        };
-    }
 
     private static boolean isRunnableFormat(String format) {
         if (format == null || format.isBlank()) {
