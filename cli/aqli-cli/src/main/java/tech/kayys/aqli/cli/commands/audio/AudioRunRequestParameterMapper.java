@@ -57,8 +57,8 @@ public final class AudioRunRequestParameterMapper {
         addNormalizedText(request, "audio_quality", options.quality());
         addText(request, "audio_format", options.format());
         add(request, "audio_bitrate_kbps", options.bitrateKbps());
-        addNormalizedText(request, "audio_channels", options.channels());
-        addNormalizedText(request, "tts_codec_decode", options.codecDecode());
+        addLowercaseText(request, "audio_channels", options.channels());
+        addLowercaseText(request, "tts_codec_decode", options.codecDecode());
 
         if (options.randomSeed()) request.parameter("random_seed", true);
         if (options.disablePolish()) request.parameter("audio_polish", false);
@@ -86,6 +86,12 @@ public final class AudioRunRequestParameterMapper {
     private static void addNormalizedText(InferenceRequest.Builder request, String key, String value) {
         if (value != null && !value.isBlank()) {
             request.parameter(key, value.trim().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    private static void addLowercaseText(InferenceRequest.Builder request, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            request.parameter(key, value.toLowerCase(Locale.ROOT));
         }
     }
 
