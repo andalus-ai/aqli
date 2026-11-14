@@ -63,6 +63,24 @@ class LocalModelIndexResolverTest {
     }
 
     @Test
+    void exactReferenceLookupDoesNotExpandAliasesOrRequireExistingArtifact() {
+        LocalModelIndex.Entry stale = entry(tempDir.resolve("missing.gguf"));
+        List<String> lookups = new ArrayList<>();
+
+        Optional<LocalModelIndex.Entry> result = LocalModelIndexResolver.findExactReference(
+                "hf:org/model",
+                "gguf",
+                (reference, format) -> {
+                    lookups.add(reference + ":" + format);
+                    return Optional.of(stale);
+                });
+
+        assertTrue(result.isPresent());
+        assertSame(stale, result.orElseThrow());
+        assertEquals(List.of("hf:org/model:gguf"), lookups);
+    }
+
+    @Test
     void exactFormatLookupPreservesPreferredThenUnfilteredFallbackOrder() throws Exception {
         Path artifact = Files.createFile(tempDir.resolve("model.safetensors"));
         LocalModelIndex.Entry wrongFormat = entry(artifact);
