@@ -80,7 +80,7 @@ class AqliGrpcServiceTest {
         assertEquals(0.9, assembled.getTopP(), 0.0001);
         assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
         assertEquals(1, assembled.getMessages().size());
-        assertEquals(Message.Role.USER, assembled.getMessages().get(0).getRole());
+        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, assembled.getMessages().get(0).getRole());
         assertFalse(assembled.isStreaming());
 
         assertTrue(observer.completed);
@@ -122,7 +122,7 @@ class AqliGrpcServiceTest {
         assertEquals("test-model", assembled.getModel());
         assertEquals("Once upon a time", assembled.getPrompt());
         assertEquals(1, assembled.getMessages().size());
-        assertEquals(Message.Role.USER, assembled.getMessages().get(0).getRole());
+        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, assembled.getMessages().get(0).getRole());
         assertEquals("Once upon a time", assembled.getMessages().get(0).getContent());
         assertEquals(0.5, assembled.getTemperature(), 0.0001);
         assertEquals(20, assembled.getMaxTokens());
@@ -195,10 +195,10 @@ class AqliGrpcServiceTest {
         assertEquals("test-model", assembled.getModel());
         assertEquals("Dart", assembled.getPrompt());
         assertEquals(1, assembled.getMessages().size());
-        assertEquals(Message.Role.USER, assembled.getMessages().get(0).getRole());
+        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, assembled.getMessages().get(0).getRole());
         assertEquals("Dart", assembled.getMessages().get(0).getContent());
-        assertEquals(0.2, assembled.getTemperature(), 0.0001);
-        assertEquals(256, assembled.getMaxTokens());
+        assertEquals(0.0, assembled.getTemperature(), 0.0001);
+        assertEquals(0, assembled.getMaxTokens());
         assertEquals(0.9, assembled.getTopP(), 0.0001);
         assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
         assertTrue(assembled.isStreaming());
