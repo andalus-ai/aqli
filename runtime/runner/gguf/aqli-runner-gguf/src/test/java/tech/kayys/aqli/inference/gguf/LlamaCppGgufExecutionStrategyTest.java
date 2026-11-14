@@ -23,7 +23,7 @@ class LlamaCppGgufExecutionStrategyTest {
     void executesSessionAndCapturesBackendTokenAndMetricResults() throws Exception {
         LlamaCppGgufSession session = mock(LlamaCppGgufSession.class);
         when(session.generateWithMetrics("hello", 32, 0.7d, 40, 0.9d, true, "compatible"))
-                .thenReturn(new LlamaCppGgufSession.GenerationResult(
+                .thenAnswer(invocation -> new LlamaCppGgufSession.GenerationResult(
                         "world", 7, System.nanoTime(), Optional.of("decode_ms=12")));
         when(session.backendName()).thenReturn("metal");
 
@@ -43,7 +43,7 @@ class LlamaCppGgufExecutionStrategyTest {
     void missingMetricsDoNotFailInferenceResult() throws Exception {
         LlamaCppGgufSession session = mock(LlamaCppGgufSession.class);
         when(session.generateWithMetrics("hello", 2, 0.0d, 1, 1.0d, false, "cold"))
-                .thenReturn(new LlamaCppGgufSession.GenerationResult(
+                .thenAnswer(invocation -> new LlamaCppGgufSession.GenerationResult(
                         "", 0, System.nanoTime(), Optional.empty()));
         when(session.backendName()).thenReturn("cpu");
 
