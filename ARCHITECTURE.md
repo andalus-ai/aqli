@@ -153,3 +153,90 @@ grep -rn 'tech.kayys.aqli.runtime.data' --include="*.java" runtime/
 | New hardware runner (e.g. Vulkan) | `runtime/runner/vulkan/aqli-runner-vulkan` |
 | New optimization plugin | `runtime/optimization/aqli-plugin-<name>` |
 | New SDK convenience layer | `framework/sdk/aqli-sdk-<name>` (if pure abstraction) or `runtime/sdk/aqli-sdk-<name>` (if uses I/O) |
+
+
+---
+
+## SDK-First Capability API and Transport Architecture
+
+The AQLI SDK is the canonical **AQLI public API contract**, while application services
+are the single source of execution behavior. These responsibilities must remain separate.
+
+### Transport flow
+
+```text
+CLI adapter ─┐
+REST adapter ├──> AQLI SDK contract / application boundary
+gRPC adapter ┘                 |
+                               v
+                    Shared application services
+                               |
+               +---------------+----------------+
+               |               |                |
+          Text capability  Audio capability  Image / Video /
+              API              API           Spatial capability APIs
+               |               |                |
+               +---------------+----------------+
+                               |
+                      Runtime / model runners
+                               |
+                         Aljabr framework
+```
+
+### Ownership
+
+- **AQLI SDK API:** stable, transport-neutral public requests, responses, capability
+  access, and streaming contracts for AQLI clients. It must not contain inference
+  orchestration or depend on CLI/REST/gRPC transport types.
+- **Application services:** the single implementation path for defaults, validation,
+  capability dispatch, orchestration, routing policy, streaming lifecycle, cancellation,
+  and use-case error semantics.
+- **Capability API modules:** typed requests, responses, options, and contracts owned by
+  each capability (text, audio, image, video, spatial/3D, embedding, and future modalities).
+  Multimodal task composition must be supported where capabilities can be combined.
+- **CLI / REST / gRPC:** input/output adapters only. They map their own representations
+  into the same SDK/application semantics and call the same application services.
+- **Runtime and runners:** model loading and concrete execution implementations.
+- **Aljabr:** general ML/tensor/model and engine-neutral serving abstractions that should
+  be reusable beyond AQLI.
+
+### Important distinction: AQLI SDK versus Aljabr SPI
+
+The AQLI SDK is the canonical public contract for consumers of AQLI. It is not a reason
+to duplicate general inference-engine contracts that belong in Aljabr. If a contract is
+engine-neutral and reusable by any compliant inference engine, evaluate it for elevation
+to Aljabr. AQLI-specific client ergonomics and application use-case contracts remain in
+AQLI.
+
+### Request migration
+
+The existing `AqliClient.GenerationRequest` is a small public text-generation request.
+The existing `InferenceRequest` in `aqli-spi-inference` is a richer internal execution
+request with messages, tools, streaming, provider/plugin selection, context, metadata,
+attachments, a generic parameter map, and a deprecated native `MemorySegment` handle.
+
+Do not rename the SPI request into the public SDK request or expose its execution details
+as the permanent public contract. Keep it as an internal execution model during migration.
+Define a transport-neutral SDK envelope with typed capability task payloads, then use one
+application-layer mapper to translate it into the internal execution SPI. Preserve existing
+SDK callers and REST/gRPC wire compatibility through explicit adapters while migrating.
+
+Avoid a flat request containing every modality's parameters and avoid untyped parameter
+maps as the long-term public contract. Compatibility maps may remain temporarily only with
+documented ownership, validation, and a migration/removal plan.
+
+### Module introduction and parity
+
+Introduce capability API/core/runner modules incrementally, reusing current modules and
+SPIs where possible. Do not create empty modules or a separate CLI module for every
+capability without a real packaging/dependency boundary. Begin with stable, actively used
+capabilities; add video and spatial/3D contracts as their use cases mature.
+
+CLI, REST, and gRPC conformance tests must compare normalized application requests and
+outcomes rather than raw wire representations. Cover defaults, validation, model and
+capability selection, error semantics, streaming order/termination, cancellation,
+resource cleanup, metadata/usage, and multimodal behavior.
+
+The detailed migration plan and acceptance criteria are maintained in
+`docs/architecture/sdk-first-capability-architecture.md`. Repository-level agent rules
+are maintained in `AGENTS.md`.
