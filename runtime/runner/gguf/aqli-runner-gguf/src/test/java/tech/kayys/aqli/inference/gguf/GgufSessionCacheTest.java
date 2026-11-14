@@ -311,7 +311,7 @@ class GgufSessionCacheTest {
         LlamaCppGgufSession first = mock(LlamaCppGgufSession.class);
         LlamaCppGgufSession second = mock(LlamaCppGgufSession.class);
         AtomicInteger opened = new AtomicInteger();
-        GgufSessionCache cache = cache(2, (path, parameters, paths) ->
+        GgufSessionCache cache = cache(1, (path, parameters, paths) ->
                 opened.getAndIncrement() == 0 ? first : second);
 
         GgufSessionCache.SessionLease firstLease =
@@ -322,16 +322,19 @@ class GgufSessionCacheTest {
                 cache.acquire(Path.of("/models/second.gguf"), parameters(99));
 
         GgufSessionCache.CacheSnapshot snapshot = cache.snapshot();
-        assertEquals(2, snapshot.nativeEntries());
+        assertEquals(1, snapshot.nativeEntries());
         assertEquals(0, snapshot.javaBackendEntries());
         assertEquals(3, snapshot.activeNativeLeases());
         assertEquals(0, snapshot.activeJavaBackendLeases());
         assertEquals(1, snapshot.nativeHits());
         assertEquals(2, snapshot.nativeMisses());
-        assertEquals(0, snapshot.nativeEvictions());
+        assertEquals(1, snapshot.nativeEvictions());
 
+        verify(first, never()).close();
         firstLease.close();
+        verify(first, never()).close();
         reusedLease.close();
+        verify(first).close();
         secondLease.close();
         assertEquals(0, cache.snapshot().activeNativeLeases());
         cache.close();
