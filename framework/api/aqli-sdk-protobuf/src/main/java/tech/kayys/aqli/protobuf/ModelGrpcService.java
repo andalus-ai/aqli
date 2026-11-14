@@ -6,13 +6,15 @@ import io.quarkus.grpc.GrpcService;
 import io.grpc.stub.StreamObserver;
 import io.grpc.Status;
 import jakarta.inject.Inject;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.registry.service.ModelRegistryService;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import java.util.stream.Collectors;
 
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(ModelGrpcService.class);
+    private final ExecutorService pullExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Inject
     ModelRegistryService registryService;
@@ -48,7 +51,7 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
                 .force(request.getForce())
                 .build();
 
-        CompletableFuture.runAsync(() -> {
+        pullExecutor.execute(() -> {
             try {
                 runtime.pullModel(pullRequest, progress -> observer.onNext(toGrpcProgress(progress)));
                 sample.stop(meterRegistry.timer("aqli.grpc.model.pull.duration"));
@@ -63,6 +66,11 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
                         .asRuntimeException());
             }
         });
+    }
+
+    @PreDestroy
+    void shutdownPullExecutor() {
+        pullExecutor.shutdown();
     }
 
     private static PullModelProgress toGrpcProgress(PullProgress progress) {
