@@ -95,4 +95,24 @@ class LocalModelFileInventoryTest {
         assertEquals(java.time.Instant.EPOCH, LocalModelFileInventory.latestModified(temporaryDirectory));
     }
 
+    @Test
+    void detectsCanonicalFormatLabelsFromFileExtensions() {
+        assertEquals("gguf", LocalModelFileInventory.detectFormat(Path.of("model.gguf"), "fallback"));
+        assertEquals("safetensors", LocalModelFileInventory.detectFormat(Path.of("model.safetensor"), "fallback"));
+        assertEquals("safetensors", LocalModelFileInventory.detectFormat(Path.of("model.safetensors"), "fallback"));
+        assertEquals("onnx", LocalModelFileInventory.detectFormat(Path.of("model.onnx"), "fallback"));
+        assertEquals("litert", LocalModelFileInventory.detectFormat(Path.of("model.tflite"), "fallback"));
+        assertEquals("litert", LocalModelFileInventory.detectFormat(Path.of("model.litertlm"), "fallback"));
+        assertEquals("litert", LocalModelFileInventory.detectFormat(Path.of("model.task"), "fallback"));
+        assertEquals("torchscript", LocalModelFileInventory.detectFormat(Path.of("model.pt"), "fallback"));
+        assertEquals("torchscript", LocalModelFileInventory.detectFormat(Path.of("model.pth"), "fallback"));
+        assertEquals("bin", LocalModelFileInventory.detectFormat(Path.of("pytorch_model.bin"), "fallback"));
+    }
+
+    @Test
+    void retainsFallbackForUnrecognizedAndExtensionlessFiles() {
+        assertEquals("custom", LocalModelFileInventory.detectFormat(Path.of("weights.data"), "custom"));
+        assertEquals("gguf", LocalModelFileInventory.detectFormat(Path.of("weights"), "gguf"));
+    }
+
 }
