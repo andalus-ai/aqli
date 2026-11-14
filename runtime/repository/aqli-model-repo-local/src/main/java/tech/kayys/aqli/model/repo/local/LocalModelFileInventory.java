@@ -41,6 +41,64 @@ public final class LocalModelFileInventory {
         return List.copyOf(candidates);
     }
 
+    /**
+     * Returns the size of a file or the recursive size of a directory.
+     * Unreadable paths and individual files are treated as zero bytes, matching
+     * the local index's historical best-effort behavior.
+     */
+    public static long sizeBytes(Path path) {
+        try {
+            if (Files.isRegularFile(path)) {
+                return Files.size(path);
+            }
+            if (Files.isDirectory(path)) {
+                try (var walk = Files.walk(path)) {
+                    return walk.filter(Files::isRegularFile)
+                            .mapToLong(file -> {
+                                try {
+                                    return Files.size(file);
+                                } catch (Exception ignored) {
+                                    return 0L;
+                                }
+                            })
+                            .sum();
+                }
+            }
+        } catch (Exception ignored) {
+            // Best-effort filesystem metadata.
+        }
+        return 0L;
+    }
+
+    /**
+     * Returns the most recent modification time below a file or directory.
+     * Missing, unreadable, or empty paths resolve to the epoch.
+     */
+    public static java.time.Instant latestModified(Path path) {
+        try {
+            if (Files.isRegularFile(path)) {
+                return Files.getLastModifiedTime(path).toInstant();
+            }
+            if (Files.isDirectory(path)) {
+                try (var walk = Files.walk(path)) {
+                    return walk.filter(Files::isRegularFile)
+                            .map(file -> {
+                                try {
+                                    return Files.getLastModifiedTime(file).toInstant();
+                                } catch (Exception ignored) {
+                                    return java.time.Instant.EPOCH;
+                                }
+                            })
+                            .max(java.time.Instant::compareTo)
+                            .orElse(java.time.Instant.EPOCH);
+                }
+            }
+        } catch (Exception ignored) {
+            // Best-effort filesystem metadata.
+        }
+        return java.time.Instant.EPOCH;
+    }
+
     private static boolean isLikelyWeightFile(Path path) {
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         return name.endsWith(".gguf")

@@ -219,7 +219,7 @@ final class LocalModelIndex {
 
                     long sizeBytes = manifest.getSizeBytes();
                     if (sizeBytes <= 0L) {
-                        sizeBytes = computeSize(resolved);
+                        sizeBytes = LocalModelFileInventory.sizeBytes(resolved);
                     }
                     e.sizeBytes = sizeBytes;
 
@@ -260,8 +260,8 @@ final class LocalModelIndex {
         e.parameterCount = pc > 0 ? String.format("%.1fB", pc) : null;
         
         try {
-            e.sizeBytes = computeSize(listedPath);
-            e.updatedAt = latestModified(listedPath).toString();
+            e.sizeBytes = LocalModelFileInventory.sizeBytes(listedPath);
+            e.updatedAt = LocalModelFileInventory.latestModified(listedPath).toString();
         } catch (Exception ignored) {
             e.sizeBytes = 0L;
         }
@@ -389,55 +389,6 @@ final class LocalModelIndex {
                 || normalized.equals("onnx")
                 || normalized.equals("task")
                 || normalized.equals("tflite");
-    }
-
-    private static long computeSize(Path path) {
-        try {
-            if (Files.isRegularFile(path)) {
-                return Files.size(path);
-            }
-            if (Files.isDirectory(path)) {
-                try (var walk = Files.walk(path)) {
-                    return walk.filter(Files::isRegularFile)
-                            .mapToLong(p -> {
-                                try {
-                                    return Files.size(p);
-                                } catch (Exception ignored) {
-                                    return 0L;
-                                }
-                            })
-                            .sum();
-                }
-            }
-        } catch (Exception ignored) {
-            // best effort
-        }
-        return 0L;
-    }
-
-    private static Instant latestModified(Path path) {
-        try {
-            if (Files.isRegularFile(path)) {
-                return Files.getLastModifiedTime(path).toInstant();
-            }
-            if (Files.isDirectory(path)) {
-                try (var walk = Files.walk(path)) {
-                    return walk.filter(Files::isRegularFile)
-                            .map(p -> {
-                                try {
-                                    return Files.getLastModifiedTime(p).toInstant();
-                                } catch (Exception ignored) {
-                                    return Instant.EPOCH;
-                                }
-                            })
-                            .max(Comparator.naturalOrder())
-                            .orElse(Instant.EPOCH);
-                }
-            }
-        } catch (Exception ignored) {
-            // best effort
-        }
-        return Instant.EPOCH;
     }
 
     private static String normalizePath(Path path) {
