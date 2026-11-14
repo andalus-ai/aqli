@@ -1,6 +1,9 @@
 package tech.kayys.aqli.sdk.local;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -8,6 +11,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
@@ -40,15 +45,22 @@ public class LocalAqliSdk implements AqliSdk {
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
     private final LocalModelCatalog models;
+    private final HuggingFaceRepository huggingFaceRepository;
 
     public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config) {
-        this(engines, config, new LocalModelCatalog(new tech.kayys.aqli.model.repo.local.ManifestStore()));
+        this(engines, config, new LocalModelCatalog(new tech.kayys.aqli.model.repo.local.ManifestStore()), null);
     }
 
     public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config, LocalModelCatalog models) {
+        this(engines, config, models, null);
+    }
+
+    public LocalAqliSdk(LocalInferenceEngineCatalog engines, SdkConfig config, LocalModelCatalog models,
+            HuggingFaceRepository huggingFaceRepository) {
         this.engines = java.util.Objects.requireNonNull(engines, "engines");
         this.config = config != null ? config : SdkConfig.builder().build();
         this.models = java.util.Objects.requireNonNull(models, "models");
+        this.huggingFaceRepository = huggingFaceRepository;
     }
 
     @Override
@@ -128,7 +140,93 @@ public class LocalAqliSdk implements AqliSdk {
 
     @Override
     public void pullModel(String modelSpec, Consumer<PullProgress> progressCallback) throws SdkException {
-        throw unsupported("Model downloads");
+        pullModel(modelSpec, null, null, false, progressCallback);
+    }
+
+    @Override
+    public void pullModel(String modelSpec, String revision, String format, boolean force,
+            Consumer<PullProgress> progressCallback) throws SdkException {
+        if (huggingFaceRepository == null) {
+            throw unsupported("Hugging Face model downloads");
+        }
+        String repositoryId = resolveHuggingFaceRepositoryId(modelSpec);
+        DownloadProgressListener listener = new DownloadProgressListener() {
+            @Override
+            public void onStart(long totalBytes) {
+                if (progressCallback != null) {
+                    progressCallback.accept(PullProgress.of("Downloading " + repositoryId, null, totalBytes, 0));
+                }
+            }
+
+            @Override
+            public void onProgress(long downloadedBytes, long totalBytes, double progress) {
+                if (progressCallback != null) {
+                    progressCallback.accept(PullProgress.of(
+                            "Downloading " + repositoryId, null, totalBytes, downloadedBytes));
+                }
+            }
+
+            @Override
+            public void onComplete(long totalBytes) {
+                if (progressCallback != null) {
+                    progressCallback.accept(PullProgress.of(
+                            "Completed " + repositoryId, null, totalBytes, totalBytes));
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                if (progressCallback != null) {
+                    progressCallback.accept(PullProgress.of(
+                            "Failed " + repositoryId + ": "
+                                    + (error == null ? "unknown error" : error.getMessage())));
+                }
+            }
+        };
+
+        try {
+            huggingFaceRepository.pullRepository(
+                    repositoryId, revision, format, null, Map.of(), List.of(), force, null, listener);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new SdkException("SDK_ERR_MODEL_PULL",
+                    "Hugging Face model pull was interrupted for '" + repositoryId + "'.", e);
+        } catch (IOException | RuntimeException e) {
+            throw new SdkException("SDK_ERR_MODEL_PULL",
+                    "Unable to pull Hugging Face model '" + repositoryId + "': " + e.getMessage(), e);
+        }
+    }
+
+    private static String resolveHuggingFaceRepositoryId(String modelSpec) throws SdkException {
+        if (modelSpec == null || modelSpec.isBlank()) {
+            throw new SdkException("SDK_ERR_INVALID_ARGUMENT", "Model specification is required.");
+        }
+        String normalized = modelSpec.trim();
+        if (normalized.startsWith("hf:")) {
+            normalized = normalized.substring("hf:".length());
+        } else if (normalized.startsWith("huggingface:")) {
+            normalized = normalized.substring("huggingface:".length());
+        } else {
+            if (normalized.contains("://") || normalized.startsWith("/") || normalized.indexOf('\\') >= 0) {
+                throw new SdkException("SDK_ERR_NOT_SUPPORTED",
+                        "The local SDK model pull currently supports Hugging Face repository references only.");
+            }
+            try {
+                if (java.nio.file.Files.exists(Path.of(normalized))) {
+                    throw new SdkException("SDK_ERR_NOT_SUPPORTED",
+                            "Local file imports are not supported by the Hugging Face pull operation.");
+                }
+            } catch (InvalidPathException e) {
+                throw new SdkException("SDK_ERR_INVALID_ARGUMENT", "Invalid model specification: " + modelSpec, e);
+            }
+        }
+        if (normalized.isBlank() || normalized.startsWith("/") || normalized.endsWith("/")
+                || normalized.chars().filter(ch -> ch == '/').count() != 1
+                || normalized.contains(":") || normalized.indexOf('\\') >= 0) {
+            throw new SdkException("SDK_ERR_INVALID_ARGUMENT",
+                    "Expected a Hugging Face repository ID in the form 'owner/repository'.");
+        }
+        return normalized;
     }
 
     @Override
