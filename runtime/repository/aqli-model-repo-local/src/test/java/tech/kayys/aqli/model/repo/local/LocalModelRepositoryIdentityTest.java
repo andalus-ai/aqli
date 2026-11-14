@@ -42,6 +42,15 @@ class LocalModelRepositoryIdentityTest {
     }
 
     @Test
+    void derivesDisplayNameFromShallowOnnxModelFile() {
+        Path relative = Path.of("model.onnx");
+        Path file = Path.of("/models/onnx/repository/model.onnx");
+
+        assertEquals("repository", LocalModelRepositoryIdentity.displayName(relative, file));
+        assertFalse(LocalModelRepositoryIdentity.aggregateRepositoryFile(relative, file));
+    }
+
+    @Test
     void keepsNonRepositoryFilesAtTheirOriginalPathDepth() {
         Path relative = Path.of("owner", "repository", "weights.bin");
         Path file = Path.of("/models/bin").resolve(relative);
