@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.inject.Instance;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
+import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.sdk.util.AqliHome;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
@@ -295,7 +296,7 @@ final class MossTtsCliDiagnosticsHandler {
         System.out.println();
         System.out.println("Audio output");
         System.out.println("------------");
-        RunCommand.AudioQualityPreset preset = command.audioQualityPreset();
+        AudioQualityPreset preset = command.audioQualityPreset();
         String effectiveFormat = command.effectiveAudioFormat(preset);
         String diagnosticFormat = diagnosticAudioFormat(effectiveFormat);
         Integer bitrate = command.effectiveAudioBitrateKbps(preset, diagnosticFormat);
@@ -421,7 +422,7 @@ final class MossTtsCliDiagnosticsHandler {
         payload.put("codec", codec);
         payload.put("onnx_caches", ttsOnnxCacheDiagnosticsJson(modelDir, codecDir));
 
-        RunCommand.AudioQualityPreset preset = command.audioQualityPreset();
+        AudioQualityPreset preset = command.audioQualityPreset();
         String diagnosticFormat = diagnosticAudioFormat(command.effectiveAudioFormat(preset));
         String encoderStatus = diagnosticAudioEncoderStatus(diagnosticFormat);
         Map<String, Object> audio = new LinkedHashMap<>();

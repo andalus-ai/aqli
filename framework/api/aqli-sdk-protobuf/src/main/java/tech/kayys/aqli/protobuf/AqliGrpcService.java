@@ -63,7 +63,47 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     @Override
     public void streamChat(ChatRequest request, StreamObserver<ChatResponse> observer) {
         LOG.info("Received streamChat request for model: {}", request.getModelId());
-        GrpcResponseObserver.unimplemented("streamChat", observer);
+        try {
+            InferenceRequest internalRequest = InferenceRequest.builder()
+                    .model(request.getModelId())
+                    .messages(request.getMessagesList().stream()
+                            .map(m -> new Message(Message.Role.valueOf(m.getRole().toUpperCase()), m.getContent()))
+                            .collect(Collectors.toList()))
+                    .temperature(request.getTemperature())
+                    .maxTokens(request.getMaxTokens())
+                    .streaming(true)
+                    .build();
+
+            sdk.streamCompletion(internalRequest).subscribe().with(
+                    chunk -> {
+                        meterRegistry.counter("aqli.grpc.chat.stream.chunks").increment();
+                        ChatResponse.Builder builder = ChatResponse.newBuilder()
+                                .setId(chunk.requestId() != null ? chunk.requestId() : "")
+                                .setMessage(tech.kayys.aqli.protobuf.Message.newBuilder()
+                                        .setRole("assistant")
+                                        .setContent(chunk.delta() != null ? chunk.delta() : "")
+                                        .build())
+                                .setFinishReason(chunk.finishReason() != null ? chunk.finishReason() : "");
+                        if (chunk.usage() != null) {
+                            builder.setPromptTokens((int) chunk.usage().inputTokens());
+                            builder.setCompletionTokens((int) chunk.usage().outputTokens());
+                        }
+                        observer.onNext(builder.build());
+                    },
+                    th -> {
+                        LOG.error("Failed streamChat request for model: {}", request.getModelId(), th);
+                        meterRegistry.counter("aqli.grpc.chat.stream.error").increment();
+                        observer.onError(th);
+                    },
+                    () -> {
+                        LOG.info("streamChat completed for model: {}", request.getModelId());
+                        observer.onCompleted();
+                    }
+            );
+        } catch (Exception e) {
+            LOG.error("Failed to initiate streamChat for model: {}", request.getModelId(), e);
+            observer.onError(e);
+        }
     }
 
     @Override
@@ -100,7 +140,43 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     @Override
     public void streamComplete(CompletionRequest request, StreamObserver<CompletionResponse> observer) {
         LOG.info("Received streamComplete request for model: {}", request.getModelId());
-        GrpcResponseObserver.unimplemented("streamComplete", observer);
+        try {
+            InferenceRequest internalRequest = InferenceRequest.builder()
+                    .model(request.getModelId())
+                    .prompt(request.getPrompt())
+                    .message(new Message(Message.Role.USER, request.getPrompt()))
+                    .temperature(request.getTemperature())
+                    .maxTokens(request.getMaxTokens())
+                    .streaming(true)
+                    .build();
+
+            sdk.streamCompletion(internalRequest).subscribe().with(
+                    chunk -> {
+                        meterRegistry.counter("aqli.grpc.complete.stream.chunks").increment();
+                        CompletionResponse.Builder builder = CompletionResponse.newBuilder()
+                                .setId(chunk.requestId() != null ? chunk.requestId() : "")
+                                .setText(chunk.delta() != null ? chunk.delta() : "")
+                                .setFinishReason(chunk.finishReason() != null ? chunk.finishReason() : "");
+                        if (chunk.usage() != null) {
+                            builder.setPromptTokens((int) chunk.usage().inputTokens());
+                            builder.setCompletionTokens((int) chunk.usage().outputTokens());
+                        }
+                        observer.onNext(builder.build());
+                    },
+                    th -> {
+                        LOG.error("Failed streamComplete request for model: {}", request.getModelId(), th);
+                        meterRegistry.counter("aqli.grpc.complete.stream.error").increment();
+                        observer.onError(th);
+                    },
+                    () -> {
+                        LOG.info("streamComplete completed for model: {}", request.getModelId());
+                        observer.onCompleted();
+                    }
+            );
+        } catch (Exception e) {
+            LOG.error("Failed to initiate streamComplete for model: {}", request.getModelId(), e);
+            observer.onError(e);
+        }
     }
 
     private InferenceResponse createCompletion(InferenceRequest request) {
@@ -119,6 +195,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
                         .setContent(response.getContent())
                         .build())
                 .setFinishReason(response.getFinishReason() != null ? response.getFinishReason().name() : "STOP")
+                .setPromptTokens(response.getInputTokens())
                 .setCompletionTokens(response.getOutputTokens())
                 .build();
     }
@@ -128,6 +205,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
                 .setId(response.getRequestId())
                 .setText(response.getContent())
                 .setFinishReason(response.getFinishReason() != null ? response.getFinishReason().name() : "STOP")
+                .setPromptTokens(response.getInputTokens())
                 .setCompletionTokens(response.getOutputTokens())
                 .build();
     }

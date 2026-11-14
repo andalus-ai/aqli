@@ -43,7 +43,7 @@ public class SdkProvider {
     @PostConstruct
     void init() {
         try {
-            this.sdk = AqliSdkFactory.createLocalSdk();
+            this.sdk = (AqliSdk) AqliSdkFactory.createLocalSdk();
         } catch (SdkException e) {
             LOG.warn("No local Aqli SDK found on classpath; using demo fallback. " + e.getMessage());
             this.sdk = new DemoSdk();

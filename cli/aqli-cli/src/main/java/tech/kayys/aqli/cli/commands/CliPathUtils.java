@@ -47,4 +47,41 @@ final class CliPathUtils {
         }
         return value;
     }
+
+    static Path replaceExtension(Path path, String newExt) {
+        if (path == null) {
+            return null;
+        }
+        String filename = path.getFileName().toString();
+        int lastDot = filename.lastIndexOf('.');
+        if (lastDot == -1) return path.resolveSibling(filename + "." + newExt);
+        return path.resolveSibling(filename.substring(0, lastDot) + "." + newExt);
+    }
+
+    static String normalizeExtension(String ext) {
+        if (ext == null) {
+            return "";
+        }
+        String value = ext.trim().toLowerCase(java.util.Locale.ROOT);
+        while (value.startsWith(".")) {
+            value = value.substring(1);
+        }
+        return value;
+    }
+
+    static String pathExtension(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return "";
+        }
+        String filename = path.getFileName().toString();
+        int dot = filename.lastIndexOf('.');
+        return dot >= 0 && dot + 1 < filename.length() ? filename.substring(dot + 1) : "";
+    }
+
+    static boolean isKnownAudioExtension(String ext) {
+        if (ext == null || ext.isBlank()) {
+            return false;
+        }
+        return java.util.Set.of("wav", "mp3", "flac", "ogg", "m4a", "aac").contains(ext.toLowerCase(java.util.Locale.ROOT));
+    }
 }

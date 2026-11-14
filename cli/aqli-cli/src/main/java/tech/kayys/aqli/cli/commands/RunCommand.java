@@ -1,4 +1,6 @@
 package tech.kayys.aqli.cli.commands;
+import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
+import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 import tech.kayys.aqli.observability.ObservabilityManager;
@@ -1729,85 +1731,19 @@ public class RunCommand implements Runnable {
     }
 
     private boolean verifyAudioMetadataSidecar() {
-        try {
-            Path sidecarPath = Path.of(audioMetadataVerifyPath);
-            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
-            AudioMetadataSidecarStore.VerificationResult result =
-                    AudioMetadataSidecarStore.verify(sidecarPath, outputOverride);
-            System.out.println(ChatUIRenderer.GREEN + "✓ Audio metadata verified: " + ChatUIRenderer.RESET
-                    + result.audioPath());
-            System.out.println(ChatUIRenderer.DIM + "Bytes: " + result.sizeBytes()
-                    + ", SHA-256: " + result.sha256()
-                    + ChatUIRenderer.RESET);
-            return true;
-        } catch (Exception e) {
-            System.err.println("Error: failed to verify audio metadata: " + e.getMessage());
-            return false;
-        }
+        return MediaMetadataSidecarCliHandler.verifyAudioMetadataSidecar(audioMetadataVerifyPath, outputPath);
     }
 
     private boolean refreshAudioMetadataSidecar() {
-        try {
-            Path sidecarPath = Path.of(audioMetadataRefreshPath);
-            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
-            AudioMetadataSidecarStore.RefreshResult result =
-                    AudioMetadataSidecarStore.refresh(sidecarPath, outputOverride);
-            System.out.println(ChatUIRenderer.GREEN + "✓ Audio metadata refreshed: " + ChatUIRenderer.RESET
-                    + result.sidecarPath());
-            System.out.println(ChatUIRenderer.DIM + "Output: "
-                    + result.audioPath()
-                    + ", bytes: " + result.sizeBytes()
-                    + ", SHA-256: " + result.sha256()
-                    + ChatUIRenderer.RESET);
-            return true;
-        } catch (Exception e) {
-            System.err.println("Error: failed to refresh audio metadata: " + e.getMessage());
-            return false;
-        }
+        return MediaMetadataSidecarCliHandler.refreshAudioMetadataSidecar(audioMetadataRefreshPath, outputPath);
     }
 
     private boolean verifyImageMetadataSidecar() {
-        try {
-            Path sidecarPath = Path.of(imageMetadataVerifyPath);
-            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
-            ImageMetadataSidecarStore.VerificationResult result =
-                    ImageMetadataSidecarStore.verify(sidecarPath, outputOverride);
-            System.out.println(ChatUIRenderer.GREEN + "✓ Image metadata verified: " + ChatUIRenderer.RESET
-                    + result.imagePath());
-            System.out.println(ChatUIRenderer.DIM + "Bytes: " + result.sizeBytes()
-                    + ", SHA-256: " + result.sha256()
-                    + ChatUIRenderer.RESET);
-            return true;
-        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
-            System.err.println(e.getMessage());
-            return false;
-        } catch (Exception e) {
-            System.err.println("Error: failed to verify image metadata: " + e.getMessage());
-            return false;
-        }
+        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(imageMetadataVerifyPath, outputPath);
     }
 
     private boolean refreshImageMetadataSidecar() {
-        try {
-            Path sidecarPath = Path.of(imageMetadataRefreshPath);
-            Path outputOverride = outputPath == null || outputPath.isBlank() ? null : Path.of(outputPath);
-            ImageMetadataSidecarStore.RefreshResult result =
-                    ImageMetadataSidecarStore.refresh(sidecarPath, outputOverride);
-            System.out.println(ChatUIRenderer.GREEN + "✓ Image metadata refreshed: " + ChatUIRenderer.RESET
-                    + result.sidecarPath());
-            System.out.println(ChatUIRenderer.DIM + "Output: "
-                    + result.imagePath()
-                    + ", bytes: " + result.sizeBytes()
-                    + ", SHA-256: " + result.sha256()
-                    + ChatUIRenderer.RESET);
-            return true;
-        } catch (ImageMetadataSidecarStore.ImageMetadataSidecarException e) {
-            System.err.println(e.getMessage());
-            return false;
-        } catch (Exception e) {
-            System.err.println("Error: failed to refresh image metadata: " + e.getMessage());
-            return false;
-        }
+        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(imageMetadataRefreshPath, outputPath);
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
@@ -1960,14 +1896,14 @@ public class RunCommand implements Runnable {
     private boolean validateTtsAudioCliOptions() {
         boolean ok = true;
         if (audioFormat != null && !audioFormat.isBlank()) {
-            ok &= validateChoice(
+            ok &= TtsCliOptionsValidator.validateChoice(
                     "--audio-format",
                     audioFormat,
                     Set.of("wav", "flac", "mp3"),
                     "wav, flac, mp3");
         }
         if (audioQuality != null && !audioQuality.isBlank()) {
-            ok &= validateChoice(
+            ok &= TtsCliOptionsValidator.validateChoice(
                     "--audio-quality",
                     audioQuality,
                     Set.of("auto", "default", "compact", "small", "speech", "balanced", "standard", "high",
@@ -1975,7 +1911,7 @@ public class RunCommand implements Runnable {
                     "compact, speech, balanced, high, lossless");
         }
         if (audioChannels != null && !audioChannels.isBlank()) {
-            ok &= validateChoice(
+            ok &= TtsCliOptionsValidator.validateChoice(
                     "--audio-channels",
                     audioChannels,
                     Set.of("auto", "1", "mono", "single", "2", "stereo", "dual-mono", "dual_mono",
@@ -1983,7 +1919,7 @@ public class RunCommand implements Runnable {
                     "auto, mono, stereo, dual-mono, native");
         }
         if (ttsCodecDecode != null && !ttsCodecDecode.isBlank()) {
-            ok &= validateChoice(
+            ok &= TtsCliOptionsValidator.validateChoice(
                     "--tts-codec-decode",
                     ttsCodecDecode,
                     Set.of("auto", "full", "full_decode", "decode_full", "stream", "streaming", "step",
@@ -1991,119 +1927,55 @@ public class RunCommand implements Runnable {
                     "auto, streaming, full");
         }
         if (audioBitrateKbps != null) {
-            ok &= validateIntRange("--audio-bitrate", audioBitrateKbps, 8, 320, "kbps");
+            ok &= TtsCliOptionsValidator.validateIntRange("--audio-bitrate", audioBitrateKbps, 8, 320, "kbps");
         }
         if (flacCompression != null) {
-            ok &= validateIntRange("--flac-compression", flacCompression, 0, 8, "");
+            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", flacCompression, 0, 8, "");
         }
         if (ttsMaxFrames != null) {
-            ok &= validateIntRange("--tts-max-frames", ttsMaxFrames, 1, 4096, "frames");
+            ok &= TtsCliOptionsValidator.validateIntRange("--tts-max-frames", ttsMaxFrames, 1, 4096, "frames");
         }
         if (ttsMaxSeconds != null) {
-            ok &= validateDoubleRange("--tts-max-seconds", ttsMaxSeconds, 0.01, 300.0, "seconds");
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--tts-max-seconds", ttsMaxSeconds, 0.01, 300.0, "seconds");
         }
         if (audioStreamChunkKb != null) {
-            ok &= validateIntRange("--audio-stream-chunk-kb", audioStreamChunkKb, 4, 1024, "KiB");
+            ok &= TtsCliOptionsValidator.validateIntRange("--audio-stream-chunk-kb", audioStreamChunkKb, 4, 1024, "KiB");
         }
         if (ttsStreamProgressFrames != null) {
-            ok &= validateIntRange("--tts-stream-progress-frames", ttsStreamProgressFrames, 1, 4096, "frames");
+            ok &= TtsCliOptionsValidator.validateIntRange("--tts-stream-progress-frames", ttsStreamProgressFrames, 1, 4096, "frames");
         }
         if (audioFadeMs != null) {
-            ok &= validateDoubleRange("--audio-fade-ms", audioFadeMs, 0.0, 10_000.0, "ms");
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-fade-ms", audioFadeMs, 0.0, 10_000.0, "ms");
         }
         if (audioTrimDbfs != null) {
-            ok &= validateDoubleRange("--audio-trim-db", audioTrimDbfs, -120.0, -0.1, "dBFS");
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-trim-db", audioTrimDbfs, -120.0, -0.1, "dBFS");
         }
         if (audioTrimPaddingMs != null) {
-            ok &= validateDoubleRange("--audio-trim-padding-ms", audioTrimPaddingMs, 0.0, 5_000.0, "ms");
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-trim-padding-ms", audioTrimPaddingMs, 0.0, 5_000.0, "ms");
         }
         if (audioPeakDb != null) {
-            ok &= validateDoubleRange("--audio-peak-db", audioPeakDb, -60.0, 0.0, "dBFS");
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-peak-db", audioPeakDb, -60.0, 0.0, "dBFS");
         }
         if (audioGainDb != null) {
-            ok &= validateDoubleRange("--audio-gain-db", audioGainDb, -60.0, 60.0, "dB");
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-gain-db", audioGainDb, -60.0, 60.0, "dB");
         }
         return ok;
     }
 
     AudioQualityPreset audioQualityPreset() {
-        if (audioQuality == null || audioQuality.isBlank()) {
-            return null;
-        }
-        return switch (audioQuality.trim().toLowerCase(Locale.ROOT)) {
-            case "auto", "default" -> null;
-            case "compact", "small" -> new AudioQualityPreset("mp3", 64, null);
-            case "speech" -> new AudioQualityPreset("mp3", 96, null);
-            case "balanced", "standard" -> new AudioQualityPreset("mp3", 128, null);
-            case "high", "quality" -> new AudioQualityPreset("mp3", 192, null);
-            case "lossless", "archive", "flac" -> new AudioQualityPreset("flac", null, 8);
-            default -> null;
-        };
+        return TtsCliOptionsValidator.audioQualityPreset(audioQuality);
     }
 
     String effectiveAudioFormat(AudioQualityPreset preset) {
-        if (audioFormat != null && !audioFormat.isBlank()) {
-            return audioFormat.trim().toLowerCase(Locale.ROOT);
-        }
-        return preset == null ? null : preset.format();
+        return TtsCliOptionsValidator.effectiveAudioFormat(audioFormat, preset);
     }
 
     Integer effectiveAudioBitrateKbps(AudioQualityPreset preset, String effectiveAudioFormat) {
-        if (audioBitrateKbps != null) {
-            return audioBitrateKbps;
-        }
-        if (preset == null || preset.bitrateKbps() == null) {
-            return null;
-        }
-        return "mp3".equalsIgnoreCase(effectiveAudioFormat) ? preset.bitrateKbps() : null;
+        return TtsCliOptionsValidator.effectiveAudioBitrateKbps(audioBitrateKbps, preset, effectiveAudioFormat);
     }
 
     Integer effectiveFlacCompression(AudioQualityPreset preset, String effectiveAudioFormat) {
-        if (flacCompression != null) {
-            return flacCompression;
-        }
-        if (preset == null || preset.flacCompression() == null) {
-            return null;
-        }
-        return "flac".equalsIgnoreCase(effectiveAudioFormat) ? preset.flacCompression() : null;
-    }
-
-    private boolean validateChoice(String option, String value, Set<String> allowed, String displayAllowed) {
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        if (allowed.contains(normalized)) {
-            return true;
-        }
-        System.err.println("Error: invalid " + option + " value: " + value);
-        System.err.println("Supported values: " + displayAllowed);
-        return false;
-    }
-
-    private boolean validateIntRange(String option, int value, int min, int max, String unit) {
-        if (value >= min && value <= max) {
-            return true;
-        }
-        String suffix = unit == null || unit.isBlank() ? "" : " " + unit;
-        System.err.println("Error: " + option + " must be between " + min + " and " + max + suffix
-                + " (got " + value + ").");
-        return false;
-    }
-
-    private boolean validateDoubleRange(String option, double value, double min, double max, String unit) {
-        if (Double.isFinite(value) && value >= min && value <= max) {
-            return true;
-        }
-        String suffix = unit == null || unit.isBlank() ? "" : " " + unit;
-        System.err.println("Error: " + option + " must be between "
-                + formatRangeNumber(min) + " and " + formatRangeNumber(max) + suffix
-                + " (got " + value + ").");
-        return false;
-    }
-
-    private static String formatRangeNumber(double value) {
-        if (Math.rint(value) == value) {
-            return String.format(Locale.ROOT, "%.0f", value);
-        }
-        return String.format(Locale.ROOT, "%.2f", value);
+        return TtsCliOptionsValidator.effectiveFlacCompression(flacCompression, preset, effectiveAudioFormat);
     }
 
     String effectiveTtsVoiceSelector() {
@@ -3234,8 +3106,6 @@ public class RunCommand implements Runnable {
         return ModelFormatResolver.providerForFormat(format);
     }
 
-    record AudioQualityPreset(String format, Integer bitrateKbps, Integer flacCompression) {
-    }
 
     private record TtsVoiceListFilter(String language, String gender, List<String> terms) {
         private boolean hasFilters() {
@@ -3943,89 +3813,37 @@ public class RunCommand implements Runnable {
     }
 
     private void maybeWriteAudioMetadataSidecar(Path audioPath, Map<String, Object> metadata) {
-        boolean explicitPath = audioMetadataOutputPath != null && !audioMetadataOutputPath.isBlank();
-        if (!explicitPath && !audioMetadataSidecar) {
-            return;
-        }
-        try {
-            Path metadataPath = explicitPath
-                    ? Path.of(audioMetadataOutputPath)
-                    : replaceExtension(audioPath, "json");
-            List<String> replayArgs = audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata);
-            AudioMetadataSidecarStore.WriteResult result = AudioMetadataSidecarStore.write(
-                    new AudioMetadataSidecarStore.WriteRequest(
-                            audioPath,
-                            metadataPath,
-                            modelId,
-                            providerId,
-                            runner,
-                            prompt,
-                            effectiveTtsVoiceSelector(),
-                            audioDefaultExtension(metadata),
-                            replayArgs,
-                            ReplayShellCommandFormatter.format(replayArgs),
-                            metadata));
-            if (result.skippedBecausePathsMatch()) {
-                System.err.println("\nWarning: audio metadata path is the same as the audio output; metadata sidecar skipped.");
-                return;
-            }
-            System.out.println(ChatUIRenderer.DIM + "Audio metadata saved to: "
-                    + result.sidecarPath()
-                    + ChatUIRenderer.RESET);
-        } catch (Exception e) {
-            System.err.println("\nFailed to save audio metadata: " + e.getMessage());
-        }
+        MediaMetadataSidecarCliHandler.maybeWriteAudioMetadataSidecar(new MediaMetadataSidecarCliHandler.AudioSidecarRequest(
+                audioPath,
+                audioMetadataOutputPath,
+                audioMetadataSidecar,
+                modelId,
+                providerId,
+                runner,
+                prompt,
+                effectiveTtsVoiceSelector(),
+                audioDefaultExtension(metadata),
+                audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata),
+                metadata
+        ));
     }
 
     private void maybeWriteImageMetadataSidecar(Path imagePath, Map<String, Object> metadata) {
-        boolean explicitPath = imageMetadataOutputPath != null && !imageMetadataOutputPath.isBlank();
-        if (!explicitPath && !imageMetadataSidecar) {
-            return;
-        }
-        try {
-            Path metadataPath = explicitPath
-                    ? Path.of(imageMetadataOutputPath)
-                    : replaceExtension(imagePath, "json");
-            Path absoluteImagePath = imagePath.toAbsolutePath().normalize();
-            List<String> replayArgs = ImageMetadataReplayCommandBuilder.build(
-                    new ImageMetadataReplayCommandBuilder.Request(
-                            modelId,
-                            providerId,
-                            runner,
-                            prompt,
-                            imageReplaySeed(metadata),
-                            steps,
-                            guidanceScale,
-                            width,
-                            height,
-                            absoluteImagePath.toString()));
-            ImageMetadataSidecarStore.WriteResult result = ImageMetadataSidecarStore.write(
-                    new ImageMetadataSidecarStore.WriteRequest(
-                            absoluteImagePath,
-                            metadataPath,
-                            modelId,
-                            providerId,
-                            runner,
-                            prompt,
-                            imageOutputExtension(absoluteImagePath, metadata),
-                            imageReplaySeed(metadata),
-                            steps,
-                            guidanceScale,
-                            width,
-                            height,
-                            replayArgs,
-                            ReplayShellCommandFormatter.format(replayArgs),
-                            metadata));
-            if (result.skippedBecausePathsMatch()) {
-                System.err.println("\nWarning: image metadata path is the same as the image output; metadata sidecar skipped.");
-                return;
-            }
-            System.out.println(ChatUIRenderer.DIM + "Image metadata saved to: "
-                    + result.sidecarPath()
-                    + ChatUIRenderer.RESET);
-        } catch (Exception e) {
-            System.err.println("\nFailed to save image metadata: " + e.getMessage());
-        }
+        MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(new MediaMetadataSidecarCliHandler.ImageSidecarRequest(
+                imagePath,
+                imageMetadataOutputPath,
+                imageMetadataSidecar,
+                modelId,
+                providerId,
+                runner,
+                prompt,
+                imageReplaySeed(metadata),
+                steps,
+                guidanceScale,
+                width,
+                height,
+                metadata
+        ));
     }
 
     private String imageReplaySeed(Map<String, Object> metadata) {
@@ -4036,19 +3854,6 @@ public class RunCommand implements Runnable {
             }
         }
         return seed == null ? null : seed.toString();
-    }
-
-    private static String imageOutputExtension(Path imagePath, Map<String, Object> metadata) {
-        String ext = normalizeExtension(pathExtension(imagePath));
-        if (!ext.isBlank()) {
-            return ext;
-        }
-        String metadataFormat = metadataText(metadata, "image_format");
-        if (metadataFormat == null || metadataFormat.isBlank()) {
-            metadataFormat = metadataText(metadata, "image_ext");
-        }
-        String normalized = normalizeExtension(metadataFormat);
-        return normalized.isBlank() ? "png" : normalized;
     }
 
     private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
@@ -4149,21 +3954,11 @@ public class RunCommand implements Runnable {
     }
 
     private Path replaceExtension(Path path, String newExt) {
-        String filename = path.getFileName().toString();
-        int lastDot = filename.lastIndexOf('.');
-        if (lastDot == -1) return path.resolveSibling(filename + "." + newExt);
-        return path.resolveSibling(filename.substring(0, lastDot) + "." + newExt);
+        return CliPathUtils.replaceExtension(path, newExt);
     }
 
     static String normalizeExtension(String ext) {
-        if (ext == null) {
-            return "";
-        }
-        String value = ext.trim().toLowerCase(Locale.ROOT);
-        while (value.startsWith(".")) {
-            value = value.substring(1);
-        }
-        return value;
+        return CliPathUtils.normalizeExtension(ext);
     }
 
     private static String audioDefaultExtension(Map<String, Object> metadata) {
@@ -4188,19 +3983,11 @@ public class RunCommand implements Runnable {
     }
 
     static String pathExtension(Path path) {
-        if (path == null || path.getFileName() == null) {
-            return "";
-        }
-        String filename = path.getFileName().toString();
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 && dot + 1 < filename.length() ? filename.substring(dot + 1) : "";
+        return CliPathUtils.pathExtension(path);
     }
 
     static boolean isKnownAudioExtension(String ext) {
-        if (ext == null || ext.isBlank()) {
-            return false;
-        }
-        return Set.of("wav", "mp3", "flac", "ogg", "m4a", "aac").contains(ext.toLowerCase(Locale.ROOT));
+        return CliPathUtils.isKnownAudioExtension(ext);
     }
 
     private void printOpenAiSseDelta(String requestId, String model, String delta) {
