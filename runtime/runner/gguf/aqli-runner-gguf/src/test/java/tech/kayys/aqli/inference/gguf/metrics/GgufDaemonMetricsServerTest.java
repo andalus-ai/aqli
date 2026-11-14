@@ -22,7 +22,8 @@ class GgufDaemonMetricsServerTest {
         Gauge.builder("aqli.test.daemon", gaugeState, ignored -> 3.0)
                 .register(registry);
 
-        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(registry, 0)) {
+        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(
+                registry::scrape, registry::close, 0)) {
             assertTrue(server.isLoopbackBound());
             URL metricsUrl = new URL(
                     "http", InetAddress.getLoopbackAddress().getHostAddress(), server.port(), "/metrics");
@@ -43,7 +44,8 @@ class GgufDaemonMetricsServerTest {
     @Test
     void rejectsPathsOtherThanMetrics() throws Exception {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(registry, 0)) {
+        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(
+                registry::scrape, registry::close, 0)) {
             URL rootUrl = new URL(
                     "http", InetAddress.getLoopbackAddress().getHostAddress(), server.port(), "/");
             HttpURLConnection connection = (HttpURLConnection) rootUrl.openConnection();
