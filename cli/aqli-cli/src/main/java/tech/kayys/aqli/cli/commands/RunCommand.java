@@ -792,9 +792,12 @@ public class RunCommand implements Runnable {
             if (!customModelPathUsed && modelId != null && !modelId.isBlank()) {
                 try {
                     String preferredIndexFormat = preferredLocalIndexFormat(modelId, format, providerId);
-                    var indexed = preferredIndexFormat == null
-                            ? LocalModelIndex.find(modelId)
-                            : LocalModelIndex.find(modelId, preferredIndexFormat);
+                    var indexed = LocalModelIndexResolver.findExactReference(
+                            modelId,
+                            preferredIndexFormat,
+                            (reference, requestedFormat) -> requestedFormat == null
+                                    ? LocalModelIndex.find(reference)
+                                    : LocalModelIndex.find(reference, requestedFormat));
                     if (indexed.isPresent()) {
                         var entry = indexed.get();
                         if (!entry.enabled) {
