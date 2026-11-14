@@ -149,7 +149,20 @@ public final class GgufSessionCache implements AutoCloseable {
         GgufJavaBackendSession opened = javaBackendOpener.open(key);
         CachedJavaBackend cached = new CachedJavaBackend(opened);
         javaBackends.put(key, cached);
-        return lease(cached);
+        GgufJavaBackendSession.Lease lease = lease(cached);
+        evictOverflowJavaBackends();
+        return lease;
+    }
+
+    private void evictOverflowJavaBackends() {
+        int maxSessions = effectiveMaxSessions(maxSessionsSupplier.getAsInt());
+        while (javaBackends.size() > maxSessions) {
+            Map.Entry<Path, CachedJavaBackend> eldest = javaBackends.entrySet().iterator().next();
+            javaBackends.remove(eldest.getKey());
+            log.accept("java backend cache evict: " + eldest.getKey().getFileName()
+                    + ", maxSessions=" + maxSessions);
+            retire(eldest.getValue());
+        }
     }
 
     private GgufJavaBackendSession.Lease lease(CachedJavaBackend cached) {
