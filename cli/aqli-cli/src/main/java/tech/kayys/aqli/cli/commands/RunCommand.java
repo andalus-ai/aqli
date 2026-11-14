@@ -85,6 +85,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCacheDirectoryScanner
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
+import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -1369,77 +1370,39 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("ocr_raw_output", true);
             }
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
-            if (effectiveTtsVoice != null && !effectiveTtsVoice.isBlank()) requestBuilder.parameter("voice", effectiveTtsVoice);
-            if (ttsCodec != null && !ttsCodec.isBlank()) requestBuilder.parameter("tts_codec", resolveTtsCodecReference(ttsCodec));
-            if (ttsMaxFrames != null) requestBuilder.parameter("tts_max_frames", ttsMaxFrames);
-            if (ttsMaxSeconds != null) requestBuilder.parameter("tts_max_seconds", ttsMaxSeconds);
+            String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
+                    ? null
+                    : resolveTtsCodecReference(ttsCodec);
             AudioQualityPreset audioPreset = audioQualityPreset();
             String effectiveAudioFormat = effectiveAudioFormat(audioPreset);
             Integer effectiveAudioBitrateKbps = effectiveAudioBitrateKbps(audioPreset, effectiveAudioFormat);
             Integer effectiveFlacCompression = effectiveFlacCompression(audioPreset, effectiveAudioFormat);
-            if (audioQuality != null && !audioQuality.isBlank()) {
-                requestBuilder.parameter("audio_quality", audioQuality.trim().toLowerCase(Locale.ROOT));
-            }
-            if (effectiveAudioFormat != null && !effectiveAudioFormat.isBlank()) {
-                requestBuilder.parameter("audio_format", effectiveAudioFormat);
-            }
-            if (effectiveAudioBitrateKbps != null) {
-                requestBuilder.parameter("audio_bitrate_kbps", effectiveAudioBitrateKbps);
-            }
-            if (audioChannels != null && !audioChannels.isBlank()) {
-                requestBuilder.parameter("audio_channels", audioChannels.toLowerCase(Locale.ROOT));
-            }
-            if (ttsCodecDecode != null && !ttsCodecDecode.isBlank()) {
-                requestBuilder.parameter("tts_codec_decode", ttsCodecDecode.toLowerCase(Locale.ROOT));
-            }
-            if (randomTtsSeed) {
-                requestBuilder.parameter("random_seed", true);
-            }
-            if (disableAudioPolish) {
-                requestBuilder.parameter("audio_polish", false);
-            }
-            if (disableAudioNormalize) {
-                requestBuilder.parameter("audio_normalize", false);
-            }
-            if (audioGainDb != null) {
-                requestBuilder.parameter("audio_gain_db", audioGainDb);
-            }
-            if (audioPeakDb != null) {
-                requestBuilder.parameter("audio_peak_db", audioPeakDb);
-            }
-            if (audioFadeMs != null) {
-                requestBuilder.parameter("audio_fade_ms", audioFadeMs);
-            }
-            if (audioTrimSilence) {
-                requestBuilder.parameter("audio_trim_silence", true);
-            }
-            if (audioTrimDbfs != null) {
-                requestBuilder.parameter("audio_trim_threshold_dbfs", audioTrimDbfs);
-            }
-            if (audioTrimPaddingMs != null) {
-                requestBuilder.parameter("audio_trim_padding_ms", audioTrimPaddingMs);
-            }
-            if (audioStreamChunkKb != null) {
-                requestBuilder.parameter("audio_stream_chunk_kb", audioStreamChunkKb);
-            }
-            if (ttsStreamProgressFrames != null) {
-                requestBuilder.parameter("tts_stream_progress_frames", ttsStreamProgressFrames);
-            }
-            if (disableTtsStreamProgress) {
-                requestBuilder.parameter("tts_stream_progress", false);
-            }
-            if (ttsStreamPcm || liveAudio) {
-                requestBuilder.parameter("tts_stream_pcm", true);
-            }
-            if (liveAudio) {
-                requestBuilder.parameter("tts_live_audio", true);
-            }
-            if (disableLowLatencyAudio) {
-                requestBuilder.parameter("tts_low_latency_audio", false);
-            }
-            if (effectiveFlacCompression != null) {
-                requestBuilder.parameter("flac_compression", effectiveFlacCompression);
-            }
+            AudioRunRequestParameterMapper.apply(requestBuilder, new AudioRunRequestParameterMapper.Options(
+                    effectiveTtsVoice,
+                    effectiveTtsCodec,
+                    ttsMaxFrames,
+                    ttsMaxSeconds,
+                    audioQuality,
+                    effectiveAudioFormat,
+                    effectiveAudioBitrateKbps,
+                    audioChannels,
+                    ttsCodecDecode,
+                    randomTtsSeed,
+                    disableAudioPolish,
+                    disableAudioNormalize,
+                    audioGainDb,
+                    audioPeakDb,
+                    audioFadeMs,
+                    audioTrimSilence,
+                    audioTrimDbfs,
+                    audioTrimPaddingMs,
+                    audioStreamChunkKb,
+                    ttsStreamProgressFrames,
+                    disableTtsStreamProgress,
+                    ttsStreamPcm,
+                    liveAudio,
+                    disableLowLatencyAudio,
+                    effectiveFlacCompression));
 
             if (extension != null && !extension.isBlank()) {
                 requestBuilder.parameter("output_format", extension.toLowerCase());
