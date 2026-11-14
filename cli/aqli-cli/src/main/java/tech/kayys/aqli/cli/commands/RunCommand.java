@@ -77,7 +77,6 @@ import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
-import tech.kayys.aqli.media.output.MediaOutputPathResolver;
 import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
@@ -85,7 +84,6 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxCacheDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCacheDirectoryScanner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
-import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
@@ -1533,7 +1531,7 @@ public class RunCommand implements Runnable {
                 java.util.concurrent.atomic.AtomicLong lastTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
                 tech.kayys.aqli.audio.output.StreamingAudioChunkRouter audioChunkRouter =
                         new tech.kayys.aqli.audio.output.StreamingAudioChunkRouter(
-                                audioOutput, this::resolveAudioOutputPath, liveAudioSink::write);
+                                audioOutput, mediaOutputHandler()::resolveAudioOutputPath, liveAudioSink::write);
                 tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler chunkHandler =
                         new tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler(
                                 imageBuffer,

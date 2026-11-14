@@ -70,6 +70,14 @@ final class MediaOutputCliHandler {
         }
     }
 
+    Path resolveAudioOutputPath(Map<String, Object> metadata) {
+        MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
+                new MediaOutputPathResolver.Request(
+                        outputPath, extension, audioDefaultExtension.apply(metadata), true));
+        warnIfAudioExtensionWasOverridden(output);
+        return output.path();
+    }
+
     void saveBuffer(ByteArrayOutputStream buffer, String defaultExt, String label, Map<String, Object> metadata) {
         try {
             MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
