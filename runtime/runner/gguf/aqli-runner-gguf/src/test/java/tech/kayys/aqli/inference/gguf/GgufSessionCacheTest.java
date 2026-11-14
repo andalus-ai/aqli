@@ -256,6 +256,56 @@ class GgufSessionCacheTest {
         verify(secondBackend).close();
     }
 
+    @Test
+    void loggerFailureDoesNotInterruptNativeSessionAcquisitionOrEviction() throws Exception {
+        LlamaCppGgufSession first = mock(LlamaCppGgufSession.class);
+        LlamaCppGgufSession second = mock(LlamaCppGgufSession.class);
+        AtomicInteger opened = new AtomicInteger();
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 1,
+                message -> { throw new IllegalStateException("logger unavailable"); },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"), Path.of("/native/llama")),
+                (path, parameters, paths) -> opened.getAndIncrement() == 0 ? first : second);
+
+        GgufSessionCache.SessionLease firstLease =
+                cache.acquire(Path.of("/models/first.gguf"), parameters(99));
+        GgufSessionCache.SessionLease secondLease =
+                cache.acquire(Path.of("/models/second.gguf"), parameters(99));
+
+        firstLease.close();
+        verify(first).close();
+        secondLease.close();
+        cache.close();
+        verify(second).close();
+    }
+
+    @Test
+    void loggerFailureDoesNotInterruptJavaBackendAcquisitionOrEviction() throws Exception {
+        GgufBackend firstBackend = mock(GgufBackend.class);
+        GgufBackend secondBackend = mock(GgufBackend.class);
+        AtomicInteger opened = new AtomicInteger();
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 1,
+                message -> { throw new IllegalStateException("logger unavailable"); },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"), Path.of("/native/llama")),
+                (path, parameters, paths) -> mock(LlamaCppGgufSession.class),
+                path -> GgufJavaBackendSession.owned(
+                        opened.getAndIncrement() == 0 ? firstBackend : secondBackend));
+
+        GgufJavaBackendSession.Lease firstLease =
+                cache.acquireJavaBackend(Path.of("/models/first.gguf"));
+        GgufJavaBackendSession.Lease secondLease =
+                cache.acquireJavaBackend(Path.of("/models/second.gguf"));
+
+        firstLease.close();
+        verify(firstBackend).close();
+        secondLease.close();
+        cache.close();
+        verify(secondBackend).close();
+    }
+
     private static GgufSessionCache cache(
             int capacity, GgufSessionCache.SessionOpener opener) {
         return new GgufSessionCache(

@@ -143,10 +143,10 @@ public final class GgufSessionCache implements AutoCloseable {
         Path key = modelPath.toAbsolutePath().normalize();
         CachedJavaBackend existing = javaBackends.get(key);
         if (existing != null) {
-            log.accept("java backend cache hit: " + key.getFileName());
+            logSafely("java backend cache hit: " + key.getFileName());
             return lease(existing);
         }
-        log.accept("java backend cache miss: " + key.getFileName());
+        logSafely("java backend cache miss: " + key.getFileName());
         GgufJavaBackendSession opened = javaBackendOpener.open(key);
         CachedJavaBackend cached = new CachedJavaBackend(opened);
         javaBackends.put(key, cached);
@@ -160,7 +160,7 @@ public final class GgufSessionCache implements AutoCloseable {
         while (javaBackends.size() > maxSessions) {
             Map.Entry<Path, CachedJavaBackend> eldest = javaBackends.entrySet().iterator().next();
             javaBackends.remove(eldest.getKey());
-            log.accept("java backend cache evict: " + eldest.getKey().getFileName()
+            logSafely("java backend cache evict: " + eldest.getKey().getFileName()
                     + ", maxSessions=" + maxSessions);
             retire(eldest.getValue());
         }
@@ -206,7 +206,7 @@ public final class GgufSessionCache implements AutoCloseable {
         SessionKey key = new SessionKey(modelPath.toAbsolutePath().normalize(), parameters);
         CachedSession existing = sessions.get(key);
         if (existing != null) {
-            log.accept("session cache hit: " + key.modelPath().getFileName()
+            logSafely("session cache hit: " + key.modelPath().getFileName()
                     + ", context=" + parameters.context()
                     + ", gpuLayers=" + parameters.gpuLayers()
                     + ", sessions=" + sessions.size());
@@ -216,7 +216,7 @@ public final class GgufSessionCache implements AutoCloseable {
         if (compatible != null) {
             return compatible;
         }
-        log.accept("session cache miss: " + key.modelPath().getFileName()
+        logSafely("session cache miss: " + key.modelPath().getFileName()
                 + ", context=" + parameters.context()
                 + ", gpuLayers=" + parameters.gpuLayers()
                 + ", sessions=" + sessions.size());
@@ -241,7 +241,7 @@ public final class GgufSessionCache implements AutoCloseable {
             return null;
         }
         CachedSession cached = sessions.get(selected);
-        log.accept("session cache compatible hit: " + selected.modelPath().getFileName()
+        logSafely("session cache compatible hit: " + selected.modelPath().getFileName()
                 + ", requestedContext=" + requested.parameters().context()
                 + ", warmContext=" + selected.parameters().context()
                 + ", requestedBatch=" + requested.parameters().batch()
@@ -302,7 +302,7 @@ public final class GgufSessionCache implements AutoCloseable {
         while (sessions.size() > maxSessions) {
             Map.Entry<SessionKey, CachedSession> eldest = sessions.entrySet().iterator().next();
             sessions.remove(eldest.getKey());
-            log.accept("session cache evict: " + eldest.getKey().modelPath().getFileName()
+            logSafely("session cache evict: " + eldest.getKey().modelPath().getFileName()
                     + ", context=" + eldest.getKey().parameters().context()
                     + ", gpuLayers=" + eldest.getKey().parameters().gpuLayers()
                     + ", maxSessions=" + maxSessions);
@@ -342,6 +342,14 @@ public final class GgufSessionCache implements AutoCloseable {
         }
         cached.sessionClosed = true;
         cached.session.close();
+    }
+
+    private void logSafely(String message) {
+        try {
+            log.accept(message);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not interfere with cache ownership or inference.
+        }
     }
 
     private void ensureOpen() {
