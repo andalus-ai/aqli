@@ -70,6 +70,33 @@ final class ModelFormatResolver {
                 || normalized.contains("_onnx_");
     }
 
+
+    static boolean shouldPreferOnnxResolution(String requestedModel, String requestedFormat, String requestedProvider) {
+        if (isOnnxFormat(requestedFormat) || isOnnxProvider(requestedProvider)) {
+            return true;
+        }
+        if ((requestedFormat != null && !requestedFormat.isBlank())
+                || (requestedProvider != null && !requestedProvider.isBlank())) {
+            return false;
+        }
+        return looksLikeOnnxModelReference(requestedModel);
+    }
+
+    static String preferredLocalIndexFormat(String requestedModel, String requestedFormat, String requestedProvider) {
+        String canonicalFormat = canonicalFormat(requestedFormat);
+        if (canonicalFormat != null) {
+            return canonicalFormat;
+        }
+        if (isOnnxProvider(requestedProvider) || looksLikeOnnxModelReference(requestedModel)) {
+            return "onnx";
+        }
+        return null;
+    }
+
+    private static boolean isOnnxFormat(String requestedFormat) {
+        return "onnx".equals(canonicalFormat(requestedFormat));
+    }
+
     static String providerForFormat(String format) {
         if (format == null) {
             return null;
