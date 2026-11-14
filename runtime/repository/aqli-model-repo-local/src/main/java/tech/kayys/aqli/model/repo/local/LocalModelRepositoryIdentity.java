@@ -72,7 +72,8 @@ public final class LocalModelRepositoryIdentity {
     }
 
     private static boolean isConventionalModelFile(String lower) {
-        return lower.equals("model.safetensors")
+        return lower.equals("model.onnx")
+                || lower.equals("model.safetensors")
                 || lower.equals("model.safetensor")
                 || lower.equals("model.tflite")
                 || lower.equals("model.litert")
