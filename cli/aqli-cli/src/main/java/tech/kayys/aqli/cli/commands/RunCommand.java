@@ -2144,7 +2144,7 @@ public class RunCommand implements Runnable {
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
-        String repoId = hfRepoIdFromModelRef(requestedModel);
+        String repoId = ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
         if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
@@ -2196,13 +2196,6 @@ public class RunCommand implements Runnable {
                 (ref, format) -> format == null
                         ? LocalModelIndex.find(ref)
                         : LocalModelIndex.find(ref, format));
-    }
-
-    private String hfRepoIdFromModelRef(String requestedModel) {
-        ModelSourceResolver.Source source = ModelSourceResolver.classify(requestedModel);
-        return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
-                ? source.reference()
-                : null;
     }
 
     private String truncateDisplay(String value, int width) {
