@@ -144,3 +144,28 @@ The architecture is considered established when:
 - transport adapters contain no duplicate inference orchestration;
 - capability APIs are usable without CLI, REST, or gRPC dependencies;
 - parity tests demonstrate equivalent semantics across all enabled transports.
+
+
+## Current contract audit (2026-11-14)
+
+The initial source inspection found two distinct request models:
+
+- `AqliClient.GenerationRequest` in `framework/sdk/aqli-sdk-api` is a small text-only public request (prompt, max tokens, temperature, top-p, stop tokens).
+- `InferenceRequest` in `framework/spi/aqli-spi-inference` is the richer internal execution request. It carries messages, tools, streaming, provider/plugin selection, request context, metadata, attachments, and a generic parameter map. It also contains execution/runtime-oriented concerns, including a deprecated native `MemorySegment` context handle.
+
+The SDK API Gradle module currently exports dependencies on both `spi:aqli-spi` and `spi:aqli-spi-inference` (as well as the multimodal SPI). This means the current public SDK boundary is not yet fully independent of the internal SPI boundary.
+
+### Contract decision to make before extraction
+
+Do not simply rename `InferenceRequest` as the SDK request. It is currently an internal execution envelope with compatibility and runtime concerns, and its generic parameter map is not a suitable long-term typed capability API.
+
+Instead:
+
+1. Define a transport-neutral SDK request envelope with stable public semantics.
+2. Define typed capability task payloads in capability API modules and compose them for multimodal requests.
+3. Keep `InferenceRequest` as an internal execution SPI model during migration.
+4. Implement one application-layer mapper from SDK requests to the internal SPI request. All transports must call this same mapper/application service.
+5. Keep compatibility adapters for existing SDK callers and existing REST/gRPC wire contracts while migrating.
+6. Remove the SDK API's direct SPI exposure only after auditing every public SDK type and adapter dependency; do not remove those Gradle dependencies speculatively.
+
+This gives the SDK a genuine single-source-of-truth role without leaking runner/runtime implementation details into its public contract.
