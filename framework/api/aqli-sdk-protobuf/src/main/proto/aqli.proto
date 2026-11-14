@@ -56,6 +56,7 @@ message CompletionResponse {
 service ModelService {
   rpc ListModels (ListModelsRequest) returns (ListModelsResponse);
   rpc GetModelManifest (GetModelManifestRequest) returns (GetModelManifestResponse);
+  rpc PullModel (PullModelRequest) returns (stream PullModelProgress);
 }
 
 message ListModelsRequest {
@@ -114,4 +115,21 @@ message DownloadState {
   double percentage = 4;
   string status = 5;
   string error_message = 6;
+}
+
+
+message PullModelRequest {
+  string model_spec = 1;
+  string revision = 2;
+  string format = 3;
+  bool force = 4;
+}
+
+message PullModelProgress {
+  string status = 1;
+  string digest = 2;
+  int64 total = 3;
+  int64 completed = 4;
+  int32 percent_complete = 5;
+  bool complete = 6;
 }
