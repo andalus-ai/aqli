@@ -42,7 +42,7 @@ public final class LocalModelTaskClassifier {
             String lowerId = lower(modelId);
             String lowerName = lower(modelName);
             if (containsAny(lowerId, "ocr", "pix2text", "trocr", "nougat")
-                    || containsAny(lowerName, "ocr", "pix2text")) {
+                    || lowerName.contains("ocr")) {
                 taskType = "ocr";
             } else if (containsAny(lowerId, "3d", "block3d", "trellis", "shap-e", "mesh", "splat")
                     || containsAny(lowerName, "3d", "block3d", "trellis", "shap-e", "mesh", "splat")) {
