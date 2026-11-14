@@ -1342,6 +1342,9 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("feature", pipelineId);
                 requestBuilder.parameter("feature_pipeline", true);
             }
+            String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
+                    ? null
+                    : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
             ImageRunRequestParameterMapper.apply(requestBuilder, new ImageRunRequestParameterMapper.Options(
                     seed,
                     steps,
@@ -1354,7 +1357,7 @@ public class RunCommand implements Runnable {
                     ocrMode,
                     ocrImageTokens,
                     ocrRawOutput,
-                    PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant),
+                    effectiveOnnxVariant,
                     raw,
                     debugPrompt));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
