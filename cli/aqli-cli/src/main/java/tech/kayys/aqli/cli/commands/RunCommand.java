@@ -3660,51 +3660,24 @@ public class RunCommand implements Runnable {
         System.out.println("--------------------------------------------------");
     }
 
+    private MediaOutputCliHandler mediaOutputHandler() {
+        return new MediaOutputCliHandler(
+                outputPath,
+                extension,
+                RunCommand::audioDefaultExtension,
+                this::maybeWriteAudioMetadataSidecar,
+                this::maybeWriteImageMetadataSidecar);
+    }
+
     private void handleOutputs(
             java.io.ByteArrayOutputStream imageBuffer,
             StreamingAudioOutputSession audioOutput,
             Map<String, Object> metadata) {
-        if (imageBuffer.size() > 0) saveBuffer(imageBuffer, "png", "Image", metadata);
-        if (audioOutput == null || !audioOutput.hasOutput()) {
-            return;
-        }
-        try {
-            StreamingAudioOutputSession.Output output = audioOutput.finish();
-            if (output instanceof StreamingAudioOutputSession.FileOutput fileOutput) {
-                Path savedPath = fileOutput.path();
-                System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD
-                        + "✓ Audio saved to: " + ChatUIRenderer.RESET + savedPath.toAbsolutePath());
-                printAudioDetails(metadata);
-                maybeWriteAudioMetadataSidecar(savedPath, metadata);
-                autoOpenAudio(savedPath);
-            } else if (output instanceof StreamingAudioOutputSession.BufferedOutput bufferedOutput) {
-                java.io.ByteArrayOutputStream memory = new java.io.ByteArrayOutputStream();
-                memory.write(bufferedOutput.bytes());
-                saveBuffer(memory, audioDefaultExtension(metadata), "Audio", metadata);
-            }
-        } catch (Exception e) {
-            System.err.println("\\nFailed to save audio: " + e.getMessage());
-            closeAudioOutputQuietly(audioOutput);
-        }
+        mediaOutputHandler().handleOutputs(imageBuffer, audioOutput, metadata);
     }
 
     private void closeAudioOutputQuietly(StreamingAudioOutputSession audioOutput) {
-        if (audioOutput == null) {
-            return;
-        }
-        try {
-            audioOutput.close();
-        } catch (Exception ignored) {
-            // Best-effort cleanup after a failed or interrupted stream.
-        }
-    }
-
-    private static void warnIfAudioExtensionWasOverridden(MediaOutputPathResolver.Resolution output) {
-        if (output.requestedExtensionOverridden()) {
-            System.err.println("\nWarning: requested --ext " + output.requestedExtension()
-                    + ", but this provider returned " + output.extension()
-                    + " audio. Saving as ." + output.extension() + " to avoid a mislabeled file.");
-        }
+        MediaOutputCliHandler.closeAudioOutputQuietly(audioOutput);
     }
 
     private void saveBuffer(java.io.ByteArrayOutputStream buffer, String defaultExt, String label) {
@@ -3716,39 +3689,7 @@ public class RunCommand implements Runnable {
             String defaultExt,
             String label,
             Map<String, Object> metadata) {
-        try {
-            MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
-                    new MediaOutputPathResolver.Request(outputPath, extension, defaultExt, "Audio".equals(label)));
-            warnIfAudioExtensionWasOverridden(output);
-            String ext = output.extension();
-            Path outPath = output.path();
-            Files.write(outPath, buffer.toByteArray());
-            System.out.println("\n" + ChatUIRenderer.GREEN + ChatUIRenderer.BOLD + "✓ " + label + " saved to: " + ChatUIRenderer.RESET + outPath.toAbsolutePath());
-            if ("Audio".equals(label)) {
-                printAudioDetails(metadata);
-                maybeWriteAudioMetadataSidecar(outPath, metadata);
-            } else if ("Image".equals(label)) {
-                maybeWriteImageMetadataSidecar(outPath, metadata);
-            }
-            if ("png".equals(ext)) autoOpenImage(outPath); else autoOpenAudio(outPath);
-        } catch (Exception e) {
-            System.err.println("\nFailed to save " + label.toLowerCase() + ": " + e.getMessage());
-        }
-    }
-
-    private Path resolveAudioOutputPath(Map<String, Object> metadata) {
-        MediaOutputPathResolver.Resolution output = MediaOutputPathResolver.resolve(
-                new MediaOutputPathResolver.Request(
-                        outputPath, extension, audioDefaultExtension(metadata), true));
-        warnIfAudioExtensionWasOverridden(output);
-        return output.path();
-    }
-
-    private void printAudioDetails(Map<String, Object> metadata) {
-        String details = AudioDetailsFormatter.format(metadata);
-        if (details != null) {
-            System.out.println(ChatUIRenderer.DIM + "Audio details: " + details + ChatUIRenderer.RESET);
-        }
+        mediaOutputHandler().saveBuffer(buffer, defaultExt, label, metadata);
     }
 
     private static String onnxOptimizedCacheDetail(Map<String, Object> metadata) {
@@ -4031,15 +3972,6 @@ public class RunCommand implements Runnable {
             System.err.println("Hint: Provider quota reached. Wait or switch provider.");
         }
     }
-
-    private void autoOpenImage(Path imagePath) {
-        MediaOutputOpener.openImage(imagePath);
-    }
-
-    private void autoOpenAudio(Path audioPath) {
-        MediaOutputOpener.openAudio(audioPath);
-    }
-
 
     private void requestProcessExit() {
         requestProcessExit(0);
