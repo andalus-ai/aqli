@@ -2,9 +2,6 @@ package tech.kayys.aqli.cli.util;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.tool.ToolDefinition;
 
@@ -14,9 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,8 +19,6 @@ import java.util.Set;
  * Shared CLI plumbing for advanced inference features.
  */
 public final class CliInferenceFeatures {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private static final int RAG_CHUNK_TARGET_CHARS = 1200;
     private static final Set<String> RAG_STOP_WORDS = Set.of(
             "the", "and", "for", "that", "this", "with", "from", "into", "your", "you",
@@ -35,36 +28,16 @@ public final class CliInferenceFeatures {
     private CliInferenceFeatures() {
     }
 
-    public static List<ToolDefinition> loadTools(List<String> toolFiles, List<String> mcpTools) throws IOException {
-        List<ToolDefinition> tools = new ArrayList<>();
-        for (String file : safeList(toolFiles)) {
-            if (isBlank(file)) {
-                continue;
-            }
-            JsonNode root = MAPPER.readTree(Path.of(file.trim()).toFile());
-            addToolDefinitions(root, tools);
-        }
-        for (String spec : safeList(mcpTools)) {
-            if (isBlank(spec)) {
-                continue;
-            }
-            tools.add(mcpToolDefinition(spec.trim()));
-        }
-        return List.copyOf(tools);
+    public static List<ToolDefinition> loadTools(List<String> toolFiles, List<String> mcpTools)
+            throws IOException {
+        return tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
     }
 
-    public static Object parseToolChoice(String value) throws IOException {
-        if (isBlank(value)) {
-            return null;
-        }
-        String trimmed = value.trim();
-        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-            return MAPPER.readValue(trimmed, Object.class);
-        }
-        return trimmed;
+        public static Object parseToolChoice(String value) throws IOException {
+        return tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration.parseToolChoice(value);
     }
 
-    public static RagContext loadRagContext(List<String> inlineContexts, List<String> files, int maxChars)
+        public static RagContext loadRagContext(List<String> inlineContexts, List<String> files, int maxChars)
             throws IOException {
         return loadRagContext(inlineContexts, files, maxChars, null);
     }
@@ -125,18 +98,10 @@ public final class CliInferenceFeatures {
             InferenceRequest.Builder builder,
             List<ToolDefinition> tools,
             Object toolChoice) {
-        if (tools != null && !tools.isEmpty()) {
-            builder.tools(tools);
-            builder.parameter("tools_enabled", true);
-            builder.metadata("tool_count", tools.size());
-        }
-        if (toolChoice != null) {
-            builder.toolChoice(toolChoice);
-            builder.parameter("tool_choice", toolChoice);
-        }
+        tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration.apply(builder, tools, toolChoice);
     }
 
-    public static void applyRagMetadata(
+        public static void applyRagMetadata(
             InferenceRequest.Builder builder,
             RagContext ragContext,
             String embeddingModel) {
@@ -181,92 +146,6 @@ public final class CliInferenceFeatures {
     }
 
     private record RagChunk(String source, String content, int score, int index) {
-    }
-
-    private static void addToolDefinitions(JsonNode root, List<ToolDefinition> tools) throws IOException {
-        if (root == null || root.isNull()) {
-            return;
-        }
-        if (root.has("tools") && root.get("tools").isArray()) {
-            addToolDefinitions(root.get("tools"), tools);
-            return;
-        }
-        if (root.isArray()) {
-            for (JsonNode item : root) {
-                addToolDefinitions(item, tools);
-            }
-            return;
-        }
-        tools.add(toToolDefinition(root));
-    }
-
-    private static ToolDefinition toToolDefinition(JsonNode node) throws IOException {
-        if (node.has("function")) {
-            JsonNode function = node.get("function");
-            ToolDefinition.Builder builder = ToolDefinition.builder()
-                    .name(requiredText(function, "name"))
-                    .type(toolType(node.path("type").asText("function")))
-                    .description(optionalText(function, "description"))
-                    .parameters(mapFrom(function.path("parameters")))
-                    .strict(function.path("strict").asBoolean(node.path("strict").asBoolean(false)));
-            applyMetadata(builder, node.path("metadata"));
-            applyMetadata(builder, function.path("metadata"));
-            return builder.build();
-        }
-
-        ToolDefinition.Builder builder = ToolDefinition.builder()
-                .name(requiredText(node, "name"))
-                .type(toolType(node.path("type").asText("function")))
-                .description(optionalText(node, "description"))
-                .parameters(mapFrom(node.path("parameters")))
-                .strict(node.path("strict").asBoolean(false));
-        applyMetadata(builder, node.path("metadata"));
-        return builder.build();
-    }
-
-    private static ToolDefinition mcpToolDefinition(String spec) {
-        String server = null;
-        String name = spec;
-        int slash = spec.indexOf('/');
-        int colon = spec.indexOf(':');
-        int split = slash >= 0 ? slash : colon;
-        if (split > 0 && split < spec.length() - 1) {
-            server = spec.substring(0, split);
-            name = spec.substring(split + 1);
-        }
-
-        ToolDefinition.Builder builder = ToolDefinition.builder()
-                .name(name)
-                .type(ToolDefinition.Type.MCP_TOOL)
-                .description("MCP tool " + spec)
-                .parameters(Map.of());
-        if (server != null) {
-            builder.metadata("mcp_server", server);
-        }
-        return builder.build();
-    }
-
-    private static ToolDefinition.Type toolType(String raw) {
-        String normalized = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT).replace('-', '_');
-        return switch (normalized) {
-            case "mcp", "mcp_tool" -> ToolDefinition.Type.MCP_TOOL;
-            case "code_interpreter" -> ToolDefinition.Type.CODE_INTERPRETER;
-            case "file_search" -> ToolDefinition.Type.FILE_SEARCH;
-            default -> ToolDefinition.Type.FUNCTION;
-        };
-    }
-
-    private static Map<String, Object> mapFrom(JsonNode node) throws IOException {
-        if (node == null || node.isMissingNode() || node.isNull()) {
-            return Map.of();
-        }
-        return new LinkedHashMap<>(MAPPER.convertValue(node, MAP_TYPE));
-    }
-
-    private static void applyMetadata(ToolDefinition.Builder builder, JsonNode node) throws IOException {
-        for (Map.Entry<String, Object> entry : mapFrom(node).entrySet()) {
-            builder.metadata(entry.getKey(), entry.getValue());
-        }
     }
 
     private static List<RagChunk> rankChunks(Path path, String content, Set<String> queryTerms) {
