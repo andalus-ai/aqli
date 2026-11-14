@@ -46,7 +46,7 @@ import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRu
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1281,10 +1281,6 @@ public class RunCommand implements Runnable {
                     .plugin(pluginId)
                     .streaming(effectiveStream);
 
-            if (sessionId != null && !sessionId.isBlank()) {
-                requestBuilder.sessionId(sessionId.trim());
-            }
-
             if (customModelPathUsed && finalLocalPath != null) {
                 requestBuilder.parameter("model_path", finalLocalPath);
             }
@@ -1399,14 +1395,13 @@ public class RunCommand implements Runnable {
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
-            if (effectiveSystemPrompt != null && !effectiveSystemPrompt.isEmpty()) {
-                requestBuilder.message(Message.system(effectiveSystemPrompt));
-            }
             String ragSystemPrompt = CliInferenceFeatures.ragSystemPrompt(ragContext);
-            if (ragSystemPrompt != null && !ragSystemPrompt.isBlank()) {
-                requestBuilder.message(Message.system(ragSystemPrompt));
-            }
-            requestBuilder.message(Message.user(prompt));
+            RunConversationRequestAssembler.apply(
+                    requestBuilder,
+                    sessionId,
+                    effectiveSystemPrompt,
+                    ragSystemPrompt,
+                    prompt);
 
             if (executionProviderId != null && !executionProviderId.isEmpty()) {
                 requestBuilder.preferredProvider(executionProviderId);
