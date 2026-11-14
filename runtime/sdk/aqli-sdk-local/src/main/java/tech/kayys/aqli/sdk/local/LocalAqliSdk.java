@@ -35,10 +35,9 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
 /**
  * Local SDK facade over the AQLI inference-engine catalog.
  *
- * <p>This implementation deliberately exposes only capabilities backed by
- * real services. Model management, embeddings, batch inference and job
- * operations remain unsupported until their corresponding runtime services
- * are composed here.</p>
+ * <p>This implementation exposes only capabilities backed by composed
+ * runtime services. Hugging Face model pulls are delegated to the repository
+ * capability; unsupported providers and uncomposed operations fail explicitly.</p>
  */
 public class LocalAqliSdk implements AqliSdk {
 
@@ -207,7 +206,7 @@ public class LocalAqliSdk implements AqliSdk {
         } else if (normalized.startsWith("huggingface:")) {
             normalized = normalized.substring("huggingface:".length());
         } else {
-            if (normalized.contains("://") || normalized.startsWith("/") || normalized.contains("\\\\")) {
+            if (normalized.contains("://") || normalized.startsWith("/") || normalized.indexOf('\\') >= 0) {
                 throw new SdkException("SDK_ERR_NOT_SUPPORTED",
                         "The local SDK model pull currently supports Hugging Face repository references only.");
             }
@@ -222,7 +221,7 @@ public class LocalAqliSdk implements AqliSdk {
         }
         if (normalized.isBlank() || normalized.startsWith("/") || normalized.endsWith("/")
                 || normalized.chars().filter(ch -> ch == '/').count() != 1
-                || normalized.contains(":") || normalized.contains("\\\\")) {
+                || normalized.contains(":") || normalized.indexOf('\\') >= 0) {
             throw new SdkException("SDK_ERR_INVALID_ARGUMENT",
                     "Expected a Hugging Face repository ID in the form 'owner/repository'.");
         }
