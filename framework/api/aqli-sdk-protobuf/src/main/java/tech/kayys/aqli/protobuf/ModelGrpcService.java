@@ -4,10 +4,15 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
 import io.grpc.stub.StreamObserver;
+import io.grpc.Status;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.registry.service.ModelRegistryService;
+import tech.kayys.aqli.sdk.model.ModelPullRequest;
+import tech.kayys.aqli.sdk.model.PullProgress;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import java.util.concurrent.CompletableFuture;
 
 import java.util.stream.Collectors;
 
@@ -21,6 +26,61 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
 
     @Inject
     MeterRegistry meterRegistry;
+
+    @Inject
+    AqliRuntime runtime;
+
+    @Override
+    public void pullModel(PullModelRequest request, StreamObserver<PullModelProgress> observer) {
+        if (request.getModelSpec() == null || request.getModelSpec().isBlank()) {
+            observer.onError(Status.INVALID_ARGUMENT
+                    .withDescription("model_spec is required")
+                    .asRuntimeException());
+            return;
+        }
+
+        Timer.Sample sample = Timer.start(meterRegistry);
+        meterRegistry.counter("aqli.grpc.model.pull.count").increment();
+        ModelPullRequest pullRequest = ModelPullRequest.builder()
+                .modelSpec(request.getModelSpec())
+                .revision(blankToNull(request.getRevision()))
+                .format(blankToNull(request.getFormat()))
+                .force(request.getForce())
+                .build();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                runtime.pullModel(pullRequest, progress -> observer.onNext(toGrpcProgress(progress)));
+                sample.stop(meterRegistry.timer("aqli.grpc.model.pull.duration"));
+                observer.onCompleted();
+            } catch (Exception error) {
+                sample.stop(meterRegistry.timer("aqli.grpc.model.pull.duration"));
+                meterRegistry.counter("aqli.grpc.model.pull.error").increment();
+                LOG.error("Failed to pull model {}", request.getModelSpec(), error);
+                observer.onError(Status.INTERNAL
+                        .withDescription("Model pull failed: " + error.getMessage())
+                        .withCause(error)
+                        .asRuntimeException());
+            }
+        });
+    }
+
+    private static PullModelProgress toGrpcProgress(PullProgress progress) {
+        PullModelProgress.Builder response = PullModelProgress.newBuilder()
+                .setStatus(progress.getStatus() == null ? "" : progress.getStatus())
+                .setTotal(progress.getTotal())
+                .setCompleted(progress.getCompleted())
+                .setPercentComplete(progress.getPercentComplete())
+                .setComplete(progress.isComplete());
+        if (progress.getDigest() != null) {
+            response.setDigest(progress.getDigest());
+        }
+        return response.build();
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
 
     @Override
     public void listModels(ListModelsRequest request, StreamObserver<ListModelsResponse> observer) {
