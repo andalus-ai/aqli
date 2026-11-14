@@ -1296,10 +1296,6 @@ public class RunCommand implements Runnable {
             if (requestedModelRef != null && !requestedModelRef.isBlank()) {
                 requestBuilder.parameter("requested_model_ref", requestedModelRef);
             }
-            if (onnxVariant != null && !onnxVariant.isBlank()) {
-                requestBuilder.parameter("onnx_variant", PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant));
-            }
-
             if (mirostat > 0) {
                 requestBuilder.mirostat(mirostat);
             }
