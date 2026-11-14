@@ -23,6 +23,7 @@ dependencies {
     implementation("org.jboss.logging:jboss-logging")
     implementation("io.smallrye.reactive:mutiny:2.5.5")
     implementation("io.micrometer:micrometer-core:1.14.4")
+    implementation("io.micrometer:micrometer-registry-prometheus:1.14.4")
     implementation("com.hubspot.jinjava:jinjava:2.7.3")
     
     // Jakarta / MicroProfile for CDI/JAX-RS annotations
