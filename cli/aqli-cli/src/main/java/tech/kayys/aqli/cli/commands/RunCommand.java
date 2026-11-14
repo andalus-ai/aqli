@@ -86,6 +86,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -1322,9 +1323,6 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("onnx_profile", true);
             }
 
-            if (seed != null) requestBuilder.parameter("seed", seed);
-            if (steps != null) requestBuilder.parameter("steps", steps);
-            if (format != null) requestBuilder.parameter("format", format);
             requestBuilder.metadata(effectiveRunnerRouteReport.toMetadata());
             if (runner != null && !runner.isBlank()) {
                 requestBuilder.parameter("runner", effectiveRunnerRouteReport.normalizedRunner());
@@ -1344,31 +1342,21 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("feature", pipelineId);
                 requestBuilder.parameter("feature_pipeline", true);
             }
-            if (guidanceScale != null) requestBuilder.parameter("guidance_scale", guidanceScale);
-            if (outputPath != null) requestBuilder.parameter("output_path", outputPath);
-            if (width != null) requestBuilder.parameter("width", width);
-            if (height != null) requestBuilder.parameter("height", height);
-            requestBuilder.parameter("raw", raw);
-            requestBuilder.parameter("debug_prompt", debugPrompt);
-            if (!normalizedInputImages.isEmpty()) {
-                requestBuilder.parameter("image_path", normalizedInputImages.get(0));
-                requestBuilder.parameter("input_image", normalizedInputImages.get(0));
-                requestBuilder.parameter("vision_input_path", normalizedInputImages.get(0));
-                requestBuilder.parameter("image_paths", normalizedInputImages);
-                requestBuilder.parameter("vision_input_paths", normalizedInputImages);
-            }
-            if (ocrMode) {
-                requestBuilder.parameter("task", "ocr");
-                requestBuilder.parameter("ocr", true);
-            } else if (!normalizedInputImages.isEmpty()) {
-                requestBuilder.parameter("task", "vision");
-            }
-            if (ocrImageTokens != null) {
-                requestBuilder.parameter("ocr_image_tokens", Math.max(0, ocrImageTokens));
-            }
-            if (ocrRawOutput) {
-                requestBuilder.parameter("ocr_raw_output", true);
-            }
+            ImageRunRequestParameterMapper.apply(requestBuilder, new ImageRunRequestParameterMapper.Options(
+                    seed,
+                    steps,
+                    format,
+                    guidanceScale,
+                    outputPath,
+                    width,
+                    height,
+                    normalizedInputImages,
+                    ocrMode,
+                    ocrImageTokens,
+                    ocrRawOutput,
+                    PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant),
+                    raw,
+                    debugPrompt));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
                     ? null
