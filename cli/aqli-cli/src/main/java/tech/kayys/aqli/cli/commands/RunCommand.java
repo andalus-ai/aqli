@@ -1370,13 +1370,16 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("ocr_raw_output", true);
             }
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
+            String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
+                    ? null
+                    : resolveTtsCodecReference(ttsCodec);
             AudioQualityPreset audioPreset = audioQualityPreset();
             String effectiveAudioFormat = effectiveAudioFormat(audioPreset);
             Integer effectiveAudioBitrateKbps = effectiveAudioBitrateKbps(audioPreset, effectiveAudioFormat);
             Integer effectiveFlacCompression = effectiveFlacCompression(audioPreset, effectiveAudioFormat);
             AudioRunRequestParameterMapper.apply(requestBuilder, new AudioRunRequestParameterMapper.Options(
                     effectiveTtsVoice,
-                    resolveTtsCodecReference(ttsCodec),
+                    effectiveTtsCodec,
                     ttsMaxFrames,
                     ttsMaxSeconds,
                     audioQuality,
