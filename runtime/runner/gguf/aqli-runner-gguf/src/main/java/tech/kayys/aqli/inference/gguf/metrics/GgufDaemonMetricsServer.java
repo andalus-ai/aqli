@@ -42,8 +42,8 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             throws IOException {
         Objects.requireNonNull(cache, "cache");
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-        new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
         try {
+            new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
             return start(registry, port);
         } catch (IOException | RuntimeException exception) {
             registry.close();
