@@ -11,6 +11,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 
 /**
@@ -25,13 +26,16 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     private static final int CLIENT_TIMEOUT_MILLIS = 2_000;
 
     private final ServerSocket server;
-    private final PrometheusMeterRegistry registry;
+    private final Supplier<String> scrape;
+    private final Runnable closeRegistry;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final Thread acceptor;
 
-    private GgufDaemonMetricsServer(ServerSocket server, PrometheusMeterRegistry registry) {
+    private GgufDaemonMetricsServer(
+            ServerSocket server, Supplier<String> scrape, Runnable closeRegistry) {
         this.server = server;
-        this.registry = registry;
+        this.scrape = scrape;
+        this.closeRegistry = closeRegistry;
         this.acceptor = Thread.ofPlatform()
                 .daemon(true)
                 .name("aqli-gguf-metrics")
@@ -44,7 +48,7 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         try {
             new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
-            return start(registry, port);
+            return start(registry::scrape, registry::close, port);
         } catch (IOException | RuntimeException exception) {
             registry.close();
             throw exception;
@@ -52,14 +56,15 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     }
 
     static GgufDaemonMetricsServer start(
-            PrometheusMeterRegistry registry, int port) throws IOException {
-        Objects.requireNonNull(registry, "registry");
+            Supplier<String> scrape, Runnable closeRegistry, int port) throws IOException {
+        Objects.requireNonNull(scrape, "scrape");
+        Objects.requireNonNull(closeRegistry, "closeRegistry");
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("metrics port must be between 0 and 65535");
         }
         ServerSocket server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
         try {
-            return new GgufDaemonMetricsServer(server, registry);
+            return new GgufDaemonMetricsServer(server, scrape, closeRegistry);
         } catch (RuntimeException exception) {
             try {
                 server.close();
@@ -111,7 +116,7 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         } else if (!"/metrics".equals(path)) {
             respond(client, 404, "Not Found", "not found\n");
         } else {
-            respond(client, 200, "OK", registry.scrape());
+            respond(client, 200, "OK", scrape.get());
         }
     }
 
@@ -142,6 +147,6 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
-        registry.close();
+        closeRegistry.run();
     }
 }
