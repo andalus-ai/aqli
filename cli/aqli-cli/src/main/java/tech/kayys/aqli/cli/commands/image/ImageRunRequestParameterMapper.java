@@ -20,7 +20,7 @@ public final class ImageRunRequestParameterMapper {
             Long seed,
             Integer steps,
             String format,
-            Double guidanceScale,
+            Float guidanceScale,
             String outputPath,
             Integer width,
             Integer height,
