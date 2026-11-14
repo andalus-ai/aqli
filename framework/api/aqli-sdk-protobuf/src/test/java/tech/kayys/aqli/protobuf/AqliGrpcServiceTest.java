@@ -116,6 +116,20 @@ class AqliGrpcServiceTest {
         TestStreamObserver<CompletionResponse> observer = new TestStreamObserver<>();
         service.complete(request, observer);
 
+        ArgumentCaptor<InferenceRequest> requestCaptor = ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(sdk).createCompletion(requestCaptor.capture());
+        InferenceRequest assembled = requestCaptor.getValue();
+        assertEquals("test-model", assembled.getModel());
+        assertEquals("Once upon a time", assembled.getPrompt());
+        assertEquals(1, assembled.getMessages().size());
+        assertEquals(Message.Role.USER, assembled.getMessages().get(0).getRole());
+        assertEquals("Once upon a time", assembled.getMessages().get(0).getContent());
+        assertEquals(0.5, assembled.getTemperature(), 0.0001);
+        assertEquals(20, assembled.getMaxTokens());
+        assertEquals(0.9, assembled.getTopP(), 0.0001);
+        assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
+        assertFalse(assembled.isStreaming());
+
         assertTrue(observer.completed);
         assertEquals(1, observer.responses.size());
         CompletionResponse response = observer.responses.get(0);
@@ -174,6 +188,20 @@ class AqliGrpcServiceTest {
 
         TestStreamObserver<CompletionResponse> observer = new TestStreamObserver<>();
         service.streamComplete(request, observer);
+
+        ArgumentCaptor<InferenceRequest> requestCaptor = ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(sdk).streamCompletion(requestCaptor.capture());
+        InferenceRequest assembled = requestCaptor.getValue();
+        assertEquals("test-model", assembled.getModel());
+        assertEquals("Dart", assembled.getPrompt());
+        assertEquals(1, assembled.getMessages().size());
+        assertEquals(Message.Role.USER, assembled.getMessages().get(0).getRole());
+        assertEquals("Dart", assembled.getMessages().get(0).getContent());
+        assertEquals(0.2, assembled.getTemperature(), 0.0001);
+        assertEquals(256, assembled.getMaxTokens());
+        assertEquals(0.9, assembled.getTopP(), 0.0001);
+        assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
+        assertTrue(assembled.isStreaming());
 
         assertTrue(observer.completed);
         assertEquals(2, observer.responses.size());
