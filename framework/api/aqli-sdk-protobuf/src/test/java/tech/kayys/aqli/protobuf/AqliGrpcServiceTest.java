@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +70,18 @@ class AqliGrpcServiceTest {
 
         TestStreamObserver<ChatResponse> observer = new TestStreamObserver<>();
         service.chat(request, observer);
+
+        ArgumentCaptor<InferenceRequest> requestCaptor = ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(sdk).createCompletion(requestCaptor.capture());
+        InferenceRequest assembled = requestCaptor.getValue();
+        assertEquals("test-model", assembled.getModel());
+        assertEquals(0.7, assembled.getTemperature(), 0.0001);
+        assertEquals(50, assembled.getMaxTokens());
+        assertEquals(0.9, assembled.getTopP(), 0.0001);
+        assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
+        assertEquals(1, assembled.getMessages().size());
+        assertEquals(Message.Role.USER, assembled.getMessages().get(0).getRole());
+        assertFalse(assembled.isStreaming());
 
         assertTrue(observer.completed);
         assertEquals(1, observer.responses.size());
@@ -127,6 +141,14 @@ class AqliGrpcServiceTest {
 
         TestStreamObserver<ChatResponse> observer = new TestStreamObserver<>();
         service.streamChat(request, observer);
+
+        ArgumentCaptor<InferenceRequest> requestCaptor = ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(sdk).streamCompletion(requestCaptor.capture());
+        InferenceRequest assembled = requestCaptor.getValue();
+        assertEquals("test-model", assembled.getModel());
+        assertEquals(0.9, assembled.getTopP(), 0.0001);
+        assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
+        assertTrue(assembled.isStreaming());
 
         assertTrue(observer.completed);
         assertEquals(2, observer.responses.size());
