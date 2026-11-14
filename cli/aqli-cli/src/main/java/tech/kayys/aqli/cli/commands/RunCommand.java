@@ -87,6 +87,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenan
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -1277,12 +1278,6 @@ public class RunCommand implements Runnable {
                     .requestId(UUID.randomUUID().toString())
                     .model(requestModelTarget)
                     .prompt(prompt)
-                    .temperature(temperature)
-                    .topP(topP)
-                    .topK(topK)
-                    .repeatPenalty(repeatPenalty)
-                    .jsonMode(jsonMode)
-                    .maxTokens(maxTokens)
                     .plugin(pluginId)
                     .streaming(effectiveStream);
 
@@ -1296,12 +1291,15 @@ public class RunCommand implements Runnable {
             if (requestedModelRef != null && !requestedModelRef.isBlank()) {
                 requestBuilder.parameter("requested_model_ref", requestedModelRef);
             }
-            if (mirostat > 0) {
-                requestBuilder.mirostat(mirostat);
-            }
-            if (grammar != null && !grammar.isEmpty()) {
-                requestBuilder.grammar(grammar);
-            }
+            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
+                    temperature,
+                    topP,
+                    topK,
+                    repeatPenalty,
+                    jsonMode,
+                    maxTokens,
+                    mirostat,
+                    grammar));
 
             if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
                 requestBuilder.parameter("quantize_strategy", quantizeStrategy);
