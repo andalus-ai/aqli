@@ -19,12 +19,34 @@ import java.util.function.IntSupplier;
  * cached sessions and defer backend close until their final borrowed lease is released.
  */
 public final class GgufSessionCache implements AutoCloseable {
+
+    /** Immutable point-in-time view of cache occupancy and lifecycle activity. */
+    public record CacheSnapshot(
+            int nativeEntries,
+            int javaBackendEntries,
+            long activeNativeLeases,
+            long activeJavaBackendLeases,
+            long nativeHits,
+            long nativeMisses,
+            long nativeEvictions,
+            long javaBackendHits,
+            long javaBackendMisses,
+            long javaBackendEvictions) {
+    }
     private final IntSupplier maxSessionsSupplier;
     private final Consumer<String> log;
     private final LlamaCppGgufLibraryPaths libraryPaths;
     private final SessionOpener sessionOpener;
     private final JavaBackendOpener javaBackendOpener;
     private boolean closed;
+    private long activeNativeLeases;
+    private long activeJavaBackendLeases;
+    private long nativeHits;
+    private long nativeMisses;
+    private long nativeEvictions;
+    private long javaBackendHits;
+    private long javaBackendMisses;
+    private long javaBackendEvictions;
 
     public GgufSessionCache(IntSupplier maxSessionsSupplier, Consumer<String> log,
             LlamaCppGgufLibraryPaths libraryPaths) {
@@ -137,15 +159,32 @@ public final class GgufSessionCache implements AutoCloseable {
     private final Map<Path, CachedJavaBackend> javaBackends =
             new LinkedHashMap<>(2, 0.75f, true);
 
+    /** Returns a consistent point-in-time snapshot; counters are scoped to this cache instance. */
+    public synchronized CacheSnapshot snapshot() {
+        return new CacheSnapshot(
+                sessions.size(),
+                javaBackends.size(),
+                activeNativeLeases,
+                activeJavaBackendLeases,
+                nativeHits,
+                nativeMisses,
+                nativeEvictions,
+                javaBackendHits,
+                javaBackendMisses,
+                javaBackendEvictions);
+    }
+
     public synchronized GgufJavaBackendSession.Lease acquireJavaBackend(
             Path modelPath) throws Exception {
         ensureOpen();
         Path key = modelPath.toAbsolutePath().normalize();
         CachedJavaBackend existing = javaBackends.get(key);
         if (existing != null) {
+            javaBackendHits++;
             logSafely("java backend cache hit: " + key.getFileName());
             return lease(existing);
         }
+        javaBackendMisses++;
         logSafely("java backend cache miss: " + key.getFileName());
         GgufJavaBackendSession opened = javaBackendOpener.open(key);
         CachedJavaBackend cached = new CachedJavaBackend(opened);
@@ -160,6 +199,7 @@ public final class GgufSessionCache implements AutoCloseable {
         while (javaBackends.size() > maxSessions) {
             Map.Entry<Path, CachedJavaBackend> eldest = javaBackends.entrySet().iterator().next();
             javaBackends.remove(eldest.getKey());
+            javaBackendEvictions++;
             logSafely("java backend cache evict: " + eldest.getKey().getFileName()
                     + ", maxSessions=" + maxSessions);
             retire(eldest.getValue());
@@ -168,6 +208,7 @@ public final class GgufSessionCache implements AutoCloseable {
 
     private GgufJavaBackendSession.Lease lease(CachedJavaBackend cached) {
         cached.activeLeases++;
+        activeJavaBackendLeases++;
         return GgufJavaBackendSession.borrowedLease(cached.session, () -> release(cached));
     }
 
@@ -176,6 +217,7 @@ public final class GgufSessionCache implements AutoCloseable {
             throw new IllegalStateException("Java GGUF backend lease released more than once");
         }
         cached.activeLeases--;
+        activeJavaBackendLeases--;
         if (cached.retired && cached.activeLeases == 0) {
             closeRetired(cached);
         }
@@ -206,6 +248,7 @@ public final class GgufSessionCache implements AutoCloseable {
         SessionKey key = new SessionKey(modelPath.toAbsolutePath().normalize(), parameters);
         CachedSession existing = sessions.get(key);
         if (existing != null) {
+            nativeHits++;
             logSafely("session cache hit: " + key.modelPath().getFileName()
                     + ", context=" + parameters.context()
                     + ", gpuLayers=" + parameters.gpuLayers()
@@ -216,6 +259,7 @@ public final class GgufSessionCache implements AutoCloseable {
         if (compatible != null) {
             return compatible;
         }
+        nativeMisses++;
         logSafely("session cache miss: " + key.modelPath().getFileName()
                 + ", context=" + parameters.context()
                 + ", gpuLayers=" + parameters.gpuLayers()
@@ -248,6 +292,7 @@ public final class GgufSessionCache implements AutoCloseable {
                 + ", warmBatch=" + selected.parameters().batch()
                 + ", gpuLayers=" + selected.parameters().gpuLayers()
                 + ", sessions=" + sessions.size());
+        nativeHits++;
         return lease(cached, true, "compatible");
     }
 
@@ -302,6 +347,7 @@ public final class GgufSessionCache implements AutoCloseable {
         while (sessions.size() > maxSessions) {
             Map.Entry<SessionKey, CachedSession> eldest = sessions.entrySet().iterator().next();
             sessions.remove(eldest.getKey());
+            nativeEvictions++;
             logSafely("session cache evict: " + eldest.getKey().modelPath().getFileName()
                     + ", context=" + eldest.getKey().parameters().context()
                     + ", gpuLayers=" + eldest.getKey().parameters().gpuLayers()
@@ -316,6 +362,7 @@ public final class GgufSessionCache implements AutoCloseable {
 
     private SessionLease lease(CachedSession cached, boolean reused, String reuseKind) {
         cached.activeLeases++;
+        activeNativeLeases++;
         return new SessionLease(cached.session, reused, false, reuseKind, () -> release(cached));
     }
 
@@ -324,6 +371,7 @@ public final class GgufSessionCache implements AutoCloseable {
             throw new IllegalStateException("GGUF session lease released more than once");
         }
         cached.activeLeases--;
+        activeNativeLeases--;
         if (cached.retired && cached.activeLeases == 0) {
             closeRetired(cached);
         }
