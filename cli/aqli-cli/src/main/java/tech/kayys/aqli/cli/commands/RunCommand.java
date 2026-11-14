@@ -1272,22 +1272,22 @@ public class RunCommand implements Runnable {
             CliInferenceFeatures.RagContext ragContext =
                     CliInferenceFeatures.loadRagContext(ragContexts, ragFiles, ragMaxChars, prompt);
 
-            InferenceRequest.Builder requestBuilder = InferenceRequest.builder()
-                    .requestId(UUID.randomUUID().toString())
-                    .model(requestModelTarget)
-                    .prompt(prompt)
-                    .temperature(temperature)
-                    .topP(topP)
-                    .topK(topK)
-                    .repeatPenalty(repeatPenalty)
-                    .jsonMode(jsonMode)
-                    .maxTokens(maxTokens)
-                    .plugin(pluginId)
-                    .streaming(effectiveStream);
-
-            if (sessionId != null && !sessionId.isBlank()) {
-                requestBuilder.sessionId(sessionId.trim());
-            }
+            InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
+                    new RunInferenceRequestFactory.Options(
+                            requestModelTarget,
+                            prompt,
+                            temperature,
+                            topP,
+                            topK,
+                            repeatPenalty,
+                            jsonMode,
+                            maxTokens,
+                            pluginId,
+                            effectiveStream,
+                            sessionId,
+                            mirostat,
+                            grammar,
+                            noCache));
 
             if (customModelPathUsed && finalLocalPath != null) {
                 requestBuilder.parameter("model_path", finalLocalPath);
@@ -1297,13 +1297,6 @@ public class RunCommand implements Runnable {
             }
             if (onnxVariant != null && !onnxVariant.isBlank()) {
                 requestBuilder.parameter("onnx_variant", PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant));
-            }
-
-            if (mirostat > 0) {
-                requestBuilder.mirostat(mirostat);
-            }
-            if (grammar != null && !grammar.isEmpty()) {
-                requestBuilder.grammar(grammar);
             }
 
             if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
@@ -1433,8 +1426,6 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("provider_bridge_mode", "cli_libtorch_to_safetensor");
                 requestBuilder.metadata("provider_bridge_reason", "raw_safetensor_checkpoint");
             }
-
-            requestBuilder.cacheBypass(noCache);
 
             InferenceRequest request = requestBuilder.build();
 
