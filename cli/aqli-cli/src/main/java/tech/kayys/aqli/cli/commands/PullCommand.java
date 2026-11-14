@@ -12,6 +12,7 @@ import picocli.CommandLine.Parameters;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
+import tech.kayys.aqli.model.repo.local.LocalModelTaskClassifier;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceModelInfo;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
@@ -401,7 +402,7 @@ public class PullCommand implements Runnable {
         String resolvedTaskType = taskType; // --task-type flag wins
         String detectedPipelineTag = modelInfo != null ? modelInfo.getPipelineTag() : null;
         if ((resolvedTaskType == null || resolvedTaskType.isBlank()) && detectedPipelineTag != null) {
-            resolvedTaskType = LocalModelIndex.pipelineTagToTaskType(detectedPipelineTag);
+            resolvedTaskType = LocalModelTaskClassifier.pipelineTagToTaskType(detectedPipelineTag);
         }
         manifest.setTaskType(resolvedTaskType != null ? resolvedTaskType : "text");
 
