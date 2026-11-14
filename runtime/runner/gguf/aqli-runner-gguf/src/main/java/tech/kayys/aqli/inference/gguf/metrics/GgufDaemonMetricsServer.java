@@ -42,13 +42,9 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         if (port < 0 || port > 65_535) {
             throw new IllegalArgumentException("metrics port must be between 0 and 65535");
         }
-        ServerSocket server = new ServerSocket(0, 16, InetAddress.getLoopbackAddress());
+        ServerSocket server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
         try {
             server.setReuseAddress(false);
-            if (port != 0) {
-                server.close();
-                server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
-            }
             return new GgufDaemonMetricsServer(server, registry);
         } catch (IOException | RuntimeException exception) {
             try {
