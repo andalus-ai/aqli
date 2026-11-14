@@ -57,4 +57,42 @@ class LocalModelFileInventoryTest {
     void missingFormatDirectoryProducesEmptyInventory() {
         assertTrue(inventory.discover(temporaryDirectory.resolve("missing"), "onnx", true).isEmpty());
     }
+
+    @Test
+    void measuresFileAndRecursiveDirectorySizes() throws Exception {
+        Path nested = Files.createDirectories(temporaryDirectory.resolve("nested"));
+        Files.write(temporaryDirectory.resolve("first.bin"), new byte[] { 1, 2, 3 });
+        Files.write(nested.resolve("second.bin"), new byte[] { 4, 5 });
+
+        assertEquals(3L, LocalModelFileInventory.sizeBytes(temporaryDirectory.resolve("first.bin")));
+        assertEquals(5L, LocalModelFileInventory.sizeBytes(nested.resolve("second.bin")));
+        assertEquals(5L, LocalModelFileInventory.sizeBytes(temporaryDirectory));
+    }
+
+    @Test
+    void findsLatestModificationAcrossDirectoryTree() throws Exception {
+        Path first = temporaryDirectory.resolve("first.bin");
+        Path nested = Files.createDirectories(temporaryDirectory.resolve("nested"));
+        Path second = nested.resolve("second.bin");
+        Files.write(first, new byte[] { 1 });
+        Files.write(second, new byte[] { 2 });
+
+        java.time.Instant older = java.time.Instant.parse("2026-01-01T00:00:00Z");
+        java.time.Instant newer = java.time.Instant.parse("2026-02-01T00:00:00Z");
+        Files.setLastModifiedTime(first, java.nio.file.attribute.FileTime.from(older));
+        Files.setLastModifiedTime(second, java.nio.file.attribute.FileTime.from(newer));
+
+        assertEquals(newer, LocalModelFileInventory.latestModified(temporaryDirectory));
+        assertEquals(older, LocalModelFileInventory.latestModified(first));
+    }
+
+    @Test
+    void returnsBestEffortDefaultsForMissingAndEmptyPaths() {
+        Path missing = temporaryDirectory.resolve("missing");
+        assertEquals(0L, LocalModelFileInventory.sizeBytes(missing));
+        assertEquals(java.time.Instant.EPOCH, LocalModelFileInventory.latestModified(missing));
+        assertEquals(0L, LocalModelFileInventory.sizeBytes(temporaryDirectory));
+        assertEquals(java.time.Instant.EPOCH, LocalModelFileInventory.latestModified(temporaryDirectory));
+    }
+
 }
