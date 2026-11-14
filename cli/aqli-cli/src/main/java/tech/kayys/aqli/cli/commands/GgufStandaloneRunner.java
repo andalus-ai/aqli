@@ -1215,12 +1215,6 @@ public final class GgufStandaloneRunner {
         return isMacOs() ? "launchctl" : "nohup";
     }
 
-    private static void metricsServerClose(GgufDaemonMetricsServer metricsServer) {
-        if (metricsServer != null) {
-            metricsServer.close();
-        }
-    }
-
     private static GgufDaemonMetricsServer daemonMetricsServer(GgufSessionCache sessionCache)
             throws IOException {
         if (!CONFIG.booleanValue("aqli.gguf.fast_run.daemon_metrics_enabled", false)) {
@@ -1256,7 +1250,9 @@ public final class GgufStandaloneRunner {
                 if (daemonHardExit()) {
                     // This process uses Runtime.halt for native shutdown compatibility,
                     // so release daemon-owned resources explicitly before the hard exit.
-                    metricsServerClose(metricsServer);
+                    if (metricsServer != null) {
+                        metricsServer.close();
+                    }
                     sessionCache.close();
                     server.close();
                     hardExitDaemon(0, port);
