@@ -18,13 +18,13 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Manage Aqli API server lifecycle.
- * Supports running the server in background, foreground with debug output, and stopping.
+ * Supports running the server in background, foreground with debug output, and
+ * stopping.
  */
 @Dependent
 @Unremovable
-@Command(name = "server",
-        description = "Manage Aqli API server lifecycle",
-        subcommands = {ServerCommand.ServeSubcommand.class, ServerCommand.StopSubcommand.class})
+@Command(name = "server", description = "Manage Aqli API server lifecycle", subcommands = {
+        ServerCommand.ServeSubcommand.class, ServerCommand.StopSubcommand.class })
 public class ServerCommand implements Runnable {
 
     @ParentCommand
@@ -35,7 +35,8 @@ public class ServerCommand implements Runnable {
         // Show help if no subcommand provided
         System.out.println("Usage: aqli server <command> [options]");
         System.out.println("Commands:");
-        System.out.println("  start [--debug]     Start the Aqli API server (background by default, use --debug for foreground)");
+        System.out.println(
+                "  start [--debug]     Start the Aqli API server (background by default, use --debug for foreground)");
         System.out.println("  stop                Stop the running Aqli API server");
     }
 
@@ -50,16 +51,16 @@ public class ServerCommand implements Runnable {
         @ParentCommand
         ServerCommand serverCommand;
 
-        @Option(names = {"--debug"}, description = "Run server in foreground with TTY output (not backgrounded)")
+        @Option(names = { "--debug" }, description = "Run server in foreground with TTY output (not backgrounded)")
         boolean debug = false;
 
-        @Option(names = {"--port"}, description = "Port to run the server on (default: 9131)")
+        @Option(names = { "--port" }, description = "Port to run the server on (default: 9131)")
         int port = 9131;
 
-        @Option(names = {"--grpc"}, description = "Only serve gRPC")
+        @Option(names = { "--grpc" }, description = "Only serve gRPC")
         boolean grpcOnly = false;
 
-        @Option(names = {"--rest"}, description = "Only serve REST")
+        @Option(names = { "--rest" }, description = "Only serve REST")
         boolean restOnly = false;
 
         @Override
@@ -86,10 +87,10 @@ public class ServerCommand implements Runnable {
 
             ProcessBuilder pb = buildServerProcess(port);
             pb.inheritIO(); // Inherit parent's stdin/stdout/stderr for live output
-            
+
             Process process = pb.start();
             int exitCode = process.waitFor();
-            
+
             System.out.println("");
             System.out.println("Server stopped with exit code: " + exitCode);
         }
@@ -104,7 +105,7 @@ public class ServerCommand implements Runnable {
             }
 
             System.out.println("🚀 Starting Aqli API server on port " + port + " (background mode)");
-            
+
             // Create PID file directory
             Path pidDir = AqliHome.path("server");
             Files.createDirectories(pidDir);
@@ -112,37 +113,37 @@ public class ServerCommand implements Runnable {
 
             // Start process
             ProcessBuilder pb = buildServerProcess(port);
-            
+
             // Redirect output to logs directory with rotation strategy
             Path logDir = AqliHome.path("server", "logs");
             Files.createDirectories(logDir);
-            
+
             // Rotate old server.log to dated backup if it exists and is from a previous day
             Path currentLogFile = logDir.resolve("server.log");
             if (Files.exists(currentLogFile)) {
                 rotateLogIfNeeded(currentLogFile, logDir);
             }
-            
+
             // Always append to server.log (current/live log)
             File logFile = currentLogFile.toFile();
-            
+
             pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile));
             pb.redirectError(ProcessBuilder.Redirect.appendTo(logFile));
-            
+
             // Start the process
             Process process = pb.start();
             int pid = (int) process.pid();
-            
+
             // Write PID file
             Files.writeString(pidFile, String.valueOf(pid));
-            
+
             System.out.println("✅ Server started with PID " + pid);
             System.out.println("📝 Current logs: " + logFile.getAbsolutePath());
             System.out.println("");
             System.out.println("To stop the server, run: aqli server stop");
             System.out.println("To view live logs: tail -f " + logFile.getAbsolutePath());
         }
-        
+
         /**
          * Rotate log file if it's from a previous day
          */
@@ -151,20 +152,19 @@ public class ServerCommand implements Runnable {
                 // Get the last modified date of the current log file
                 long lastModified = Files.getLastModifiedTime(currentLogFile).toMillis();
                 LocalDateTime fileDate = LocalDateTime.ofInstant(
-                    java.time.Instant.ofEpochMilli(lastModified),
-                    java.time.ZoneId.systemDefault()
-                );
+                        java.time.Instant.ofEpochMilli(lastModified),
+                        java.time.ZoneId.systemDefault());
                 LocalDateTime today = LocalDateTime.now();
-                
+
                 // If the file is from a different day, rotate it
                 if (!fileDate.toLocalDate().equals(today.toLocalDate())) {
                     String dateStr = fileDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
                     Path backupFile = logDir.resolve("server-" + dateStr + ".log");
-                    
+
                     // If backup already exists, append to it; otherwise rename
                     if (Files.exists(backupFile)) {
-                        Files.write(backupFile, Files.readAllBytes(currentLogFile), 
-                            java.nio.file.StandardOpenOption.APPEND);
+                        Files.write(backupFile, Files.readAllBytes(currentLogFile),
+                                java.nio.file.StandardOpenOption.APPEND);
                     } else {
                         Files.move(currentLogFile, backupFile);
                     }
@@ -179,7 +179,8 @@ public class ServerCommand implements Runnable {
             // Find the aqli-api jar
             String jarPath = findAqliApiJar();
             if (jarPath == null) {
-                throw new RuntimeException("Aqli API server JAR not found. Please build the project first (./gradlew :ui:aqli-api:quarkusBuild).");
+                throw new RuntimeException(
+                        "Aqli API server JAR not found. Please build the project first (./gradlew :framework:api:aqli-api:quarkusBuild).");
             }
 
             String javaCmd = System.getProperty("java.home") + "/bin/java";
@@ -200,7 +201,7 @@ public class ServerCommand implements Runnable {
 
             // Set environment variable for port
             pb.environment().put("QUARKUS_HTTP_PORT", grpcOnly ? "-1" : String.valueOf(port));
-            
+
             // Handle --grpc and --rest
             if (grpcOnly) {
                 pb.environment().put("QUARKUS_GRPC_SERVER_ENABLE", "true");
@@ -216,7 +217,8 @@ public class ServerCommand implements Runnable {
             String envJar = System.getenv("AQLI_API_JAR");
             if (envJar != null && !envJar.isBlank()) {
                 File f = new File(envJar);
-                if (f.exists() && f.isFile()) return f.getAbsolutePath();
+                if (f.exists() && f.isFile())
+                    return f.getAbsolutePath();
             }
 
             // 2. Global/user runtime directory (~/.aqli/runtime/...)
@@ -228,7 +230,8 @@ public class ServerCommand implements Runnable {
             };
             for (String loc : runtimeLocations) {
                 File f = new File(loc);
-                if (f.exists() && f.isFile()) return f.getAbsolutePath();
+                if (f.exists() && f.isFile())
+                    return f.getAbsolutePath();
             }
 
             // 3. Known project build directories (both absolute and relative)
@@ -302,7 +305,7 @@ public class ServerCommand implements Runnable {
         @ParentCommand
         ServerCommand serverCommand;
 
-        @Option(names = {"--port"}, description = "Port the server is running on (default: 9131)")
+        @Option(names = { "--port" }, description = "Port the server is running on (default: 9131)")
         int port = 9131;
 
         @Override
@@ -319,18 +322,18 @@ public class ServerCommand implements Runnable {
         private void stopServer(int port) throws IOException, InterruptedException {
             // Try to read PID from file
             Path pidFile = AqliHome.path("server", "server.pid");
-            
+
             if (pidFile.toFile().exists()) {
                 try {
                     String pidStr = Files.readString(pidFile).trim();
                     int pid = Integer.parseInt(pidStr);
-                    
+
                     // Kill the process
                     if (isProcessRunning(pid)) {
                         System.out.println("Stopping server (PID: " + pid + ")...");
                         killProcess(pid);
                         Thread.sleep(1000);
-                        
+
                         // Verify it stopped
                         if (!isProcessRunning(pid)) {
                             System.out.println("✅ Server stopped successfully");
@@ -372,7 +375,7 @@ public class ServerCommand implements Runnable {
                 Process p = pb.start();
                 String pidStr = new String(p.getInputStream().readAllBytes()).trim();
                 int exitCode = p.waitFor();
-                
+
                 if (exitCode == 0 && !pidStr.isEmpty()) {
                     int pid = Integer.parseInt(pidStr.split("\\n")[0]);
                     killProcess(pid);

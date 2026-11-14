@@ -96,7 +96,7 @@ cd aqli
 To build the CLI JVM artifact, use the current CLI module task listed by the Gradle project graph and its module README. For example, the repository has used:
 
 ```bash
-./gradlew :ui:aqli-cli:quarkusBuild
+./gradlew :cli:aqli-cli:quarkusBuild
 ```
 
 A native-image build additionally requires GraalVM 25 and may have runner-specific native configuration. Build tasks and optional modules can change; check the wrapper and module docs before relying on a command in a release pipeline.

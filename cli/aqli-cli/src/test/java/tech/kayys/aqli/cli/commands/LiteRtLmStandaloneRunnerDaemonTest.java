@@ -79,7 +79,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         command.topK = 1;
         command.topP = 1.0;
 
-        assertTrue(command.shouldTryStandaloneLiteRtFastPath(litert.toString()));
+        assertTrue(command.shouldUseStandaloneLiteRtRun(litert.toString()));
         assertArrayEquals(new String[] {
                 "run",
                 "--modelFile", litert.toString(),
@@ -89,7 +89,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
                 "--top-k", "1",
                 "--top-p", "1.0",
                 "--provider", "litert"
-        }, command.buildStandaloneLiteRtFastRunArgs(litert.toString()));
+        }, command.buildStandaloneLiteRtRunArgs(litert.toString()));
     }
 
     @Test
@@ -100,7 +100,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         command.providerId = "litert";
         command.ragContexts = java.util.List.of("context");
 
-        assertFalse(command.shouldTryStandaloneLiteRtFastPath(litert.toString()));
+        assertFalse(command.shouldUseStandaloneLiteRtRun(litert.toString()));
     }
 
     @Test
@@ -109,9 +109,9 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         command.modelId = "0576e9";
         command.prompt = "what is jakarta";
 
-        assertTrue(command.shouldTryCachedGemma4MobileQatLiteRtFastPath(false, null));
-        assertTrue(command.shouldTryCachedGemma4MobileQatLiteRtFastPath(true, "litert"));
-        assertFalse(command.shouldTryCachedGemma4MobileQatLiteRtFastPath(true, "safetensor"));
+        assertTrue(command.shouldUseCachedGemma4MobileQatLiteRtRun(false, null));
+        assertTrue(command.shouldUseCachedGemma4MobileQatLiteRtRun(true, "litert"));
+        assertFalse(command.shouldUseCachedGemma4MobileQatLiteRtRun(true, "safetensor"));
     }
 
     @Test
@@ -121,7 +121,7 @@ class LiteRtLmStandaloneRunnerDaemonTest {
         command.prompt = "what is jakarta";
         command.ragContexts = java.util.List.of("context");
 
-        assertFalse(command.shouldTryCachedGemma4MobileQatLiteRtFastPath(false));
+        assertFalse(command.shouldUseCachedGemma4MobileQatLiteRtRun(false));
     }
 
     @Test

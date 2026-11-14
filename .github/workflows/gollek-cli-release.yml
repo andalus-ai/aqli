@@ -87,7 +87,7 @@ jobs:
           export AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp"
           export AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch"
           export AQLI_LIBTORCH_LIB_PATH="$AQLI_HOME/source/vendor/libtorch/lib"
-          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:buildNative -x test
+          ./gradlew --no-daemon --stacktrace :cli:aqli-cli:buildNative -x test
         env:
           GRADLE_OPTS: -Xmx3G
 
@@ -99,7 +99,7 @@ jobs:
           export AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp"
           export AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch"
           export AQLI_LIBTORCH_LIB_PATH="$AQLI_HOME/source/vendor/libtorch/lib"
-          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:buildNative -x test
+          ./gradlew --no-daemon --stacktrace :cli:aqli-cli:buildNative -x test
         env:
           GRADLE_OPTS: -Xmx3G
 
@@ -187,7 +187,7 @@ jobs:
           export AQLI_LLAMA_SOURCE_DIR="$AQLI_HOME/source/vendor/llama.cpp"
           export AQLI_LIBTORCH_SOURCE_DIR="$AQLI_HOME/source/vendor/libtorch"
           export AQLI_LIBTORCH_LIB_PATH="$AQLI_HOME/source/vendor/libtorch/lib"
-          ./gradlew --no-daemon --stacktrace :ui:aqli-cli:quarkusBuild -x test
+          ./gradlew --no-daemon --stacktrace :cli:aqli-cli:quarkusBuild -x test
 
       - name: Stage JVM bundle
         shell: bash

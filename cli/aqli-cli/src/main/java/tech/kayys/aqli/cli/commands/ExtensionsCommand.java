@@ -1,4 +1,5 @@
 package tech.kayys.aqli.cli.commands;
+
 import tech.kayys.aqli.cli.util.RouteBenchmarkCacheReportContract;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -55,7 +56,6 @@ import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeManifest;
 import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeManifestViolation;
 import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeRegistry;
 
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -73,10 +73,8 @@ import java.util.function.Predicate;
  */
 @Dependent
 @Unremovable
-@Command(
-        name = "modules",
-        aliases = { "components", "runtime-extensions" },
-        description = "Show packaged runtime modules, built-in plugins, and kernel info")
+@Command(name = "modules", aliases = { "components",
+        "runtime-extensions" }, description = "Show packaged runtime modules, built-in plugins, and kernel info")
 public class ExtensionsCommand implements Runnable {
     private static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
@@ -146,38 +144,34 @@ public class ExtensionsCommand implements Runnable {
     @Option(names = { "--json" }, description = "Print a machine-readable module report")
     boolean jsonOutput;
 
-    @Option(names = { "--doctor", "--plugin-doctor" },
-            description = "Print a focused detachable plugin validation report")
+    @Option(names = { "--doctor",
+            "--plugin-doctor" }, description = "Print a focused detachable plugin validation report")
     boolean pluginDoctor;
 
     @Option(names = {
             ExternalPluginClasspath.OPTION_PLUGIN_CLASSPATH,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_CLASSPATH },
-            split = ",",
-            description = ExternalPluginClasspath.MODEL_FAMILY_AND_EXTENSION_OPTION_DESCRIPTION)
+            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_CLASSPATH }, split = ",", description = ExternalPluginClasspath.MODEL_FAMILY_AND_EXTENSION_OPTION_DESCRIPTION)
     List<String> externalPluginClasspath = new ArrayList<>();
 
     @Option(names = {
             ExternalPluginClasspath.OPTION_PLUGIN_DIR,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_DIR },
-            split = ",",
-            description = ExternalPluginClasspath.PLUGIN_DIRECTORY_OPTION_DESCRIPTION)
+            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_DIR }, split = ",", description = ExternalPluginClasspath.PLUGIN_DIRECTORY_OPTION_DESCRIPTION)
     List<String> externalPluginDirectories = new ArrayList<>();
 
-    @Option(names = { "--fail-on-extension-gate" },
-            description = "Fail after printing the report when extension policy or provider contracts fail")
+    @Option(names = {
+            "--fail-on-extension-gate" }, description = "Fail after printing the report when extension policy or provider contracts fail")
     boolean failOnExtensionGate;
 
-    @Option(names = { "--fail-on-model-family-gate" },
-            description = "Fail after printing the report when model-family bundle availability or contracts fail")
+    @Option(names = {
+            "--fail-on-model-family-gate" }, description = "Fail after printing the report when model-family bundle availability or contracts fail")
     boolean failOnModelFamilyGate;
 
-    @Option(names = { "--fail-on-plugin-gates" },
-            description = "Fail after printing the report when any plugin release gate fails")
+    @Option(names = {
+            "--fail-on-plugin-gates" }, description = "Fail after printing the report when any plugin release gate fails")
     boolean failOnPluginGates;
 
-    @Option(names = { "--fail-on-route-benchmark-cache" },
-            description = "Fail after printing the report when route benchmark cache readiness has problems")
+    @Option(names = {
+            "--fail-on-route-benchmark-cache" }, description = "Fail after printing the report when route benchmark cache readiness has problems")
     boolean failOnRouteBenchmarkCache;
 
     private static final String RESET = "\u001B[0m";
@@ -277,12 +271,13 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private Map<String, Object> buildJsonReport(ExternalPluginClasspathScope pluginScope) {
-        ModelFamilyPluginRegistry modelFamilyRegistry =
-                collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
+        ModelFamilyPluginRegistry modelFamilyRegistry = collectModelFamilyPluginRegistry(
+                pluginScope.discoveryClassLoader());
         Map<String, ModelFamilyPlugin> families = collectModelFamilyPlugins(modelFamilyRegistry);
-        ExtensionAvailabilityRegistry extensionRegistry = extensionAvailabilityRegistry(pluginScope.discoveryClassLoader());
-        UnifiedRuntimeRegistry unifiedRuntimeRegistry =
-                collectUnifiedRuntimeRegistry(pluginScope.discoveryClassLoader());
+        ExtensionAvailabilityRegistry extensionRegistry = extensionAvailabilityRegistry(
+                pluginScope.discoveryClassLoader());
+        UnifiedRuntimeRegistry unifiedRuntimeRegistry = collectUnifiedRuntimeRegistry(
+                pluginScope.discoveryClassLoader());
         ModelFamilyBundleManifest manifest = ModelFamilyBundleManifest.load();
 
         Map<String, Object> report = new LinkedHashMap<>();
@@ -293,8 +288,8 @@ public class ExtensionsCommand implements Runnable {
         report.put("kernel", kernelReport());
         report.put("runtimeModules", runtimeModuleReports());
         report.put("runnerPlugins", runnerPluginSectionReport());
-        Map<String, Object> extensionAvailability =
-                extensionAvailabilitySectionReport(extensionRegistry, pluginScope.registryScope());
+        Map<String, Object> extensionAvailability = extensionAvailabilitySectionReport(extensionRegistry,
+                pluginScope.registryScope());
         Map<String, Object> modelFamilyBundle = modelFamilyBundleReport(
                 manifest,
                 families,
@@ -405,7 +400,8 @@ public class ExtensionsCommand implements Runnable {
                 ? snapshot.manifest().bundlePreset()
                 : null);
         modelFamilySummary.put("bundlePresetDescription", snapshot.manifest().displayBundlePreset());
-        modelFamilySummary.put("bundleAvailability", modelFamilyBundleAvailabilityReport(snapshot.bundleAvailability()));
+        modelFamilySummary.put("bundleAvailability",
+                modelFamilyBundleAvailabilityReport(snapshot.bundleAvailability()));
         modelFamilySummary.put("productionSafety", modelFamilyBundleProductionSafetyReport(snapshot.manifest()));
         modelFamilySummary.put("catalogReadiness", modelFamilyBundleCatalogReadinessReport(snapshot.manifest()));
         modelFamilySummary.put("capabilityTotals",
@@ -434,8 +430,8 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private Map<String, Object> pluginDirectoryReport() {
-        ExternalPluginClasspath.PluginDirectoryReport directories =
-                ExternalPluginClasspath.pluginDirectoryReport(externalPluginDirectories);
+        ExternalPluginClasspath.PluginDirectoryReport directories = ExternalPluginClasspath
+                .pluginDirectoryReport(externalPluginDirectories);
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("commandDirectories", ExternalPluginClasspath.display(directories.commandDirectories()));
         report.put("configuredDirectories", ExternalPluginClasspath.display(directories.configuredDirectories()));
@@ -672,8 +668,8 @@ public class ExtensionsCommand implements Runnable {
         report.put("policyStatus", modelFamilyBundlePolicyStatusReport(manifest.bundlePolicy()));
         report.put("policyViolations", modelFamilyBundlePolicyViolationsReport(manifest.bundlePolicy().violations()));
         report.put("fixtureStatus", modelFamilyBundleFixtureStatusReport(manifest.fixtureStatus()));
-        PluginAvailabilityChecker.ModelFamilyBundleAvailability availability =
-                PluginAvailabilityChecker.modelFamilyBundleAvailability(manifest, discoveredFamilies.keySet());
+        PluginAvailabilityChecker.ModelFamilyBundleAvailability availability = PluginAvailabilityChecker
+                .modelFamilyBundleAvailability(manifest, discoveredFamilies.keySet());
         report.put("availabilityStatus", modelFamilyBundleAvailabilityReport(availability));
         report.put("gate", modelFamilyBundleGateReport(
                 PluginAvailabilityChecker.modelFamilyBundleGate(
@@ -907,7 +903,8 @@ public class ExtensionsCommand implements Runnable {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("missingRequired", violations.missingRequiredFamilies());
         report.put("selectedForbidden", violations.selectedForbiddenFamilies());
-        report.put("missingRequiredAliases", aliasFamilyMapReport(violations.missingRequiredAliases(), "missingFamilies"));
+        report.put("missingRequiredAliases",
+                aliasFamilyMapReport(violations.missingRequiredAliases(), "missingFamilies"));
         report.put("selectedForbiddenAliases",
                 aliasFamilyMapReport(violations.selectedForbiddenAliases(), "selectedFamilies"));
         return report;
@@ -986,7 +983,13 @@ public class ExtensionsCommand implements Runnable {
         section.put("capabilityTotals", modelFamilyCapabilityTotals(matrix));
         section.put("tokenizerCoverage", modelFamilyTokenizerCoverageReport(families));
         section.put("runtimeManifests", registry.all().stream()
-                .flatMap(p -> { try { return java.util.stream.Stream.of(p.runtimeManifest()); } catch (Exception e) { return java.util.stream.Stream.empty(); } })
+                .flatMap(p -> {
+                    try {
+                        return java.util.stream.Stream.of(p.runtimeManifest());
+                    } catch (Exception e) {
+                        return java.util.stream.Stream.empty();
+                    }
+                })
                 .map(this::modelFamilyRuntimeManifestReport)
                 .toList());
         section.put("runtimeCompatibility", modelFamilyRuntimeCompatibilityReport(registry));
@@ -1000,7 +1003,8 @@ public class ExtensionsCommand implements Runnable {
                     report.put("claimType", conflict.claimType());
                     report.put("claim", conflict.claim());
                     report.put("familyIds", conflict.familyIds());
-                    report.put("summary", conflict.claimType() + " '" + conflict.claim() + "' claimed by " + conflict.familyIds());
+                    report.put("summary",
+                            conflict.claimType() + " '" + conflict.claim() + "' claimed by " + conflict.familyIds());
                     return report;
                 })
                 .toList());
@@ -1193,8 +1197,8 @@ public class ExtensionsCommand implements Runnable {
                 registry.directSafetensorCompatibilitySummaryForFamilies(manifest.families())));
         value.put("selectedDirectSafetensor",
                 registry.directSafetensorCompatibilities().stream()
-                        .filter(c -> manifest.families().stream().anyMatch(id ->
-                                c.modelFamily().familyIds().contains(id)))
+                        .filter(c -> manifest.families().stream()
+                                .anyMatch(id -> c.modelFamily().familyIds().contains(id)))
                         .map(this::modelFamilyDirectSafetensorCompatibilityReport)
                         .toList());
         return value;
@@ -1254,7 +1258,8 @@ public class ExtensionsCommand implements Runnable {
         return totals;
     }
 
-    private long count(List<ModelFamilyCapabilityMatrixEntry> matrix, Predicate<ModelFamilyCapabilityMatrixEntry> test) {
+    private long count(List<ModelFamilyCapabilityMatrixEntry> matrix,
+            Predicate<ModelFamilyCapabilityMatrixEntry> test) {
         return matrix.stream().filter(test).count();
     }
 
@@ -1262,16 +1267,17 @@ public class ExtensionsCommand implements Runnable {
         Map<String, Object> section = new LinkedHashMap<>();
         try {
             List<tech.kayys.aqli.spi.plugin.AqliPlugin.PluginMetadata> plugins = sdk.listPlugins();
-            section.put("plugins", plugins == null ? List.of() : plugins.stream()
-                    .map(plugin -> {
-                        Map<String, Object> report = new LinkedHashMap<>();
-                        report.put("id", plugin.id());
-                        report.put("version", plugin.version());
-                        report.put("implementationClass", plugin.implementationClass());
-                        report.put("order", plugin.order());
-                        return report;
-                    })
-                    .toList());
+            section.put("plugins", plugins == null ? List.of()
+                    : plugins.stream()
+                            .map(plugin -> {
+                                Map<String, Object> report = new LinkedHashMap<>();
+                                report.put("id", plugin.id());
+                                report.put("version", plugin.version());
+                                report.put("implementationClass", plugin.implementationClass());
+                                report.put("order", plugin.order());
+                                return report;
+                            })
+                            .toList());
             section.put("error", null);
         } catch (Exception e) {
             section.put("plugins", List.of());
@@ -1301,8 +1307,8 @@ public class ExtensionsCommand implements Runnable {
         section.put("byId", byId);
         section.put("byKind", byKind);
         section.put("totals", extensionAvailabilityTotals(extensions));
-        ExtensionAvailabilityPolicy.Result policy =
-                ExtensionAvailabilityPolicy.fromRuntimeConfiguration().evaluate(extensions);
+        ExtensionAvailabilityPolicy.Result policy = ExtensionAvailabilityPolicy.fromRuntimeConfiguration()
+                .evaluate(extensions);
         section.put("policy", extensionAvailabilityPolicyReport(policy));
         ExtensionAvailabilityContractReport contract = registry.contractReport();
         section.put("contract", extensionAvailabilityContractReport(contract));
@@ -1437,8 +1443,8 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private Map<String, Object> audioExtensionSectionReport(ExtensionAvailabilityRegistry registry) {
-        PluginAvailabilityChecker.AudioExtensionAvailability suling =
-                PluginAvailabilityChecker.AudioExtensionAvailability.fromExtensionAvailability(
+        PluginAvailabilityChecker.AudioExtensionAvailability suling = PluginAvailabilityChecker.AudioExtensionAvailability
+                .fromExtensionAvailability(
                         registry.availability(SulingAudioExtensionAvailabilityProvider.ID)
                                 .orElseGet(() -> new SulingAudioExtensionAvailabilityProvider().availability()));
 
@@ -1579,8 +1585,7 @@ public class ExtensionsCommand implements Runnable {
     private void printModelFamilies(ExternalPluginClasspathScope pluginScope) {
         System.out.println(BOLD + "=== Model Family Plugins ===" + RESET);
         try {
-            ModelFamilyPluginRegistry registry =
-                    collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
+            ModelFamilyPluginRegistry registry = collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
             Map<String, ModelFamilyPlugin> families = collectModelFamilyPlugins(registry);
             ModelFamilyBundleManifest manifest = ModelFamilyBundleManifest.load();
             printPluginClasspathScope(pluginScope);
@@ -1588,8 +1593,10 @@ public class ExtensionsCommand implements Runnable {
             if (families.isEmpty()) {
                 if (manifest.detached()) {
                     System.out.println("  Model-family plugins intentionally detached by this CLI build.");
-                    System.out.println("  Rebuild with -Paqli.modelFamilies=core,direct,vlm,embedding,research,all or another selector alias to attach them.");
-                    System.out.println("  Or attach external plugin jars/classes with --plugin-dir, --plugin-classpath, or AQLI_PLUGIN_DIRS.");
+                    System.out.println(
+                            "  Rebuild with -Paqli.modelFamilies=core,direct,vlm,embedding,research,all or another selector alias to attach them.");
+                    System.out.println(
+                            "  Or attach external plugin jars/classes with --plugin-dir, --plugin-classpath, or AQLI_PLUGIN_DIRS.");
                 } else {
                     System.out.println("  No model-family plugins discovered.");
                 }
@@ -1646,7 +1653,8 @@ public class ExtensionsCommand implements Runnable {
                 System.out.println();
                 System.out.println("  " + YELLOW + "Model family claim conflicts:" + RESET);
                 for (var conflict : conflicts) {
-                    System.out.println("  - " + conflict.claimType() + " '" + conflict.claim() + "' claimed by " + conflict.familyIds());
+                    System.out.println("  - " + conflict.claimType() + " '" + conflict.claim() + "' claimed by "
+                            + conflict.familyIds());
                 }
             }
 
@@ -1676,20 +1684,19 @@ public class ExtensionsCommand implements Runnable {
     private void printUnifiedRuntimes(ExternalPluginClasspathScope pluginScope) {
         System.out.println(BOLD + "=== Unified Multimodal Runtimes ===" + RESET);
         try {
-            UnifiedRuntimeRegistry registry =
-                    collectUnifiedRuntimeRegistry(pluginScope.discoveryClassLoader());
-            ModelFamilyPluginRegistry modelFamilyRegistry =
-                    collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
+            UnifiedRuntimeRegistry registry = collectUnifiedRuntimeRegistry(pluginScope.discoveryClassLoader());
+            ModelFamilyPluginRegistry modelFamilyRegistry = collectModelFamilyPluginRegistry(
+                    pluginScope.discoveryClassLoader());
             ModelFamilyBundleManifest bundleManifest = ModelFamilyBundleManifest.load();
-            List<UnifiedRuntimeRequirementCompatibility> requirements =
-                    UnifiedRuntimeRequirementResolver.evaluate(
-                            modelFamilyRegistry,
-                            registry,
-                            bundleManifest.families());
+            List<UnifiedRuntimeRequirementCompatibility> requirements = UnifiedRuntimeRequirementResolver.evaluate(
+                    modelFamilyRegistry,
+                    registry,
+                    bundleManifest.families());
             printPluginClasspathScope(pluginScope);
             if (registry.reports().isEmpty()) {
                 System.out.println("  No unified multimodal runtimes discovered.");
-                System.out.println("  Attach runtime jars/classes with --plugin-dir, --plugin-classpath, or AQLI_PLUGIN_DIRS.");
+                System.out.println(
+                        "  Attach runtime jars/classes with --plugin-dir, --plugin-classpath, or AQLI_PLUGIN_DIRS.");
                 printUnifiedRuntimeRequirements(requirements);
                 return;
             }
@@ -2046,8 +2053,8 @@ public class ExtensionsCommand implements Runnable {
     private void printModelFamilyBundleRuntimeCompatibility(
             ModelFamilyBundleManifest manifest,
             ModelFamilyPluginRegistry registry) {
-        ModelFamilyRuntimeCompatibilitySummary summary =
-                registry.directSafetensorCompatibilitySummaryForFamilies(manifest.families());
+        ModelFamilyRuntimeCompatibilitySummary summary = registry
+                .directSafetensorCompatibilitySummaryForFamilies(manifest.families());
         String requirement = manifest.requiresDirectSafetensorRuntime() ? "required" : "optional";
         List<String> blockedFamilyIds = manifest.families().stream()
                 .filter(id -> !summary.compatibleFamilyIds().contains(id))
@@ -2149,8 +2156,8 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private void printPluginDirectoryScope(boolean alwaysPrint) {
-        ExternalPluginClasspath.PluginDirectoryReport directories =
-                ExternalPluginClasspath.pluginDirectoryReport(externalPluginDirectories);
+        ExternalPluginClasspath.PluginDirectoryReport directories = ExternalPluginClasspath
+                .pluginDirectoryReport(externalPluginDirectories);
         if (directories.activeDirectories().isEmpty() && !directories.defaultDirectoryExists() && !alwaysPrint) {
             return;
         }
@@ -2335,13 +2342,13 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private PluginDoctorSnapshot pluginDoctorSnapshot(ExternalPluginClasspathScope pluginScope) {
-        ModelFamilyPluginRegistry modelFamilyRegistry =
-                collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
+        ModelFamilyPluginRegistry modelFamilyRegistry = collectModelFamilyPluginRegistry(
+                pluginScope.discoveryClassLoader());
         Map<String, ModelFamilyPlugin> modelFamilies = collectModelFamilyPlugins(modelFamilyRegistry);
-        ExtensionAvailabilityRegistry extensionRegistry =
-                extensionAvailabilityRegistry(pluginScope.discoveryClassLoader());
-        UnifiedRuntimeRegistry unifiedRuntimeRegistry =
-                collectUnifiedRuntimeRegistry(pluginScope.discoveryClassLoader());
+        ExtensionAvailabilityRegistry extensionRegistry = extensionAvailabilityRegistry(
+                pluginScope.discoveryClassLoader());
+        UnifiedRuntimeRegistry unifiedRuntimeRegistry = collectUnifiedRuntimeRegistry(
+                pluginScope.discoveryClassLoader());
         return pluginDoctorSnapshot(
                 ModelFamilyBundleManifest.load(),
                 modelFamilies,
@@ -2364,8 +2371,8 @@ public class ExtensionsCommand implements Runnable {
                 manifest,
                 modelFamilies.keySet(),
                 modelFamilyRegistry);
-        List<UnifiedRuntimeRequirementCompatibility> unifiedRuntimeRequirements =
-                UnifiedRuntimeRequirementResolver.evaluate(
+        List<UnifiedRuntimeRequirementCompatibility> unifiedRuntimeRequirements = UnifiedRuntimeRequirementResolver
+                .evaluate(
                         modelFamilyRegistry,
                         unifiedRuntimeRegistry,
                         manifest.families());
@@ -2405,31 +2412,31 @@ public class ExtensionsCommand implements Runnable {
             ExternalPluginClasspathScope pluginScope,
             PluginDoctorSnapshot snapshot) {
         List<String> recommendations = new ArrayList<>();
-        ExternalPluginClasspath.PluginDirectoryReport directories =
-                ExternalPluginClasspath.pluginDirectoryReport(externalPluginDirectories);
+        ExternalPluginClasspath.PluginDirectoryReport directories = ExternalPluginClasspath
+                .pluginDirectoryReport(externalPluginDirectories);
         if (!pluginScope.active()) {
-            recommendations.add("No external plugin classpath is attached; this doctor run only validates packaged/global plugins.");
+            recommendations.add(
+                    "No external plugin classpath is attached; this doctor run only validates packaged/global plugins.");
         }
         if (directories.defaultDirectoryExists() && !directories.defaultDirectoryActive()) {
             recommendations.add("Load the default plugin directory with --plugin-dir "
                     + directories.defaultDirectory()
                     + " or set AQLI_PLUGIN_AUTOLOAD_DEFAULT_DIR=true.");
         }
-        ExternalPluginClasspath.PluginDirectoryInspection pluginDirectoryInspection =
-                snapshot.pluginDirectoryInspection();
-        boolean tokenizerMetadataNeedsAttention =
-                pluginDirectoryInspection.pluginTokenizerMetadataPending() > 0
-                        || pluginDirectoryInspection.pluginTokenizerMetadataMissing() > 0
-                        || pluginDirectoryInspection.pluginTokenizerMetadataInvalid() > 0;
-        boolean unifiedRuntimeNeedsAttention =
-                !snapshot.unifiedRuntimeRegistry().modelTypeConflicts().isEmpty()
-                        || snapshot.unifiedRuntimeRegistry().reports().stream()
-                                .anyMatch(report -> !report.valid());
+        ExternalPluginClasspath.PluginDirectoryInspection pluginDirectoryInspection = snapshot
+                .pluginDirectoryInspection();
+        boolean tokenizerMetadataNeedsAttention = pluginDirectoryInspection.pluginTokenizerMetadataPending() > 0
+                || pluginDirectoryInspection.pluginTokenizerMetadataMissing() > 0
+                || pluginDirectoryInspection.pluginTokenizerMetadataInvalid() > 0;
+        boolean unifiedRuntimeNeedsAttention = !snapshot.unifiedRuntimeRegistry().modelTypeConflicts().isEmpty()
+                || snapshot.unifiedRuntimeRegistry().reports().stream()
+                        .anyMatch(report -> !report.valid());
         if (snapshot.pluginGates().passed() && !tokenizerMetadataNeedsAttention && !unifiedRuntimeNeedsAttention) {
             recommendations.add("Configured plugin gates pass for this scope.");
         }
         if (snapshot.extensionGate().failed()) {
-            recommendations.add("Fix extension policy/provider contract violations before enabling fail-on-extension-gate in CI.");
+            recommendations.add(
+                    "Fix extension policy/provider contract violations before enabling fail-on-extension-gate in CI.");
         }
         if (!snapshot.bundleAvailability().productionSafetyPassed()) {
             String pendingFamilies = snapshot.bundleAvailability().productionPendingTokenizerFamilies().isEmpty()
@@ -2445,19 +2452,21 @@ public class ExtensionsCommand implements Runnable {
             String pendingFamilies = readinessPending.isEmpty()
                     ? "the production/direct readiness blockers"
                     : String.join(", ", readinessPending);
-            recommendations.add("Fix " + pendingFamilies + " with :ui:aqli-cli:validateModelFamilyModuleCatalog "
+            recommendations.add("Fix " + pendingFamilies + " with :cli:aqli-cli:validateModelFamilyModuleCatalog "
                     + "before packaging this model-family bundle for production inference.");
         }
         if (snapshot.modelFamilyGate().failed()) {
-            recommendations.add("Fix model-family availability/contracts or adjust the selected production bundle preset.");
+            recommendations
+                    .add("Fix model-family availability/contracts or adjust the selected production bundle preset.");
         }
         if (pluginDirectoryInspection.pluginInstallNotReady() > 0) {
             recommendations.add("Repair or detach not-ready model-family plugin jars in plugin directories before "
                     + "enabling --fail-on-plugin-gates in CI.");
         }
         if (pluginDirectoryInspection.pluginTokenizerMetadataMissing() > 0) {
-            recommendations.add("Add plugin.json properties.tokenizerKind or tokenizerKinds to model-family plugin jars "
-                    + "so tokenizer routing is explicit for production bundles.");
+            recommendations
+                    .add("Add plugin.json properties.tokenizerKind or tokenizerKinds to model-family plugin jars "
+                            + "so tokenizer routing is explicit for production bundles.");
         }
         if (pluginDirectoryInspection.pluginTokenizerMetadataPending() > 0) {
             recommendations.add("Keep pending-tokenizer model-family plugin jars out of production presets until their "
@@ -2475,12 +2484,14 @@ public class ExtensionsCommand implements Runnable {
                     + "unified model type has a single runtime owner.");
         }
         if (snapshot.unifiedRuntimeRegistry().reports().stream().anyMatch(report -> !report.valid())) {
-            recommendations.add("Fix unified runtime manifest violations before relying on the runtime for model-family "
-                    + "availability or production inference.");
+            recommendations
+                    .add("Fix unified runtime manifest violations before relying on the runtime for model-family "
+                            + "availability or production inference.");
         }
         List<String> routeBenchmarkProblems = stringList(snapshot.routeBenchmarkCache().get("problems"));
         if (routeBenchmarkProblems.contains("cache_disabled")) {
-            recommendations.add("Enable the route benchmark cache before using benchmark-cache route profiles in production readiness checks.");
+            recommendations.add(
+                    "Enable the route benchmark cache before using benchmark-cache route profiles in production readiness checks.");
         }
         if (routeBenchmarkProblems.contains("cache_unreadable")
                 || routeBenchmarkProblems.contains("cache_directory_unwritable")) {
@@ -2489,12 +2500,14 @@ public class ExtensionsCommand implements Runnable {
         }
         if (routeBenchmarkProblems.contains("invalid_cache_lines")
                 || routeBenchmarkProblems.contains("stale_entries_ignored_for_route_profiles")) {
-            recommendations.add("Refresh or prune route benchmark measurements with aqli route-benchmarks doctor --strict "
-                    + "and aqli route-benchmarks prune --dry-run before comparing runner performance.");
+            recommendations
+                    .add("Refresh or prune route benchmark measurements with aqli route-benchmarks doctor --strict "
+                            + "and aqli route-benchmarks prune --dry-run before comparing runner performance.");
         }
         if (routeBenchmarkProblems.contains("no_trusted_route_profiles")) {
-            recommendations.add("Run a fresh local generation for each production provider/format route before relying on "
-                    + "benchmark-cache route profile advice.");
+            recommendations
+                    .add("Run a fresh local generation for each production provider/format route before relying on "
+                            + "benchmark-cache route profile advice.");
         }
         recommendations.addAll(UnifiedRuntimeRequirementRecommendations.fromTotals(
                 UnifiedRuntimeRequirementReports.totals(snapshot.unifiedRuntimeRequirementCompatibility())));
@@ -2578,8 +2591,7 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private void printExtensionAvailability(ExternalPluginClasspathScope pluginScope) {
-        ExtensionAvailabilityRegistry registry =
-                extensionAvailabilityRegistry(pluginScope.discoveryClassLoader());
+        ExtensionAvailabilityRegistry registry = extensionAvailabilityRegistry(pluginScope.discoveryClassLoader());
         List<ExtensionAvailability> extensions = registry.availabilityReports();
 
         System.out.println(BOLD + "=== Extension Availability ===" + RESET);
@@ -2596,8 +2608,8 @@ public class ExtensionsCommand implements Runnable {
                 totals.get("detached"),
                 totals.get("healthy"),
                 totals.get("productionReady"));
-        ExtensionAvailabilityPolicy.Result policy =
-                ExtensionAvailabilityPolicy.fromRuntimeConfiguration().evaluate(extensions);
+        ExtensionAvailabilityPolicy.Result policy = ExtensionAvailabilityPolicy.fromRuntimeConfiguration()
+                .evaluate(extensions);
         if (policy.configured()) {
             System.out.printf("  Policy: %s%s%s (%d violation(s))%n",
                     policy.passed() ? GREEN : YELLOW,
@@ -2633,7 +2645,8 @@ public class ExtensionsCommand implements Runnable {
                     availability.name(),
                     colorStatus(availability.status()),
                     availability.productionReady() ? GREEN + "ready" + RESET : YELLOW + "not-ready" + RESET,
-                    availability.formats().isEmpty() ? DIM + "none" + RESET : String.join(", ", availability.formats()));
+                    availability.formats().isEmpty() ? DIM + "none" + RESET
+                            : String.join(", ", availability.formats()));
             if (!availability.remediationHints().isEmpty()) {
                 System.out.println("    Hint: " + availability.remediationHints().getFirst());
             }
@@ -2662,8 +2675,8 @@ public class ExtensionsCommand implements Runnable {
     }
 
     private PluginGates currentPluginGates(ExternalPluginClasspathScope pluginScope) {
-        ModelFamilyPluginRegistry modelFamilyRegistry =
-                collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
+        ModelFamilyPluginRegistry modelFamilyRegistry = collectModelFamilyPluginRegistry(
+                pluginScope.discoveryClassLoader());
         ModelFamilyBundleManifest manifest = ModelFamilyBundleManifest.load();
         Map<String, ModelFamilyPlugin> families = collectModelFamilyPlugins(modelFamilyRegistry);
         return currentPluginGates(
@@ -2682,8 +2695,8 @@ public class ExtensionsCommand implements Runnable {
             ModelFamilyPluginRegistry modelFamilyRegistry,
             UnifiedRuntimeRegistry unifiedRuntimeRegistry,
             ExternalPluginClasspath.PluginDirectoryInspection pluginDirectoryInspection) {
-        List<UnifiedRuntimeRequirementCompatibility> unifiedRuntimeRequirements =
-                UnifiedRuntimeRequirementResolver.evaluate(
+        List<UnifiedRuntimeRequirementCompatibility> unifiedRuntimeRequirements = UnifiedRuntimeRequirementResolver
+                .evaluate(
                         modelFamilyRegistry,
                         unifiedRuntimeRegistry,
                         manifest.families());
@@ -2714,8 +2727,8 @@ public class ExtensionsCommand implements Runnable {
 
     private ExtensionAvailabilityGate extensionAvailabilityGate(ExtensionAvailabilityRegistry registry) {
         List<ExtensionAvailability> extensions = registry.availabilityReports();
-        ExtensionAvailabilityPolicy.Result policy =
-                ExtensionAvailabilityPolicy.fromRuntimeConfiguration().evaluate(extensions);
+        ExtensionAvailabilityPolicy.Result policy = ExtensionAvailabilityPolicy.fromRuntimeConfiguration()
+                .evaluate(extensions);
         return ExtensionAvailabilityGate.evaluate(policy, registry.contractReport());
     }
 
@@ -2745,8 +2758,7 @@ public class ExtensionsCommand implements Runnable {
             return;
         }
         ModelFamilyBundleManifest manifest = ModelFamilyBundleManifest.load();
-        ModelFamilyPluginRegistry registry =
-                collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
+        ModelFamilyPluginRegistry registry = collectModelFamilyPluginRegistry(pluginScope.discoveryClassLoader());
         Map<String, ModelFamilyPlugin> families = collectModelFamilyPlugins(registry);
         ModelFamilyBundleGate gate = PluginAvailabilityChecker.modelFamilyBundleGate(
                 manifest,

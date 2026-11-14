@@ -43,7 +43,7 @@ Daemon will be stopped at the end of the build
    [Warning] spi:aqli-spi-model not present; skipping project dependency
    [Optimizer] Excluded 'backend/cuda' package.
 
-> Configure project :ui:aqli-cli
+> Configure project :cli:aqli-cli
 SRCFG01007: Duplicate value found for name : quarkus.log.console.level, config source name : PropertiesConfigSource[source=file:/Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Families/aqli/ui/aqli-cli/src/main/resources/application.properties], (old value : WARN)
 SRCFG01007: Duplicate value found for name : quarkus.log.console.format, config source name : PropertiesConfigSource[source=file:/Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Families/aqli/ui/aqli-cli/src/main/resources/application.properties], (old value : %s%e%n)
 SRCFG01007: Duplicate value found for name : quarkus.log.file.path, config source name : PropertiesConfigSource[source=file:/Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Families/aqli/ui/aqli-cli/src/main/resources/application.properties], (old value : ${AQLI_CLI_LOG_FILE:${aqli.home:${user.home}/.aqli}/logs/aqli.log})
@@ -54,10 +54,10 @@ SRCFG01007: Duplicate value found for name : quarkus.log.file.json.pretty-print,
 SRCFG01007: Duplicate value found for name : quarkus.log.category."tech.kayys.aqli".level, config source name : PropertiesConfigSource[source=file:/Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Families/aqli/ui/aqli-cli/src/main/resources/application.properties], (old value : WARN)
 SRCFG01007: Duplicate value found for name : quarkus.log.category."io.quarkus".level, config source name : PropertiesConfigSource[source=file:/Users/bhangun/Workspace/workkayys/Products/Wayang/wayang-platform/Families/aqli/ui/aqli-cli/src/main/resources/application.properties], (old value : WARN)
 
-> Task :ui:aqli-cli:dependencies
+> Task :cli:aqli-cli:dependencies
 
 ------------------------------------------------------------
-Project ':ui:aqli-cli'
+Project ':cli:aqli-cli'
 ------------------------------------------------------------
 
 testRuntimeClasspath - Runtime classpath of source set 'test'.

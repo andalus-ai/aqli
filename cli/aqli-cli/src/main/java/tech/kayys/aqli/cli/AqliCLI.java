@@ -7,6 +7,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.session.ChatSession;
 import tech.kayys.aqli.sdk.session.ChatSessionImpl;
@@ -46,7 +47,7 @@ public class AqliCLI implements Callable<Integer> {
     private static final Path AQLI_HOME = Paths.get(System.getProperty("user.home"), ".aqli");
     private static final Path MODEL_INDEX = AQLI_HOME.resolve("models").resolve("manifest.json");
     private static final Path MODEL_MANIFESTS = AQLI_HOME.resolve("models").resolve("manifests");
-    private static volatile AqliRuntime sdk;
+    private static volatile AqliSdk sdk;
 
     @Override
     public Integer call() {
@@ -59,9 +60,9 @@ public class AqliCLI implements Callable<Integer> {
         System.exit(exitCode);
     }
 
-    static synchronized AqliRuntime getSdk() throws Exception {
+    static synchronized AqliSdk getSdk() throws Exception {
         if (sdk == null) {
-            sdk = AqliSdkFactory.createLocalSdk();
+            sdk = (AqliSdk) AqliSdkFactory.createLocalSdk();
         }
         return sdk;
     }
@@ -311,7 +312,7 @@ public class AqliCLI implements Callable<Integer> {
                 return 1;
             }
 
-            AqliRuntime sdk = getSdk();
+            AqliSdk sdk = getSdk();
 
             InferenceRequest request = buildRequest(
                     entry,
@@ -379,7 +380,7 @@ public class AqliCLI implements Callable<Integer> {
                 return 1;
             }
 
-            AqliRuntime sdk = getSdk();
+            AqliSdk sdk = getSdk();
 
             ChatSession session = new ChatSessionImpl(sdk, logicalModelId(entry), selectedProvider);
             session.setAutoContinue(true);

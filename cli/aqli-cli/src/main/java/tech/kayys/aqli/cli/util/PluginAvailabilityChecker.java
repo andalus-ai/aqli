@@ -5,6 +5,7 @@
  */
 
 package tech.kayys.aqli.cli.util;
+
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
 
@@ -113,21 +114,20 @@ public class PluginAvailabilityChecker {
         public String compactSummary() {
             return "%s(selected=%d, discovered=%d, missing=%d, omitted=%d, policy=%s, production=%s, catalog=%s, "
                     + "fixture=%s, presetConformance=%s)"
-                    .formatted(
-                            status,
-                            selectedFamilyCount,
-                            discoveredSelectedFamilyCount,
-                            missingSelectedFamilyCount,
-                            omittedFamilyCount,
-                            policyStatus,
-                            productionSafetyStatus,
-                            catalogReadinessStatus,
-                            fixtureStatus,
-                            presetConformanceStatus);
+                            .formatted(
+                                    status,
+                                    selectedFamilyCount,
+                                    discoveredSelectedFamilyCount,
+                                    missingSelectedFamilyCount,
+                                    omittedFamilyCount,
+                                    policyStatus,
+                                    productionSafetyStatus,
+                                    catalogReadinessStatus,
+                                    fixtureStatus,
+                                    presetConformanceStatus);
         }
     }
 
-    
     @Inject
     Instance<RunnerPlugin> runnerPlugins;
 
@@ -249,7 +249,13 @@ public class PluginAvailabilityChecker {
     public List<String> getModelFamilySupportSummaries() {
         try {
             return getModelFamilyPluginRegistry(null).all().stream()
-                    .flatMap(p -> { try { return java.util.stream.Stream.of(p.supportReport()); } catch (Exception e) { return java.util.stream.Stream.empty(); } })
+                    .flatMap(p -> {
+                        try {
+                            return java.util.stream.Stream.of(p.supportReport());
+                        } catch (Exception e) {
+                            return java.util.stream.Stream.empty();
+                        }
+                    })
                     .map(report -> report.id() + "[" + report.bundleProfile().key() + "]("
                             + report.shortDirectSafetensorSummary() + ")")
                     .collect(Collectors.toList());
@@ -279,7 +285,8 @@ public class PluginAvailabilityChecker {
     public List<String> getModelFamilyClaimConflicts() {
         try {
             return getModelFamilyPluginRegistry(null).modelTypeConflicts().stream()
-                    .map(conflict -> conflict.claimType() + " '" + conflict.claim() + "' claimed by " + conflict.familyIds())
+                    .map(conflict -> conflict.claimType() + " '" + conflict.claim() + "' claimed by "
+                            + conflict.familyIds())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             LOG.debugf("Error listing model-family claim conflicts: %s", e.getMessage());
@@ -335,7 +342,8 @@ public class PluginAvailabilityChecker {
     }
 
     /**
-     * Get the active build preset packaged into this CLI build, including policy status.
+     * Get the active build preset packaged into this CLI build, including policy
+     * status.
      */
     public String getActiveModelFamilyBundlePresetSummary() {
         ModelFamilyBundleManifest manifest = getModelFamilyBundleManifest();
@@ -385,7 +393,8 @@ public class PluginAvailabilityChecker {
     }
 
     /**
-     * Get the packaged model-family bundle availability relative to runtime discovery.
+     * Get the packaged model-family bundle availability relative to runtime
+     * discovery.
      */
     public ModelFamilyBundleAvailability getModelFamilyBundleAvailability() {
         return modelFamilyBundleAvailability(
@@ -478,7 +487,8 @@ public class PluginAvailabilityChecker {
     }
 
     /**
-     * Get the generic plugin-core availability report for the Suling audio extension.
+     * Get the generic plugin-core availability report for the Suling audio
+     * extension.
      */
     public ExtensionAvailability sulingExtensionAvailability() {
         return getExtensionAvailabilityReports().stream()
@@ -495,7 +505,8 @@ public class PluginAvailabilityChecker {
     }
 
     /**
-     * Get all extension availability reports known to plugin-core plus CLI built-ins.
+     * Get all extension availability reports known to plugin-core plus CLI
+     * built-ins.
      */
     public List<ExtensionAvailability> getExtensionAvailabilityReports() {
         return getGlobalExtensionAvailabilityReports();
@@ -509,7 +520,8 @@ public class PluginAvailabilityChecker {
     }
 
     /**
-     * Get extension availability provider contract violations for discovered extensions.
+     * Get extension availability provider contract violations for discovered
+     * extensions.
      */
     public List<ExtensionAvailabilityContractViolation> getExtensionAvailabilityContractViolations() {
         return getGlobalExtensionAvailabilityContractViolations();
@@ -736,7 +748,7 @@ public class PluginAvailabilityChecker {
             problems.add("model-family bundle manifest counts are inconsistent: "
                     + String.join(", ", countProblems));
             hints.add("Regenerate the packaged model-family bundle manifest with "
-                    + ":ui:aqli-cli:generateModelFamilyBundleManifest.");
+                    + ":cli:aqli-cli:generateModelFamilyBundleManifest.");
         }
         if (manifest.detached()) {
             hints.add("Attach model-family plugins by rebuilding with -Paqli.modelFamilies=<selector> "
@@ -765,12 +777,12 @@ public class PluginAvailabilityChecker {
             if (catalogReadinessFailed) {
                 problems.add("model-family catalog readiness failed: "
                         + manifest.displayCatalogReadinessStatus());
-                hints.add("Run :ui:aqli-cli:validateModelFamilyModuleCatalog and fix production or direct "
+                hints.add("Run :cli:aqli-cli:validateModelFamilyModuleCatalog and fix production or direct "
                         + "SafeTensor readiness blockers before packaging this build for production inference.");
             }
             if (fixtureFailed) {
                 problems.add("model-family fixture gate failed: " + fixtureStatus.compactStatus());
-                hints.add("Run :ui:aqli-cli:validateModelFamilyFixtures, repair missing/problem fixture families, "
+                hints.add("Run :cli:aqli-cli:validateModelFamilyFixtures, repair missing/problem fixture families, "
                         + "then regenerate the bundle manifest and fixture fingerprint lock if intentional.");
             }
             if (presetDrifted) {
@@ -871,19 +883,19 @@ public class PluginAvailabilityChecker {
      */
     public String getNoPluginsError() {
         StringBuilder sb = new StringBuilder("""
-            Error: No inference providers or runner plugins are available.
-            
-            This typically means no runtime extensions are packaged in this CLI build.
-            
-            To fix this, ensure at least one of these dependencies is on the classpath:
-              - aqli-ext-runner-gguf       (GGUF/llama.cpp runtime)
-              - aqli-runner-onnx           (ONNX Runtime)
-              - aqli-ext-runner-safetensor  (SafeTensor runtime)
-              - aqli-ext-cloud-gemini      (Gemini cloud provider)
-              - aqli-ext-cloud-cerebras    (Cerebras cloud provider)
-            
-            Run 'aqli modules --all' for packaged runtime details.
-            """);
+                Error: No inference providers or runner plugins are available.
+
+                This typically means no runtime extensions are packaged in this CLI build.
+
+                To fix this, ensure at least one of these dependencies is on the classpath:
+                  - aqli-ext-runner-gguf       (GGUF/llama.cpp runtime)
+                  - aqli-runner-onnx           (ONNX Runtime)
+                  - aqli-ext-runner-safetensor  (SafeTensor runtime)
+                  - aqli-ext-cloud-gemini      (Gemini cloud provider)
+                  - aqli-ext-cloud-cerebras    (Cerebras cloud provider)
+
+                Run 'aqli modules --all' for packaged runtime details.
+                """);
         sb.append(modelFamilyBundleDiagnostics());
         return sb.toString();
     }

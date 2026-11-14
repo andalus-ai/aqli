@@ -185,8 +185,8 @@ includeOptionalProject("spi:aqli-spi-multimodal", "framework/spi/aqli-spi-multim
 includeOptionalProject("spi:aqli-spi-plugin", "framework/spi/aqli-spi-plugin")
 includeOptionalProject("spi:aqli-spi-runtime", "framework/spi/aqli-spi-runtime")
 
-// Optional UI
-includeOptionalProject("ui:aqli-api", "ui/aqli-api")
+// Optional API
+includeOptionalProject("api:aqli-api", "framework/api/aqli-api", "ui/aqli-api")
 includeOptionalProject("cli:aqli-cli", "cli/aqli-cli")
 
 // Optional backends

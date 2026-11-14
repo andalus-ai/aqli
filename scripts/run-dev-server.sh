@@ -75,14 +75,14 @@ for arg in "$@"; do
 done
 
 if [[ -n "${QUARKUS_ARGS// /}" ]]; then
-    exec ./gradlew :ui:aqli-cli:quarkusDev "--quarkus-args=$QUARKUS_ARGS" \
+    exec ./gradlew :cli:aqli-cli:quarkusDev "--quarkus-args=$QUARKUS_ARGS" \
       -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
       -Paqli.profile="${BUILD_PROFILE}" \
       -Paqli.model.formats="${FORMAT_TARGETS}" \
       -Paqli.llm.types="${LLM_TARGETS}" \
       -Paqli.architecture="${ARCHITECTURE_VALUE}"
 else
-    exec ./gradlew :ui:aqli-cli:quarkusDev \
+    exec ./gradlew :cli:aqli-cli:quarkusDev \
       -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
       -Paqli.profile="${BUILD_PROFILE}" \
       -Paqli.model.formats="${FORMAT_TARGETS}" \

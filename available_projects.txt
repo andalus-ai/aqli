@@ -148,9 +148,9 @@
 :suling
 :ui
 :ui
-:ui:aqli-api
-:ui:aqli-api
-:ui:aqli-cli
-:ui:aqli-cli
-:ui:aqli-sdk-protobuf
-:ui:aqli-sdk-protobuf
+:framework:api:aqli-api
+:framework:api:aqli-api
+:cli:aqli-cli
+:cli:aqli-cli
+:framework:api:aqli-sdk-protobuf
+:framework:api:aqli-sdk-protobuf
