@@ -608,7 +608,7 @@ public class RunCommand implements Runnable {
             preferAlternateRuntime = runnerSelection.preferAlternateRuntime();
             forceGguf = runnerSelection.forceGguf();
             providerExplicit = providerId != null && !providerId.isBlank();
-            boolean preferOnnxResolution = shouldPreferOnnxResolution(modelId, format, providerId);
+            boolean preferOnnxResolution = ModelFormatResolver.shouldPreferOnnxResolution(modelId, format, providerId);
             if (preferOnnxResolution) {
                 if (!providerExplicit) {
                     providerId = "onnx";
@@ -791,7 +791,7 @@ public class RunCommand implements Runnable {
 
             if (!customModelPathUsed && modelId != null && !modelId.isBlank()) {
                 try {
-                    String preferredIndexFormat = preferredLocalIndexFormat(modelId, format, providerId);
+                    String preferredIndexFormat = ModelFormatResolver.preferredLocalIndexFormat(modelId, format, providerId);
                     var indexed = LocalModelIndexResolver.findExactReference(
                             modelId,
                             preferredIndexFormat,
@@ -874,7 +874,7 @@ public class RunCommand implements Runnable {
                         if (!customModelPathUsed) {
                             LocalModelIndex.Entry downloaded = autoPullHfRepositoryForRunIfNeeded(
                                     requestedModelRef != null ? requestedModelRef : modelId,
-                                    preferredLocalIndexFormat(requestedModelRef, format, providerId));
+                                    ModelFormatResolver.preferredLocalIndexFormat(requestedModelRef, format, providerId));
                             if (downloaded != null && downloaded.path != null && Files.exists(Path.of(downloaded.path))) {
                                 finalLocalPath = Path.of(downloaded.path).toAbsolutePath().toString();
                                 modelId = finalLocalPath;
@@ -921,7 +921,7 @@ public class RunCommand implements Runnable {
                         try {
                             LocalModelIndex.Entry downloaded = autoPullHfRepositoryForRunIfNeeded(
                                     requestedModelRef != null ? requestedModelRef : modelId,
-                                    preferredLocalIndexFormat(requestedModelRef, format, providerId));
+                                    ModelFormatResolver.preferredLocalIndexFormat(requestedModelRef, format, providerId));
                             if (downloaded != null && downloaded.path != null && Files.exists(Path.of(downloaded.path))) {
                                 finalLocalPath = Path.of(downloaded.path).toAbsolutePath().toString();
                                 modelId = finalLocalPath;
@@ -2158,49 +2158,11 @@ public class RunCommand implements Runnable {
         if (detectedFormat == null || detectedFormat.isBlank() || "unknown".equalsIgnoreCase(detectedFormat)) {
             return null;
         }
-        return canonicalModelFormat(detectedFormat);
+        return ModelFormatResolver.canonicalFormat(detectedFormat);
     }
 
     private String formatForLocalModelPath(Path modelPath) {
         return ModelFormatResolver.formatForPath(modelPath);
-    }
-
-    private boolean shouldPreferOnnxResolution(String requestedModel, String requestedFormat, String requestedProvider) {
-        if (isOnnxFormat(requestedFormat) || isOnnxProvider(requestedProvider)) {
-            return true;
-        }
-        if ((requestedFormat != null && !requestedFormat.isBlank())
-                || (requestedProvider != null && !requestedProvider.isBlank())) {
-            return false;
-        }
-        return looksLikeOnnxModelRef(requestedModel);
-    }
-
-    private String preferredLocalIndexFormat(String requestedModel, String requestedFormat, String requestedProvider) {
-        String canonicalFormat = canonicalModelFormat(requestedFormat);
-        if (canonicalFormat != null) {
-            return canonicalFormat;
-        }
-        if (isOnnxProvider(requestedProvider) || looksLikeOnnxModelRef(requestedModel)) {
-            return "onnx";
-        }
-        return null;
-    }
-
-    private boolean isOnnxProvider(String requestedProvider) {
-        return ModelFormatResolver.isOnnxProvider(requestedProvider);
-    }
-
-    private boolean isOnnxFormat(String requestedFormat) {
-        return "onnx".equals(canonicalModelFormat(requestedFormat));
-    }
-
-    private String canonicalModelFormat(String requestedFormat) {
-        return ModelFormatResolver.canonicalFormat(requestedFormat);
-    }
-
-    private boolean looksLikeOnnxModelRef(String requestedModel) {
-        return ModelFormatResolver.looksLikeOnnxModelReference(requestedModel);
     }
 
     private String stripHfPrefix(String value) {
@@ -3100,7 +3062,7 @@ public class RunCommand implements Runnable {
         if (entry == null || entry.format == null || entry.format.isBlank()) {
             return null;
         }
-        return canonicalModelFormat(entry.format);
+        return ModelFormatResolver.canonicalFormat(entry.format);
     }
 
     private String providerForFormat(String format) {
