@@ -37,6 +37,21 @@ class ModelFormatResolverTest {
         assertFalse(ModelFormatResolver.looksLikeOnnxModelReference(null));
     }
 
+
+    @Test
+    void appliesOnnxResolutionPrecedenceWithoutOverridingExplicitChoices() {
+        assertTrue(ModelFormatResolver.shouldPreferOnnxResolution("hf:onnx-community/model", null, null));
+        assertTrue(ModelFormatResolver.shouldPreferOnnxResolution("org/model", "onnx", null));
+        assertTrue(ModelFormatResolver.shouldPreferOnnxResolution("org/model", null, "ONNX"));
+        assertFalse(ModelFormatResolver.shouldPreferOnnxResolution("hf:onnx-community/model", "gguf", null));
+        assertFalse(ModelFormatResolver.shouldPreferOnnxResolution("hf:onnx-community/model", null, "native"));
+
+        assertEquals("onnx", ModelFormatResolver.preferredLocalIndexFormat("hf:onnx-community/model", null, null));
+        assertEquals("gguf", ModelFormatResolver.preferredLocalIndexFormat("hf:onnx-community/model", "GGUF", null));
+        assertEquals("onnx", ModelFormatResolver.preferredLocalIndexFormat("org/model", null, "onnx"));
+        assertNull(ModelFormatResolver.preferredLocalIndexFormat("org/model", null, null));
+    }
+
     @Test
     void mapsFormatsToDefaultProvidersAndNormalizesProviderAliases() {
         assertEquals("safetensor", ModelFormatResolver.providerForFormat("safetensors"));
