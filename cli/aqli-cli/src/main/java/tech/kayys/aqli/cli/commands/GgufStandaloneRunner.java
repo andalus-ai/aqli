@@ -8,9 +8,6 @@ import tech.kayys.aqli.inference.gguf.GgufRunArguments;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDecoder;
 import tech.kayys.aqli.inference.gguf.GgufDaemonRequestDispatcher;
 import tech.kayys.aqli.inference.gguf.metrics.GgufDaemonMetricsServer;
-import tech.kayys.aqli.inference.gguf.metrics.GgufSessionCacheMetricsBinder;
-import io.micrometer.prometheusmetrics.PrometheusConfig;
-import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -1223,16 +1220,9 @@ public final class GgufStandaloneRunner {
         if (!CONFIG.booleanValue("aqli.gguf.fast_run.daemon_metrics_enabled", false)) {
             return null;
         }
-        PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-        new GgufSessionCacheMetricsBinder(sessionCache).bindTo(registry);
-        try {
-            return GgufDaemonMetricsServer.start(
-                    registry,
-                    CONFIG.intValue("aqli.gguf.fast_run.daemon_metrics_port", 9464));
-        } catch (IOException | RuntimeException exception) {
-            registry.close();
-            throw exception;
-        }
+        return GgufDaemonMetricsServer.start(
+                sessionCache,
+                CONFIG.intValue("aqli.gguf.fast_run.daemon_metrics_port", 9464));
     }
 
     private static int runDaemon() {
