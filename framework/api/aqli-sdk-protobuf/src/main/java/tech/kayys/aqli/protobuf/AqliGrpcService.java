@@ -113,13 +113,11 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
         LOG.info("Received complete request for model: {}", request.getModelId());
         
         Uni<CompletionResponse> result = Uni.createFrom().item(() -> {
-            InferenceRequest internalRequest = InferenceRequest.builder()
-                    .model(request.getModelId())
-                    .prompt(request.getPrompt())
-                    .message(new Message(Message.Role.USER, request.getPrompt()))
-                    .temperature(request.getTemperature())
-                    .maxTokens(request.getMaxTokens())
-                    .build();
+            InferenceRequest internalRequest = chatService.createCompletionRequest(
+                    request.getModelId(),
+                    request.getPrompt(),
+                    ChatParams.of(request.getTemperature(), request.getMaxTokens()),
+                    false);
             
             InferenceResponse response = createCompletion(internalRequest);
             
@@ -142,14 +140,11 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     public void streamComplete(CompletionRequest request, StreamObserver<CompletionResponse> observer) {
         LOG.info("Received streamComplete request for model: {}", request.getModelId());
         try {
-            InferenceRequest internalRequest = InferenceRequest.builder()
-                    .model(request.getModelId())
-                    .prompt(request.getPrompt())
-                    .message(new Message(Message.Role.USER, request.getPrompt()))
-                    .temperature(request.getTemperature())
-                    .maxTokens(request.getMaxTokens())
-                    .streaming(true)
-                    .build();
+            InferenceRequest internalRequest = chatService.createCompletionRequest(
+                    request.getModelId(),
+                    request.getPrompt(),
+                    ChatParams.of(request.getTemperature(), request.getMaxTokens()),
+                    true);
 
             sdk.streamCompletion(internalRequest).subscribe().with(
                     chunk -> {
