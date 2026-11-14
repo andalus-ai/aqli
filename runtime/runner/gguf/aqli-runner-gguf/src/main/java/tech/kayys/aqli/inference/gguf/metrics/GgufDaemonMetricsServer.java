@@ -83,7 +83,7 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             try (Socket client = server.accept()) {
                 client.setSoTimeout(CLIENT_TIMEOUT_MILLIS);
                 serve(client);
-            } catch (IOException | RuntimeException exception) {
+            } catch (RuntimeException exception) {
                 if (running.get()) {
                     // A malformed or disconnected scrape must not stop inference.
                 }
