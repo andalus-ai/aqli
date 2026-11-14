@@ -145,195 +145,47 @@ public class PullCommand implements Runnable {
     // ── HuggingFace direct pull ──────────────────────────────────────────────
 
     private void pullFromHuggingFace(String effectiveModelSpec) throws Exception {
-        if (huggingFaceClient == null || huggingFaceClient.isUnsatisfied()) {
+        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
             throw new RuntimeException(
-                    "HuggingFace client is not available. Check your build profile or HF token configuration.");
+                    "HuggingFace repository is not available. Check your build profile or HF token configuration.");
         }
 
-        String repoId = effectiveModelSpec.substring("hf:".length()).trim();
+        String repoId = effectiveModelSpec.substring(effectiveModelSpec.indexOf(':') + 1).trim();
         if (repoId.isBlank()) {
             throw new RuntimeException("Empty HuggingFace repo ID in spec: " + effectiveModelSpec);
         }
 
         System.out.printf("%sPulling%s hf:%s%n%n", BOLD, RESET, repoId);
-
-        HuggingFaceClient client = huggingFaceClient.get();
-
-        // ── Fetch file list and model info in one API call ───────────────────
-        HuggingFaceModelInfo modelInfo;
-        try {
-            modelInfo = client.getModelInfo(repoId);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to fetch model info for " + repoId
-                    + ": " + e.getMessage(), e);
-        }
-
-        List<HuggingFaceModelInfo.ModelFile> allModelFiles =
-                modelInfo.getFiles() != null ? modelInfo.getFiles() : List.of();
-
-        List<String> allFilenames = allModelFiles.stream()
-                .map(HuggingFaceModelInfo.ModelFile::getFilename)
-                .toList();
-
-        List<String> filesToDownload = filterFiles(allFilenames, include);
-
-        if (filesToDownload.isEmpty()) {
-            System.err.println(RED + "No files matched the --include filter. Available files:" + RESET);
-            allFilenames.forEach(f -> System.err.println("  " + f));
-            throw new RuntimeException("No matching files for include filter: " + include);
-        }
-
-        String manifestName = AqliManifest.computeName(repoId, "main");
-        Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
-        Files.createDirectories(targetDir);
-
-        // ── Build a size map from the API response (LFS preferred) ───────────
-        java.util.Map<String, Long> knownSizes = new java.util.HashMap<>();
-        for (HuggingFaceModelInfo.ModelFile mf : allModelFiles) {
-            if (mf.getFilename() == null) continue;
-            Long size = mf.getLfs() != null && mf.getLfs().getSize() != null
-                    ? mf.getLfs().getSize()
-                    : mf.getSize();
-            if (size != null && size > 0) {
-                knownSizes.put(mf.getFilename(), size);
-            }
-        }
-
-        // ── Pre-flight: classify each file ───────────────────────────────────
-        record FileStatus(String name, String status, long localBytes, long totalBytes) {}
-        List<FileStatus> plan = new ArrayList<>();
-        long totalNew = 0, totalResume = 0, totalSkip = 0;
-        int filesToTransferCount = 0;
-
-        for (String filename : filesToDownload) {
-            if (filename.startsWith(".")) continue;
-            Path dest = targetDir.resolve(filename);
-            Path part = dest.resolveSibling(dest.getFileName() + ".part");
-            long known = knownSizes.getOrDefault(filename, 0L);
-
-            String status;
-            long local = 0;
-            if (force) {
-                // Delete both target and .part only if explicitly forced
-                Files.deleteIfExists(dest);
-                Files.deleteIfExists(part);
-                status = "DOWNLOAD";
-                totalNew += known;
-                filesToTransferCount++;
-            } else if (Files.exists(dest)) {
-                local = Files.size(dest);
-                if (known > 0 && local == known) {
-                    status = "SKIP";
-                    totalSkip += known;
-                } else if (known <= 0 && local > 0) {
-                    // Size was not returned in API metadata, but full local file exists
-                    status = "SKIP";
-                    totalSkip += local;
-                } else {
-                    // Size known and local size mismatch
-                    status = "DOWNLOAD";
-                    totalNew += known;
-                    filesToTransferCount++;
+        DownloadProgressListener progress = new DownloadProgressListener() {
+            @Override
+            public void onProgress(long downloaded, long total, double fraction) {
+                if (total > 0) {
+                    System.out.printf("\\r  %sDownloading%s %s: %3d%% (%d/%d MB)",
+                            CYAN, RESET, repoId, (int) Math.min(100, Math.round(fraction * 100)),
+                            downloaded / 1024 / 1024, total / 1024 / 1024);
+                    System.out.flush();
                 }
-            } else if (Files.exists(part)) {
-                local = Files.size(part);
-                if (known > 0 && local >= known) {
-                    try {
-                        Files.move(part, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        status = "SKIP";
-                        totalSkip += local;
-                    } catch (Exception e) {
-                        status = "RESUME";
-                        totalResume += (known > local ? known - local : 0);
-                        filesToTransferCount++;
-                    }
-                } else {
-                    status = "RESUME";
-                    totalResume += (known > local ? known - local : local);
-                    filesToTransferCount++;
-                }
-            } else {
-                status = "DOWNLOAD";
-                totalNew += known;
-                filesToTransferCount++;
             }
-            plan.add(new FileStatus(filename, status, local, known > 0 ? known : local));
-        }
 
-        // ── Print the plan ────────────────────────────────────────────────────
-        int maxName = plan.stream().mapToInt(s -> s.name().length()).max().orElse(20);
-        maxName = Math.max(maxName, 20);
-        for (FileStatus fs : plan) {
-            String colour = switch (fs.status()) {
-                case "SKIP"     -> DIM + GREEN;
-                case "RESUME"   -> CYAN;
-                case "DOWNLOAD" -> YELLOW;
-                default         -> "";
-            };
-            String sizeInfo = fs.totalBytes() > 0
-                    ? CLIUtils.formatSize(fs.totalBytes())
-                    : "?";
-            String resumeInfo = "RESUME".equals(fs.status()) && fs.localBytes() > 0
-                    ? DIM + " (+" + CLIUtils.formatSize(Math.max(0, fs.totalBytes() - fs.localBytes())) + " to go)" + RESET
-                    : "";
-            System.out.printf("  %s%-8s%s %-" + maxName + "s  %s%s%n",
-                    colour, fs.status(), RESET,
-                    truncate(fs.name(), maxName),
-                    sizeInfo, resumeInfo);
-        }
-
-        long totalTransfer = totalNew + totalResume;
-        System.out.println();
-        if (filesToTransferCount > 0) {
-            if (totalTransfer > 0) {
-                System.out.printf("  %s→ %s to transfer%s   %s%s already complete%s%n%n",
-                        BOLD, CLIUtils.formatSize(totalTransfer), RESET,
-                        DIM, CLIUtils.formatSize(totalSkip), RESET);
-            } else {
-                System.out.printf("  %s→ %d file(s) to transfer%s   %s%s already complete%s%n%n",
-                        BOLD, filesToTransferCount, RESET,
-                        DIM, CLIUtils.formatSize(totalSkip), RESET);
+            @Override
+            public void onComplete(long totalBytes) {
+                System.out.println();
             }
-        } else {
-            System.out.printf("  %s✔ All files already complete.%s  "
-                    + "Use %s--force%s to re-download.%n%n",
-                    GREEN, RESET, BOLD, RESET);
-        }
+        };
 
-        // ── Download ──────────────────────────────────────────────────────────
-        int filesDone = 0, filesSkipped = 0;
-        for (FileStatus fs : plan) {
-            if ("SKIP".equals(fs.status())) {
-                filesSkipped++;
-                continue;
-            }
-            Path dest = targetDir.resolve(fs.name());
-            Files.createDirectories(dest.getParent());
-
-            String verb = "RESUME".equals(fs.status()) ? "Resuming" : "Downloading";
-            System.out.printf("  %s%s%s %s%s%s ...%n",
-                    CYAN, verb, RESET, DIM, fs.name(), RESET);
-
-            try (HfProgressRenderer progress = new HfProgressRenderer(
-                    plan.size() - filesSkipped, filesDone + 1, fs.name())) {
-                client.downloadFile(repoId, fs.name(), dest, progress);
-            }
-            filesDone++;
-        }
-
-        // ── Manifest + index ──────────────────────────────────────────────────
-        saveDirectDownloadManifest(repoId, targetDir, filesToDownload, manifestName, modelInfo);
+        Path targetDir = huggingFaceRepository.get().pullRepository(
+                repoId,
+                null,
+                null,
+                null,
+                java.util.Map.of(),
+                include,
+                force,
+                taskType,
+                progress);
         LocalModelIndex.refreshFromDisk();
 
-        // ── Summary ───────────────────────────────────────────────────────────
-        System.out.println();
-        if (filesDone == 0 && filesSkipped > 0) {
-            System.out.printf("%s✔ Already up to date%s — %s%d file(s) complete%s%n",
-                    GREEN, RESET, DIM, filesSkipped, RESET);
-        } else {
-            System.out.printf("%s✔ Pull complete%s — %s%d downloaded, %d skipped%s%n",
-                    GREEN, RESET, DIM, filesDone, filesSkipped, RESET);
-        }
+        System.out.printf("%n%s✔ Pull complete%s — hf:%s%n", GREEN, RESET, repoId);
         System.out.printf("  %sLocation:%s %s%s%n",
                 DIM, RESET, targetDir.toAbsolutePath(), RESET);
     }
