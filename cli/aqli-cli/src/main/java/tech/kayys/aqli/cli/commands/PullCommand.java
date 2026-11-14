@@ -31,11 +31,10 @@ import java.util.stream.Stream;
 /**
  * Pull model using AqliSdk or directly from HuggingFace / Kaggle.
  *
- * <p>For {@code hf:} model specs the CLI always goes through the
- * {@link HuggingFaceClient} directly so that HTTP {@code Range}-based resumption
- * of partial ({@code .part}) downloads works reliably. For {@code kaggle:} / {@code kg:}
- * specs it uses {@link KaggleClient}. The SDK path is kept for
- * other providers (Ollama-style names, etc.).
+ * <p>For {@code hf:} model specs the CLI delegates to {@link HuggingFaceRepository},
+ * which owns revision-aware manifest creation and the resumable
+ * {@code .part}/{@code Range} download lifecycle. For {@code kaggle:} / {@code kg:}
+ * specs it uses {@link KaggleClient}. The SDK path is kept for other providers.
  *
  * <p>Usage: {@code aqli pull [--force] [--include GLOB] [--task-type TYPE] <model>}
  */
@@ -251,43 +250,6 @@ public class PullCommand implements Runnable {
         LocalModelIndex.refreshFromDisk();
 
         System.out.println(GREEN + "\n✔ Pull complete: " + RESET + repoId + " (imported from local file)");
-    }
-
-    // ── File filter ──────────────────────────────────────────────────────────
-
-    /**
-     * Filter a list of filenames against glob patterns.
-     * Config/tokenizer files are always included so the model remains usable.
-     * Returns all files when no patterns are given.
-     */
-    private List<String> filterFiles(List<String> files, List<String> patterns) {
-        if (patterns == null || patterns.isEmpty()) {
-            return files;
-        }
-        return files.stream()
-                .filter(f -> isEssentialFile(f) || patterns.stream().anyMatch(p -> globMatches(p, f)))
-                .collect(java.util.stream.Collectors.toList());
-    }
-
-    private boolean isEssentialFile(String filename) {
-        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
-        return base.equals("config.json")
-                || base.equals("tokenizer.json")
-                || base.equals("tokenizer_config.json")
-                || base.equals("tokenizer.model")
-                || base.equals("special_tokens_map.json")
-                || base.equals("generation_config.json")
-                || base.equals("vocab.json")
-                || base.equals("merges.txt")
-                || base.equals("readme.md")
-                || base.equals("license");
-    }
-
-    private boolean globMatches(String pattern, String filename) {
-        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
-        String pat  = pattern.toLowerCase(Locale.ROOT);
-        String regex = pat.replace(".", "\\.").replace("*", ".*").replace("?", ".");
-        return base.matches(regex);
     }
 
     // ── Utilities ────────────────────────────────────────────────────────────
