@@ -12,6 +12,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class GgufDaemonMetricsServerTest {
@@ -69,6 +70,38 @@ class GgufDaemonMetricsServerTest {
                     + "X-Test: " + "a".repeat(5_000) + "\r\n\r\n";
             assertEquals(431, requestStatus(server, oversizedHeader));
         }
+    }
+
+    @Test
+    void closeTerminatesClientBlockedWhileReadingHeaders() throws Exception {
+        AtomicBoolean registryClosed = new AtomicBoolean();
+        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(
+                () -> "", () -> registryClosed.set(true), 0);
+                Socket client = new Socket(InetAddress.getLoopbackAddress(), server.port())) {
+            client.setSoTimeout(1_000);
+            client.getOutputStream().write("GET /metrics HTTP/1.1\r\n".getBytes(StandardCharsets.US_ASCII));
+            client.getOutputStream().flush();
+
+            assertTrue(awaitActiveClient(server));
+            long startedAt = System.nanoTime();
+            server.close();
+
+            assertTrue(System.nanoTime() - startedAt < 1_000_000_000L,
+                    "closing the server should not wait for the client read timeout");
+            assertEquals(-1, client.getInputStream().read());
+            assertTrue(registryClosed.get());
+        }
+    }
+
+    private static boolean awaitActiveClient(GgufDaemonMetricsServer server) throws InterruptedException {
+        long deadline = System.nanoTime() + 2_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (server.hasActiveClient()) {
+                return true;
+            }
+            Thread.sleep(5);
+        }
+        return false;
     }
 
     private static int requestStatus(GgufDaemonMetricsServer server, String request)
