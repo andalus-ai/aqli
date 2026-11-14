@@ -60,7 +60,7 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         ServerSocket server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
         try {
             return new GgufDaemonMetricsServer(server, registry);
-        } catch (IOException | RuntimeException exception) {
+        } catch (RuntimeException exception) {
             try {
                 server.close();
             } catch (IOException ignored) {
