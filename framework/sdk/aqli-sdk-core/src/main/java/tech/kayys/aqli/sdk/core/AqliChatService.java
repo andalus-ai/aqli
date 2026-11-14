@@ -40,7 +40,7 @@ public final class AqliChatService {
             List<ToolDefinition> tools, 
             ChatParams p) {
 
-        InferenceRequest req = buildRequest(modelId, systemPrompt, history, tools, p, true);
+        InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
         obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
         long startMs = System.currentTimeMillis();
         
@@ -70,7 +70,7 @@ public final class AqliChatService {
             List<ToolDefinition> tools, 
             ChatParams p) {
 
-        InferenceRequest req = buildRequest(modelId, systemPrompt, history, tools, p, false);
+        InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, false);
         obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
         long startMs = System.currentTimeMillis();
         
@@ -86,7 +86,35 @@ public final class AqliChatService {
                 });
     }
 
-    private InferenceRequest buildRequest(
+    /**
+     * Builds the canonical internal completion execution request used by transports.
+     * Both the legacy prompt parameter and USER message are retained for runner
+     * compatibility while callers migrate to message-based requests.
+     */
+    public InferenceRequest createCompletionRequest(
+            String modelId,
+            String prompt,
+            ChatParams params,
+            boolean streaming) {
+        return InferenceRequest.builder()
+                .requestId(UUID.randomUUID().toString())
+                .model(modelId)
+                .prompt(prompt)
+                .message(Message.user(prompt))
+                .streaming(streaming)
+                .parameter("temperature", params.temperature())
+                .parameter("max_tokens", params.maxTokens())
+                .parameter("top_p", params.topP())
+                .parameter("repeat_penalty", params.repeatPenalty())
+                .build();
+    }
+
+    /**
+     * Builds the canonical internal chat execution request used by all transports.
+     * Transport adapters remain responsible for translating their wire messages
+     * into the shared {@link Message} representation.
+     */
+    public InferenceRequest createRequest(
             String modelId, 
             String systemPrompt,
             List<Message> history, 

@@ -4,6 +4,7 @@ import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.LocalModelArchitectureDetector;
 import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
 import tech.kayys.aqli.model.repo.local.LocalModelQuantizationMetadataReader;
+import tech.kayys.aqli.model.repo.local.LocalModelRepositoryIdentity;
 import tech.kayys.aqli.model.repo.local.LocalModelTaskClassifier;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.sdk.route.*;
@@ -219,7 +220,7 @@ final class LocalModelIndex {
 
                     long sizeBytes = manifest.getSizeBytes();
                     if (sizeBytes <= 0L) {
-                        sizeBytes = computeSize(resolved);
+                        sizeBytes = LocalModelFileInventory.sizeBytes(resolved);
                     }
                     e.sizeBytes = sizeBytes;
 
@@ -248,20 +249,20 @@ final class LocalModelIndex {
     private static Entry toEntry(Path base, Path file, String fallbackFormat, boolean runnable) {
         Entry e = new Entry();
         Path relative = base.relativize(file);
-        e.id = deriveModelId(relative, file);
+        e.id = LocalModelRepositoryIdentity.modelId(relative, file);
         e.shortId = normalizeShortId(null, e.id);
-        e.name = deriveDisplayName(relative, file);
+        e.name = LocalModelRepositoryIdentity.displayName(relative, file);
         e.format = detectFormat(file, fallbackFormat);
         e.runnable = runnable && !e.format.equalsIgnoreCase("safetensors") && !e.format.equalsIgnoreCase("bin");
-        Path listedPath = shouldAggregateRepositoryFile(relative, file) ? file.getParent() : file;
+        Path listedPath = LocalModelRepositoryIdentity.aggregateRepositoryFile(relative, file) ? file.getParent() : file;
         e.path = listedPath.toAbsolutePath().toString();
         e.source = "local";
         double pc = QuantSuggestionDetector.parseParamCount(e.name);
         e.parameterCount = pc > 0 ? String.format("%.1fB", pc) : null;
         
         try {
-            e.sizeBytes = computeSize(listedPath);
-            e.updatedAt = latestModified(listedPath).toString();
+            e.sizeBytes = LocalModelFileInventory.sizeBytes(listedPath);
+            e.updatedAt = LocalModelFileInventory.latestModified(listedPath).toString();
         } catch (Exception ignored) {
             e.sizeBytes = 0L;
         }
@@ -312,71 +313,6 @@ final class LocalModelIndex {
                 || (ch >= 'A' && ch <= 'F');
     }
 
-    private static String deriveModelId(Path relative, Path file) {
-        if (relative == null) {
-            return "";
-        }
-        String normalized = relative.toString().replace("\\", "/");
-        if (relative.getNameCount() >= 3) {
-            String fileName = file.getFileName().toString();
-            if (!shouldUseRepositoryDisplayName(fileName)) {
-                return relative.getName(0) + "/" + fileName;
-            }
-            return relative.getName(0) + "/" + relative.getName(1);
-        }
-        return normalized;
-    }
-
-    private static String entryKey(Entry entry) {
-        String id = entry.id != null ? entry.id : "";
-        String format = entry.format != null ? entry.format : "";
-        String path = entry.path != null ? entry.path : "";
-        return id + "|" + format + "|" + path;
-    }
-
-    private static String deriveDisplayName(Path relative, Path file) {
-        if (relative != null && relative.getNameCount() >= 3 && shouldUseRepositoryDisplayName(file.getFileName().toString())) {
-            return relative.getName(1).toString();
-        }
-        String fileName = file.getFileName().toString();
-        String lower = fileName.toLowerCase(Locale.ROOT);
-        if ((lower.equals("model.safetensors")
-                || lower.equals("model.safetensor")
-                || lower.equals("model.onnx")
-                || lower.equals("model.tflite")
-                || lower.equals("model.litert")
-                || lower.equals("model.litertlm")
-                || lower.equals("model.task"))
-                && file.getParent() != null
-                && file.getParent().getFileName() != null) {
-            return file.getParent().getFileName().toString();
-        }
-        return fileName;
-    }
-
-    private static boolean shouldUseRepositoryDisplayName(String fileName) {
-        if (fileName == null || fileName.isBlank()) {
-            return false;
-        }
-        String lower = fileName.toLowerCase(Locale.ROOT);
-        return lower.endsWith(".onnx")
-                || lower.equals("model.safetensors")
-                || lower.equals("model.safetensor")
-                || lower.equals("model.tflite")
-                || lower.equals("model.litert")
-                || lower.equals("model.litertlm")
-                || lower.equals("model.task");
-    }
-
-    private static boolean shouldAggregateRepositoryFile(Path relative, Path file) {
-        if (relative == null || relative.getNameCount() < 3 || file == null) {
-            return false;
-        }
-        String lower = file.getFileName().toString().toLowerCase(Locale.ROOT);
-        return lower.endsWith(".onnx");
-    }
-
-
     private static boolean isRunnableFormat(String format) {
         if (format == null || format.isBlank()) {
             return true;
@@ -389,55 +325,6 @@ final class LocalModelIndex {
                 || normalized.equals("onnx")
                 || normalized.equals("task")
                 || normalized.equals("tflite");
-    }
-
-    private static long computeSize(Path path) {
-        try {
-            if (Files.isRegularFile(path)) {
-                return Files.size(path);
-            }
-            if (Files.isDirectory(path)) {
-                try (var walk = Files.walk(path)) {
-                    return walk.filter(Files::isRegularFile)
-                            .mapToLong(p -> {
-                                try {
-                                    return Files.size(p);
-                                } catch (Exception ignored) {
-                                    return 0L;
-                                }
-                            })
-                            .sum();
-                }
-            }
-        } catch (Exception ignored) {
-            // best effort
-        }
-        return 0L;
-    }
-
-    private static Instant latestModified(Path path) {
-        try {
-            if (Files.isRegularFile(path)) {
-                return Files.getLastModifiedTime(path).toInstant();
-            }
-            if (Files.isDirectory(path)) {
-                try (var walk = Files.walk(path)) {
-                    return walk.filter(Files::isRegularFile)
-                            .map(p -> {
-                                try {
-                                    return Files.getLastModifiedTime(p).toInstant();
-                                } catch (Exception ignored) {
-                                    return Instant.EPOCH;
-                                }
-                            })
-                            .max(Comparator.naturalOrder())
-                            .orElse(Instant.EPOCH);
-                }
-            }
-        } catch (Exception ignored) {
-            // best effort
-        }
-        return Instant.EPOCH;
     }
 
     private static String normalizePath(Path path) {

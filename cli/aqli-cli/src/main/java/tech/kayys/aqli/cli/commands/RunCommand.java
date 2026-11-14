@@ -85,6 +85,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCacheDirectoryScanner
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
+import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -608,7 +609,7 @@ public class RunCommand implements Runnable {
             preferAlternateRuntime = runnerSelection.preferAlternateRuntime();
             forceGguf = runnerSelection.forceGguf();
             providerExplicit = providerId != null && !providerId.isBlank();
-            boolean preferOnnxResolution = shouldPreferOnnxResolution(modelId, format, providerId);
+            boolean preferOnnxResolution = ModelFormatResolver.shouldPreferOnnxResolution(modelId, format, providerId);
             if (preferOnnxResolution) {
                 if (!providerExplicit) {
                     providerId = "onnx";
@@ -791,7 +792,7 @@ public class RunCommand implements Runnable {
 
             if (!customModelPathUsed && modelId != null && !modelId.isBlank()) {
                 try {
-                    String preferredIndexFormat = preferredLocalIndexFormat(modelId, format, providerId);
+                    String preferredIndexFormat = ModelFormatResolver.preferredLocalIndexFormat(modelId, format, providerId);
                     var indexed = LocalModelIndexResolver.findExactReference(
                             modelId,
                             preferredIndexFormat,
@@ -874,7 +875,7 @@ public class RunCommand implements Runnable {
                         if (!customModelPathUsed) {
                             LocalModelIndex.Entry downloaded = autoPullHfRepositoryForRunIfNeeded(
                                     requestedModelRef != null ? requestedModelRef : modelId,
-                                    preferredLocalIndexFormat(requestedModelRef, format, providerId));
+                                    ModelFormatResolver.preferredLocalIndexFormat(requestedModelRef, format, providerId));
                             if (downloaded != null && downloaded.path != null && Files.exists(Path.of(downloaded.path))) {
                                 finalLocalPath = Path.of(downloaded.path).toAbsolutePath().toString();
                                 modelId = finalLocalPath;
@@ -921,7 +922,7 @@ public class RunCommand implements Runnable {
                         try {
                             LocalModelIndex.Entry downloaded = autoPullHfRepositoryForRunIfNeeded(
                                     requestedModelRef != null ? requestedModelRef : modelId,
-                                    preferredLocalIndexFormat(requestedModelRef, format, providerId));
+                                    ModelFormatResolver.preferredLocalIndexFormat(requestedModelRef, format, providerId));
                             if (downloaded != null && downloaded.path != null && Files.exists(Path.of(downloaded.path))) {
                                 finalLocalPath = Path.of(downloaded.path).toAbsolutePath().toString();
                                 modelId = finalLocalPath;
@@ -1369,77 +1370,39 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("ocr_raw_output", true);
             }
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
-            if (effectiveTtsVoice != null && !effectiveTtsVoice.isBlank()) requestBuilder.parameter("voice", effectiveTtsVoice);
-            if (ttsCodec != null && !ttsCodec.isBlank()) requestBuilder.parameter("tts_codec", resolveTtsCodecReference(ttsCodec));
-            if (ttsMaxFrames != null) requestBuilder.parameter("tts_max_frames", ttsMaxFrames);
-            if (ttsMaxSeconds != null) requestBuilder.parameter("tts_max_seconds", ttsMaxSeconds);
+            String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
+                    ? null
+                    : resolveTtsCodecReference(ttsCodec);
             AudioQualityPreset audioPreset = audioQualityPreset();
             String effectiveAudioFormat = effectiveAudioFormat(audioPreset);
             Integer effectiveAudioBitrateKbps = effectiveAudioBitrateKbps(audioPreset, effectiveAudioFormat);
             Integer effectiveFlacCompression = effectiveFlacCompression(audioPreset, effectiveAudioFormat);
-            if (audioQuality != null && !audioQuality.isBlank()) {
-                requestBuilder.parameter("audio_quality", audioQuality.trim().toLowerCase(Locale.ROOT));
-            }
-            if (effectiveAudioFormat != null && !effectiveAudioFormat.isBlank()) {
-                requestBuilder.parameter("audio_format", effectiveAudioFormat);
-            }
-            if (effectiveAudioBitrateKbps != null) {
-                requestBuilder.parameter("audio_bitrate_kbps", effectiveAudioBitrateKbps);
-            }
-            if (audioChannels != null && !audioChannels.isBlank()) {
-                requestBuilder.parameter("audio_channels", audioChannels.toLowerCase(Locale.ROOT));
-            }
-            if (ttsCodecDecode != null && !ttsCodecDecode.isBlank()) {
-                requestBuilder.parameter("tts_codec_decode", ttsCodecDecode.toLowerCase(Locale.ROOT));
-            }
-            if (randomTtsSeed) {
-                requestBuilder.parameter("random_seed", true);
-            }
-            if (disableAudioPolish) {
-                requestBuilder.parameter("audio_polish", false);
-            }
-            if (disableAudioNormalize) {
-                requestBuilder.parameter("audio_normalize", false);
-            }
-            if (audioGainDb != null) {
-                requestBuilder.parameter("audio_gain_db", audioGainDb);
-            }
-            if (audioPeakDb != null) {
-                requestBuilder.parameter("audio_peak_db", audioPeakDb);
-            }
-            if (audioFadeMs != null) {
-                requestBuilder.parameter("audio_fade_ms", audioFadeMs);
-            }
-            if (audioTrimSilence) {
-                requestBuilder.parameter("audio_trim_silence", true);
-            }
-            if (audioTrimDbfs != null) {
-                requestBuilder.parameter("audio_trim_threshold_dbfs", audioTrimDbfs);
-            }
-            if (audioTrimPaddingMs != null) {
-                requestBuilder.parameter("audio_trim_padding_ms", audioTrimPaddingMs);
-            }
-            if (audioStreamChunkKb != null) {
-                requestBuilder.parameter("audio_stream_chunk_kb", audioStreamChunkKb);
-            }
-            if (ttsStreamProgressFrames != null) {
-                requestBuilder.parameter("tts_stream_progress_frames", ttsStreamProgressFrames);
-            }
-            if (disableTtsStreamProgress) {
-                requestBuilder.parameter("tts_stream_progress", false);
-            }
-            if (ttsStreamPcm || liveAudio) {
-                requestBuilder.parameter("tts_stream_pcm", true);
-            }
-            if (liveAudio) {
-                requestBuilder.parameter("tts_live_audio", true);
-            }
-            if (disableLowLatencyAudio) {
-                requestBuilder.parameter("tts_low_latency_audio", false);
-            }
-            if (effectiveFlacCompression != null) {
-                requestBuilder.parameter("flac_compression", effectiveFlacCompression);
-            }
+            AudioRunRequestParameterMapper.apply(requestBuilder, new AudioRunRequestParameterMapper.Options(
+                    effectiveTtsVoice,
+                    effectiveTtsCodec,
+                    ttsMaxFrames,
+                    ttsMaxSeconds,
+                    audioQuality,
+                    effectiveAudioFormat,
+                    effectiveAudioBitrateKbps,
+                    audioChannels,
+                    ttsCodecDecode,
+                    randomTtsSeed,
+                    disableAudioPolish,
+                    disableAudioNormalize,
+                    audioGainDb,
+                    audioPeakDb,
+                    audioFadeMs,
+                    audioTrimSilence,
+                    audioTrimDbfs,
+                    audioTrimPaddingMs,
+                    audioStreamChunkKb,
+                    ttsStreamProgressFrames,
+                    disableTtsStreamProgress,
+                    ttsStreamPcm,
+                    liveAudio,
+                    disableLowLatencyAudio,
+                    effectiveFlacCompression));
 
             if (extension != null && !extension.isBlank()) {
                 requestBuilder.parameter("output_format", extension.toLowerCase());
@@ -2158,49 +2121,11 @@ public class RunCommand implements Runnable {
         if (detectedFormat == null || detectedFormat.isBlank() || "unknown".equalsIgnoreCase(detectedFormat)) {
             return null;
         }
-        return canonicalModelFormat(detectedFormat);
+        return ModelFormatResolver.canonicalFormat(detectedFormat);
     }
 
     private String formatForLocalModelPath(Path modelPath) {
         return ModelFormatResolver.formatForPath(modelPath);
-    }
-
-    private boolean shouldPreferOnnxResolution(String requestedModel, String requestedFormat, String requestedProvider) {
-        if (isOnnxFormat(requestedFormat) || isOnnxProvider(requestedProvider)) {
-            return true;
-        }
-        if ((requestedFormat != null && !requestedFormat.isBlank())
-                || (requestedProvider != null && !requestedProvider.isBlank())) {
-            return false;
-        }
-        return looksLikeOnnxModelRef(requestedModel);
-    }
-
-    private String preferredLocalIndexFormat(String requestedModel, String requestedFormat, String requestedProvider) {
-        String canonicalFormat = canonicalModelFormat(requestedFormat);
-        if (canonicalFormat != null) {
-            return canonicalFormat;
-        }
-        if (isOnnxProvider(requestedProvider) || looksLikeOnnxModelRef(requestedModel)) {
-            return "onnx";
-        }
-        return null;
-    }
-
-    private boolean isOnnxProvider(String requestedProvider) {
-        return ModelFormatResolver.isOnnxProvider(requestedProvider);
-    }
-
-    private boolean isOnnxFormat(String requestedFormat) {
-        return "onnx".equals(canonicalModelFormat(requestedFormat));
-    }
-
-    private String canonicalModelFormat(String requestedFormat) {
-        return ModelFormatResolver.canonicalFormat(requestedFormat);
-    }
-
-    private boolean looksLikeOnnxModelRef(String requestedModel) {
-        return ModelFormatResolver.looksLikeOnnxModelReference(requestedModel);
     }
 
     private String stripHfPrefix(String value) {
@@ -3100,7 +3025,7 @@ public class RunCommand implements Runnable {
         if (entry == null || entry.format == null || entry.format.isBlank()) {
             return null;
         }
-        return canonicalModelFormat(entry.format);
+        return ModelFormatResolver.canonicalFormat(entry.format);
     }
 
     private String providerForFormat(String format) {

@@ -357,6 +357,13 @@ cerebras        Cerebras             1.0.0      HEALTHY
 
 ---
 
+## GGUF daemon cache metrics
+
+The standalone GGUF fast path can optionally expose Prometheus-compatible
+session-cache metrics on a loopback-only endpoint. It is disabled by default.
+See the [GGUF daemon metrics guide](../../docs/OBSERVABILITY.md#gguf-daemon-cache-metrics)
+for JVM properties, scrape configuration, metric scope and security constraints.
+
 ## Environment Variables
 
 | Variable | Default | Description |
