@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 
 /** CDI composition point for local SDK instances. */
 @ApplicationScoped
@@ -13,11 +14,14 @@ public class LocalAqliSdkFactory {
 
     private final LocalInferenceEngineCatalog engines;
     private final LocalModelCatalog models;
+    private final HuggingFaceRepository huggingFaceRepository;
 
     @Inject
-    public LocalAqliSdkFactory(LocalInferenceEngineCatalog engines, LocalModelCatalog models) {
+    public LocalAqliSdkFactory(LocalInferenceEngineCatalog engines, LocalModelCatalog models,
+            HuggingFaceRepository huggingFaceRepository) {
         this.engines = engines;
         this.models = models;
+        this.huggingFaceRepository = huggingFaceRepository;
     }
 
     @Produces
@@ -27,6 +31,6 @@ public class LocalAqliSdkFactory {
     }
 
     public LocalAqliSdk create(SdkConfig config) {
-        return new LocalAqliSdk(engines, config, models);
+        return new LocalAqliSdk(engines, config, models, huggingFaceRepository);
     }
 }
