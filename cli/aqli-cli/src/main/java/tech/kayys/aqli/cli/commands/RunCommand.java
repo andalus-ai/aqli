@@ -94,6 +94,7 @@ import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.util.CliInferenceFeatures;
+import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
@@ -1269,8 +1270,8 @@ public class RunCommand implements Runnable {
                     ? finalLocalPath
                     : modelId;
             List<tech.kayys.aqli.spi.tool.ToolDefinition> requestedTools =
-                    CliInferenceFeatures.loadTools(toolFiles, mcpTools);
-            Object requestedToolChoice = CliInferenceFeatures.parseToolChoice(toolChoice);
+                    ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
+            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
             CliInferenceFeatures.RagContext ragContext =
                     CliInferenceFeatures.loadRagContext(ragContexts, ragFiles, ragMaxChars, prompt);
 
@@ -1389,7 +1390,7 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("output_format", extension.toLowerCase());
             }
 
-            CliInferenceFeatures.applyTools(requestBuilder, requestedTools, requestedToolChoice);
+            ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
             CliInferenceFeatures.applyRagMetadata(requestBuilder, ragContext, embeddingModel);
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
