@@ -795,9 +795,9 @@ public class RunCommand implements Runnable {
                     var indexed = LocalModelIndexResolver.findExactReference(
                             modelId,
                             preferredIndexFormat,
-                            (reference, requestedFormat) -> requestedFormat == null
+                            (reference, lookupFormat) -> lookupFormat == null
                                     ? LocalModelIndex.find(reference)
-                                    : LocalModelIndex.find(reference, requestedFormat));
+                                    : LocalModelIndex.find(reference, lookupFormat));
                     if (indexed.isPresent()) {
                         var entry = indexed.get();
                         if (!entry.enabled) {
