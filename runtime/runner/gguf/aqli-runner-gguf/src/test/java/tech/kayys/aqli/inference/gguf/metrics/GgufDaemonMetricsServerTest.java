@@ -18,16 +18,16 @@ class GgufDaemonMetricsServerTest {
     @Test
     void servesPrometheusMetricsOnLoopbackAndClosesCleanly() throws Exception {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-        Gauge.builder("aqli.test.daemon", new Object(), ignored -> 3.0)
+        Object gaugeState = new Object();
+        Gauge.builder("aqli.test.daemon", gaugeState, ignored -> 3.0)
                 .register(registry);
 
         try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(registry, 0)) {
             assertTrue(server.isLoopbackBound());
             assertTrue(InetAddress.getLoopbackAddress().isLoopbackAddress());
 
-            HttpURLConnection connection = (HttpURLConnection) new URL(
-                    "http://" + InetAddress.getLoopbackAddress().getHostAddress()
-                            + ":" + server.port() + "/metrics").openConnection();
+            HttpURLConnection connection = (HttpURLConnection) new URL("http", InetAddress.getLoopbackAddress().getHostAddress(),
+                    server.port(), "/metrics").openConnection();
             connection.setConnectTimeout(2_000);
             connection.setReadTimeout(2_000);
             assertEquals(200, connection.getResponseCode());
@@ -45,9 +45,8 @@ class GgufDaemonMetricsServerTest {
     void rejectsPathsOtherThanMetrics() throws Exception {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(registry, 0)) {
-            HttpURLConnection connection = (HttpURLConnection) new URL(
-                    "http://" + InetAddress.getLoopbackAddress().getHostAddress()
-                            + ":" + server.port() + "/").openConnection();
+            HttpURLConnection connection = (HttpURLConnection) new URL("http", InetAddress.getLoopbackAddress().getHostAddress(),
+                    server.port(), "/").openConnection();
             connection.setConnectTimeout(2_000);
             connection.setReadTimeout(2_000);
             assertEquals(404, connection.getResponseCode());
