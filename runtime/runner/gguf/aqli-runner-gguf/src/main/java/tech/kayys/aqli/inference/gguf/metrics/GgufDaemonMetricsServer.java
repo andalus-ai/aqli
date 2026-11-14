@@ -95,10 +95,11 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             try {
                 client = server.accept();
             } catch (IOException | RuntimeException exception) {
-                if (running.get()) {
-                    // A listener failure must not affect inference.
+                if (!running.get()) {
+                    return;
                 }
-                return;
+                // A listener failure must not affect inference.
+                continue;
             }
 
             synchronized (clientLifecycleLock) {
