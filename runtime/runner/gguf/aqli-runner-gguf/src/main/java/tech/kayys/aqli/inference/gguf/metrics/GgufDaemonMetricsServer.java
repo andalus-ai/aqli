@@ -1,5 +1,6 @@
 package tech.kayys.aqli.inference.gguf.metrics;
 
+import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -10,6 +11,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 
 /**
  * Small loopback-only HTTP endpoint for scraping daemon-owned Prometheus metrics.
@@ -36,7 +38,20 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
                 .start(this::accept);
     }
 
-    public static GgufDaemonMetricsServer start(
+    public static GgufDaemonMetricsServer start(GgufSessionCache cache, int port)
+            throws IOException {
+        Objects.requireNonNull(cache, "cache");
+        PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+        new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
+        try {
+            return start(registry, port);
+        } catch (IOException | RuntimeException exception) {
+            registry.close();
+            throw exception;
+        }
+    }
+
+    static GgufDaemonMetricsServer start(
             PrometheusMeterRegistry registry, int port) throws IOException {
         Objects.requireNonNull(registry, "registry");
         if (port < 0 || port > 65_535) {
@@ -44,7 +59,6 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         }
         ServerSocket server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
         try {
-            server.setReuseAddress(false);
             return new GgufDaemonMetricsServer(server, registry);
         } catch (IOException | RuntimeException exception) {
             try {
