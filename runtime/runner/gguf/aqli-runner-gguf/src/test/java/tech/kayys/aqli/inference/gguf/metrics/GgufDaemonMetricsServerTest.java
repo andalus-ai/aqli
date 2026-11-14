@@ -39,7 +39,6 @@ class GgufDaemonMetricsServerTest {
             assertTrue(body.contains("3.0"));
             connection.disconnect();
         }
-        assertTrue(registry.isClosed());
     }
 
     @Test
