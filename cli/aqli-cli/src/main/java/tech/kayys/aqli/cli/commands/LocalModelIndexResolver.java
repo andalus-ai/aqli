@@ -44,6 +44,26 @@ final class LocalModelIndexResolver {
     }
 
     /**
+     * Looks up one exact index reference without applying alias expansion or artifact validation.
+     * The caller may need the indexed metadata (for example, a disabled entry) even when its
+     * artifact is currently missing, and remains responsible for deciding how to handle it.
+     */
+    static Optional<LocalModelIndex.Entry> findExactReference(
+            String reference,
+            String preferredFormat,
+            Lookup lookup) {
+        if (reference == null || reference.isBlank() || lookup == null) {
+            return Optional.empty();
+        }
+        try {
+            return lookup.find(reference, preferredFormat);
+        } catch (Exception ignored) {
+            // The caller owns the final user-facing diagnostic or fallback behavior.
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Resolves one reference using a preferred-format lookup, then verifies the
      * unfiltered result has that format. Unlike {@link #find}, this does not
      * add an {@code hf:} alias; callers use it when exact-reference semantics
