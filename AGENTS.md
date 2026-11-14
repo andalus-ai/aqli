@@ -96,3 +96,26 @@ A class does not belong to the CLI merely because the CLI was its first or only 
 - Before moving a class, inspect its responsibilities. Split mixed concerns when necessary rather than relocating the entire mixed class into an unrelated module.
 - After extraction, verify dependency direction: adapters depend on capabilities; capabilities do not depend on adapters.
 - Update this file and `ARCHITECTURE.md` when an approved architectural rule changes.
+
+
+## 8. SDK-first API and transport parity
+
+The approved direction is documented in `docs/architecture/sdk-first-capability-architecture.md`.
+Apply these rules when changing inference requests, `RunCommand`, REST endpoints, gRPC handlers, or SDK modules.
+
+- The AQLI SDK API is the canonical **AQLI public, transport-neutral contract**. CLI, REST, gRPC, and programmatic callers must express the same use-case semantics through it.
+- The SDK API is a contract, not the execution engine. Shared application services own orchestration, capability dispatch, defaults, validation, routing decisions, streaming lifecycle, cancellation, and error semantics.
+- CLI, REST, and gRPC are adapters. They may have transport-specific parsing/serialization and error mapping, but must invoke the same application service path. Never implement inference behavior independently in a command, REST resource, or RPC handler.
+- Capability APIs own typed capability-specific requests, responses, options, validation rules, and capability contracts. Keep audio/image/video/spatial parameters out of a growing flat text-generation request.
+- Use a common request envelope for cross-cutting fields and typed capability task payloads for modality-specific fields. Support compatible multimodal composition; do not assume every request has exactly one modality.
+- Keep Picocli annotations and CLI option groups in CLI adapter code. Keep HTTP and protobuf wire DTOs at their adapter boundaries. Map all of them into the same SDK/application semantics.
+- Do not create one CLI Gradle module per capability by default. Start with capability-owned option/mapping packages; create separate modules only for a demonstrated packaging or dependency-isolation boundary.
+- Do not make capability API modules depend on Picocli, REST/JAX-RS, gRPC, Quarkus transport types, or concrete model runners.
+- Do not treat `AqliClient.GenerationRequest` and SPI `InferenceRequest` as interchangeable. Audit their callers and compatibility obligations before changing either.
+- Keep the current SPI `InferenceRequest` as an internal execution contract during migration. Do not simply rename or expose it as the canonical SDK request: it contains generic parameter-map compatibility, SPI/runtime concerns, and a deprecated native `MemorySegment` handle.
+- Introduce one application-layer mapping path from canonical SDK/capability requests to the internal execution SPI. Every transport must use that same path.
+- Avoid permanent duplicate generic request models and chains of converters. Define the canonical public model once, retain only deliberate compatibility adapters, and document their removal/versioning plan.
+- Elevate contracts that are genuinely engine-neutral and reusable by any ML/inference framework to Aljabr. Keep AQLI SDK contracts focused on AQLI's public client/use-case surface; do not duplicate Aljabr tensor, model, or general serving SPIs.
+- Preserve existing CLI behavior and REST/gRPC wire compatibility where feasible. Treat breaking protocol changes as explicit versioned migrations.
+- Add cross-transport conformance tests for normalized application requests, defaults, validation, errors, streaming event order/termination, cancellation/resource cleanup, metadata/usage, and multimodal behavior.
+- Introduce capability API modules incrementally after auditing existing SPI ownership and consumers. Reuse existing modules where possible; do not create speculative empty modules.
