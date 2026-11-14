@@ -3,6 +3,7 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.LocalModelArchitectureDetector;
 import tech.kayys.aqli.model.repo.local.LocalModelFileInventory;
+import tech.kayys.aqli.model.repo.local.LocalModelQuantizationMetadataReader;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -62,6 +63,8 @@ final class LocalModelIndex {
 
     private static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     private static final LocalModelArchitectureDetector ARCHITECTURE_DETECTOR = new LocalModelArchitectureDetector();
+    private static final LocalModelQuantizationMetadataReader QUANTIZATION_METADATA_READER =
+            new LocalModelQuantizationMetadataReader();
 
     private LocalModelIndex() {
     }
@@ -286,7 +289,7 @@ final class LocalModelIndex {
         // Try to detect architecture from config.json
         detectArchitecture(e, file.getParent());
 
-        // Populate quantization metadata from aqli_quant.json if present
+        // Read AQLI's local quantization sidecar metadata, when present.
         populateQuantMetadata(e, file.getParent());
         return e;
     }
@@ -529,23 +532,16 @@ final class LocalModelIndex {
                 || "unknown".equalsIgnoreCase(architecture);
     }
 
-    @SuppressWarnings("unchecked")
     private static void populateQuantMetadata(Entry e, Path modelDir) {
-        if (modelDir == null) return;
-        Path quantMeta = modelDir.resolve("aqli_quant.json");
-        if (!Files.isRegularFile(quantMeta)) return;
-        try {
-            var map = JSON.readValue(quantMeta.toFile(), java.util.Map.class);
-            var quant = (java.util.Map<String, Object>) map.get("aqli_quant");
-            if (quant != null) {
-                e.quantStrategy = (String) quant.get("strategy");
-                e.quantBits = quant.get("bits") instanceof Number n ? n.intValue() : 0;
-                e.quantGroupSize = quant.get("group_size") instanceof Number n ? n.intValue() : 0;
-                e.quantSourceModel = (String) quant.get("source_model");
-            }
-        } catch (Exception ignored) {
-            // best effort — skip if malformed
+        if (modelDir == null) {
+            return;
         }
+        QUANTIZATION_METADATA_READER.read(modelDir).ifPresent(metadata -> {
+            e.quantStrategy = metadata.strategy();
+            e.quantBits = metadata.bits();
+            e.quantGroupSize = metadata.groupSize();
+            e.quantSourceModel = metadata.sourceModel();
+        });
     }
 
     private static String detectFormat(Path file, String fallback) {
