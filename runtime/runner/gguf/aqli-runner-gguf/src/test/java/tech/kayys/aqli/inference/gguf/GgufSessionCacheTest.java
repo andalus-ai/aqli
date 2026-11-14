@@ -306,6 +306,82 @@ class GgufSessionCacheTest {
         verify(secondBackend).close();
     }
 
+    @Test
+    void snapshotReportsNativePoolOccupancyLeasesAndLifecycleCounters() throws Exception {
+        LlamaCppGgufSession first = mock(LlamaCppGgufSession.class);
+        LlamaCppGgufSession second = mock(LlamaCppGgufSession.class);
+        AtomicInteger opened = new AtomicInteger();
+        GgufSessionCache cache = cache(1, (path, parameters, paths) ->
+                opened.getAndIncrement() == 0 ? first : second);
+
+        GgufSessionCache.SessionLease firstLease =
+                cache.acquire(Path.of("/models/first.gguf"), parameters(99));
+        GgufSessionCache.SessionLease reusedLease =
+                cache.acquire(Path.of("/models/first.gguf"), parameters(99));
+        GgufSessionCache.SessionLease secondLease =
+                cache.acquire(Path.of("/models/second.gguf"), parameters(99));
+
+        GgufSessionCache.CacheSnapshot snapshot = cache.snapshot();
+        assertEquals(1, snapshot.nativeEntries());
+        assertEquals(0, snapshot.javaBackendEntries());
+        assertEquals(3, snapshot.activeNativeLeases());
+        assertEquals(0, snapshot.activeJavaBackendLeases());
+        assertEquals(1, snapshot.nativeHits());
+        assertEquals(2, snapshot.nativeMisses());
+        assertEquals(1, snapshot.nativeEvictions());
+
+        verify(first, never()).close();
+        firstLease.close();
+        verify(first, never()).close();
+        reusedLease.close();
+        verify(first).close();
+        secondLease.close();
+        assertEquals(0, cache.snapshot().activeNativeLeases());
+        cache.close();
+    }
+
+    @Test
+    void snapshotReportsJavaPoolEvictionsAndRetiredActiveLeases() throws Exception {
+        GgufBackend firstBackend = mock(GgufBackend.class);
+        GgufBackend secondBackend = mock(GgufBackend.class);
+        AtomicInteger opened = new AtomicInteger();
+        GgufSessionCache cache = new GgufSessionCache(
+                () -> 1,
+                ignored -> { },
+                new LlamaCppGgufLibraryPaths(
+                        Path.of("/native/bridge.dylib"), Path.of("/native/llama")),
+                (path, parameters, paths) -> mock(LlamaCppGgufSession.class),
+                path -> opened.getAndIncrement() == 0
+                        ? GgufJavaBackendSession.owned(firstBackend)
+                        : GgufJavaBackendSession.owned(secondBackend));
+
+        GgufJavaBackendSession.Lease firstLease =
+                cache.acquireJavaBackend(Path.of("/models/first.gguf"));
+        GgufJavaBackendSession.Lease reusedLease =
+                cache.acquireJavaBackend(Path.of("/models/first.gguf"));
+        GgufJavaBackendSession.Lease secondLease =
+                cache.acquireJavaBackend(Path.of("/models/second.gguf"));
+
+        GgufSessionCache.CacheSnapshot snapshot = cache.snapshot();
+        assertEquals(0, snapshot.nativeEntries());
+        assertEquals(1, snapshot.javaBackendEntries());
+        assertEquals(0, snapshot.activeNativeLeases());
+        assertEquals(3, snapshot.activeJavaBackendLeases());
+        assertEquals(1, snapshot.javaBackendHits());
+        assertEquals(2, snapshot.javaBackendMisses());
+        assertEquals(1, snapshot.javaBackendEvictions());
+
+        firstLease.close();
+        assertEquals(2, cache.snapshot().activeJavaBackendLeases());
+        verify(firstBackend, never()).close();
+        reusedLease.close();
+        verify(firstBackend).close();
+        secondLease.close();
+        assertEquals(0, cache.snapshot().activeJavaBackendLeases());
+        cache.close();
+        verify(secondBackend).close();
+    }
+
     private static GgufSessionCache cache(
             int capacity, GgufSessionCache.SessionOpener opener) {
         return new GgufSessionCache(
