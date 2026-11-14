@@ -13,7 +13,8 @@ import java.util.function.IntSupplier;
  * Owns daemon-scoped GGUF sessions and Java backend sessions. It centralizes
  * exact/compatible reuse, access-order eviction, one-shot leases, and shutdown.
  * Session limits, library paths, and logging are supplied by the application boundary.
- * The session limit is a count cap, not an estimate of native memory consumption.
+ * The configured session limit is applied independently to the native and Java
+ * backend pools; it is a count cap, not an estimate of memory consumption.
  * Cache operations and lease accounting are serialized. Eviction and shutdown retire
  * cached sessions and defer backend close until their final borrowed lease is released.
  */
