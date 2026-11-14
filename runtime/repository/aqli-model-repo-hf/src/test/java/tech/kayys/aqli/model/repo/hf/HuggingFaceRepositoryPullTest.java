@@ -58,7 +58,7 @@ class HuggingFaceRepositoryPullTest {
         assertTrue(Files.isRegularFile(directory.resolve("config.json")));
         assertTrue(Files.isRegularFile(directory.resolve("model.onnx")));
         assertTrue(Files.isRegularFile(directory.resolve("tokenizer.json")));
-        assertEquals(1, client.listCalls);
+        assertEquals(1, client.infoCalls);
         assertEquals(List.of("config.json", "model.onnx", "tokenizer.json"), client.downloadedFiles);
 
         AqliManifest manifest = manifests.findByModelId("org/model", "main").orElseThrow();
@@ -148,6 +148,7 @@ class HuggingFaceRepositoryPullTest {
     private static final class RecordingHuggingFaceClient extends HuggingFaceClient {
         private final List<String> files;
         private int listCalls;
+        private int infoCalls;
         private List<String> downloadedFiles = List.of();
         private String requestedRevision;
         private String pipelineTag;
@@ -160,6 +161,7 @@ class HuggingFaceRepositoryPullTest {
         @Override
         public HuggingFaceModelInfo getModelInfo(String modelId, String revision) {
             requestedRevision = revision;
+            infoCalls++;
             HuggingFaceModelInfo info = new HuggingFaceModelInfo();
             info.setPipelineTag(pipelineTag);
             info.setCommitSha(commitSha);
