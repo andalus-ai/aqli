@@ -40,7 +40,7 @@ public final class AqliChatService {
             List<ToolDefinition> tools, 
             ChatParams p) {
 
-        InferenceRequest req = buildRequest(modelId, systemPrompt, history, tools, p, true);
+        InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
         obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
         long startMs = System.currentTimeMillis();
         
@@ -70,7 +70,7 @@ public final class AqliChatService {
             List<ToolDefinition> tools, 
             ChatParams p) {
 
-        InferenceRequest req = buildRequest(modelId, systemPrompt, history, tools, p, false);
+        InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, false);
         obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
         long startMs = System.currentTimeMillis();
         
@@ -86,7 +86,12 @@ public final class AqliChatService {
                 });
     }
 
-    private InferenceRequest buildRequest(
+    /**
+     * Builds the canonical internal chat execution request used by all transports.
+     * Transport adapters remain responsible for translating their wire messages
+     * into the shared {@link Message} representation.
+     */
+    public InferenceRequest createRequest(
             String modelId, 
             String systemPrompt,
             List<Message> history, 
