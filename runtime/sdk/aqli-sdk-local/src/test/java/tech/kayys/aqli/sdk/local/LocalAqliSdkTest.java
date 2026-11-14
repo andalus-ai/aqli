@@ -2,9 +2,17 @@ package tech.kayys.aqli.sdk.local;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -13,6 +21,9 @@ import org.junit.jupiter.api.Test;
 
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
+import tech.kayys.aljabr.spi.download.DownloadProgressListener;
+import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 import tech.kayys.aqli.spi.inference.InferenceEngineDescriptor;
 import tech.kayys.aljabr.spi.model.ModelInfo;
@@ -78,6 +89,53 @@ class LocalAqliSdkTest {
         assertEquals(List.of(model), sdk.listModels());
         assertEquals(List.of(model), sdk.listModels(2, 5));
         assertEquals(Optional.of(model), sdk.getModelInfo("org/model"));
+    }
+
+    @Test
+    void pullsHuggingFaceModelsThroughRepositoryAndForwardsProgress() throws Exception {
+        HuggingFaceRepository repository = mock(HuggingFaceRepository.class);
+        when(repository.pullRepository(
+                eq("org/model"), eq("v2"), eq("onnx"), isNull(),
+                eq(Map.of()), eq(List.of()), eq(true), isNull(),
+                any(DownloadProgressListener.class)))
+                .thenReturn(Path.of("/tmp/aqli-model"));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of()),
+                null,
+                mock(LocalModelCatalog.class),
+                repository);
+        List<PullProgress> progress = new ArrayList<>();
+
+        sdk.pullModel("hf:org/model", "v2", "onnx", true, progress::add);
+
+        org.mockito.ArgumentCaptor<DownloadProgressListener> listener =
+                org.mockito.ArgumentCaptor.forClass(DownloadProgressListener.class);
+        verify(repository).pullRepository(
+                eq("org/model"), eq("v2"), eq("onnx"), isNull(),
+                eq(Map.of()), eq(List.of()), eq(true), isNull(), listener.capture());
+
+        listener.getValue().onProgress(512, 1024, 0.5);
+        listener.getValue().onComplete(1024);
+
+        assertEquals(2, progress.size());
+        assertEquals(1024, progress.get(0).getTotal());
+        assertEquals(512, progress.get(0).getCompleted());
+        assertEquals(100, progress.get(1).getPercentComplete());
+        assertEquals("Completed org/model", progress.get(1).getStatus());
+    }
+
+    @Test
+    void rejectsNonHuggingFacePullsUntilTheirRepositoryCapabilitiesAreComposed() {
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of()),
+                null,
+                mock(LocalModelCatalog.class),
+                mock(HuggingFaceRepository.class));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                tech.kayys.aqli.sdk.exception.SdkException.class,
+                () -> sdk.pullModel("ollama:llama3", null));
     }
 
     private static LocalInferenceEngine engine() {
