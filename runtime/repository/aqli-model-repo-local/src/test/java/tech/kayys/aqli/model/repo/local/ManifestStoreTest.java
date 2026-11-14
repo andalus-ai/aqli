@@ -103,6 +103,29 @@ class ManifestStoreTest {
     }
 
     @Test
+    void detectsManifestBlobFormatThroughSharedInventoryMapping() throws Exception {
+        Path ggufBlob = temporaryDirectory.resolve("gguf-blob");
+        Files.createDirectories(ggufBlob.resolve("nested"));
+        Files.writeString(ggufBlob.resolve("nested/model.GGUF"), "weights");
+        assertEquals("gguf", ManifestStore.detectFormat(ggufBlob));
+
+        Path liteRtBlob = temporaryDirectory.resolve("litert-blob");
+        Files.createDirectories(liteRtBlob);
+        Files.writeString(liteRtBlob.resolve("model.task"), "task");
+        assertEquals("litert", ManifestStore.detectFormat(liteRtBlob));
+
+        Path torchScriptBlob = temporaryDirectory.resolve("torchscript-blob");
+        Files.createDirectories(torchScriptBlob);
+        Files.writeString(torchScriptBlob.resolve("model.pth"), "weights");
+        assertEquals("torchscript", ManifestStore.detectFormat(torchScriptBlob));
+
+        Path unknownBlob = temporaryDirectory.resolve("unknown-blob");
+        Files.createDirectories(unknownBlob);
+        Files.writeString(unknownBlob.resolve("config.json"), "{}");
+        assertEquals("unknown", ManifestStore.detectFormat(unknownBlob));
+    }
+
+    @Test
     void blobPathCannotEscapeCacheRoot() {
         Path resolved = ManifestStore.resolveBlobDir("../../outside", "manifest");
         Path cacheRoot = Path.of(System.getProperty("user.home"), ".aqli", "models").toAbsolutePath().normalize();
