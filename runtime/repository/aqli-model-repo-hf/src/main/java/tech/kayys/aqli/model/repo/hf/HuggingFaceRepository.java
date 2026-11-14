@@ -69,6 +69,25 @@ public final class HuggingFaceRepository implements ModelRepository {
             String architecture,
             Map<String, String> metadata,
             DownloadProgressListener progressListener) throws java.io.IOException, InterruptedException {
+        return pullRepository(repoId, requestedRevision, preferredFormat, architecture,
+                metadata, List.of(), false, null, progressListener);
+    }
+
+    /**
+     * Pulls a Hugging Face repository using the repository's resumable downloader
+     * and persists the local manifest. Selection and force semantics live here,
+     * not in the CLI transport adapter.
+     */
+    public Path pullRepository(
+            String repoId,
+            String requestedRevision,
+            String preferredFormat,
+            String architecture,
+            Map<String, String> metadata,
+            List<String> includePatterns,
+            boolean force,
+            String taskType,
+            DownloadProgressListener progressListener) throws java.io.IOException, InterruptedException {
         if (repoId == null || repoId.isBlank()) {
             throw new IllegalArgumentException("Hugging Face repository ID is required");
         }
@@ -76,17 +95,38 @@ public final class HuggingFaceRepository implements ModelRepository {
         String revision = requestedRevision == null || requestedRevision.isBlank()
                 ? (config != null && config.revision() != null ? config.revision() : DEFAULT_REVISION)
                 : requestedRevision.trim();
+        HuggingFaceModelInfo modelInfo = client.getModelInfo(repoId, revision);
+        List<HuggingFaceModelInfo.ModelFile> modelFiles =
+                modelInfo.getFiles() == null ? List.of() : modelInfo.getFiles();
+        List<String> availableFiles = modelFiles.stream()
+                .map(HuggingFaceModelInfo.ModelFile::getFilename)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        List<String> files = filterPullFiles(availableFiles, includePatterns);
+        if (files.isEmpty()) {
+            throw new IllegalArgumentException("No Hugging Face files matched include patterns: " + includePatterns);
+        }
+
         String manifestName = AqliManifest.computeName(repoId, revision);
         Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
         Files.createDirectories(targetDir);
-
-        List<String> files = client.listFiles(repoId, revision);
-        client.downloadRepository(repoId, revision, files, targetDir, progressListener);
+        for (String file : files) {
+            if (file.startsWith(".")) {
+                continue;
+            }
+            Path target = targetDir.resolve(file);
+            Files.createDirectories(target.getParent());
+            if (force) {
+                Files.deleteIfExists(target);
+                Files.deleteIfExists(target.resolveSibling(target.getFileName() + ".part"));
+            }
+            client.downloadFile(repoId, file, revision, target, progressListener);
+        }
 
         String detectedFormat = ManifestStore.detectFormat(targetDir);
         String manifestFormat = "unknown".equalsIgnoreCase(detectedFormat) && preferredFormat != null
-                ? preferredFormat
-                : detectedFormat;
+                ? preferredFormat : detectedFormat;
+        String pipelineTag = modelInfo.getPipelineTag();
         AqliManifest manifest = new AqliManifest();
         manifest.setId(manifestName);
         manifest.setModelId(repoId);
@@ -102,19 +142,58 @@ public final class HuggingFaceRepository implements ModelRepository {
         manifest.setCreatedAt(java.time.Instant.now());
         manifest.setSizeBytes(computeDirectorySize(targetDir));
         manifest.setArchitecture(architecture == null || architecture.isBlank()
-                ? ManifestStore.detectArchitecture(manifest)
-                : architecture);
+                ? ManifestStore.detectArchitecture(manifest) : architecture);
+        String resolvedTaskType = taskType;
+        if ((resolvedTaskType == null || resolvedTaskType.isBlank())
+                && pipelineTag != null && !pipelineTag.isBlank()) {
+            resolvedTaskType = tech.kayys.aqli.model.repo.local.LocalModelTaskClassifier
+                    .pipelineTagToTaskType(pipelineTag);
+        }
+        manifest.setTaskType(resolvedTaskType == null || resolvedTaskType.isBlank() ? "text" : resolvedTaskType);
+
         Map<String, String> manifestMetadata = new java.util.LinkedHashMap<>();
         if (metadata != null) {
             manifestMetadata.putAll(metadata);
         }
+        manifestMetadata.put("source", "huggingface");
         manifestMetadata.putIfAbsent("format", manifestFormat != null ? manifestFormat : "unknown");
         if (preferredFormat != null && !preferredFormat.isBlank()) {
             manifestMetadata.putIfAbsent("preferred_format", preferredFormat);
         }
+        if (pipelineTag != null && !pipelineTag.isBlank()) {
+            manifestMetadata.put("pipeline_tag", pipelineTag);
+        }
+        if (modelInfo.getCommitSha() != null && !modelInfo.getCommitSha().isBlank()) {
+            manifestMetadata.put("commit_sha", modelInfo.getCommitSha());
+        }
         manifest.setMetadata(manifestMetadata);
         manifestStore.save(manifest);
         return targetDir;
+    }
+
+    private static List<String> filterPullFiles(List<String> files, List<String> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return files.stream().filter(file -> !file.startsWith(".")).toList();
+        }
+        return files.stream()
+                .filter(file -> !file.startsWith("."))
+                .filter(file -> isEssentialPullFile(file)
+                        || patterns.stream().anyMatch(pattern -> globMatchesPullFile(pattern, file)))
+                .toList();
+    }
+
+    private static boolean isEssentialPullFile(String filename) {
+        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
+        return List.of("config.json", "tokenizer.json", "tokenizer_config.json", "tokenizer.model",
+                "special_tokens_map.json", "generation_config.json", "vocab.json", "merges.txt",
+                "readme.md", "license").contains(base);
+    }
+
+    private static boolean globMatchesPullFile(String pattern, String filename) {
+        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
+        String normalized = pattern.toLowerCase(Locale.ROOT);
+        String regex = normalized.replace(".", "\\.").replace("*", ".*").replace("?", ".");
+        return base.matches(regex);
     }
 
     private long computeDirectorySize(Path directory) throws java.io.IOException {
