@@ -1343,25 +1343,13 @@ public class RunCommand implements Runnable {
             if (height != null) requestBuilder.parameter("height", height);
             requestBuilder.parameter("raw", raw);
             requestBuilder.parameter("debug_prompt", debugPrompt);
-            if (!normalizedInputImages.isEmpty()) {
-                requestBuilder.parameter("image_path", normalizedInputImages.get(0));
-                requestBuilder.parameter("input_image", normalizedInputImages.get(0));
-                requestBuilder.parameter("vision_input_path", normalizedInputImages.get(0));
-                requestBuilder.parameter("image_paths", normalizedInputImages);
-                requestBuilder.parameter("vision_input_paths", normalizedInputImages);
-            }
-            if (ocrMode) {
-                requestBuilder.parameter("task", "ocr");
-                requestBuilder.parameter("ocr", true);
-            } else if (!normalizedInputImages.isEmpty()) {
-                requestBuilder.parameter("task", "vision");
-            }
-            if (ocrImageTokens != null) {
-                requestBuilder.parameter("ocr_image_tokens", Math.max(0, ocrImageTokens));
-            }
-            if (ocrRawOutput) {
-                requestBuilder.parameter("ocr_raw_output", true);
-            }
+            tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.Options(
+                            normalizedInputImages,
+                            ocrMode,
+                            ocrImageTokens,
+                            ocrRawOutput));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
                     ? null
