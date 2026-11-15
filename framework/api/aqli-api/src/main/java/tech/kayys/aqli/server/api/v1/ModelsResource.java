@@ -155,7 +155,7 @@ public class ModelsResource {
         LOG.info("Received REST pullModel request for modelSpec: {}", dto.modelSpec());
         try {
             String jobId;
-            if (isHuggingFaceSpec(dto.modelSpec()) || !dto.includePatterns().isEmpty() || hasText(dto.taskType())) {
+            if (isHuggingFaceSpec(dto.modelSpec())) {
                 HuggingFacePullRequest request = HuggingFacePullRequest.builder()
                         .modelSpec(dto.modelSpec())
                         .revision(dto.revision())
@@ -213,10 +213,6 @@ public class ModelsResource {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(java.util.Map.of("error", e.getMessage())).build();
         }
-    }
-
-    private static boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 
     private static boolean isHuggingFaceSpec(String modelSpec) {

@@ -1338,30 +1338,23 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("gguf.backend", ggufEngineHint);
                 requestBuilder.parameter("gguf.backend", ggufEngineHint);
             }
-            if (featurePipelineId != null && !featurePipelineId.isBlank()) {
-                String pipelineId = featurePipelineId.trim();
-                requestBuilder.parameter("pipeline", pipelineId);
-                requestBuilder.parameter("feature", pipelineId);
-                requestBuilder.parameter("feature_pipeline", true);
-            }
-            String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
-                    ? null
-                    : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
-            ImageRunRequestParameterMapper.apply(requestBuilder, new ImageRunRequestParameterMapper.Options(
-                    seed,
-                    steps,
-                    format,
-                    guidanceScale,
-                    outputPath,
-                    width,
-                    height,
-                    normalizedInputImages,
-                    ocrMode,
-                    ocrImageTokens,
-                    ocrRawOutput,
-                    effectiveOnnxVariant,
-                    raw,
-                    debugPrompt));
+            ImageGenerationRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            outputPath,
+                            width,
+                            height));
+            requestBuilder.parameter("raw", raw);
+            requestBuilder.parameter("debug_prompt", debugPrompt);
+            tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.Options(
+                            normalizedInputImages,
+                            ocrMode,
+                            ocrImageTokens,
+                            ocrRawOutput));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
                     ? null
