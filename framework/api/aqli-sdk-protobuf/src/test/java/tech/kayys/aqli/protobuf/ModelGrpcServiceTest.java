@@ -94,6 +94,48 @@ class ModelGrpcServiceTest {
     }
 
     @Test
+    void keepsNonHuggingFacePullsOnTheGenericSdkContract() throws Exception {
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        doAnswer(invocation -> {
+            Consumer<PullProgress> callback = invocation.getArgument(1);
+            callback.accept(PullProgress.of("Completed ollama/llama3", null, 0, 0));
+            return null;
+        }).when(runtime).pullModel(any(tech.kayys.aqli.sdk.model.ModelPullRequest.class), any());
+
+        service.pullModel(PullModelRequest.newBuilder()
+                .setModelSpec("ollama:llama3")
+                .setRevision("latest")
+                .setFormat("gguf")
+                .setForce(true)
+                .build(), new StreamObserver<>() {
+                    @Override
+                    public void onNext(PullModelProgress value) {
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        failure.set(error);
+                        completed.countDown();
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        completed.countDown();
+                    }
+                });
+
+        assertTrue(completed.await(5, TimeUnit.SECONDS));
+        assertNull(failure.get());
+        org.mockito.ArgumentCaptor<tech.kayys.aqli.sdk.model.ModelPullRequest> request =
+                org.mockito.ArgumentCaptor.forClass(tech.kayys.aqli.sdk.model.ModelPullRequest.class);
+        verify(runtime).pullModel(request.capture(), any());
+        assertEquals("ollama:llama3", request.getValue().modelSpec());
+        assertEquals("gguf", request.getValue().format());
+        assertTrue(request.getValue().force());
+    }
+
+    @Test
     void rejectsMissingModelSpecBeforeStartingBackgroundWork() {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         service.pullModel(PullModelRequest.getDefaultInstance(), new StreamObserver<>() {
