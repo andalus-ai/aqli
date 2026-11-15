@@ -118,5 +118,6 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - Avoid permanent duplicate generic request models and chains of converters. Define the canonical public model once, retain only deliberate compatibility adapters, and document their removal/versioning plan.
 - Elevate contracts that are genuinely engine-neutral and reusable by any ML/inference framework to Aljabr. Keep AQLI SDK contracts focused on AQLI's public client/use-case surface; do not duplicate Aljabr tensor, model, or general serving SPIs.
 - Preserve existing CLI behavior and REST/gRPC wire compatibility where feasible. Treat breaking protocol changes as explicit versioned migrations.
+- For Hugging Face pulls, map REST `format`/`includePatterns`/`taskType` and gRPC `format`/`include_patterns`/`task_type` into `HuggingFacePullRequest`; map non-Hugging-Face pulls into `ModelPullRequest`. Do not duplicate download logic in either transport.
 - Add cross-transport conformance tests for normalized application requests, defaults, validation, errors, streaming event order/termination, cancellation/resource cleanup, metadata/usage, and multimodal behavior.
 - Introduce capability API modules incrementally after auditing existing SPI ownership and consumers. Reuse existing modules where possible; do not create speculative empty modules.
