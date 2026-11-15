@@ -233,6 +233,10 @@ repository implementation directly or silently dropping options. REST uses `form
 `includePatterns`, and `taskType`; gRPC uses `format`, `include_patterns`, and `task_type`
 with additive protobuf fields. Other providers continue through the generic pull request.
 
+`RunCommand` automatic Hugging Face preparation follows the same rule: it calls the SDK's
+`HuggingFaceModelOperations` contract rather than injecting `HuggingFaceRepository` into
+the CLI. The command retains only local-index refresh and terminal progress presentation.
+
 ### Module introduction and parity
 
 Introduce capability API/core/runner modules incrementally, reusing current modules and

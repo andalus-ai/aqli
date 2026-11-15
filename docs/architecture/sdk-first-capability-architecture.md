@@ -193,3 +193,7 @@ example:
 The capability result returns an opaque artifact URI rather than a local `Path`, keeping
 the SDK contract usable by remote implementations. A local runtime may return a `file:` URI.
 
+### Run-command automatic model preparation
+
+`RunCommand` may still perform CLI-specific local-index checks and display pull progress, but it must not call `HuggingFaceRepository` directly. When its compatibility fallback needs to download a Hugging Face model, it maps the repository ID, revision, and preferred format into `HuggingFacePullRequest` and invokes `AqliSdk`/`HuggingFaceModelOperations`. The local SDK remains the adapter that delegates to the repository. This keeps explicit `aqli pull`, automatic `aqli run` preparation, REST, and gRPC on the same provider-owned download implementation.
+
