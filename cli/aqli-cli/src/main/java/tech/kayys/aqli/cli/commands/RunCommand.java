@@ -1312,6 +1312,8 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("onnx_profile", true);
             }
 
+            boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
+                    && "safetensor".equalsIgnoreCase(executionProviderId);
             // Keep backend/runner selection resolved by the runtime; this adapter
             // only propagates the resulting hints into the shared request envelope.
             String ggufEngineHint = requestedGgufEngine();
@@ -1324,8 +1326,7 @@ public class RunCommand implements Runnable {
                             ggufEngineHint,
                             featurePipelineId,
                             executionProviderId,
-                            "libtorch".equalsIgnoreCase(providerId)
-                                    && "safetensor".equalsIgnoreCase(executionProviderId)));
+                            libtorchSafetensorCliBridge));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1386,8 +1387,6 @@ public class RunCommand implements Runnable {
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
             RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
 
-            boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
-                    && "safetensor".equalsIgnoreCase(executionProviderId);
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
             String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
             RunConversationRequestAssembler.apply(
