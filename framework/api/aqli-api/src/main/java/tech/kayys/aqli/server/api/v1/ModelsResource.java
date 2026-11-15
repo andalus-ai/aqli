@@ -22,6 +22,7 @@ import tech.kayys.aqli.server.SdkProvider;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.PullProgress;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -125,7 +126,22 @@ public class ModelsResource {
         }
     }
 
-    public static record PullRequestDTO(String modelSpec, String revision, boolean force) { }
+    public static record PullRequestDTO(
+            String modelSpec,
+            String revision,
+            boolean force,
+            String format,
+            List<String> includePatterns,
+            String taskType) {
+        public PullRequestDTO {
+            includePatterns = includePatterns == null ? List.of() : List.copyOf(includePatterns);
+        }
+
+        /** Backward-compatible constructor for existing Java callers. */
+        public PullRequestDTO(String modelSpec, String revision, boolean force) {
+            this(modelSpec, revision, force, null, List.of(), null);
+        }
+    }
 
     @Inject
     tech.kayys.aqli.server.jobs.BackgroundJobManager jobManager;
@@ -137,7 +153,20 @@ public class ModelsResource {
     public Response pullModel(PullRequestDTO dto) {
         LOG.info("Received REST pullModel request for modelSpec: {}", dto.modelSpec());
         try {
-            String jobId = jobManager.startPullJob(dto.modelSpec(), dto.revision(), dto.force());
+            String jobId;
+            if (isHuggingFaceSpec(dto.modelSpec())) {
+                HuggingFacePullRequest request = HuggingFacePullRequest.builder()
+                        .modelSpec(dto.modelSpec())
+                        .revision(dto.revision())
+                        .format(dto.format())
+                        .includePatterns(dto.includePatterns())
+                        .force(dto.force())
+                        .taskType(dto.taskType())
+                        .build();
+                jobId = jobManager.startPullJob(request);
+            } else {
+                jobId = jobManager.startPullJob(dto.modelSpec(), dto.revision(), dto.force());
+            }
             meterRegistry.counter("aqli.rest.model.pull.count").increment();
             LOG.info("Started pull job {} for modelSpec: {}", jobId, dto.modelSpec());
             return Response.accepted(java.util.Map.of("status", "pull_started", "jobId", jobId)).build();
@@ -177,6 +206,14 @@ public class ModelsResource {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(java.util.Map.of("error", e.getMessage())).build();
         }
+    }
+
+    private static boolean isHuggingFaceSpec(String modelSpec) {
+        if (modelSpec == null) {
+            return false;
+        }
+        String normalized = modelSpec.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.startsWith("hf:") || normalized.startsWith("huggingface:");
     }
 
     private static boolean isOpenAiCompat(String value) {
