@@ -1307,35 +1307,17 @@ public class RunCommand implements Runnable {
                     mirostat,
                     grammar));
 
-            if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
-                requestBuilder.parameter("quantize_strategy", quantizeStrategy);
-                requestBuilder.parameter("quantize_bits", quantizeBits);
-            }
-
-            if (quantizeKv != null && !quantizeKv.equalsIgnoreCase("none")) {
-                requestBuilder.parameter("kv_cache_quant", quantizeKv);
-            }
-
-            if (runtimeProfile) {
-                requestBuilder.parameter("profile", true);
-                requestBuilder.parameter("onnx_profile", true);
-                requestBuilder.metadata("profile", true);
-                requestBuilder.metadata("onnx_profile", true);
-            }
-
-            requestBuilder.metadata(effectiveRunnerRouteReport.toMetadata());
-            if (runner != null && !runner.isBlank()) {
-                requestBuilder.parameter("runner", effectiveRunnerRouteReport.normalizedRunner());
-                requestBuilder.metadata("runner", effectiveRunnerRouteReport.normalizedRunner());
-            }
-            // Propagate --java / --llamacpp / --engine into request metadata so that
-            // GgufBackendSelection (Aljabr) can route to the correct GGUF backend
-            // in the full CDI path (not just the standalone GgufStandaloneRunner path).
-            String ggufEngineHint = requestedGgufEngine();
-            if (ggufEngineHint != null && !ggufEngineHint.isBlank()) {
-                requestBuilder.metadata("gguf.backend", ggufEngineHint);
-                requestBuilder.parameter("gguf.backend", ggufEngineHint);
-            }
+            RuntimeExecutionRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new RuntimeExecutionRunRequestParameterMapper.Options(
+                            quantizeStrategy,
+                            quantizeBits,
+                            quantizeKv,
+                            runtimeProfile,
+                            effectiveRunnerRouteReport.toMetadata(),
+                            runner,
+                            effectiveRunnerRouteReport.normalizedRunner(),
+                            requestedGgufEngine()));
             ImageGenerationRunRequestParameterMapper.apply(
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
