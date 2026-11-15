@@ -90,6 +90,14 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     }
 
     private void accept() {
+        try {
+            acceptClients();
+        } finally {
+            closeRegistrySafely();
+        }
+    }
+
+    private void acceptClients() {
         while (running.get()) {
             Socket client;
             try {
@@ -257,7 +265,14 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
-        closeRegistry.run();
+    }
+
+    private void closeRegistrySafely() {
+        try {
+            closeRegistry.run();
+        } catch (RuntimeException ignored) {
+            // Registry cleanup must not escape the daemon-owned acceptor thread.
+        }
     }
 
     private static final class LineTooLongException extends Exception {
