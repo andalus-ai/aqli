@@ -12,6 +12,9 @@ import picocli.CommandLine.Parameters;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
+import tech.kayys.aqli.model.repo.local.LocalModelTaskClassifier;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceClient;
+import tech.kayys.aqli.model.repo.hf.HuggingFaceModelInfo;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.model.repo.kaggle.KaggleClient;
 import tech.kayys.aqli.model.repo.kaggle.KaggleRepository;
@@ -217,6 +220,56 @@ public class PullCommand implements Runnable {
     }
 
     // ── Manifest helper ──────────────────────────────────────────────────────
+
+    private void saveDirectDownloadManifest(
+            String repoId,
+            Path targetDir,
+            List<String> files,
+            String manifestName,
+            HuggingFaceModelInfo modelInfo) throws Exception {
+
+        ManifestStore store = manifestStore != null && !manifestStore.isUnsatisfied()
+                ? manifestStore.get()
+                : new ManifestStore();
+
+        String format = ManifestStore.detectFormat(targetDir);
+        AqliManifest manifest = new AqliManifest();
+        manifest.setId(manifestName);
+        manifest.setModelId(repoId);
+        manifest.setName(manifestName);
+        manifest.setFormat(format);
+        manifest.setPipeline(files != null && files.stream().anyMatch(n -> n.endsWith("model_index.json")));
+        manifest.setSource("huggingface");
+        manifest.setRepository(repoId);
+        manifest.setBranch("main");
+        manifest.setBlobPath(targetDir.toAbsolutePath().toString());
+        manifest.setFiles(ManifestStore.listBlobFiles(targetDir));
+        manifest.setCreatedAt(Instant.now());
+        manifest.setSizeBytes(computeSize(targetDir));
+        manifest.setArchitecture(ManifestStore.detectArchitecture(manifest));
+
+        // ── Task type ────────────────────────────────────────────────────────
+        String resolvedTaskType = taskType; // --task-type flag wins
+        String detectedPipelineTag = modelInfo != null ? modelInfo.getPipelineTag() : null;
+        if ((resolvedTaskType == null || resolvedTaskType.isBlank()) && detectedPipelineTag != null) {
+            resolvedTaskType = LocalModelTaskClassifier.pipelineTagToTaskType(detectedPipelineTag);
+        }
+        manifest.setTaskType(resolvedTaskType != null ? resolvedTaskType : "text");
+
+        // ── Metadata ─────────────────────────────────────────────────────────
+        java.util.Map<String, String> meta = new java.util.LinkedHashMap<>();
+        meta.put("source", "huggingface");
+        meta.put("format", format != null ? format : "unknown");
+        if (detectedPipelineTag != null && !detectedPipelineTag.isBlank()) {
+            meta.put("pipeline_tag", detectedPipelineTag);
+        }
+        if (modelInfo != null && modelInfo.getCommitSha() != null) {
+            meta.put("commit_sha", modelInfo.getCommitSha());
+        }
+        manifest.setMetadata(meta);
+
+        store.save(manifest);
+    }
 
     // ── Local file import ────────────────────────────────────────────────────
 
