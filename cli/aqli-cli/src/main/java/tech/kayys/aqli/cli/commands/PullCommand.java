@@ -252,6 +252,36 @@ public class PullCommand implements Runnable {
         System.out.println(GREEN + "\n✔ Pull complete: " + RESET + repoId + " (imported from local file)");
     }
 
+    private List<String> filterFiles(List<String> files, List<String> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return files;
+        }
+        return files.stream()
+                .filter(name -> isEssentialFile(name) || patterns.stream().anyMatch(pattern -> globMatches(pattern, name)))
+                .toList();
+    }
+
+    private boolean isEssentialFile(String filename) {
+        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
+        return base.equals("config.json")
+                || base.equals("tokenizer.json")
+                || base.equals("tokenizer_config.json")
+                || base.equals("tokenizer.model")
+                || base.equals("special_tokens_map.json")
+                || base.equals("generation_config.json")
+                || base.equals("vocab.json")
+                || base.equals("merges.txt")
+                || base.equals("readme.md")
+                || base.equals("license");
+    }
+
+    private boolean globMatches(String pattern, String filename) {
+        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
+        String normalizedPattern = pattern.toLowerCase(Locale.ROOT);
+        String regex = normalizedPattern.replace(".", "\\.").replace("*", ".*").replace("?", ".");
+        return base.matches(regex);
+    }
+
     // ── Utilities ────────────────────────────────────────────────────────────
 
     private String normalizeModelSpec(String raw) {
