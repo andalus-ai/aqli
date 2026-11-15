@@ -37,10 +37,9 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
 /**
  * Local SDK facade over the AQLI inference-engine catalog.
  *
- * <p>This implementation deliberately exposes only capabilities backed by
- * real services. Model management, embeddings, batch inference and job
- * operations remain unsupported until their corresponding runtime services
- * are composed here.</p>
+ * <p>This implementation exposes only capabilities backed by composed
+ * runtime services. Hugging Face model pulls are delegated to the repository
+ * capability; unsupported providers and uncomposed operations fail explicitly.</p>
  */
 public class LocalAqliSdk implements AqliSdk {
 
