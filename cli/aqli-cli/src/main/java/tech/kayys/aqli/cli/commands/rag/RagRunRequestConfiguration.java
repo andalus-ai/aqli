@@ -92,9 +92,6 @@ public final class RagRunRequestConfiguration {
             InferenceRequest.Builder builder,
             RagContext ragContext,
             String embeddingModel) {
-        if (builder == null) {
-            throw new IllegalArgumentException("inference request builder is required");
-        }
         if (ragContext != null && ragContext.hasContent()) {
             builder.parameter("rag_enabled", true);
             builder.parameter("rag_context", ragContext.content());
@@ -124,10 +121,6 @@ public final class RagRunRequestConfiguration {
     public record RagContext(String content, List<String> sources, String strategy) {
         public RagContext(String content, List<String> sources) {
             this(content, sources, "full_context");
-        }
-
-        public RagContext {
-            sources = sources == null ? List.of() : List.copyOf(sources);
         }
 
         public boolean hasContent() {
