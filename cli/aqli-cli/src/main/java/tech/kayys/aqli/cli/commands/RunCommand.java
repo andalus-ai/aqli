@@ -1314,32 +1314,28 @@ public class RunCommand implements Runnable {
                             quantizeStrategy,
                             quantizeBits,
                             quantizeKv,
-                            runtimeProfile,
-                            effectiveRunnerRouteReport.toMetadata(),
-                            runner,
-                            effectiveRunnerRouteReport.normalizedRunner(),
-                            requestedGgufEngine()));
-            ImageGenerationRunRequestParameterMapper.apply(
-                    requestBuilder,
-                    new ImageGenerationRunRequestParameterMapper.Options(
-                            featurePipelineId,
-                            guidanceScale,
-                            outputPath,
-                            width,
-                            height));
+                            runtimeProfile));
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
-                            null,
-                            false,
-                            null,
-                            null,
+                            effectiveRunnerRouteReport.toMetadata(),
+                            runner != null && !runner.isBlank(),
+                            effectiveRunnerRouteReport.normalizedRunner(),
+                            ggufEngineHint,
                             null,
                             executionProviderId,
                             libtorchSafetensorCliBridge));
+            ImageGenerationRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            outputPath,
+                            width,
+                            height));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1408,17 +1404,6 @@ public class RunCommand implements Runnable {
                     effectiveSystemPrompt,
                     ragSystemPrompt,
                     prompt);
-
-            if (executionProviderId != null && !executionProviderId.isEmpty()) {
-                requestBuilder.preferredProvider(executionProviderId);
-            }
-
-            if (libtorchSafetensorCliBridge) {
-                requestBuilder.metadata("requested_provider", "libtorch");
-                requestBuilder.metadata("effective_provider", "safetensor");
-                requestBuilder.metadata("provider_bridge_mode", "cli_libtorch_to_safetensor");
-                requestBuilder.metadata("provider_bridge_reason", "raw_safetensor_checkpoint");
-            }
 
             InferenceRequest request = requestBuilder.build();
 
