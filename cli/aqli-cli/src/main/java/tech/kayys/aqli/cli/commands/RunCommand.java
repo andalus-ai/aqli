@@ -1314,27 +1314,7 @@ public class RunCommand implements Runnable {
                             quantizeStrategy,
                             quantizeBits,
                             quantizeKv,
-                            runtimeProfile,
-                            effectiveRunnerRouteReport.toMetadata(),
-                            runner,
-                            effectiveRunnerRouteReport.normalizedRunner(),
-                            requestedGgufEngine()));
-            ImageGenerationRunRequestParameterMapper.apply(
-            if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
-                requestBuilder.parameter("quantize_strategy", quantizeStrategy);
-                requestBuilder.parameter("quantize_bits", quantizeBits);
-            }
-
-            if (quantizeKv != null && !quantizeKv.equalsIgnoreCase("none")) {
-                requestBuilder.parameter("kv_cache_quant", quantizeKv);
-            }
-
-            if (runtimeProfile) {
-                requestBuilder.parameter("profile", true);
-                requestBuilder.parameter("onnx_profile", true);
-                requestBuilder.metadata("profile", true);
-                requestBuilder.metadata("onnx_profile", true);
-            }
+                            runtimeProfile));
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
@@ -1348,9 +1328,17 @@ public class RunCommand implements Runnable {
                             runner != null && !runner.isBlank(),
                             effectiveRunnerRouteReport.normalizedRunner(),
                             ggufEngineHint,
-                            featurePipelineId,
+                            null,
                             executionProviderId,
                             libtorchSafetensorCliBridge));
+            ImageGenerationRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            outputPath,
+                            width,
+                            height));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1419,17 +1407,6 @@ public class RunCommand implements Runnable {
                     effectiveSystemPrompt,
                     ragSystemPrompt,
                     prompt);
-
-            if (executionProviderId != null && !executionProviderId.isEmpty()) {
-                requestBuilder.preferredProvider(executionProviderId);
-            }
-
-            if (libtorchSafetensorCliBridge) {
-                requestBuilder.metadata("requested_provider", "libtorch");
-                requestBuilder.metadata("effective_provider", "safetensor");
-                requestBuilder.metadata("provider_bridge_mode", "cli_libtorch_to_safetensor");
-                requestBuilder.metadata("provider_bridge_reason", "raw_safetensor_checkpoint");
-            }
 
             InferenceRequest request = requestBuilder.build();
 
