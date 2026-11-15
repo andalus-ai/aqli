@@ -175,7 +175,7 @@ final class LocalModelIndex {
             Path file = candidate.file();
             if (seenPaths.add(normalizePath(file))) {
                 Entry entry = toEntry(candidate.base(), file, candidate.fallbackFormat(), candidate.runnable());
-                discovered.putIfAbsent(entryKey(entry), entry);
+                discovered.putIfAbsent(normalizePath(file), entry);
             }
         }
         out.addAll(discovered.values());
