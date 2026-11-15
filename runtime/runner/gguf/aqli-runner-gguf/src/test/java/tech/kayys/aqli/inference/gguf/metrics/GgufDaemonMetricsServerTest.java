@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class GgufDaemonMetricsServerTest {
@@ -39,6 +40,32 @@ class GgufDaemonMetricsServerTest {
         assertThrows(IllegalArgumentException.class, () -> GgufDaemonMetricsServer.start(
                 () -> "", () -> registryClosed.set(true), 65_536));
         assertTrue(registryClosed.get(), "registry must close when startup validation fails");
+    }
+
+    @Test
+    void terminatesAcceptorAndClosesRegistryAfterListenerFailure() throws Exception {
+        ServerSocket failedListener = new ServerSocket(
+                0, 16, InetAddress.getLoopbackAddress());
+        failedListener.close();
+
+        AtomicInteger registryCloseCount = new AtomicInteger();
+        CountDownLatch registryClosed = new CountDownLatch(1);
+        GgufDaemonMetricsServer server = new GgufDaemonMetricsServer(
+                failedListener,
+                () -> "",
+                () -> {
+                    registryCloseCount.incrementAndGet();
+                    registryClosed.countDown();
+                });
+
+        assertTrue(registryClosed.await(1, TimeUnit.SECONDS),
+                "acceptor must terminate after a persistent listener failure");
+        assertTrue(failedListener.isClosed());
+
+        server.close();
+        server.close();
+        assertEquals(1, registryCloseCount.get(),
+                "registry cleanup must happen exactly once after acceptor termination");
     }
 
     @Test
