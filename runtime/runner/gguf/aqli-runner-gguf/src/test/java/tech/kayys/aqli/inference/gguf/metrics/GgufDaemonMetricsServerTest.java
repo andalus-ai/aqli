@@ -1,6 +1,7 @@
 package tech.kayys.aqli.inference.gguf.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micrometer.core.instrument.Gauge;
@@ -12,6 +13,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
@@ -90,6 +93,40 @@ class GgufDaemonMetricsServerTest {
                     "closing the server should not wait for the client read timeout");
             assertEquals(-1, client.getInputStream().read());
             assertTrue(registryClosed.get());
+        }
+    }
+
+    @Test
+    void registryRemainsOpenUntilAnInFlightScrapeFinishes() throws Exception {
+        CountDownLatch scrapeStarted = new CountDownLatch(1);
+        CountDownLatch releaseScrape = new CountDownLatch(1);
+        CountDownLatch registryClosed = new CountDownLatch(1);
+        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(
+                () -> {
+                    scrapeStarted.countDown();
+                    try {
+                        releaseScrape.await();
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return "metrics";
+                }, registryClosed::countDown, 0);
+                Socket client = new Socket(InetAddress.getLoopbackAddress(), server.port())) {
+            client.getOutputStream().write(
+                    "GET /metrics HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n"
+                            .getBytes(StandardCharsets.US_ASCII));
+            client.getOutputStream().flush();
+
+            assertTrue(scrapeStarted.await(2, TimeUnit.SECONDS));
+            server.close();
+
+            assertFalse(registryClosed.await(100, TimeUnit.MILLISECONDS),
+                    "registry must remain open while the acceptor is using it");
+            releaseScrape.countDown();
+            assertTrue(registryClosed.await(2, TimeUnit.SECONDS),
+                    "registry should close when the acceptor finishes");
+        } finally {
+            releaseScrape.countDown();
         }
     }
 
