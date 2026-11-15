@@ -327,6 +327,18 @@ final class LocalModelIndex {
                 || normalized.equals("tflite");
     }
 
+    private static String entryKey(Entry entry) {
+        String identity = entry.id;
+        if (identity == null || identity.isBlank()) {
+            identity = entry.path;
+        }
+        if (identity == null || identity.isBlank()) {
+            identity = entry.name;
+        }
+        String format = entry.format == null ? "" : entry.format.toLowerCase(Locale.ROOT);
+        return String.valueOf(identity).toLowerCase(Locale.ROOT) + "|" + format;
+    }
+
     private static String normalizePath(Path path) {
         return path.toAbsolutePath().normalize().toString();
     }
