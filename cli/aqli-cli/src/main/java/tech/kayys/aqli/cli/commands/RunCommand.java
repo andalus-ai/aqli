@@ -47,6 +47,7 @@ import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
+import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
