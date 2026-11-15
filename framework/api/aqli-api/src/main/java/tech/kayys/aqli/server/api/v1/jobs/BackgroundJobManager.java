@@ -6,6 +6,7 @@ import jakarta.inject.Inject;
 import io.smallrye.mutiny.Multi;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
+import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import tech.kayys.aqli.server.SdkProvider;
 
 import java.util.List;
@@ -56,6 +57,15 @@ public class BackgroundJobManager {
     }
 
     public String startPullJob(String modelSpec, String revision, boolean force) {
+        return startPullJob(ModelPullRequest.builder()
+                .modelSpec(modelSpec)
+                .revision(revision)
+                .force(force)
+                .build());
+    }
+
+    public String startPullJob(ModelPullRequest request) {
+        java.util.Objects.requireNonNull(request, "request");
         String jobId = UUID.randomUUID().toString();
         JobRecord jr = new JobRecord(jobId);
         jobs.put(jobId, jr);
@@ -63,10 +73,7 @@ public class BackgroundJobManager {
         var future = executor.submit(() -> {
             try {
                 jr.setStatus("RUNNING");
-                var sdk = sdkProvider.getSdk();
-                sdk.pullModel(modelSpec, revision, force, p -> {
-                    jr.addProgress(p);
-                });
+                sdkProvider.getSdk().pullModel(request, jr::addProgress);
                 jr.setStatus("COMPLETED");
             } catch (Exception e) {
                 jr.setStatus("FAILED");
@@ -74,7 +81,6 @@ public class BackgroundJobManager {
             }
         });
         jr.setFuture(future);
-
         return jobId;
     }
 
