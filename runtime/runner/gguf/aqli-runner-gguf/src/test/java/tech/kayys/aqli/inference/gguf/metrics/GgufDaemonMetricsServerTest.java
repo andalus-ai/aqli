@@ -2,14 +2,17 @@ package tech.kayys.aqli.inference.gguf.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +22,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class GgufDaemonMetricsServerTest {
+
+    @Test
+    void closesRegistryWhenMetricsPortIsAlreadyInUse() throws Exception {
+        try (ServerSocket occupied = new ServerSocket(0, 16, InetAddress.getLoopbackAddress())) {
+            AtomicBoolean registryClosed = new AtomicBoolean();
+            assertThrows(IOException.class, () -> GgufDaemonMetricsServer.start(
+                    () -> "", () -> registryClosed.set(true), occupied.getLocalPort()));
+            assertTrue(registryClosed.get(), "registry must close when listener binding fails");
+        }
+    }
+
+    @Test
+    void closesRegistryWhenMetricsPortIsInvalid() {
+        AtomicBoolean registryClosed = new AtomicBoolean();
+        assertThrows(IllegalArgumentException.class, () -> GgufDaemonMetricsServer.start(
+                () -> "", () -> registryClosed.set(true), 65_536));
+        assertTrue(registryClosed.get(), "registry must close when startup validation fails");
+    }
 
     @Test
     void servesPrometheusMetricsOnLoopbackAndClosesCleanly() throws Exception {
