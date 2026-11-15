@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.registry.service.ModelRegistryService;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import java.util.concurrent.ExecutorService;
@@ -44,16 +45,32 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
 
         Timer.Sample sample = Timer.start(meterRegistry);
         meterRegistry.counter("aqli.grpc.model.pull.count").increment();
+        boolean huggingFace = isHuggingFaceSpec(request.getModelSpec())
+                || !request.getIncludePatternsList().isEmpty()
+                || !request.getTaskType().isBlank();
         ModelPullRequest pullRequest = ModelPullRequest.builder()
                 .modelSpec(request.getModelSpec())
                 .revision(blankToNull(request.getRevision()))
                 .format(blankToNull(request.getFormat()))
                 .force(request.getForce())
                 .build();
+        HuggingFacePullRequest huggingFaceRequest = HuggingFacePullRequest.builder()
+                .modelSpec(request.getModelSpec())
+                .revision(blankToNull(request.getRevision()))
+                .format(blankToNull(request.getFormat()))
+                .includePatterns(request.getIncludePatternsList())
+                .force(request.getForce())
+                .taskType(blankToNull(request.getTaskType()))
+                .build();
 
         pullExecutor.execute(() -> {
             try {
-                runtime.pullModel(pullRequest, progress -> observer.onNext(toGrpcProgress(progress)));
+                if (huggingFace) {
+                    runtime.pullHuggingFaceModel(
+                            huggingFaceRequest, progress -> observer.onNext(toGrpcProgress(progress)));
+                } else {
+                    runtime.pullModel(pullRequest, progress -> observer.onNext(toGrpcProgress(progress)));
+                }
                 sample.stop(meterRegistry.timer("aqli.grpc.model.pull.duration"));
                 observer.onCompleted();
             } catch (Exception error) {
@@ -84,6 +101,14 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
             response.setDigest(progress.getDigest());
         }
         return response.build();
+    }
+
+    private static boolean isHuggingFaceSpec(String modelSpec) {
+        if (modelSpec == null) {
+            return false;
+        }
+        String normalized = modelSpec.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.startsWith("hf:") || normalized.startsWith("huggingface:");
     }
 
     private static String blankToNull(String value) {
