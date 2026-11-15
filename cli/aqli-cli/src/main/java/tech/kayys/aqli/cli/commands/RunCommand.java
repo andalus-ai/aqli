@@ -48,6 +48,7 @@ import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
+import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 
 import java.awt.BasicStroke;
@@ -1292,12 +1293,12 @@ public class RunCommand implements Runnable {
                             grammar,
                             noCache));
 
-            if (customModelPathUsed && finalLocalPath != null) {
-                requestBuilder.parameter("model_path", finalLocalPath);
-            }
-            if (requestedModelRef != null && !requestedModelRef.isBlank()) {
-                requestBuilder.parameter("requested_model_ref", requestedModelRef);
-            }
+            ModelSourceRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ModelSourceRunRequestParameterMapper.Options(
+                            customModelPathUsed,
+                            finalLocalPath,
+                            requestedModelRef));
             TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
                     temperature,
                     topP,
