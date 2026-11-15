@@ -123,6 +123,9 @@ message PullModelRequest {
   string revision = 2;
   string format = 3;
   bool force = 4;
+  // Hugging Face repository capability options; ignored for other providers.
+  repeated string include_patterns = 5;
+  string task_type = 6;
 }
 
 message PullModelProgress {
