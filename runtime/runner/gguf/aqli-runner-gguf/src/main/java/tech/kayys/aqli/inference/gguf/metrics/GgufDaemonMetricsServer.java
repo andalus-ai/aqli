@@ -33,7 +33,9 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     private final Supplier<String> scrape;
     private final Runnable closeRegistry;
     private final AtomicBoolean running = new AtomicBoolean(true);
+    private final Object clientLifecycleLock = new Object();
     private final Thread acceptor;
+    private Socket activeClient;
 
     private GgufDaemonMetricsServer(
             ServerSocket server, Supplier<String> scrape, Runnable closeRegistry) {
@@ -88,13 +90,46 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     }
 
     private void accept() {
+        try {
+            acceptClients();
+        } finally {
+            closeRegistrySafely();
+        }
+    }
+
+    private void acceptClients() {
         while (running.get()) {
-            try (Socket client = server.accept()) {
+            Socket client;
+            try {
+                client = server.accept();
+            } catch (IOException | RuntimeException exception) {
+                if (!running.get()) {
+                    return;
+                }
+                // A listener failure must not affect inference.
+                continue;
+            }
+
+            synchronized (clientLifecycleLock) {
+                if (!running.get()) {
+                    closeQuietly(client);
+                    return;
+                }
+                activeClient = client;
+            }
+
+            try (client) {
                 client.setSoTimeout(CLIENT_TIMEOUT_MILLIS);
                 serve(client);
             } catch (IOException | RuntimeException exception) {
                 if (running.get()) {
                     // A malformed or disconnected scrape must not stop inference.
+                }
+            } finally {
+                synchronized (clientLifecycleLock) {
+                    if (activeClient == client) {
+                        activeClient = null;
+                    }
                 }
             }
         }
@@ -196,6 +231,20 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         client.getOutputStream().flush();
     }
 
+    private static void closeQuietly(Socket socket) {
+        try {
+            socket.close();
+        } catch (IOException ignored) {
+            // The socket is already unusable.
+        }
+    }
+
+    boolean hasActiveClient() {
+        synchronized (clientLifecycleLock) {
+            return activeClient != null;
+        }
+    }
+
     @Override
     public void close() {
         if (!running.compareAndSet(true, false)) {
@@ -206,12 +255,24 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         } catch (IOException ignored) {
             // Shutdown is best-effort; the acceptor is daemon-owned.
         }
+        synchronized (clientLifecycleLock) {
+            if (activeClient != null) {
+                closeQuietly(activeClient);
+            }
+        }
         try {
             acceptor.join(CLIENT_TIMEOUT_MILLIS + 500L);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
-        closeRegistry.run();
+    }
+
+    private void closeRegistrySafely() {
+        try {
+            closeRegistry.run();
+        } catch (RuntimeException ignored) {
+            // Registry cleanup must not escape the daemon-owned acceptor thread.
+        }
     }
 
     private static final class LineTooLongException extends Exception {
