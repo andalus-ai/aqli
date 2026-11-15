@@ -54,29 +54,33 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         try {
             new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
-            return start(registry::scrape, registry::close, port);
-        } catch (IOException | RuntimeException exception) {
-            registry.close();
+        } catch (RuntimeException exception) {
+            closeRegistrySafely(registry::close);
             throw exception;
         }
+        return start(registry::scrape, registry::close, port);
     }
 
     static GgufDaemonMetricsServer start(
             Supplier<String> scrape, Runnable closeRegistry, int port) throws IOException {
         Objects.requireNonNull(scrape, "scrape");
         Objects.requireNonNull(closeRegistry, "closeRegistry");
-        if (port < 0 || port > 65_535) {
-            throw new IllegalArgumentException("metrics port must be between 0 and 65535");
-        }
-        ServerSocket server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
+        ServerSocket server = null;
         try {
-            return new GgufDaemonMetricsServer(server, scrape, closeRegistry);
-        } catch (RuntimeException exception) {
-            try {
-                server.close();
-            } catch (IOException ignored) {
-                // Preserve the startup failure.
+            if (port < 0 || port > 65_535) {
+                throw new IllegalArgumentException("metrics port must be between 0 and 65535");
             }
+            server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
+            return new GgufDaemonMetricsServer(server, scrape, closeRegistry);
+        } catch (IOException | RuntimeException exception) {
+            if (server != null) {
+                try {
+                    server.close();
+                } catch (IOException ignored) {
+                    // Preserve the startup failure.
+                }
+            }
+            closeRegistrySafely(closeRegistry);
             throw exception;
         }
     }
@@ -268,10 +272,14 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     }
 
     private void closeRegistrySafely() {
+        closeRegistrySafely(closeRegistry);
+    }
+
+    private static void closeRegistrySafely(Runnable closeRegistry) {
         try {
             closeRegistry.run();
         } catch (RuntimeException ignored) {
-            // Registry cleanup must not escape the daemon-owned acceptor thread.
+            // Registry cleanup must not escape startup or the daemon-owned acceptor thread.
         }
     }
 
