@@ -1318,9 +1318,6 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            // Keep backend/runner selection resolved by the runtime; this adapter
-            // only propagates the resulting hints into the shared request envelope.
-            String ggufEngineHint = requestedGgufEngine();
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
