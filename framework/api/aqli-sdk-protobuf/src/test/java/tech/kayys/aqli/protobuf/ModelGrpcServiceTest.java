@@ -20,10 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.grpc.stub.StreamObserver;
-import tech.kayys.aqli.sdk.model.ModelPullRequest;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
-import tech.kayys.aqli.sdk.model.HuggingFacePullResult;
-import java.net.URI;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 
@@ -49,7 +46,8 @@ class ModelGrpcServiceTest {
             Consumer<PullProgress> callback = invocation.getArgument(1);
             callback.accept(PullProgress.of("Downloading org/model", null, 100, 25));
             callback.accept(PullProgress.of("Completed org/model", null, 100, 100));
-            return null;
+            return new tech.kayys.aqli.sdk.model.HuggingFacePullResult(
+                    "org/model", java.net.URI.create("file:///tmp/org-model"));
         }).when(runtime).pullHuggingFaceModel(any(HuggingFacePullRequest.class), any());
 
         service.pullModel(PullModelRequest.newBuilder()
@@ -84,8 +82,6 @@ class ModelGrpcServiceTest {
         assertEquals(25, events.get(0).getPercentComplete());
         assertTrue(events.get(1).getComplete());
 
-        org.mockito.ArgumentCaptor<ModelPullRequest> request =
-                org.mockito.ArgumentCaptor.forClass(ModelPullRequest.class);
         org.mockito.ArgumentCaptor<HuggingFacePullRequest> request =
                 org.mockito.ArgumentCaptor.forClass(HuggingFacePullRequest.class);
         verify(runtime).pullHuggingFaceModel(request.capture(), any());
