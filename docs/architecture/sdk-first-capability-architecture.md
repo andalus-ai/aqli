@@ -169,3 +169,31 @@ Instead:
 6. Remove the SDK API's direct SPI exposure only after auditing every public SDK type and adapter dependency; do not remove those Gradle dependencies speculatively.
 
 This gives the SDK a genuine single-source-of-truth role without leaking runner/runtime implementation details into its public contract.
+
+## Provider-specific lifecycle capabilities
+
+Provider-specific options must not be added to a generic lifecycle request merely because
+one transport currently needs them. The Hugging Face pull path is the first concrete
+example:
+
+- `ModelPullRequest` remains provider-neutral (model spec, revision, format, force, and
+  generic conversion/quantization controls).
+- `HuggingFacePullRequest` owns Hugging Face repository options such as include patterns
+  and task classification.
+- `HuggingFaceModelOperations` is the SDK capability contract; the local SDK delegates
+  execution to `HuggingFaceRepository`, which remains responsible for downloads and
+  manifest persistence.
+- CLI parsing and terminal progress stay in the CLI, but the command maps to the typed
+  SDK capability instead of invoking the repository directly.
+- REST maps `format`, `includePatterns`, and `taskType` into the same typed capability; gRPC maps `format`, `include_patterns`, and `task_type` into it. The gRPC additions use new protobuf field numbers, preserving existing field numbers and wire compatibility.
+- Non-Hugging-Face REST/gRPC pulls continue through the provider-neutral `ModelPullRequest` contract.
+- Both transports delegate execution to the SDK. REST's `BackgroundJobManager` only owns job lifecycle/progress storage; gRPC only owns stream adaptation and transport error mapping.
+- CLI, REST, and gRPC therefore share the same `HuggingFaceModelOperations` capability and the same `LocalAqliSdk` repository delegation.
+
+The capability result returns an opaque artifact URI rather than a local `Path`, keeping
+the SDK contract usable by remote implementations. A local runtime may return a `file:` URI.
+
+### Run-command automatic model preparation
+
+`RunCommand` may still perform CLI-specific local-index checks and display pull progress, but it must not call `HuggingFaceRepository` directly. When its compatibility fallback needs to download a Hugging Face model, it maps the repository ID, revision, and preferred format into `HuggingFacePullRequest` and invokes `AqliSdk`/`HuggingFaceModelOperations`. The local SDK remains the adapter that delegates to the repository. This keeps explicit `aqli pull`, automatic `aqli run` preparation, REST, and gRPC on the same provider-owned download implementation.
+
