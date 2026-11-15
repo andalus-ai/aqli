@@ -9,7 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
-import tech.kayys.aqli.server.api.v1.jobs.BackgroundJobManager;
+import tech.kayys.aqli.server.jobs.BackgroundJobManager;
 
 class ModelsResourcePullTest {
 
