@@ -90,10 +90,11 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
-import tech.kayys.aqli.cli.util.CliInferenceFeatures;
+import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
@@ -1272,15 +1273,25 @@ public class RunCommand implements Runnable {
             List<tech.kayys.aqli.spi.tool.ToolDefinition> requestedTools =
                     ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
             Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
-            CliInferenceFeatures.RagContext ragContext =
-                    CliInferenceFeatures.loadRagContext(ragContexts, ragFiles, ragMaxChars, prompt);
+            RagRunRequestConfiguration.RagContext ragContext =
+                    RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
 
-            InferenceRequest.Builder requestBuilder = InferenceRequest.builder()
-                    .requestId(UUID.randomUUID().toString())
-                    .model(requestModelTarget)
-                    .prompt(prompt)
-                    .plugin(pluginId)
-                    .streaming(effectiveStream);
+            InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
+                    new RunInferenceRequestFactory.Options(
+                            requestModelTarget,
+                            prompt,
+                            temperature,
+                            topP,
+                            topK,
+                            repeatPenalty,
+                            jsonMode,
+                            maxTokens,
+                            pluginId,
+                            effectiveStream,
+                            sessionId,
+                            mirostat,
+                            grammar,
+                            noCache));
 
             if (customModelPathUsed && finalLocalPath != null) {
                 requestBuilder.parameter("model_path", finalLocalPath);
@@ -1391,12 +1402,12 @@ public class RunCommand implements Runnable {
             }
 
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
-            CliInferenceFeatures.applyRagMetadata(requestBuilder, ragContext, embeddingModel);
+            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
-            String ragSystemPrompt = CliInferenceFeatures.ragSystemPrompt(ragContext);
+            String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
             RunConversationRequestAssembler.apply(
                     requestBuilder,
                     sessionId,
@@ -1414,8 +1425,6 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("provider_bridge_mode", "cli_libtorch_to_safetensor");
                 requestBuilder.metadata("provider_bridge_reason", "raw_safetensor_checkpoint");
             }
-
-            requestBuilder.cacheBypass(noCache);
 
             InferenceRequest request = requestBuilder.build();
 
@@ -2125,7 +2134,7 @@ public class RunCommand implements Runnable {
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
-        String repoId = hfRepoIdFromModelRef(requestedModel);
+        String repoId = ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
         if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
@@ -2177,13 +2186,6 @@ public class RunCommand implements Runnable {
                 (ref, format) -> format == null
                         ? LocalModelIndex.find(ref)
                         : LocalModelIndex.find(ref, format));
-    }
-
-    private String hfRepoIdFromModelRef(String requestedModel) {
-        ModelSourceResolver.Source source = ModelSourceResolver.classify(requestedModel);
-        return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
-                ? source.reference()
-                : null;
     }
 
     private String truncateDisplay(String value, int width) {
