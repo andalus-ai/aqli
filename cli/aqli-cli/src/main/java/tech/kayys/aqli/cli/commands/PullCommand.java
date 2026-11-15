@@ -12,10 +12,10 @@ import picocli.CommandLine.Parameters;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.local.AqliManifest;
 import tech.kayys.aqli.model.repo.local.ManifestStore;
-import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.model.repo.kaggle.KaggleClient;
 import tech.kayys.aqli.model.repo.kaggle.KaggleRepository;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.cli.util.CLIUtils;
 
@@ -29,12 +29,12 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 /**
- * Pull model using AqliSdk or directly from HuggingFace / Kaggle.
+ * Pull model through the SDK capability contracts or the Kaggle provider adapter.
  *
- * <p>For {@code hf:} model specs the CLI delegates to {@link HuggingFaceRepository},
- * which owns revision-aware manifest creation and the resumable
- * {@code .part}/{@code Range} download lifecycle. For {@code kaggle:} / {@code kg:}
- * specs it uses {@link KaggleClient}. The SDK path is kept for other providers.
+ * <p>For {@code hf:} model specs the CLI maps repository-specific options into
+ * {@link HuggingFacePullRequest}; the SDK runtime owns manifest creation and the
+ * resumable {@code .part}/{@code Range} download lifecycle. For {@code kaggle:} / {@code kg:}
+ * specs it uses {@link KaggleClient}.
  *
  * <p>Usage: {@code aqli pull [--force] [--include GLOB] [--task-type TYPE] <model>}
  */
@@ -53,7 +53,6 @@ public class PullCommand implements Runnable {
     private static final String RED     = "\u001B[31m";
 
     @Inject AqliSdk sdk;
-    @Inject Instance<HuggingFaceRepository> huggingFaceRepository;
     @Inject Instance<KaggleRepository>      kaggleRepository;
     @Inject Instance<KaggleClient>          kaggleClient;
     @Inject Instance<ManifestStore>         manifestStore;
@@ -141,49 +140,37 @@ public class PullCommand implements Runnable {
     // ── HuggingFace direct pull ──────────────────────────────────────────────
 
     private void pullFromHuggingFace(String effectiveModelSpec) throws Exception {
-        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
-            throw new RuntimeException(
-                    "HuggingFace repository is not available. Check your build profile or HF token configuration.");
-        }
-
         String repoId = effectiveModelSpec.substring(effectiveModelSpec.indexOf(':') + 1).trim();
         if (repoId.isBlank()) {
             throw new RuntimeException("Empty HuggingFace repo ID in spec: " + effectiveModelSpec);
         }
 
         System.out.printf("%sPulling%s hf:%s%n%n", BOLD, RESET, repoId);
-        DownloadProgressListener progress = new DownloadProgressListener() {
-            @Override
-            public void onProgress(long downloaded, long total, double fraction) {
-                if (total > 0) {
-                    System.out.printf("\\r  %sDownloading%s %s: %3d%% (%d/%d MB)",
-                            CYAN, RESET, repoId, (int) Math.min(100, Math.round(fraction * 100)),
-                            downloaded / 1024 / 1024, total / 1024 / 1024);
-                    System.out.flush();
-                }
-            }
+        var result = sdk.pullHuggingFaceModel(HuggingFacePullRequest.builder()
+                .modelSpec(effectiveModelSpec)
+                .includePatterns(include)
+                .force(force)
+                .taskType(taskType)
+                .build(), progress -> {
+                    if (progress.getTotal() > 0) {
+                        System.out.printf("\\r  %sDownloading%s %s: %3d%% (%d/%d MB)",
+                                CYAN, RESET, repoId, progress.getPercentComplete(),
+                                progress.getCompleted() / 1024 / 1024,
+                                progress.getTotal() / 1024 / 1024);
+                        System.out.flush();
+                    } else {
+                        System.out.printf("\\r  %s%s%s", CYAN, progress.getStatus(), RESET);
+                        System.out.flush();
+                    }
+                });
 
-            @Override
-            public void onComplete(long totalBytes) {
-                System.out.println();
-            }
-        };
-
-        Path targetDir = huggingFaceRepository.get().pullRepository(
-                repoId,
-                null,
-                null,
-                null,
-                java.util.Map.of(),
-                include,
-                force,
-                taskType,
-                progress);
         LocalModelIndex.refreshFromDisk();
-
+        String location = result.location().getScheme() != null
+                && "file".equalsIgnoreCase(result.location().getScheme())
+                        ? Path.of(result.location()).toAbsolutePath().toString()
+                        : result.location().toString();
         System.out.printf("%n%s✔ Pull complete%s — hf:%s%n", GREEN, RESET, repoId);
-        System.out.printf("  %sLocation:%s %s%s%n",
-                DIM, RESET, targetDir.toAbsolutePath(), RESET);
+        System.out.printf("  %sLocation:%s %s%s%n", DIM, RESET, location, RESET);
     }
 
     // ── SDK path (non-HF providers) ─────────────────────────────────────────
@@ -250,6 +237,36 @@ public class PullCommand implements Runnable {
         LocalModelIndex.refreshFromDisk();
 
         System.out.println(GREEN + "\n✔ Pull complete: " + RESET + repoId + " (imported from local file)");
+    }
+
+    private List<String> filterFiles(List<String> files, List<String> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return files;
+        }
+        return files.stream()
+                .filter(name -> isEssentialFile(name) || patterns.stream().anyMatch(pattern -> globMatches(pattern, name)))
+                .toList();
+    }
+
+    private boolean isEssentialFile(String filename) {
+        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
+        return base.equals("config.json")
+                || base.equals("tokenizer.json")
+                || base.equals("tokenizer_config.json")
+                || base.equals("tokenizer.model")
+                || base.equals("special_tokens_map.json")
+                || base.equals("generation_config.json")
+                || base.equals("vocab.json")
+                || base.equals("merges.txt")
+                || base.equals("readme.md")
+                || base.equals("license");
+    }
+
+    private boolean globMatches(String pattern, String filename) {
+        String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
+        String normalizedPattern = pattern.toLowerCase(Locale.ROOT);
+        String regex = normalizedPattern.replace(".", "\\\\.").replace("*", ".*").replace("?", ".");
+        return base.matches(regex);
     }
 
     // ── Utilities ────────────────────────────────────────────────────────────
