@@ -143,20 +143,25 @@ public class ManifestStore {
         save(manifest);
     }
 
+    /**
+     * Detects the format represented by a local blob using the shared local
+     * file inventory mapping. Directory contents are examined in stable
+     * lexical order so the selected format remains deterministic.
+     */
     public static String detectFormat(Path dirPath) {
         if (dirPath == null || !Files.exists(dirPath)) {
             return "unknown";
         }
         try {
-            List<String> files = listBlobFiles(dirPath);
-            for (String f : files) {
-                String lower = f.toLowerCase();
-                if (lower.endsWith(".gguf")) return "gguf";
-                if (lower.endsWith(".safetensors")) return "safetensors";
-                if (lower.endsWith(".onnx")) return "onnx";
-                if (lower.endsWith(".tflite") || lower.endsWith(".litert")) return "litert";
+            for (String file : listBlobFiles(dirPath)) {
+                String format = LocalModelFileInventory.detectFormat(Path.of(file), null);
+                if (format != null) {
+                    return format;
+                }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // Preserve best-effort registration when blob inspection fails.
+        }
         return "unknown";
     }
 

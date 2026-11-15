@@ -169,3 +169,26 @@ Instead:
 6. Remove the SDK API's direct SPI exposure only after auditing every public SDK type and adapter dependency; do not remove those Gradle dependencies speculatively.
 
 This gives the SDK a genuine single-source-of-truth role without leaking runner/runtime implementation details into its public contract.
+
+## Provider-specific lifecycle capabilities
+
+Provider-specific options must not be added to a generic lifecycle request merely because
+one transport currently needs them. The Hugging Face pull path is the first concrete
+example:
+
+- `ModelPullRequest` remains provider-neutral (model spec, revision, format, force, and
+  generic conversion/quantization controls).
+- `HuggingFacePullRequest` owns Hugging Face repository options such as include patterns
+  and task classification.
+- `HuggingFaceModelOperations` is the SDK capability contract; the local SDK delegates
+  execution to `HuggingFaceRepository`, which remains responsible for downloads and
+  manifest persistence.
+- CLI parsing and terminal progress stay in the CLI, but the command maps to the typed
+  SDK capability instead of invoking the repository directly.
+- REST and gRPC adapters must map equivalent provider-specific options into the same
+  capability contract as their wire schemas are extended, preserving existing wire
+  compatibility where possible.
+
+The capability result returns an opaque artifact URI rather than a local `Path`, keeping
+the SDK contract usable by remote implementations. A local runtime may return a `file:` URI.
+

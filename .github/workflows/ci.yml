@@ -95,6 +95,16 @@ jobs:
           set -euo pipefail
           ./gradlew --no-daemon --stacktrace :sdk:aqli-sdk-local:test
 
+      - name: Validate model repository and gRPC SDK adapter
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx2G
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --stacktrace \
+            :repository:aqli-model-repo-hf:test \
+            :sdk:aqli-sdk-protobuf:test
+
       - name: Prepare llama.cpp source
         shell: bash
         run: |
