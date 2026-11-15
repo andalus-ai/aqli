@@ -48,6 +48,7 @@ import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
+import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1323,36 +1324,39 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("onnx_profile", true);
             }
 
-            requestBuilder.metadata(effectiveRunnerRouteReport.toMetadata());
-            if (runner != null && !runner.isBlank()) {
-                requestBuilder.parameter("runner", effectiveRunnerRouteReport.normalizedRunner());
-                requestBuilder.metadata("runner", effectiveRunnerRouteReport.normalizedRunner());
-            }
-            // Propagate --java / --llamacpp / --engine into request metadata so that
-            // GgufBackendSelection (Aljabr) can route to the correct GGUF backend
-            // in the full CDI path (not just the standalone GgufStandaloneRunner path).
+            boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
+                    && "safetensor".equalsIgnoreCase(executionProviderId);
+            // Keep backend/runner selection resolved by the runtime; this adapter
+            // only propagates the resulting hints into the shared request envelope.
             String ggufEngineHint = requestedGgufEngine();
-            if (ggufEngineHint != null && !ggufEngineHint.isBlank()) {
-                requestBuilder.metadata("gguf.backend", ggufEngineHint);
-                requestBuilder.parameter("gguf.backend", ggufEngineHint);
-            }
-            ImageGenerationRunRequestParameterMapper.apply(
+            RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
-                    new ImageGenerationRunRequestParameterMapper.Options(
+                    new RuntimeRoutingRunRequestConfiguration.Options(
+                            effectiveRunnerRouteReport.toMetadata(),
+                            runner != null && !runner.isBlank(),
+                            effectiveRunnerRouteReport.normalizedRunner(),
+                            ggufEngineHint,
                             featurePipelineId,
-                            guidanceScale == null ? null : guidanceScale.doubleValue(),
-                            outputPath,
-                            width,
-                            height));
-            requestBuilder.parameter("raw", raw);
-            requestBuilder.parameter("debug_prompt", debugPrompt);
-            tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.apply(
-                    requestBuilder,
-                    new tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.Options(
-                            normalizedInputImages,
-                            ocrMode,
-                            ocrImageTokens,
-                            ocrRawOutput));
+                            executionProviderId,
+                            libtorchSafetensorCliBridge));
+            String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
+                    ? null
+                    : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
+            ImageRunRequestParameterMapper.apply(requestBuilder, new ImageRunRequestParameterMapper.Options(
+                    seed,
+                    steps,
+                    format,
+                    guidanceScale,
+                    outputPath,
+                    width,
+                    height,
+                    normalizedInputImages,
+                    ocrMode,
+                    ocrImageTokens,
+                    ocrRawOutput,
+                    effectiveOnnxVariant,
+                    raw,
+                    debugPrompt));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
                     ? null
@@ -1395,8 +1399,6 @@ public class RunCommand implements Runnable {
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
             RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
 
-            boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
-                    && "safetensor".equalsIgnoreCase(executionProviderId);
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
             String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
             RunConversationRequestAssembler.apply(
