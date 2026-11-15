@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.grpc.stub.StreamObserver;
-import tech.kayys.aqli.sdk.model.ModelPullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 
@@ -46,14 +46,17 @@ class ModelGrpcServiceTest {
             Consumer<PullProgress> callback = invocation.getArgument(1);
             callback.accept(PullProgress.of("Downloading org/model", null, 100, 25));
             callback.accept(PullProgress.of("Completed org/model", null, 100, 100));
-            return null;
-        }).when(runtime).pullModel(any(ModelPullRequest.class), any());
+            return new tech.kayys.aqli.sdk.model.HuggingFacePullResult(
+                    "org/model", java.net.URI.create("file:///tmp/org-model"));
+        }).when(runtime).pullHuggingFaceModel(any(HuggingFacePullRequest.class), any());
 
         service.pullModel(PullModelRequest.newBuilder()
                 .setModelSpec("hf:org/model")
                 .setRevision("v2")
                 .setFormat("onnx")
                 .setForce(true)
+                .addIncludePatterns("*.gguf")
+                .setTaskType("text-generation")
                 .build(), new StreamObserver<>() {
                     @Override
                     public void onNext(PullModelProgress value) {
@@ -79,12 +82,56 @@ class ModelGrpcServiceTest {
         assertEquals(25, events.get(0).getPercentComplete());
         assertTrue(events.get(1).getComplete());
 
-        org.mockito.ArgumentCaptor<ModelPullRequest> request =
-                org.mockito.ArgumentCaptor.forClass(ModelPullRequest.class);
-        verify(runtime).pullModel(request.capture(), any());
+        org.mockito.ArgumentCaptor<HuggingFacePullRequest> request =
+                org.mockito.ArgumentCaptor.forClass(HuggingFacePullRequest.class);
+        verify(runtime).pullHuggingFaceModel(request.capture(), any());
         assertEquals("hf:org/model", request.getValue().modelSpec());
         assertEquals("v2", request.getValue().revision());
         assertEquals("onnx", request.getValue().format());
+        assertEquals(List.of("*.gguf"), request.getValue().includePatterns());
+        assertEquals("text-generation", request.getValue().taskType());
+        assertTrue(request.getValue().force());
+    }
+
+    @Test
+    void keepsNonHuggingFacePullsOnTheGenericSdkContract() throws Exception {
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        doAnswer(invocation -> {
+            Consumer<PullProgress> callback = invocation.getArgument(1);
+            callback.accept(PullProgress.of("Completed ollama/llama3", null, 0, 0));
+            return null;
+        }).when(runtime).pullModel(any(tech.kayys.aqli.sdk.model.ModelPullRequest.class), any());
+
+        service.pullModel(PullModelRequest.newBuilder()
+                .setModelSpec("ollama:llama3")
+                .setRevision("latest")
+                .setFormat("gguf")
+                .setForce(true)
+                .build(), new StreamObserver<>() {
+                    @Override
+                    public void onNext(PullModelProgress value) {
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        failure.set(error);
+                        completed.countDown();
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        completed.countDown();
+                    }
+                });
+
+        assertTrue(completed.await(5, TimeUnit.SECONDS));
+        assertNull(failure.get());
+        org.mockito.ArgumentCaptor<tech.kayys.aqli.sdk.model.ModelPullRequest> request =
+                org.mockito.ArgumentCaptor.forClass(tech.kayys.aqli.sdk.model.ModelPullRequest.class);
+        verify(runtime).pullModel(request.capture(), any());
+        assertEquals("ollama:llama3", request.getValue().modelSpec());
+        assertEquals("gguf", request.getValue().format());
         assertTrue(request.getValue().force());
     }
 
