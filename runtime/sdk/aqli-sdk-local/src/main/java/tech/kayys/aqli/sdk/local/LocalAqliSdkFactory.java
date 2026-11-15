@@ -16,6 +16,10 @@ public class LocalAqliSdkFactory {
     private final LocalModelCatalog models;
     private final HuggingFaceRepository huggingFaceRepository;
 
+    public LocalAqliSdkFactory(LocalInferenceEngineCatalog engines, LocalModelCatalog models) {
+        this(engines, models, null);
+    }
+
     @Inject
     public LocalAqliSdkFactory(LocalInferenceEngineCatalog engines, LocalModelCatalog models,
             HuggingFaceRepository huggingFaceRepository) {
