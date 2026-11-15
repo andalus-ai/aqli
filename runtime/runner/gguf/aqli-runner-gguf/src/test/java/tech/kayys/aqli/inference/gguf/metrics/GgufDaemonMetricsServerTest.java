@@ -113,7 +113,7 @@ class GgufDaemonMetricsServerTest {
                 }, registryClosed::countDown, 0);
                 Socket client = new Socket(InetAddress.getLoopbackAddress(), server.port())) {
             client.getOutputStream().write(
-                    "GET /metrics HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n"
+                    "GET /metrics HTTP/1.1\r\nHost: localhost\r\n\r\n"
                             .getBytes(StandardCharsets.US_ASCII));
             client.getOutputStream().flush();
 
