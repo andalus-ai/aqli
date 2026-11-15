@@ -45,7 +45,9 @@ public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
 
         Timer.Sample sample = Timer.start(meterRegistry);
         meterRegistry.counter("aqli.grpc.model.pull.count").increment();
-        boolean huggingFace = isHuggingFaceSpec(request.getModelSpec());
+        boolean huggingFace = isHuggingFaceSpec(request.getModelSpec())
+                || !request.getIncludePatternsList().isEmpty()
+                || !request.getTaskType().isBlank();
         ModelPullRequest pullRequest = ModelPullRequest.builder()
                 .modelSpec(request.getModelSpec())
                 .revision(blankToNull(request.getRevision()))
