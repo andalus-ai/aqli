@@ -17,6 +17,7 @@ import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
@@ -34,9 +35,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.lang.reflect.InvocationTargetException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
@@ -62,6 +65,29 @@ public class RunCommandTest {
         void setUp() {
                 Mockito.when(pluginChecker.hasProviders()).thenReturn(true);
                 Mockito.when(pluginChecker.hasRunnerPlugins()).thenReturn(true);
+        }
+
+        @Test
+        public void automaticHuggingFacePullUsesSdkCapability() throws Exception {
+                runCommand.branch = "release-test";
+                String repository = "aqli-tests/run-command-auto-pull-unique";
+
+                var method = RunCommand.class.getDeclaredMethod(
+                                "autoPullHfRepositoryForRunIfNeeded", String.class, String.class);
+                method.setAccessible(true);
+
+                InvocationTargetException failure = assertThrows(
+                                InvocationTargetException.class,
+                                () -> method.invoke(runCommand, "hf:" + repository, "safetensors"));
+                assertTrue(failure.getCause() instanceof IllegalStateException);
+
+                var request = org.mockito.ArgumentCaptor.forClass(HuggingFacePullRequest.class);
+                Mockito.verify(sdk).pullHuggingFaceModel(
+                                request.capture(), Mockito.<Consumer<PullProgress>>any());
+                assertEquals("hf:" + repository, request.getValue().modelSpec());
+                assertEquals("release-test", request.getValue().revision());
+                assertEquals("safetensors", request.getValue().format());
+                assertTrue(request.getValue().includePatterns().isEmpty());
         }
 
         @Test
