@@ -48,6 +48,7 @@ import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
+import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1311,25 +1312,20 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("onnx_profile", true);
             }
 
-            requestBuilder.metadata(effectiveRunnerRouteReport.toMetadata());
-            if (runner != null && !runner.isBlank()) {
-                requestBuilder.parameter("runner", effectiveRunnerRouteReport.normalizedRunner());
-                requestBuilder.metadata("runner", effectiveRunnerRouteReport.normalizedRunner());
-            }
-            // Propagate --java / --llamacpp / --engine into request metadata so that
-            // GgufBackendSelection (Aljabr) can route to the correct GGUF backend
-            // in the full CDI path (not just the standalone GgufStandaloneRunner path).
+            // Keep backend/runner selection resolved by the runtime; this adapter
+            // only propagates the resulting hints into the shared request envelope.
             String ggufEngineHint = requestedGgufEngine();
-            if (ggufEngineHint != null && !ggufEngineHint.isBlank()) {
-                requestBuilder.metadata("gguf.backend", ggufEngineHint);
-                requestBuilder.parameter("gguf.backend", ggufEngineHint);
-            }
-            if (featurePipelineId != null && !featurePipelineId.isBlank()) {
-                String pipelineId = featurePipelineId.trim();
-                requestBuilder.parameter("pipeline", pipelineId);
-                requestBuilder.parameter("feature", pipelineId);
-                requestBuilder.parameter("feature_pipeline", true);
-            }
+            RuntimeRoutingRunRequestConfiguration.apply(
+                    requestBuilder,
+                    new RuntimeRoutingRunRequestConfiguration.Options(
+                            effectiveRunnerRouteReport.toMetadata(),
+                            runner != null && !runner.isBlank(),
+                            effectiveRunnerRouteReport.normalizedRunner(),
+                            ggufEngineHint,
+                            featurePipelineId,
+                            executionProviderId,
+                            "libtorch".equalsIgnoreCase(providerId)
+                                    && "safetensor".equalsIgnoreCase(executionProviderId)));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1400,17 +1396,6 @@ public class RunCommand implements Runnable {
                     effectiveSystemPrompt,
                     ragSystemPrompt,
                     prompt);
-
-            if (executionProviderId != null && !executionProviderId.isEmpty()) {
-                requestBuilder.preferredProvider(executionProviderId);
-            }
-
-            if (libtorchSafetensorCliBridge) {
-                requestBuilder.metadata("requested_provider", "libtorch");
-                requestBuilder.metadata("effective_provider", "safetensor");
-                requestBuilder.metadata("provider_bridge_mode", "cli_libtorch_to_safetensor");
-                requestBuilder.metadata("provider_bridge_reason", "raw_safetensor_checkpoint");
-            }
 
             requestBuilder.cacheBypass(noCache);
 
