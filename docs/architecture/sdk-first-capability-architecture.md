@@ -185,9 +185,10 @@ example:
   manifest persistence.
 - CLI parsing and terminal progress stay in the CLI, but the command maps to the typed
   SDK capability instead of invoking the repository directly.
-- REST and gRPC adapters must map equivalent provider-specific options into the same
-  capability contract as their wire schemas are extended, preserving existing wire
-  compatibility where possible.
+- REST maps `format`, `includePatterns`, and `taskType` into the same typed capability; gRPC maps `format`, `include_patterns`, and `task_type` into it. The gRPC additions use new protobuf field numbers, preserving existing field numbers and wire compatibility.
+- Non-Hugging-Face REST/gRPC pulls continue through the provider-neutral `ModelPullRequest` contract.
+- Both transports delegate execution to the SDK. REST's `BackgroundJobManager` only owns job lifecycle/progress storage; gRPC only owns stream adaptation and transport error mapping.
+- CLI, REST, and gRPC therefore share the same `HuggingFaceModelOperations` capability and the same `LocalAqliSdk` repository delegation.
 
 The capability result returns an opaque artifact URI rather than a local `Path`, keeping
 the SDK contract usable by remote implementations. A local runtime may return a `file:` URI.
