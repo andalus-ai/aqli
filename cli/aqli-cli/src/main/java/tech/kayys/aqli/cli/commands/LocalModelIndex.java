@@ -175,7 +175,7 @@ final class LocalModelIndex {
             Path file = candidate.file();
             if (seenPaths.add(normalizePath(file))) {
                 Entry entry = toEntry(candidate.base(), file, candidate.fallbackFormat(), candidate.runnable());
-                discovered.putIfAbsent(normalizePath(file), entry);
+                discovered.putIfAbsent(entryKey(entry), entry);
             }
         }
         out.addAll(discovered.values());
@@ -325,6 +325,18 @@ final class LocalModelIndex {
                 || normalized.equals("onnx")
                 || normalized.equals("task")
                 || normalized.equals("tflite");
+    }
+
+    private static String entryKey(Entry entry) {
+        String identity = entry.id;
+        if (identity == null || identity.isBlank()) {
+            identity = entry.path;
+        }
+        if (identity == null || identity.isBlank()) {
+            identity = entry.name;
+        }
+        String format = entry.format == null ? "" : entry.format.toLowerCase(Locale.ROOT);
+        return String.valueOf(identity).toLowerCase(Locale.ROOT) + "|" + format;
     }
 
     private static String normalizePath(Path path) {
