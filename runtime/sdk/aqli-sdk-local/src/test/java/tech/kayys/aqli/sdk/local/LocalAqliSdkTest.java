@@ -125,6 +125,47 @@ class LocalAqliSdkTest {
     }
 
     @Test
+    void pullsHuggingFaceModelsWithTypedRepositoryOptions() throws Exception {
+        HuggingFaceRepository repository = mock(HuggingFaceRepository.class);
+        Path target = Path.of("/tmp/aqli-filtered-model");
+        when(repository.pullRepository(
+                eq("org/model"), eq("release"), eq("gguf"), isNull(),
+                eq(Map.of()), eq(List.of("*.gguf")), eq(true), eq("text"),
+                any(DownloadProgressListener.class)))
+                .thenReturn(target);
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of()),
+                null,
+                mock(LocalModelCatalog.class),
+                repository);
+        List<PullProgress> progress = new ArrayList<>();
+
+        var result = sdk.pullHuggingFaceModel(HuggingFacePullRequest.builder()
+                .modelSpec("hf:org/model")
+                .revision("release")
+                .format("gguf")
+                .includePatterns(List.of("*.gguf"))
+                .force(true)
+                .taskType("text")
+                .build(), progress::add);
+
+        assertEquals("org/model", result.repositoryId());
+        assertEquals(target.toUri(), result.location());
+        org.mockito.ArgumentCaptor<DownloadProgressListener> listener =
+                org.mockito.ArgumentCaptor.forClass(DownloadProgressListener.class);
+        verify(repository).pullRepository(
+                eq("org/model"), eq("release"), eq("gguf"), isNull(),
+                eq(Map.of()), eq(List.of("*.gguf")), eq(true), eq("text"), listener.capture());
+
+        listener.getValue().onProgress(512, 1024, 0.5);
+        listener.getValue().onComplete(1024);
+        assertEquals(2, progress.size());
+        assertEquals(512, progress.get(0).getCompleted());
+        assertEquals(100, progress.get(1).getPercentComplete());
+    }
+
+    @Test
     void rejectsNonHuggingFacePullsUntilTheirRepositoryCapabilitiesAreComposed() {
         LocalAqliSdk sdk = new LocalAqliSdk(
                 new LocalInferenceEngineCatalog(List.of()),

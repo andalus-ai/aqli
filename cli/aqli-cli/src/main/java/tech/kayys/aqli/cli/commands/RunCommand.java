@@ -46,7 +46,7 @@ import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRu
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
-import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -86,12 +86,16 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.OptimizedCachePruner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenance;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
-import tech.kayys.aqli.cli.util.CliInferenceFeatures;
+import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
+import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
@@ -1267,10 +1271,10 @@ public class RunCommand implements Runnable {
                     ? finalLocalPath
                     : modelId;
             List<tech.kayys.aqli.spi.tool.ToolDefinition> requestedTools =
-                    CliInferenceFeatures.loadTools(toolFiles, mcpTools);
-            Object requestedToolChoice = CliInferenceFeatures.parseToolChoice(toolChoice);
-            CliInferenceFeatures.RagContext ragContext =
-                    CliInferenceFeatures.loadRagContext(ragContexts, ragFiles, ragMaxChars, prompt);
+                    ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
+            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
+            RagRunRequestConfiguration.RagContext ragContext =
+                    RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
 
             InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
                     new RunInferenceRequestFactory.Options(
@@ -1295,9 +1299,15 @@ public class RunCommand implements Runnable {
             if (requestedModelRef != null && !requestedModelRef.isBlank()) {
                 requestBuilder.parameter("requested_model_ref", requestedModelRef);
             }
-            if (onnxVariant != null && !onnxVariant.isBlank()) {
-                requestBuilder.parameter("onnx_variant", PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant));
-            }
+            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
+                    temperature,
+                    topP,
+                    topK,
+                    repeatPenalty,
+                    jsonMode,
+                    maxTokens,
+                    mirostat,
+                    grammar));
 
             if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
                 requestBuilder.parameter("quantize_strategy", quantizeStrategy);
@@ -1315,9 +1325,6 @@ public class RunCommand implements Runnable {
                 requestBuilder.metadata("onnx_profile", true);
             }
 
-            if (seed != null) requestBuilder.parameter("seed", seed);
-            if (steps != null) requestBuilder.parameter("steps", steps);
-            if (format != null) requestBuilder.parameter("format", format);
             requestBuilder.metadata(effectiveRunnerRouteReport.toMetadata());
             if (runner != null && !runner.isBlank()) {
                 requestBuilder.parameter("runner", effectiveRunnerRouteReport.normalizedRunner());
@@ -1337,19 +1344,24 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("feature", pipelineId);
                 requestBuilder.parameter("feature_pipeline", true);
             }
-            if (guidanceScale != null) requestBuilder.parameter("guidance_scale", guidanceScale);
-            if (outputPath != null) requestBuilder.parameter("output_path", outputPath);
-            if (width != null) requestBuilder.parameter("width", width);
-            if (height != null) requestBuilder.parameter("height", height);
-            requestBuilder.parameter("raw", raw);
-            requestBuilder.parameter("debug_prompt", debugPrompt);
-            tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.apply(
-                    requestBuilder,
-                    new tech.kayys.aqli.cli.commands.vision.VisionRunRequestParameterMapper.Options(
-                            normalizedInputImages,
-                            ocrMode,
-                            ocrImageTokens,
-                            ocrRawOutput));
+            String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
+                    ? null
+                    : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
+            ImageRunRequestParameterMapper.apply(requestBuilder, new ImageRunRequestParameterMapper.Options(
+                    seed,
+                    steps,
+                    format,
+                    guidanceScale,
+                    outputPath,
+                    width,
+                    height,
+                    normalizedInputImages,
+                    ocrMode,
+                    ocrImageTokens,
+                    ocrRawOutput,
+                    effectiveOnnxVariant,
+                    raw,
+                    debugPrompt));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
                     ? null
@@ -1389,20 +1401,19 @@ public class RunCommand implements Runnable {
                 requestBuilder.parameter("output_format", extension.toLowerCase());
             }
 
-            CliInferenceFeatures.applyTools(requestBuilder, requestedTools, requestedToolChoice);
-            CliInferenceFeatures.applyRagMetadata(requestBuilder, ragContext, embeddingModel);
+            ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
+            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
-            if (effectiveSystemPrompt != null && !effectiveSystemPrompt.isEmpty()) {
-                requestBuilder.message(Message.system(effectiveSystemPrompt));
-            }
-            String ragSystemPrompt = CliInferenceFeatures.ragSystemPrompt(ragContext);
-            if (ragSystemPrompt != null && !ragSystemPrompt.isBlank()) {
-                requestBuilder.message(Message.system(ragSystemPrompt));
-            }
-            requestBuilder.message(Message.user(prompt));
+            String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
+            RunConversationRequestAssembler.apply(
+                    requestBuilder,
+                    sessionId,
+                    effectiveSystemPrompt,
+                    ragSystemPrompt,
+                    prompt);
 
             if (executionProviderId != null && !executionProviderId.isEmpty()) {
                 requestBuilder.preferredProvider(executionProviderId);

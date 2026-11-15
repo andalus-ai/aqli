@@ -20,5 +20,5 @@ package tech.kayys.aqli.sdk.runtime;
  */
 public interface AqliRuntime extends tech.kayys.aqli.sdk.core.InferenceOperations,
         ModelLifecycleOperations, AsyncJobOperations, RuntimeDiagnosticsOperations,
-        PluginOperations, McpOperations, FeatureOperations {
+        PluginOperations, McpOperations, FeatureOperations, HuggingFaceModelOperations {
 }

@@ -20,6 +20,8 @@ import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullResult;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.SystemInfo;
 import tech.kayys.aqli.spi.batch.BatchInferenceRequest;
@@ -145,10 +147,23 @@ public class LocalAqliSdk implements AqliSdk {
     @Override
     public void pullModel(String modelSpec, String revision, String format, boolean force,
             Consumer<PullProgress> progressCallback) throws SdkException {
+        pullHuggingFaceModel(HuggingFacePullRequest.builder()
+                .modelSpec(modelSpec)
+                .revision(revision)
+                .format(format)
+                .force(force)
+                .build(), progressCallback);
+    }
+
+    @Override
+    public HuggingFacePullResult pullHuggingFaceModel(
+            HuggingFacePullRequest request,
+            Consumer<PullProgress> progressCallback) throws SdkException {
+        java.util.Objects.requireNonNull(request, "request");
         if (huggingFaceRepository == null) {
             throw unsupported("Hugging Face model downloads");
         }
-        String repositoryId = resolveHuggingFaceRepositoryId(modelSpec);
+        String repositoryId = resolveHuggingFaceRepositoryId(request.modelSpec());
         DownloadProgressListener listener = new DownloadProgressListener() {
             @Override
             public void onStart(long totalBytes) {
@@ -184,8 +199,17 @@ public class LocalAqliSdk implements AqliSdk {
         };
 
         try {
-            huggingFaceRepository.pullRepository(
-                    repositoryId, revision, format, null, Map.of(), List.of(), force, null, listener);
+            Path targetDir = huggingFaceRepository.pullRepository(
+                    repositoryId,
+                    request.revision(),
+                    request.format(),
+                    null,
+                    Map.of(),
+                    request.includePatterns(),
+                    request.force(),
+                    request.taskType(),
+                    listener);
+            return new HuggingFacePullResult(repositoryId, targetDir.toUri());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new SdkException("SDK_ERR_MODEL_PULL",

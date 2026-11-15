@@ -69,52 +69,8 @@ public final class HuggingFaceRepository implements ModelRepository {
             String architecture,
             Map<String, String> metadata,
             DownloadProgressListener progressListener) throws java.io.IOException, InterruptedException {
-        if (repoId == null || repoId.isBlank()) {
-            throw new IllegalArgumentException("Hugging Face repository ID is required");
-        }
-
-        String revision = requestedRevision == null || requestedRevision.isBlank()
-                ? (config != null && config.revision() != null ? config.revision() : DEFAULT_REVISION)
-                : requestedRevision.trim();
-        String manifestName = AqliManifest.computeName(repoId, revision);
-        Path targetDir = ManifestStore.resolveBlobDir(repoId, manifestName);
-        Files.createDirectories(targetDir);
-
-        List<String> files = client.listFiles(repoId, revision);
-        client.downloadRepository(repoId, revision, files, targetDir, progressListener);
-
-        String detectedFormat = ManifestStore.detectFormat(targetDir);
-        String manifestFormat = "unknown".equalsIgnoreCase(detectedFormat) && preferredFormat != null
-                ? preferredFormat
-                : detectedFormat;
-        AqliManifest manifest = new AqliManifest();
-        manifest.setId(manifestName);
-        manifest.setModelId(repoId);
-        manifest.setRevision(revision);
-        manifest.setName(manifestName);
-        manifest.setFormat(manifestFormat);
-        manifest.setPipeline(files.stream().anyMatch(name -> name.endsWith("model_index.json")));
-        manifest.setSource("huggingface");
-        manifest.setRepository(repoId);
-        manifest.setBranch(revision);
-        manifest.setBlobPath(targetDir.toAbsolutePath().toString());
-        manifest.setFiles(ManifestStore.listBlobFiles(targetDir));
-        manifest.setCreatedAt(java.time.Instant.now());
-        manifest.setSizeBytes(computeDirectorySize(targetDir));
-        manifest.setArchitecture(architecture == null || architecture.isBlank()
-                ? ManifestStore.detectArchitecture(manifest)
-                : architecture);
-        Map<String, String> manifestMetadata = new java.util.LinkedHashMap<>();
-        if (metadata != null) {
-            manifestMetadata.putAll(metadata);
-        }
-        manifestMetadata.putIfAbsent("format", manifestFormat != null ? manifestFormat : "unknown");
-        if (preferredFormat != null && !preferredFormat.isBlank()) {
-            manifestMetadata.putIfAbsent("preferred_format", preferredFormat);
-        }
-        manifest.setMetadata(manifestMetadata);
-        manifestStore.save(manifest);
-        return targetDir;
+        return pullRepository(repoId, requestedRevision, preferredFormat, architecture,
+                metadata, List.of(), false, null, progressListener);
     }
 
     /**
