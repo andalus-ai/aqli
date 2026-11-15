@@ -48,6 +48,7 @@ import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
+import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 
 import java.awt.BasicStroke;
