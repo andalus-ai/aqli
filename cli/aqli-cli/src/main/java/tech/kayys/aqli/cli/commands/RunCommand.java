@@ -1320,35 +1320,24 @@ public class RunCommand implements Runnable {
                             effectiveRunnerRouteReport.normalizedRunner(),
                             requestedGgufEngine()));
             ImageGenerationRunRequestParameterMapper.apply(
-            if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
-                requestBuilder.parameter("quantize_strategy", quantizeStrategy);
-                requestBuilder.parameter("quantize_bits", quantizeBits);
-            }
-
-            if (quantizeKv != null && !quantizeKv.equalsIgnoreCase("none")) {
-                requestBuilder.parameter("kv_cache_quant", quantizeKv);
-            }
-
-            if (runtimeProfile) {
-                requestBuilder.parameter("profile", true);
-                requestBuilder.parameter("onnx_profile", true);
-                requestBuilder.metadata("profile", true);
-                requestBuilder.metadata("onnx_profile", true);
-            }
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale,
+                            outputPath,
+                            width,
+                            height));
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            // Keep backend/runner selection resolved by the runtime; this adapter
-            // only propagates the resulting hints into the shared request envelope.
-            String ggufEngineHint = requestedGgufEngine();
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
-                            effectiveRunnerRouteReport.toMetadata(),
-                            runner != null && !runner.isBlank(),
-                            effectiveRunnerRouteReport.normalizedRunner(),
-                            ggufEngineHint,
-                            featurePipelineId,
+                            null,
+                            false,
+                            null,
+                            null,
+                            null,
                             executionProviderId,
                             libtorchSafetensorCliBridge));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
