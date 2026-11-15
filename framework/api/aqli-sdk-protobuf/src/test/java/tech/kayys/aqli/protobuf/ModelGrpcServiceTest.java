@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.grpc.stub.StreamObserver;
 import tech.kayys.aqli.sdk.model.ModelPullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullResult;
+import java.net.URI;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 
@@ -47,13 +50,15 @@ class ModelGrpcServiceTest {
             callback.accept(PullProgress.of("Downloading org/model", null, 100, 25));
             callback.accept(PullProgress.of("Completed org/model", null, 100, 100));
             return null;
-        }).when(runtime).pullModel(any(ModelPullRequest.class), any());
+        }).when(runtime).pullHuggingFaceModel(any(HuggingFacePullRequest.class), any());
 
         service.pullModel(PullModelRequest.newBuilder()
                 .setModelSpec("hf:org/model")
                 .setRevision("v2")
                 .setFormat("onnx")
                 .setForce(true)
+                .addIncludePatterns("*.gguf")
+                .setTaskType("text-generation")
                 .build(), new StreamObserver<>() {
                     @Override
                     public void onNext(PullModelProgress value) {
@@ -81,10 +86,14 @@ class ModelGrpcServiceTest {
 
         org.mockito.ArgumentCaptor<ModelPullRequest> request =
                 org.mockito.ArgumentCaptor.forClass(ModelPullRequest.class);
-        verify(runtime).pullModel(request.capture(), any());
+        org.mockito.ArgumentCaptor<HuggingFacePullRequest> request =
+                org.mockito.ArgumentCaptor.forClass(HuggingFacePullRequest.class);
+        verify(runtime).pullHuggingFaceModel(request.capture(), any());
         assertEquals("hf:org/model", request.getValue().modelSpec());
         assertEquals("v2", request.getValue().revision());
         assertEquals("onnx", request.getValue().format());
+        assertEquals(List.of("*.gguf"), request.getValue().includePatterns());
+        assertEquals("text-generation", request.getValue().taskType());
         assertTrue(request.getValue().force());
     }
 
