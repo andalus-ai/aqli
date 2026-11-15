@@ -74,7 +74,27 @@ public interface ModelLifecycleOperations extends ModelCatalogOperations {
      * Pull a model with enhanced options. NEW in v1.3.0.
      */
     default void pullModel(ModelPullRequest request, Consumer<PullProgress> progressCallback) throws SdkException {
+        java.util.Objects.requireNonNull(request, "request");
+
+        // Older runtime implementations only understand model/revision/format/force.
+        // Do not silently discard non-default options that their contract cannot express.
+        if (!request.convertIfNecessary()) {
+            throw unsupportedPullOption("convertIfNecessary=false");
+        }
+        if (request.quantization() != null && !"Q4_K_M".equalsIgnoreCase(request.quantization())) {
+            throw unsupportedPullOption("quantization=" + request.quantization());
+        }
+        if (request.outType() != null && !request.outType().isBlank()) {
+            throw unsupportedPullOption("outType=" + request.outType());
+        }
+
         pullModel(request.modelSpec(), request.revision(), request.format(), request.force(), progressCallback);
+    }
+
+    private static SdkException unsupportedPullOption(String option) {
+        return new SdkException("SDK_ERR_NOT_SUPPORTED",
+                "This SDK implementation cannot honor the model pull option '" + option
+                        + "'. Use a runtime that supports the enhanced ModelPullRequest contract.");
     }
 
     /**
