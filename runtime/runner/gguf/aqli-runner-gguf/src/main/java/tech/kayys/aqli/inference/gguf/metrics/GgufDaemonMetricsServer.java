@@ -2,15 +2,16 @@ package tech.kayys.aqli.inference.gguf.metrics;
 
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 
 /**
@@ -23,15 +24,24 @@ import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 public final class GgufDaemonMetricsServer implements AutoCloseable {
     private static final String CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8";
     private static final int CLIENT_TIMEOUT_MILLIS = 2_000;
+    private static final int MAX_REQUEST_LINE_BYTES = 4_096;
+    private static final int MAX_HEADER_LINE_BYTES = 4_096;
+    private static final int MAX_HEADER_BYTES = 16_384;
+    private static final int MAX_HEADER_COUNT = 64;
 
     private final ServerSocket server;
-    private final PrometheusMeterRegistry registry;
+    private final Supplier<String> scrape;
+    private final Runnable closeRegistry;
     private final AtomicBoolean running = new AtomicBoolean(true);
+    private final Object clientLifecycleLock = new Object();
     private final Thread acceptor;
+    private Socket activeClient;
 
-    private GgufDaemonMetricsServer(ServerSocket server, PrometheusMeterRegistry registry) {
+    private GgufDaemonMetricsServer(
+            ServerSocket server, Supplier<String> scrape, Runnable closeRegistry) {
         this.server = server;
-        this.registry = registry;
+        this.scrape = scrape;
+        this.closeRegistry = closeRegistry;
         this.acceptor = Thread.ofPlatform()
                 .daemon(true)
                 .name("aqli-gguf-metrics")
@@ -44,28 +54,33 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         try {
             new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
-            return start(registry, port);
-        } catch (IOException | RuntimeException exception) {
-            registry.close();
+        } catch (RuntimeException exception) {
+            closeRegistrySafely(registry::close);
             throw exception;
         }
+        return start(registry::scrape, registry::close, port);
     }
 
     static GgufDaemonMetricsServer start(
-            PrometheusMeterRegistry registry, int port) throws IOException {
-        Objects.requireNonNull(registry, "registry");
-        if (port < 0 || port > 65_535) {
-            throw new IllegalArgumentException("metrics port must be between 0 and 65535");
-        }
-        ServerSocket server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
+            Supplier<String> scrape, Runnable closeRegistry, int port) throws IOException {
+        Objects.requireNonNull(scrape, "scrape");
+        Objects.requireNonNull(closeRegistry, "closeRegistry");
+        ServerSocket server = null;
         try {
-            return new GgufDaemonMetricsServer(server, registry);
-        } catch (RuntimeException exception) {
-            try {
-                server.close();
-            } catch (IOException ignored) {
-                // Preserve the startup failure.
+            if (port < 0 || port > 65_535) {
+                throw new IllegalArgumentException("metrics port must be between 0 and 65535");
             }
+            server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
+            return new GgufDaemonMetricsServer(server, scrape, closeRegistry);
+        } catch (IOException | RuntimeException exception) {
+            if (server != null) {
+                try {
+                    server.close();
+                } catch (IOException ignored) {
+                    // Preserve the startup failure.
+                }
+            }
+            closeRegistrySafely(closeRegistry);
             throw exception;
         }
     }
@@ -79,31 +94,100 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     }
 
     private void accept() {
+        try {
+            acceptClients();
+        } finally {
+            closeRegistrySafely();
+        }
+    }
+
+    private void acceptClients() {
         while (running.get()) {
-            try (Socket client = server.accept()) {
+            Socket client;
+            try {
+                client = server.accept();
+            } catch (IOException | RuntimeException exception) {
+                if (!running.get()) {
+                    return;
+                }
+                // A listener failure must not affect inference.
+                continue;
+            }
+
+            synchronized (clientLifecycleLock) {
+                if (!running.get()) {
+                    closeQuietly(client);
+                    return;
+                }
+                activeClient = client;
+            }
+
+            try (client) {
                 client.setSoTimeout(CLIENT_TIMEOUT_MILLIS);
                 serve(client);
-            } catch (RuntimeException exception) {
+            } catch (IOException | RuntimeException exception) {
                 if (running.get()) {
                     // A malformed or disconnected scrape must not stop inference.
+                }
+            } finally {
+                synchronized (clientLifecycleLock) {
+                    if (activeClient == client) {
+                        activeClient = null;
+                    }
                 }
             }
         }
     }
 
     private void serve(Socket client) throws IOException {
-        BufferedReader request = new BufferedReader(
-                new InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
-        String requestLine = request.readLine();
+        InputStream input = client.getInputStream();
+        String requestLine;
+        try {
+            requestLine = readBoundedLine(input, MAX_REQUEST_LINE_BYTES);
+        } catch (LineTooLongException exception) {
+            respond(client, 414, "URI Too Long", "request line too long\n");
+            return;
+        }
         if (requestLine == null) {
             return;
         }
+
         String[] parts = requestLine.split(" ", 3);
-        String method = parts.length > 0 ? parts[0] : "";
-        String path = parts.length > 1 ? parts[1] : "";
-        String line;
-        while ((line = request.readLine()) != null && !line.isEmpty()) {
-            // Consume headers before writing the response.
+        if (parts.length != 3 || parts[0].isEmpty() || parts[1].isEmpty()
+                || !parts[2].startsWith("HTTP/")) {
+            respond(client, 400, "Bad Request", "bad request\n");
+            return;
+        }
+        String method = parts[0];
+        String path = parts[1];
+
+        int headerBytes = 0;
+        int headerCount = 0;
+        while (true) {
+            String line;
+            try {
+                line = readBoundedLine(input, MAX_HEADER_LINE_BYTES);
+            } catch (LineTooLongException exception) {
+                respond(client, 431, "Request Header Fields Too Large", "headers too large\n");
+                return;
+            }
+            if (line == null) {
+                respond(client, 400, "Bad Request", "incomplete headers\n");
+                return;
+            }
+            headerBytes += line.length() + 2;
+            if (headerBytes > MAX_HEADER_BYTES) {
+                respond(client, 431, "Request Header Fields Too Large", "headers too large\n");
+                return;
+            }
+            if (line.isEmpty()) {
+                break;
+            }
+            headerCount++;
+            if (headerCount > MAX_HEADER_COUNT) {
+                respond(client, 431, "Request Header Fields Too Large", "too many headers\n");
+                return;
+            }
         }
 
         if (!"GET".equals(method)) {
@@ -111,8 +195,32 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         } else if (!"/metrics".equals(path)) {
             respond(client, 404, "Not Found", "not found\n");
         } else {
-            respond(client, 200, "OK", registry.scrape());
+            respond(client, 200, "OK", scrape.get());
         }
+    }
+
+    private static String readBoundedLine(InputStream input, int maxBytes)
+            throws IOException, LineTooLongException {
+        ByteArrayOutputStream line = new ByteArrayOutputStream(Math.min(maxBytes, 256));
+        int value;
+        while ((value = input.read()) != -1) {
+            if (value == '\n') {
+                break;
+            }
+            if (line.size() >= maxBytes) {
+                throw new LineTooLongException();
+            }
+            line.write(value);
+        }
+        if (value == -1 && line.size() == 0) {
+            return null;
+        }
+        byte[] bytes = line.toByteArray();
+        int length = bytes.length;
+        if (length > 0 && bytes[length - 1] == '\r') {
+            length--;
+        }
+        return new String(bytes, 0, length, StandardCharsets.US_ASCII);
     }
 
     private static void respond(Socket client, int status, String reason, String body)
@@ -127,6 +235,20 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         client.getOutputStream().flush();
     }
 
+    private static void closeQuietly(Socket socket) {
+        try {
+            socket.close();
+        } catch (IOException ignored) {
+            // The socket is already unusable.
+        }
+    }
+
+    boolean hasActiveClient() {
+        synchronized (clientLifecycleLock) {
+            return activeClient != null;
+        }
+    }
+
     @Override
     public void close() {
         if (!running.compareAndSet(true, false)) {
@@ -137,11 +259,31 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
         } catch (IOException ignored) {
             // Shutdown is best-effort; the acceptor is daemon-owned.
         }
+        synchronized (clientLifecycleLock) {
+            if (activeClient != null) {
+                closeQuietly(activeClient);
+            }
+        }
         try {
             acceptor.join(CLIENT_TIMEOUT_MILLIS + 500L);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
-        registry.close();
+    }
+
+    private void closeRegistrySafely() {
+        closeRegistrySafely(closeRegistry);
+    }
+
+    private static void closeRegistrySafely(Runnable closeRegistry) {
+        try {
+            closeRegistry.run();
+        } catch (RuntimeException ignored) {
+            // Registry cleanup must not escape startup or the daemon-owned acceptor thread.
+        }
+    }
+
+    private static final class LineTooLongException extends Exception {
+        private static final long serialVersionUID = 1L;
     }
 }
