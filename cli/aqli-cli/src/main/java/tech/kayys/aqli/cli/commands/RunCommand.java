@@ -1308,6 +1308,18 @@ public class RunCommand implements Runnable {
                     mirostat,
                     grammar));
 
+            RuntimeExecutionRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new RuntimeExecutionRunRequestParameterMapper.Options(
+                            quantizeStrategy,
+                            quantizeBits,
+                            quantizeKv,
+                            runtimeProfile,
+                            effectiveRunnerRouteReport.toMetadata(),
+                            runner,
+                            effectiveRunnerRouteReport.normalizedRunner(),
+                            requestedGgufEngine()));
+            ImageGenerationRunRequestParameterMapper.apply(
             if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
                 requestBuilder.parameter("quantize_strategy", quantizeStrategy);
                 requestBuilder.parameter("quantize_bits", quantizeBits);
