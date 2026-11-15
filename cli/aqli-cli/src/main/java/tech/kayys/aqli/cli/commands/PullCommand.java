@@ -265,7 +265,7 @@ public class PullCommand implements Runnable {
     private boolean globMatches(String pattern, String filename) {
         String base = Path.of(filename).getFileName().toString().toLowerCase(Locale.ROOT);
         String normalizedPattern = pattern.toLowerCase(Locale.ROOT);
-        String regex = normalizedPattern.replace(".", "\\\\.").replace("*", ".*").replace("?", ".");
+        String regex = normalizedPattern.replace(".", "\\.").replace("*", ".*").replace("?", ".");
         return base.matches(regex);
     }
 
