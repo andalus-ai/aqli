@@ -1336,7 +1336,7 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            guidanceScale,
+                            guidanceScale == null ? null : guidanceScale.doubleValue(),
                             outputPath,
                             width,
                             height));
