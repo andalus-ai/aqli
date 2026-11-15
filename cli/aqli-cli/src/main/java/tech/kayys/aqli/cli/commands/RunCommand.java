@@ -1292,12 +1292,12 @@ public class RunCommand implements Runnable {
                             grammar,
                             noCache));
 
-            if (customModelPathUsed && finalLocalPath != null) {
-                requestBuilder.parameter("model_path", finalLocalPath);
-            }
-            if (requestedModelRef != null && !requestedModelRef.isBlank()) {
-                requestBuilder.parameter("requested_model_ref", requestedModelRef);
-            }
+            ModelSourceRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ModelSourceRunRequestParameterMapper.Options(
+                            customModelPathUsed,
+                            finalLocalPath,
+                            requestedModelRef));
             TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
                     temperature,
                     topP,
