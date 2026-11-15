@@ -33,11 +33,12 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     private final Supplier<String> scrape;
     private final Runnable closeRegistry;
     private final AtomicBoolean running = new AtomicBoolean(true);
+    private final AtomicBoolean closed = new AtomicBoolean();
     private final Object clientLifecycleLock = new Object();
     private final Thread acceptor;
     private Socket activeClient;
 
-    private GgufDaemonMetricsServer(
+    GgufDaemonMetricsServer(
             ServerSocket server, Supplier<String> scrape, Runnable closeRegistry) {
         this.server = server;
         this.scrape = scrape;
@@ -107,11 +108,13 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             try {
                 client = server.accept();
             } catch (IOException | RuntimeException exception) {
-                if (!running.get()) {
-                    return;
+                if (running.get()) {
+                    // The metrics listener is isolated from inference; stop this endpoint
+                    // rather than retrying a persistently failed accept in a tight loop.
+                    running.set(false);
+                    closeServerQuietly();
                 }
-                // A listener failure must not affect inference.
-                continue;
+                return;
             }
 
             synchronized (clientLifecycleLock) {
@@ -251,14 +254,11 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
 
     @Override
     public void close() {
-        if (!running.compareAndSet(true, false)) {
+        if (!closed.compareAndSet(false, true)) {
             return;
         }
-        try {
-            server.close();
-        } catch (IOException ignored) {
-            // Shutdown is best-effort; the acceptor is daemon-owned.
-        }
+        running.set(false);
+        closeServerQuietly();
         synchronized (clientLifecycleLock) {
             if (activeClient != null) {
                 closeQuietly(activeClient);
@@ -268,6 +268,14 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             acceptor.join(CLIENT_TIMEOUT_MILLIS + 500L);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private void closeServerQuietly() {
+        try {
+            server.close();
+        } catch (IOException ignored) {
+            // Shutdown and listener-failure cleanup are best-effort.
         }
     }
 
