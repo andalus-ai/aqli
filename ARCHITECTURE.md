@@ -229,7 +229,9 @@ Provider-specific operations follow the same typed-capability rule. For example,
 `HuggingFacePullRequest` owns repository include patterns and task classification, while
 `ModelPullRequest` remains provider-neutral. CLI, REST, gRPC, and programmatic adapters map
 provider-specific wire/CLI options into that SDK capability contract rather than calling a
-repository implementation directly or silently dropping options.
+repository implementation directly or silently dropping options. REST uses `format`,
+`includePatterns`, and `taskType`; gRPC uses `format`, `include_patterns`, and `task_type`
+with additive protobuf fields. Other providers continue through the generic pull request.
 
 ### Module introduction and parity
 
