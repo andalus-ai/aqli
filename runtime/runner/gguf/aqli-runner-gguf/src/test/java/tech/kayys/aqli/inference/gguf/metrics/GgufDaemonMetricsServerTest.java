@@ -9,6 +9,7 @@ import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,31 @@ class GgufDaemonMetricsServerTest {
             connection.setReadTimeout(2_000);
             assertEquals(404, connection.getResponseCode());
             connection.disconnect();
+        }
+    }
+
+    @Test
+    void rejectsOversizedRequestLinesAndHeaders() throws Exception {
+        PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+        try (GgufDaemonMetricsServer server = GgufDaemonMetricsServer.start(
+                registry::scrape, registry::close, 0)) {
+            String oversizedRequestLine = "GET /" + "a".repeat(5_000) + " HTTP/1.1\r\n\r\n";
+            assertEquals(414, requestStatus(server, oversizedRequestLine));
+
+            String oversizedHeader = "GET /metrics HTTP/1.1\r\n"
+                    + "X-Test: " + "a".repeat(5_000) + "\r\n\r\n";
+            assertEquals(431, requestStatus(server, oversizedHeader));
+        }
+    }
+
+    private static int requestStatus(GgufDaemonMetricsServer server, String request)
+            throws Exception {
+        try (Socket socket = new Socket(InetAddress.getLoopbackAddress(), server.port())) {
+            socket.setSoTimeout(2_000);
+            socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+            String response = new String(socket.getInputStream().readAllBytes(), StandardCharsets.US_ASCII);
+            return Integer.parseInt(response.split(" ", 3)[1]);
         }
     }
 }
