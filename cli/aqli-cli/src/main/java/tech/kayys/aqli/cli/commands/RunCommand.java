@@ -47,6 +47,7 @@ import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
+import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1275,19 +1276,15 @@ public class RunCommand implements Runnable {
             RagRunRequestConfiguration.RagContext ragContext =
                     RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
 
-            InferenceRequest.Builder requestBuilder = InferenceRequest.builder()
-                    .requestId(UUID.randomUUID().toString())
-                    .model(requestModelTarget)
-                    .prompt(prompt)
-                    .plugin(pluginId)
-                    .streaming(effectiveStream);
-
-            if (customModelPathUsed && finalLocalPath != null) {
-                requestBuilder.parameter("model_path", finalLocalPath);
-            }
-            if (requestedModelRef != null && !requestedModelRef.isBlank()) {
-                requestBuilder.parameter("requested_model_ref", requestedModelRef);
-            }
+            InferenceRequest.Builder requestBuilder = RunRequestBaseAssembler.create(
+                    new RunRequestBaseAssembler.Options(
+                            requestModelTarget,
+                            prompt,
+                            pluginId,
+                            effectiveStream,
+                            customModelPathUsed,
+                            finalLocalPath,
+                            requestedModelRef));
             TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
                     temperature,
                     topP,
