@@ -23,6 +23,7 @@ import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
+import tech.kayys.aqli.sdk.model.ModelPullRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -165,7 +166,13 @@ public class ModelsResource {
                         .build();
                 jobId = jobManager.startPullJob(request);
             } else {
-                jobId = jobManager.startPullJob(dto.modelSpec(), dto.revision(), dto.force());
+                ModelPullRequest request = ModelPullRequest.builder()
+                        .modelSpec(dto.modelSpec())
+                        .revision(dto.revision())
+                        .format(dto.format())
+                        .force(dto.force())
+                        .build();
+                jobId = jobManager.startPullJob(request);
             }
             meterRegistry.counter("aqli.rest.model.pull.count").increment();
             LOG.info("Started pull job {} for modelSpec: {}", jobId, dto.modelSpec());
