@@ -310,7 +310,7 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
         if (singleUserTurn) {
             // CLI can contribute both an instruction system prompt and a retrieval context.
             // Preserve both in order while keeping the backend's single-turn prompt policy.
-            String system = systemMessages.isEmpty() ? null : String.join("\\n\\n", systemMessages);
+            String system = systemMessages.isEmpty() ? null : String.join("\n\n", systemMessages);
             return DirectSafetensorTextPolicy.preparePrompt(profile, system, turns.get(0).getContent());
         }
         if (turns.isEmpty()) {
