@@ -42,7 +42,6 @@ import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRunner;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
@@ -1397,7 +1396,18 @@ public class RunCommand implements Runnable {
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
             RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
 
+            boolean directSafetensorEligible = shouldUseDirectSafetensorRunPath(providerId, finalLocalPath);
+            boolean directSafetensorSdkRoute = directSafetensorEligible && !effectiveStream;
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
+            if (directSafetensorSdkRoute) {
+                DirectSafetensorRunProfile directProfile =
+                        directSafetensorRunProfile(executionProviderId, finalLocalPath);
+                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile)) {
+                    // Match the former direct runner: retain explicit prompts and Qwen's default,
+                    // but do not inject the generic CLI default for other direct model families.
+                    effectiveSystemPrompt = null;
+                }
+            }
             String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
             RunConversationRequestAssembler.apply(
                     requestBuilder,
@@ -1423,38 +1433,21 @@ public class RunCommand implements Runnable {
             }
 
             if (explicitJavaEngine() && isSafetensorModelPath(finalLocalPath)
-                    && !shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
+                    && !directSafetensorEligible) {
                 System.err.println("Error: --java requested the pure-Java safetensor engine, but it cannot run this request: "
                         + directSafetensorDeclineReason(finalLocalPath)
                         + ". Not falling back to libtorch or GGUF; drop --java to allow other routes.");
                 requestProcessExit(1);
                 return;
             }
-            if (shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
-                DirectSafetensorRunProfile directProfile =
-                        directSafetensorRunProfile(executionProviderId, finalLocalPath);
-                boolean useCliDirectSystemPrompt =
-                        DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile);
-                String explicitDirectSystemPrompt = useCliDirectSystemPrompt
-                        ? effectiveSystemPrompt
-                        : null;
-                System.err.println("Directly generating...");
-                InferenceResponse response = DirectSafetensorCompletionRunner.run(
-                        directInferenceEngine(),
-                        new DirectSafetensorCompletionRunner.Request(
-                                resolveSafetensorCheckpointPath(finalLocalPath),
-                                directProfile,
-                                prompt,
-                                explicitDirectSystemPrompt,
-                                maxTokens,
-                                temperature,
-                                topK,
-                                topP,
-                                repeatPenalty,
-                                quantizeKv,
-                                seed,
-                                quantizeStrategy));
-                System.err.println("Generated response: '" + response.getContent() + "'");
+            if (directSafetensorSdkRoute) {
+                System.err.println("Running pure-Java Safetensors completion through the AQLI SDK...");
+                InferenceResponse response = sdk.createCompletion(request);
+                if (response == null) {
+                    System.err.println("Error: inference returned an empty response.");
+                    requestProcessExit(1);
+                    return;
+                }
                 printResponse(response, startTime);
                 requestProcessExit();
             } else if (effectiveStream) {
