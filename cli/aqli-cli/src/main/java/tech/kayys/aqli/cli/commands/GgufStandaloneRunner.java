@@ -20,12 +20,12 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.channels.FileChannel;
-import java.nio.ByteBuffer;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -1208,7 +1208,8 @@ public final class GgufStandaloneRunner {
                 Thread::sleep,
                 100L,
                 () -> daemonStartupFailureSince(startupLogOffset),
-                message -> System.err.println("GGUF daemon startup failed: " + message));
+                message -> System.err.println("GGUF daemon startup failed: " + message
+                        + " (log: " + daemonLogFile() + ")"));
     }
 
     private static long daemonLogSize() {
@@ -1226,8 +1227,9 @@ public final class GgufStandaloneRunner {
             if (size <= offset) {
                 return Optional.empty();
             }
-            long length = Math.min(16_384L, size - offset);
-            channel.position(offset);
+            long start = Math.max(offset, size - 16_384L);
+            long length = size - start;
+            channel.position(start);
             ByteBuffer buffer = ByteBuffer.allocate((int) length);
             while (buffer.hasRemaining() && channel.read(buffer) > 0) {
                 // Read only the bounded bytes appended by this launch.
