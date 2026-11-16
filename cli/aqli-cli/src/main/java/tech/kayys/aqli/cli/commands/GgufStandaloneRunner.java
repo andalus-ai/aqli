@@ -1202,7 +1202,8 @@ public final class GgufStandaloneRunner {
                 GgufStandaloneRunner::daemonStartTimeoutMillis,
                 System::nanoTime,
                 Thread::sleep,
-                100L);
+                100L,
+                System.err::println);
     }
 
     static String daemonLauncherMode() {
