@@ -87,6 +87,7 @@ class GgufDaemonStartupCoordinatorTest {
 
         assertEquals(3, probes.get());
     }
+
     @Test
     void reportsDaemonInitializationFailureWithoutWaitingForReadinessTimeout() throws Exception {
         Path log = Files.createTempFile("aqli-daemon-startup", ".log");
