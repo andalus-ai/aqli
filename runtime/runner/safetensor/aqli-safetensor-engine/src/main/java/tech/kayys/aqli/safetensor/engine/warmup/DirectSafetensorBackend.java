@@ -41,9 +41,8 @@ import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy;
  *
  * <p>The model architecture is not decided here. {@code DirectInferenceEngine} resolves it through
  * the model-family plugin registry from the checkpoint's own {@code config.json}, so this class
- * stays architecture-neutral. It mirrors the CLI's direct-run driver
- * ({@code RunCommand#runDirectSafetensorCompletion}) so a request through this backend and
- * {@code aqli run --java} behave the same.
+ * stays architecture-neutral. The CLI selects this backend through the SDK engine catalog; prompt
+ * preparation, request mapping, loading, generation, and response sanitisation remain here.
  *
  * <p>Request mapping:
  * <ul>
@@ -52,7 +51,7 @@ import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy;
  *       {@code .safetensors} file;</li>
  *   <li>sampling: {@code temperature}, {@code topK}, {@code topP}, {@code repeatPenalty},
  *       {@code maxTokens} from the request, {@code seed} from parameters;</li>
- *   <li>optional parameters: {@code quantize} (weight quantisation strategy) and
+ *   <li>optional parameters: {@code quantize_strategy} (legacy alias {@code quantize}) and
  *       {@code quantize_kv} / {@code kv_cache_quant} ({@code int8}, {@code int4},
  *       {@code turbo});</li>
  *   <li>prompt: a single system+user turn (or {@code getPrompt()}) goes through
