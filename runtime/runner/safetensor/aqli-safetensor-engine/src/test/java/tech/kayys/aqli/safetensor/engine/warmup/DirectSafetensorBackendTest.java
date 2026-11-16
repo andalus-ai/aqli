@@ -67,6 +67,17 @@ class DirectSafetensorBackendTest {
     }
 
     @Test
+    void planReadsTheSdkRequestQuantizationStrategyParameter() {
+        InferenceRequest request = InferenceRequest.builder()
+                .model(tmp.toString())
+                .prompt("Hello")
+                .parameter("quantize_strategy", "int8")
+                .build();
+
+        assertEquals("int8", new DirectSafetensorBackend().plan(request).quantizeStrategy());
+    }
+
+    @Test
     void checkpointDirectoryIsUsedAsIs() throws Exception {
         Path dir = Files.createDirectory(tmp.resolve("model"));
         assertEquals(dir.toAbsolutePath().normalize(), DirectSafetensorBackend.resolveCheckpointPath(dir.toString()));
