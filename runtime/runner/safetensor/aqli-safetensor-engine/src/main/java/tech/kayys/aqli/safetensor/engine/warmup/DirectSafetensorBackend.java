@@ -295,17 +295,22 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
             return DirectSafetensorTextPolicy.preparePrompt(profile, null, prompt);
         }
 
-        String system = null;
+        List<String> systemMessages = new ArrayList<>();
         List<Message> turns = new ArrayList<>();
         for (Message m : messages) {
-            if (m.getRole() == Message.Role.SYSTEM && system == null) {
-                system = m.getContent();
+            if (m.getRole() == Message.Role.SYSTEM) {
+                if (m.getContent() != null && !m.getContent().isBlank()) {
+                    systemMessages.add(m.getContent());
+                }
             } else {
                 turns.add(m);
             }
         }
         boolean singleUserTurn = turns.size() == 1 && turns.get(0).getRole() == Message.Role.USER;
         if (singleUserTurn) {
+            // CLI can contribute both an instruction system prompt and a retrieval context.
+            // Preserve both in order while keeping the backend's single-turn prompt policy.
+            String system = systemMessages.isEmpty() ? null : String.join("\\n\\n", systemMessages);
             return DirectSafetensorTextPolicy.preparePrompt(profile, system, turns.get(0).getContent());
         }
         if (turns.isEmpty()) {
