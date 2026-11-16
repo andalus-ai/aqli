@@ -5,9 +5,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.function.Consumer;
 
 /**
  * Coordinates detached daemon launch and readiness detection.
@@ -106,6 +106,7 @@ final class GgufDaemonStartupCoordinator {
                 + " ms; inspect the daemon log for details");
         return false;
     }
+
     private void reportFailure(String message) {
         try {
             failureReporter.accept(message);
