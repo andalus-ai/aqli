@@ -7,8 +7,8 @@ import java.util.Map;
  * Provider-owned options for pulling a Hugging Face repository.
  *
  * <p>These options deliberately do not extend {@link ModelPullRequest}: file
- * selection and task classification are Hugging Face repository semantics,
- * not generic model-pull concerns.</p>
+ * selection, task classification, repository architecture, and manifest metadata
+ * are Hugging Face repository semantics, not generic model-pull concerns.</p>
  */
 public record HuggingFacePullRequest(
         String modelSpec,
