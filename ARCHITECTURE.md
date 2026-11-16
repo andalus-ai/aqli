@@ -227,7 +227,7 @@ documented ownership, validation, and a migration/removal plan.
 
 Provider-specific operations follow the same typed-capability rule. For example,
 `HuggingFacePullRequest` owns repository include patterns and task classification, while
-`ModelPullRequest` remains provider-neutral. CLI, REST, gRPC, and programmatic adapters map
+`ModelPullRequest` remains provider-neutral. It also preserves optional repository architecture and metadata for manifest classification and provenance. CLI, REST, gRPC, and programmatic adapters map
 provider-specific wire/CLI options into that SDK capability contract rather than calling a
 repository implementation directly or silently dropping options. REST uses `format`,
 `includePatterns`, and `taskType`; gRPC uses `format`, `include_patterns`, and `task_type`
