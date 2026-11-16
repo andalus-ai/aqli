@@ -96,6 +96,7 @@ class GgufDaemonStartupCoordinatorTest {
     void returnsFalseWhenReadinessTimeoutExpires() throws Exception {
         AtomicLong now = new AtomicLong();
         AtomicInteger probes = new AtomicInteger();
+        List<String> failures = new java.util.ArrayList<>();
         GgufDaemonStartupCoordinator coordinator = new GgufDaemonStartupCoordinator(
                 (command, mode, label, log, mac, debug, nativePaths) -> true,
                 () -> {
