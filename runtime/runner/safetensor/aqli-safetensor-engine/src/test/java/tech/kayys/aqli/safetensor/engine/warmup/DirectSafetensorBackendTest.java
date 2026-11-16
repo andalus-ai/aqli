@@ -46,6 +46,24 @@ class DirectSafetensorBackendTest {
     }
 
     @Test
+    void singleUserTurnPreservesMultipleSystemMessagesInOrder() {
+        InferenceRequest request = InferenceRequest.builder()
+                .model("/models/qwen")
+                .message(tech.kayys.aljabr.spi.Message.system("Primary instruction"))
+                .message(tech.kayys.aljabr.spi.Message.system("Retrieved context"))
+                .message(tech.kayys.aljabr.spi.Message.user("Hello"))
+                .build();
+        var profile = new tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRunProfile(
+                null, "qwen2", tech.kayys.aljabr.spi.model.ModelRuntimeTraits.EMPTY);
+
+        String actual = DirectSafetensorBackend.buildPrompt(request, profile);
+        String expected = tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy.preparePrompt(
+                profile, "Primary instruction\\n\\nRetrieved context", "Hello");
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
     void checkpointDirectoryIsUsedAsIs() throws Exception {
         Path dir = Files.createDirectory(tmp.resolve("model"));
         assertEquals(dir.toAbsolutePath().normalize(), DirectSafetensorBackend.resolveCheckpointPath(dir.toString()));
