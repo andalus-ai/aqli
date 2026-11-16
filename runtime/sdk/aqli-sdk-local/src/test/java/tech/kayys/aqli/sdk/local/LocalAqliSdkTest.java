@@ -26,6 +26,7 @@ import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.sdk.model.PullProgress;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 import tech.kayys.aqli.spi.inference.InferenceEngineDescriptor;
 import tech.kayys.aljabr.spi.model.ModelInfo;
@@ -132,8 +133,8 @@ class LocalAqliSdkTest {
         HuggingFaceRepository repository = mock(HuggingFaceRepository.class);
         Path target = Path.of("/tmp/aqli-filtered-model");
         when(repository.pullRepository(
-                eq("org/model"), eq("release"), eq("gguf"), isNull(),
-                eq(Map.of()), eq(List.of("*.gguf")), eq(true), eq("text"),
+                eq("org/model"), eq("release"), eq("gguf"), eq("moss-audio-tokenizer"),
+                eq(Map.of("fallback", "typed-capability-test")), eq(List.of("*.gguf")), eq(true), eq("text"),
                 any(DownloadProgressListener.class)))
                 .thenReturn(target);
 
@@ -151,6 +152,8 @@ class LocalAqliSdkTest {
                 .includePatterns(List.of("*.gguf"))
                 .force(true)
                 .taskType("text")
+                .architecture("moss-audio-tokenizer")
+                .metadata(Map.of("fallback", "typed-capability-test"))
                 .build(), progress::add);
 
         assertEquals("org/model", result.repositoryId());
@@ -158,8 +161,8 @@ class LocalAqliSdkTest {
         org.mockito.ArgumentCaptor<DownloadProgressListener> listener =
                 org.mockito.ArgumentCaptor.forClass(DownloadProgressListener.class);
         verify(repository).pullRepository(
-                eq("org/model"), eq("release"), eq("gguf"), isNull(),
-                eq(Map.of()), eq(List.of("*.gguf")), eq(true), eq("text"), listener.capture());
+                eq("org/model"), eq("release"), eq("gguf"), eq("moss-audio-tokenizer"),
+                eq(Map.of("fallback", "typed-capability-test")), eq(List.of("*.gguf")), eq(true), eq("text"), listener.capture());
 
         listener.getValue().onProgress(512, 1024, 0.5);
         listener.getValue().onComplete(1024);
