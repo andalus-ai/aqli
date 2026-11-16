@@ -1222,7 +1222,8 @@ public final class GgufStandaloneRunner {
         }
         return GgufDaemonMetricsServer.start(
                 sessionCache,
-                CONFIG.intValue("aqli.gguf.fast_run.daemon_metrics_port", 9464));
+                CONFIG.intValue("aqli.gguf.fast_run.daemon_metrics_port", 9464),
+                failure -> daemonLog("metrics endpoint stopped: " + briefMessage(failure)));
     }
 
     private static int runDaemon() {
