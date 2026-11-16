@@ -1,6 +1,7 @@
 package tech.kayys.aqli.sdk.model;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Provider-owned options for pulling a Hugging Face repository.
@@ -15,16 +16,25 @@ public record HuggingFacePullRequest(
         String format,
         List<String> includePatterns,
         boolean force,
-        String taskType) {
+        String taskType,
+        String architecture,
+        Map<String, String> metadata) {
 
     public HuggingFacePullRequest {
         if (modelSpec == null || modelSpec.isBlank()) {
             throw new IllegalArgumentException("modelSpec is required");
         }
         includePatterns = includePatterns == null ? List.of() : List.copyOf(includePatterns);
+        metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
         if (includePatterns.stream().anyMatch(pattern -> pattern == null || pattern.isBlank())) {
             throw new IllegalArgumentException("includePatterns must not contain blank patterns");
         }
+    }
+
+    /** Backward-compatible constructor for the original typed capability shape. */
+    public HuggingFacePullRequest(String modelSpec, String revision, String format,
+            List<String> includePatterns, boolean force, String taskType) {
+        this(modelSpec, revision, format, includePatterns, force, taskType, null, Map.of());
     }
 
     public static Builder builder() {
@@ -38,6 +48,8 @@ public record HuggingFacePullRequest(
         private List<String> includePatterns = List.of();
         private boolean force;
         private String taskType;
+        private String architecture;
+        private Map<String, String> metadata = Map.of();
 
         public Builder modelSpec(String modelSpec) {
             this.modelSpec = modelSpec;
@@ -69,9 +81,19 @@ public record HuggingFacePullRequest(
             return this;
         }
 
+        public Builder architecture(String architecture) {
+            this.architecture = architecture;
+            return this;
+        }
+
+        public Builder metadata(Map<String, String> metadata) {
+            this.metadata = metadata;
+            return this;
+        }
+
         public HuggingFacePullRequest build() {
             return new HuggingFacePullRequest(
-                    modelSpec, revision, format, includePatterns, force, taskType);
+                    modelSpec, revision, format, includePatterns, force, taskType, architecture, metadata);
         }
     }
 }
