@@ -1,9 +1,9 @@
 package tech.kayys.aqli.sdk.core;
 
-import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
@@ -19,8 +19,6 @@ import java.util.UUID;
  * InferenceRequests, allowing a unified multi-turn chat and tool-use
  * experience across CLI, REST API, gRPC, and embedded environments (Wayang).
  */
-import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
-
 public final class AqliChatService {
     private final SdkObservabilityProvider obs;
 
@@ -33,17 +31,17 @@ public final class AqliChatService {
     }
 
     public Multi<StreamingInferenceChunk> streamChat(
-            AqliRuntime sdk, 
-            String modelId, 
+            AqliRuntime sdk,
+            String modelId,
             String systemPrompt,
-            List<Message> history, 
-            List<ToolDefinition> tools, 
+            List<Message> history,
+            List<ToolDefinition> tools,
             ChatParams p) {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
         obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
         long startMs = System.currentTimeMillis();
-        
+
         return sdk.streamCompletion(req)
                 .onItem().invoke(chunk -> {
                     obs.getMetricsCollector().recordClientChunk(modelId);
@@ -63,17 +61,17 @@ public final class AqliChatService {
     }
 
     public Uni<InferenceResponse> chat(
-            AqliRuntime sdk, 
-            String modelId, 
+            AqliRuntime sdk,
+            String modelId,
             String systemPrompt,
-            List<Message> history, 
-            List<ToolDefinition> tools, 
+            List<Message> history,
+            List<ToolDefinition> tools,
             ChatParams p) {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, false);
         obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
         long startMs = System.currentTimeMillis();
-        
+
         return Uni.createFrom().completionStage(() -> sdk.createCompletionAsync(req))
                 .onItem().invoke(resp -> {
                     long duration = System.currentTimeMillis() - startMs;
@@ -96,17 +94,16 @@ public final class AqliChatService {
             String prompt,
             ChatParams params,
             boolean streaming) {
-        return InferenceRequest.builder()
+        InferenceRequest.Builder request = InferenceRequest.builder()
                 .requestId(UUID.randomUUID().toString())
                 .model(modelId)
                 .prompt(prompt)
                 .message(Message.user(prompt))
                 .streaming(streaming)
-                .parameter("temperature", params.temperature())
-                .parameter("max_tokens", params.maxTokens())
-                .parameter("top_p", params.topP())
-                .parameter("repeat_penalty", params.repeatPenalty())
-                .build();
+                .preferredProvider(params.preferredProvider());
+
+        TextGenerationRequestMapper.apply(request, toTextGenerationOptions(params));
+        return request.build();
     }
 
     /**
@@ -115,11 +112,11 @@ public final class AqliChatService {
      * into the shared {@link Message} representation.
      */
     public InferenceRequest createRequest(
-            String modelId, 
+            String modelId,
             String systemPrompt,
-            List<Message> history, 
+            List<Message> history,
             List<ToolDefinition> tools,
-            ChatParams p, 
+            ChatParams params,
             boolean streaming) {
 
         List<Message> messages = new ArrayList<>();
@@ -130,20 +127,30 @@ public final class AqliChatService {
             messages.addAll(history);
         }
 
-        InferenceRequest.Builder reqBuilder = InferenceRequest.builder()
+        InferenceRequest.Builder request = InferenceRequest.builder()
                 .requestId(UUID.randomUUID().toString())
                 .model(modelId)
                 .messages(messages)
                 .streaming(streaming)
-                .parameter("temperature", p.temperature())
-                .parameter("max_tokens", p.maxTokens())
-                .parameter("top_p", p.topP())
-                .parameter("repeat_penalty", p.repeatPenalty());
+                .preferredProvider(params.preferredProvider());
 
+        TextGenerationRequestMapper.apply(request, toTextGenerationOptions(params));
         if (tools != null && !tools.isEmpty()) {
-            reqBuilder.tools(tools);
+            request.tools(tools);
         }
 
-        return reqBuilder.build();
+        return request.build();
+    }
+
+    private static TextGenerationOptions toTextGenerationOptions(ChatParams params) {
+        return new TextGenerationOptions(
+                params.temperature(),
+                params.topP(),
+                40,
+                params.repeatPenalty(),
+                false,
+                params.maxTokens(),
+                0,
+                null);
     }
 }
