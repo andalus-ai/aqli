@@ -51,6 +51,7 @@ import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeResponseCacheRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
