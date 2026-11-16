@@ -49,6 +49,7 @@ class GgufDaemonMetricsServerTest {
         failedListener.close();
 
         AtomicInteger registryCloseCount = new AtomicInteger();
+        AtomicInteger listenerFailureCount = new AtomicInteger();
         CountDownLatch registryClosed = new CountDownLatch(1);
         GgufDaemonMetricsServer server = new GgufDaemonMetricsServer(
                 failedListener,
@@ -56,7 +57,7 @@ class GgufDaemonMetricsServerTest {
                 () -> {
                     registryCloseCount.incrementAndGet();
                     registryClosed.countDown();
-                });
+                }, failure -> listenerFailureCount.incrementAndGet());
 
         assertTrue(registryClosed.await(1, TimeUnit.SECONDS),
                 "acceptor must terminate after a persistent listener failure");
@@ -64,6 +65,8 @@ class GgufDaemonMetricsServerTest {
 
         server.close();
         server.close();
+        assertEquals(1, listenerFailureCount.get(),
+                "the listener failure must be reported exactly once");
         assertEquals(1, registryCloseCount.get(),
                 "registry cleanup must happen exactly once after acceptor termination");
     }
