@@ -96,7 +96,7 @@ class GgufDaemonStartupCoordinatorTest {
             AtomicInteger sleeps = new AtomicInteger();
             GgufDaemonStartupCoordinator coordinator = new GgufDaemonStartupCoordinator(
                     (command, mode, label, logFile, mac, debug, nativePaths) -> {
-                        Files.writeString(logFile, "GGUF daemon failed: metrics port is occupied\\n");
+                        Files.writeString(logFile, "GGUF daemon failed: metrics port is occupied\n");
                         return true;
                     },
                     OptionalInt::empty,
