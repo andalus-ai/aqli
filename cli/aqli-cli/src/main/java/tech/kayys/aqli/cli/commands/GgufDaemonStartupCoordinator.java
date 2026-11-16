@@ -153,7 +153,7 @@ final class GgufDaemonStartupCoordinator {
             if (markerIndex < 0) {
                 return new OptionalFailure(null);
             }
-            int lineEnd = appended.indexOf("\\n", markerIndex);
+            int lineEnd = appended.indexOf("\n", markerIndex);
             String line = appended.substring(markerIndex, lineEnd < 0 ? appended.length() : lineEnd).trim();
             return new OptionalFailure(line);
         } catch (IOException ignored) {
