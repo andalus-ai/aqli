@@ -34,7 +34,6 @@ import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.LocalInferenceEngine;
-import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 
 class LocalAqliSdkTest {
 
