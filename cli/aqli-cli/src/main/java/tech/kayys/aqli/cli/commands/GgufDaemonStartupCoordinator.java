@@ -1,12 +1,18 @@
 package tech.kayys.aqli.cli.commands;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 /**
  * Coordinates detached daemon launch and readiness detection.
@@ -40,6 +46,7 @@ final class GgufDaemonStartupCoordinator {
     private final LongSupplier nanoTime;
     private final Sleeper sleeper;
     private final long readinessPollMillis;
+    private final Consumer<String> startupFailureReporter;
 
     GgufDaemonStartupCoordinator(
             Launcher launcher,
@@ -48,12 +55,25 @@ final class GgufDaemonStartupCoordinator {
             LongSupplier nanoTime,
             Sleeper sleeper,
             long readinessPollMillis) {
+        this(launcher, portProvider, startupTimeoutMillis, nanoTime, sleeper,
+                readinessPollMillis, ignored -> { });
+    }
+
+    GgufDaemonStartupCoordinator(
+            Launcher launcher,
+            Supplier<OptionalInt> portProvider,
+            LongSupplier startupTimeoutMillis,
+            LongSupplier nanoTime,
+            Sleeper sleeper,
+            long readinessPollMillis,
+            Consumer<String> startupFailureReporter) {
         this.launcher = launcher;
         this.portProvider = portProvider;
         this.startupTimeoutMillis = startupTimeoutMillis;
         this.nanoTime = nanoTime;
         this.sleeper = sleeper;
         this.readinessPollMillis = Math.max(1L, readinessPollMillis);
+        this.startupFailureReporter = startupFailureReporter;
     }
 
     boolean start(
@@ -64,7 +84,9 @@ final class GgufDaemonStartupCoordinator {
             boolean macOs,
             boolean debug,
             String nativePaths) throws IOException, InterruptedException {
+        long logOffset = logSize(logFile);
         if (!launcher.launch(command, mode, label, logFile, macOs, debug, nativePaths)) {
+            report("GGUF daemon launcher did not accept the startup request; see " + logFile);
             return false;
         }
 
@@ -74,8 +96,71 @@ final class GgufDaemonStartupCoordinator {
             if (portProvider.get().isPresent()) {
                 return true;
             }
+            OptionalFailure failure = startupFailure(logFile, logOffset);
+            if (failure.message != null) {
+                report("GGUF daemon exited during startup: " + failure.message
+                        + " (log: " + logFile + ")");
+                return false;
+            }
             sleeper.sleep(readinessPollMillis);
         }
-        return portProvider.get().isPresent();
+        if (portProvider.get().isPresent()) {
+            return true;
+        }
+        OptionalFailure failure = startupFailure(logFile, logOffset);
+        if (failure.message != null) {
+            report("GGUF daemon exited during startup: " + failure.message
+                    + " (log: " + logFile + ")");
+        } else {
+            report("GGUF daemon did not become ready within " + timeoutMillis
+                    + " ms; inspect " + logFile);
+        }
+        return false;
+    }
+
+    private void report(String message) {
+        try {
+            startupFailureReporter.accept(message);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not change daemon startup or readiness behavior.
+        }
+    }
+
+    private static long logSize(Path logFile) {
+        try {
+            return Files.exists(logFile) ? Files.size(logFile) : 0L;
+        } catch (IOException ignored) {
+            return 0L;
+        }
+    }
+
+    private static OptionalFailure startupFailure(Path logFile, long logOffset) {
+        if (!Files.isRegularFile(logFile)) {
+            return new OptionalFailure(null);
+        }
+        try (SeekableByteChannel channel = Files.newByteChannel(logFile, StandardOpenOption.READ)) {
+            long size = channel.size();
+            channel.position(Math.min(logOffset, size));
+            ByteBuffer buffer = ByteBuffer.allocate(65_536);
+            StringBuilder appended = new StringBuilder();
+            while (appended.length() < 65_536 && channel.read(buffer) > 0) {
+                buffer.flip();
+                appended.append(StandardCharsets.UTF_8.decode(buffer));
+                buffer.clear();
+            }
+            String marker = "GGUF daemon failed:";
+            int markerIndex = appended.indexOf(marker);
+            if (markerIndex < 0) {
+                return new OptionalFailure(null);
+            }
+            int lineEnd = appended.indexOf("\\n", markerIndex);
+            String line = appended.substring(markerIndex, lineEnd < 0 ? appended.length() : lineEnd).trim();
+            return new OptionalFailure(line);
+        } catch (IOException ignored) {
+            return new OptionalFailure(null);
+        }
+    }
+
+    private record OptionalFailure(String message) {
     }
 }
