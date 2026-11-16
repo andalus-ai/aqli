@@ -1238,7 +1238,7 @@ public final class GgufStandaloneRunner {
             if (marker < 0) {
                 return Optional.empty();
             }
-            int end = appended.indexOf('\\n', marker);
+            int end = appended.indexOf('\n', marker);
             String failure = appended.substring(marker + "GGUF daemon failed: ".length(),
                     end < 0 ? appended.length() : end).trim();
             return failure.isEmpty() ? Optional.empty() : Optional.of(failure);
