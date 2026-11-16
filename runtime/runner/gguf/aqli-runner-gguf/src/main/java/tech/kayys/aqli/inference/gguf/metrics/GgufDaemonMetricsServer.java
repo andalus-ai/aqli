@@ -11,6 +11,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import tech.kayys.aqli.inference.gguf.GgufSessionCache;
 
@@ -32,6 +33,7 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     private final ServerSocket server;
     private final Supplier<String> scrape;
     private final Runnable closeRegistry;
+    private final Consumer<Throwable> listenerFailure;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Object clientLifecycleLock = new Object();
@@ -39,10 +41,12 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
     private Socket activeClient;
 
     GgufDaemonMetricsServer(
-            ServerSocket server, Supplier<String> scrape, Runnable closeRegistry) {
+            ServerSocket server, Supplier<String> scrape, Runnable closeRegistry,
+            Consumer<Throwable> listenerFailure) {
         this.server = server;
         this.scrape = scrape;
         this.closeRegistry = closeRegistry;
+        this.listenerFailure = listenerFailure;
         this.acceptor = Thread.ofPlatform()
                 .daemon(true)
                 .name("aqli-gguf-metrics")
@@ -51,7 +55,14 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
 
     public static GgufDaemonMetricsServer start(GgufSessionCache cache, int port)
             throws IOException {
+        return start(cache, port, ignored -> { });
+    }
+
+    public static GgufDaemonMetricsServer start(
+            GgufSessionCache cache, int port, Consumer<Throwable> listenerFailure)
+            throws IOException {
         Objects.requireNonNull(cache, "cache");
+        Objects.requireNonNull(listenerFailure, "listenerFailure");
         PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         try {
             new GgufSessionCacheMetricsBinder(cache).bindTo(registry);
@@ -59,20 +70,27 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             closeRegistrySafely(registry::close);
             throw exception;
         }
-        return start(registry::scrape, registry::close, port);
+        return start(registry::scrape, registry::close, port, listenerFailure);
     }
 
     static GgufDaemonMetricsServer start(
             Supplier<String> scrape, Runnable closeRegistry, int port) throws IOException {
+        return start(scrape, closeRegistry, port, ignored -> { });
+    }
+
+    static GgufDaemonMetricsServer start(
+            Supplier<String> scrape, Runnable closeRegistry, int port,
+            Consumer<Throwable> listenerFailure) throws IOException {
         Objects.requireNonNull(scrape, "scrape");
         Objects.requireNonNull(closeRegistry, "closeRegistry");
+        Objects.requireNonNull(listenerFailure, "listenerFailure");
         ServerSocket server = null;
         try {
             if (port < 0 || port > 65_535) {
                 throw new IllegalArgumentException("metrics port must be between 0 and 65535");
             }
             server = new ServerSocket(port, 16, InetAddress.getLoopbackAddress());
-            return new GgufDaemonMetricsServer(server, scrape, closeRegistry);
+            return new GgufDaemonMetricsServer(server, scrape, closeRegistry, listenerFailure);
         } catch (IOException | RuntimeException exception) {
             if (server != null) {
                 try {
@@ -113,6 +131,7 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
                     // rather than retrying a persistently failed accept in a tight loop.
                     running.set(false);
                     closeServerQuietly();
+                    notifyListenerFailure(exception);
                 }
                 return;
             }
@@ -268,6 +287,14 @@ public final class GgufDaemonMetricsServer implements AutoCloseable {
             acceptor.join(CLIENT_TIMEOUT_MILLIS + 500L);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private void notifyListenerFailure(Throwable failure) {
+        try {
+            listenerFailure.accept(failure);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not interfere with endpoint or daemon cleanup.
         }
     }
 
