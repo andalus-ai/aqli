@@ -1,6 +1,6 @@
 package tech.kayys.aqli.cli.commands.request;
 
-import tech.kayys.aqli.api.inference.InferenceRequest;
+import tech.kayys.aqli.spi.inference.InferenceRequest;
 
 /**
  * Applies profiling flags to the shared inference request.
