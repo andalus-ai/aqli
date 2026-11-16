@@ -57,8 +57,11 @@ class DirectSafetensorBackendTest {
                 null, "qwen2", tech.kayys.aljabr.spi.model.ModelRuntimeTraits.EMPTY);
 
         String actual = DirectSafetensorBackend.buildPrompt(request, profile);
-        String expected = tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy.preparePrompt(
-                profile, "Primary instruction\\n\\nRetrieved context", "Hello");
+        String expected = tech.kayys.aljabr.spi.tokenizer.ChatTemplateFormatter.format(
+                java.util.List.of(
+                        tech.kayys.aljabr.spi.Message.system("Primary instruction\n\nRetrieved context"),
+                        tech.kayys.aljabr.spi.Message.user("Hello")),
+                "qwen2");
 
         assertEquals(expected, actual);
     }
