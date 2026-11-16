@@ -1,9 +1,9 @@
 package tech.kayys.aqli.sdk.core;
 
-import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
@@ -19,8 +19,6 @@ import java.util.UUID;
  * InferenceRequests, allowing a unified multi-turn chat and tool-use
  * experience across CLI, REST API, gRPC, and embedded environments (Wayang).
  */
-import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
-
 public final class AqliChatService {
     private final SdkObservabilityProvider obs;
 
@@ -148,7 +146,7 @@ public final class AqliChatService {
         return new TextGenerationOptions(
                 params.temperature(),
                 params.topP(),
-                0,
+                40,
                 params.repeatPenalty(),
                 false,
                 params.maxTokens(),
