@@ -1296,21 +1296,12 @@ public class RunCommand implements Runnable {
                     mirostat,
                     grammar));
 
-            if (quantizeStrategy != null && !quantizeStrategy.isBlank()) {
-                requestBuilder.parameter("quantize_strategy", quantizeStrategy);
-                requestBuilder.parameter("quantize_bits", quantizeBits);
-            }
-
-            if (quantizeKv != null && !quantizeKv.equalsIgnoreCase("none")) {
-                requestBuilder.parameter("kv_cache_quant", quantizeKv);
-            }
-
-            if (runtimeProfile) {
-                requestBuilder.parameter("profile", true);
-                requestBuilder.parameter("onnx_profile", true);
-                requestBuilder.metadata("profile", true);
-                requestBuilder.metadata("onnx_profile", true);
-            }
+            RuntimeQuantizationRequestConfiguration.apply(
+                    requestBuilder,
+                    quantizeStrategy,
+                    quantizeBits,
+                    quantizeKv);
+            RuntimeProfilingRequestConfiguration.apply(requestBuilder, runtimeProfile);
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
