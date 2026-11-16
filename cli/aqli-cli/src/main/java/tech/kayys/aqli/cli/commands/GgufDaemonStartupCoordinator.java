@@ -106,4 +106,11 @@ final class GgufDaemonStartupCoordinator {
                 + " ms; inspect the daemon log for details");
         return false;
     }
+    private void reportFailure(String message) {
+        try {
+            failureReporter.accept(message);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not change startup outcome.
+        }
+    }
 }
