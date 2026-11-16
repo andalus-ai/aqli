@@ -1389,7 +1389,7 @@ public class RunCommand implements Runnable {
                     ragSystemPrompt,
                     prompt);
 
-            requestBuilder.cacheBypass(noCache);
+            RuntimeResponseCacheRequestConfiguration.apply(requestBuilder, noCache);
 
             InferenceRequest request = requestBuilder.build();
 
