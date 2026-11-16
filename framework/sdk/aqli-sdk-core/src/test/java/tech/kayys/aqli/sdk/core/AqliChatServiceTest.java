@@ -29,7 +29,7 @@ class AqliChatServiceTest {
         assertEquals(0.85, request.getTopP(), 0.0001);
         assertEquals(1.15, request.getRepeatPenalty(), 0.0001);
         assertEquals(256, request.getMaxTokens());
-        assertEquals(0, request.getTopK());
+        assertEquals(40, request.getTopK());
         assertFalse(request.isJsonMode());
     }
 
