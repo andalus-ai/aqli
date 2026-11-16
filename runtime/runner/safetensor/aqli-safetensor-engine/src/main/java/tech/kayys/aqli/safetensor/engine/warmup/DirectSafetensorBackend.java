@@ -210,7 +210,7 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
                 .seed(seed)
                 .build();
 
-        String quantize = asString(param(request, "quantize"));
+        String quantize = asString(param(request, "quantize_strategy", "quantize"));
         return new Plan(modelPath, profile, config, buildPrompt(request, profile), quantize);
     }
 
