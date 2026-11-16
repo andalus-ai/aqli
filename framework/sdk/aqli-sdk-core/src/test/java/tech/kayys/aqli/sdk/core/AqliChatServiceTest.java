@@ -23,6 +23,10 @@ class AqliChatServiceTest {
                 false);
 
         assertEquals("safetensor", request.getPreferredProvider().orElseThrow());
+        assertEquals(0.2, request.getTemperature(), 0.0001);
+        assertEquals(256, request.getMaxTokens());
+        assertEquals(0.9, request.getTopP(), 0.0001);
+        assertEquals(1.1, request.getRepeatPenalty(), 0.0001);
     }
 
     @Test
@@ -32,5 +36,9 @@ class AqliChatServiceTest {
         var request = service.createCompletionRequest("model-id", "hello", params, false);
 
         assertEquals("llamacpp", request.getPreferredProvider().orElseThrow());
+        assertEquals(0.2, request.getTemperature(), 0.0001);
+        assertEquals(256, request.getMaxTokens());
+        assertEquals(0.9, request.getTopP(), 0.0001);
+        assertEquals(1.1, request.getRepeatPenalty(), 0.0001);
     }
 }
