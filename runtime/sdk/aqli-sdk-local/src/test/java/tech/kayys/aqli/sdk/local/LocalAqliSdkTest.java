@@ -102,6 +102,33 @@ class LocalAqliSdkTest {
 
 
 
+
+    @Test
+    void exposesCanonicalPublicSdkTextCapabilityContract() {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().item(
+                InferenceResponse.builder()
+                        .requestId("public-sdk")
+                        .model("model")
+                        .content("public contract")
+                        .inputTokens(1)
+                        .outputTokens(2)
+                        .build()));
+
+        tech.kayys.aqli.sdk.AqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        TextGenerationResponse response = sdk.generateText(TextGenerationRequest.of("model", "hello"));
+
+        assertEquals("public contract", response.content());
+        assertEquals(3, response.totalTokens());
+        org.mockito.ArgumentCaptor<InferenceRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(engine).infer(captor.capture());
+        assertEquals("model", captor.getValue().getModel());
+        assertEquals("hello", captor.getValue().getPrompt());
+    }
+
     @Test
     void executesTypedTextCapabilityAsynchronously() throws Exception {
         LocalInferenceEngine engine = engine();
