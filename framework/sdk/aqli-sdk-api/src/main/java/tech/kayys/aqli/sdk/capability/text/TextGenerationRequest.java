@@ -6,15 +6,14 @@ import java.util.Objects;
 /**
  * Transport-neutral request for text generation.
  *
- * <p>The public text contract owns its message and parameter values. It does
- * not expose execution SPI objects, transport DTOs, or untyped parameter maps.
- * Multimodal payloads and tool-call declarations are modeled by their own
- * capability contracts.</p>
+ * <p>The public text contract owns its message, tool and parameter values.
+ * It does not expose execution SPI objects or transport DTOs.</p>
  */
 public record TextGenerationRequest(
         String model,
         List<TextGenerationMessage> messages,
-        TextGenerationParameters parameters) {
+        TextGenerationParameters parameters,
+        List<TextGenerationToolDefinition> tools) {
 
     public TextGenerationRequest {
         if (model == null || model.isBlank()) {
@@ -29,6 +28,17 @@ public record TextGenerationRequest(
             throw new IllegalArgumentException("messages must not contain null entries");
         }
         parameters = parameters == null ? TextGenerationParameters.unspecified() : parameters;
+        tools = tools == null ? List.of() : List.copyOf(tools);
+        if (tools.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("tools must not contain null entries");
+        }
+    }
+
+    public TextGenerationRequest(
+            String model,
+            List<TextGenerationMessage> messages,
+            TextGenerationParameters parameters) {
+        this(model, messages, parameters, List.of());
     }
 
     public static TextGenerationRequest of(String model, String prompt) {
