@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.server.SdkProvider;
 import tech.kayys.aqli.sdk.core.ChatParams;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
-import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.core.AqliChatService;
 import tech.kayys.aqli.server.api.v1.dto.ChatCompletionMapper;
 import tech.kayys.aqli.server.api.v1.dto.ChatCompletionMessage;
