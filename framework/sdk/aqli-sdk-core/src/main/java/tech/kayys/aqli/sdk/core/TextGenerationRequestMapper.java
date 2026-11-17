@@ -33,9 +33,12 @@ public final class TextGenerationRequestMapper {
 
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .model(request.model())
-                .messages(request.messages().stream().map(TextGenerationRequestMapper::toSpiMessage).toList())
+                .messages(SdkMessageMapper.toExecutionMessages(request.messages()))
                 .streaming(streaming);
 
+        if (!request.tools().isEmpty()) {
+            builder.tools(request.tools());
+        }
         if (parameters.temperature() != null) {
             builder.temperature(parameters.temperature());
         }
