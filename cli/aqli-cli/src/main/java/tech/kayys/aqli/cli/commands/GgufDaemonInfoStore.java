@@ -2,8 +2,10 @@ package tech.kayys.aqli.cli.commands;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Objects;
@@ -45,14 +47,26 @@ final class GgufDaemonInfoStore {
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        Files.writeString(file,
-                port + System.lineSeparator()
-                        + pid + System.lineSeparator()
-                        + (key == null ? "" : key) + System.lineSeparator(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE);
+        Path temporary = Files.createTempFile(parent == null ? Path.of(".") : parent,
+                file.getFileName().toString(), ".tmp");
+        try {
+            Files.writeString(temporary,
+                    port + System.lineSeparator()
+                            + pid + System.lineSeparator()
+                            + (key == null ? "" : key) + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE);
+            try {
+                Files.move(temporary, file,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     void delete() {
