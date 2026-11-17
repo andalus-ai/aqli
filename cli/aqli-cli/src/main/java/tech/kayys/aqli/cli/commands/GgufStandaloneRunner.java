@@ -20,9 +20,12 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -1179,7 +1182,8 @@ public final class GgufStandaloneRunner {
             command.add(GgufStandaloneRunner.class.getName());
             command.add("__daemon");
 
-            return daemonStartupCoordinator().start(
+            long startupLogOffset = daemonLogSize();
+            return daemonStartupCoordinator(startupLogOffset).start(
                     command,
                     daemonLauncherMode(),
                     launchctlLabel(),
@@ -1195,14 +1199,54 @@ public final class GgufStandaloneRunner {
         }
     }
 
-    private static GgufDaemonStartupCoordinator daemonStartupCoordinator() {
+    private static GgufDaemonStartupCoordinator daemonStartupCoordinator(long startupLogOffset) {
         return new GgufDaemonStartupCoordinator(
                 new GgufDaemonLauncher()::launch,
                 GgufStandaloneRunner::readDaemonPort,
                 GgufStandaloneRunner::daemonStartTimeoutMillis,
                 System::nanoTime,
                 Thread::sleep,
-                100L);
+                100L,
+                () -> daemonStartupFailureSince(startupLogOffset),
+                message -> System.err.println("GGUF daemon startup failed: " + message
+                        + " (log: " + daemonLogFile() + ")"));
+    }
+
+    private static long daemonLogSize() {
+        try {
+            return Files.exists(daemonLogFile()) ? Files.size(daemonLogFile()) : 0L;
+        } catch (IOException ignored) {
+            return 0L;
+        }
+    }
+
+    private static Optional<String> daemonStartupFailureSince(long offset) {
+        Path log = daemonLogFile();
+        try (FileChannel channel = FileChannel.open(log, StandardOpenOption.READ)) {
+            long size = channel.size();
+            if (size <= offset) {
+                return Optional.empty();
+            }
+            long start = Math.max(offset, size - 16_384L);
+            long length = size - start;
+            channel.position(start);
+            ByteBuffer buffer = ByteBuffer.allocate((int) length);
+            while (buffer.hasRemaining() && channel.read(buffer) > 0) {
+                // Read only the bounded bytes appended by this launch.
+            }
+            buffer.flip();
+            String appended = StandardCharsets.UTF_8.decode(buffer).toString();
+            int marker = appended.lastIndexOf("GGUF daemon failed: ");
+            if (marker < 0) {
+                return Optional.empty();
+            }
+            int end = appended.indexOf('\n', marker);
+            String failure = appended.substring(marker + "GGUF daemon failed: ".length(),
+                    end < 0 ? appended.length() : end).trim();
+            return failure.isEmpty() ? Optional.empty() : Optional.of(failure);
+        } catch (IOException ignored) {
+            return Optional.empty();
+        }
     }
 
     static String daemonLauncherMode() {

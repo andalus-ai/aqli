@@ -180,6 +180,7 @@ example:
   generic conversion/quantization controls).
 - `HuggingFacePullRequest` owns Hugging Face repository options such as include patterns
   and task classification.
+  It also carries optional repository architecture and metadata for manifest classification and provenance; the local SDK forwards these fields to the repository.
 - `HuggingFaceModelOperations` is the SDK capability contract; the local SDK delegates
   execution to `HuggingFaceRepository`, which remains responsible for downloads and
   manifest persistence.

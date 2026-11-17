@@ -49,6 +49,7 @@ import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
+import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterMapper;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1318,6 +1319,7 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
+            String ggufEngineHint = requestedGgufEngine();
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
