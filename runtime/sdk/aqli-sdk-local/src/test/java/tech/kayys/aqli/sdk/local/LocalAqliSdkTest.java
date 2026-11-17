@@ -87,7 +87,7 @@ class LocalAqliSdkTest {
 
         assertEquals(TextGenerationResponse.FinishReason.TOOL_CALLS, response.finishReason());
         assertEquals(1, response.toolCalls().size());
-        assertEquals("lookup", response.toolCalls().getFirst().getName());
+        assertEquals("lookup", response.toolCalls().getFirst().getFunction().getName());
         assertEquals(Map.of("query", "weather"), response.toolCalls().getFirst().getArguments());
         org.junit.jupiter.api.Assertions.assertFalse(response.toolCalls().getFirst().getId().isBlank());
     }
