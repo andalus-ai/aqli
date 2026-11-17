@@ -88,6 +88,30 @@ class TextGenerationContractTest {
 
         assertEquals(5, response.totalTokens());
         assertEquals(TextGenerationResponse.FinishReason.STOP, response.finishReason());
+        assertEquals(List.of(), response.toolCalls());
+    }
+
+    @Test
+    void responsePreservesImmutableToolCallsAndLegacyConstructor() {
+        var toolCall = tech.kayys.aqli.spi.tool.ToolCall.builder()
+                .id("call-1")
+                .name("lookup")
+                .argument("query", "weather")
+                .build();
+        List<tech.kayys.aqli.spi.tool.ToolCall> toolCalls = new ArrayList<>(List.of(toolCall));
+
+        TextGenerationResponse response = new TextGenerationResponse(
+                "", "model-a", 1, 2, 3,
+                TextGenerationResponse.FinishReason.TOOL_CALLS, toolCalls);
+        toolCalls.clear();
+
+        assertEquals(List.of(toolCall), response.toolCalls());
+        assertThrows(UnsupportedOperationException.class,
+                () -> response.toolCalls().add(toolCall));
+
+        TextGenerationResponse legacy =
+                new TextGenerationResponse("hello", "model-a", 1, 1, 2, null);
+        assertEquals(List.of(), legacy.toolCalls());
     }
 
     @Test
