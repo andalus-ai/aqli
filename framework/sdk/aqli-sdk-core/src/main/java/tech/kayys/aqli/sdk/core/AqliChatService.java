@@ -96,17 +96,14 @@ public final class AqliChatService {
             String prompt,
             ChatParams params,
             boolean streaming) {
-        return InferenceRequest.builder()
+        InferenceRequest.Builder builder = InferenceRequest.builder()
                 .requestId(UUID.randomUUID().toString())
                 .model(modelId)
                 .prompt(prompt)
                 .message(Message.user(prompt))
-                .streaming(streaming)
-                .parameter("temperature", params.temperature())
-                .parameter("max_tokens", params.maxTokens())
-                .parameter("top_p", params.topP())
-                .parameter("repeat_penalty", params.repeatPenalty())
-                .build();
+                .streaming(streaming);
+        applyCommonParameters(builder, params);
+        return builder.build();
     }
 
     /**
@@ -134,16 +131,24 @@ public final class AqliChatService {
                 .requestId(UUID.randomUUID().toString())
                 .model(modelId)
                 .messages(messages)
-                .streaming(streaming)
-                .parameter("temperature", p.temperature())
-                .parameter("max_tokens", p.maxTokens())
-                .parameter("top_p", p.topP())
-                .parameter("repeat_penalty", p.repeatPenalty());
+                .streaming(streaming);
+        applyCommonParameters(reqBuilder, p);
 
         if (tools != null && !tools.isEmpty()) {
             reqBuilder.tools(tools);
         }
 
         return reqBuilder.build();
+    }
+
+    /**
+     * Applies shared sampling and provider settings to every chat request shape.
+     */
+    private static void applyCommonParameters(InferenceRequest.Builder builder, ChatParams params) {
+        builder.preferredProvider(params.preferredProvider())
+                .parameter("temperature", params.temperature())
+                .parameter("max_tokens", params.maxTokens())
+                .parameter("top_p", params.topP())
+                .parameter("repeat_penalty", params.repeatPenalty());
     }
 }

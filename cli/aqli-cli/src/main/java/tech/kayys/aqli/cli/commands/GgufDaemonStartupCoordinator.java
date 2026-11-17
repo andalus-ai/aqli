@@ -46,7 +46,8 @@ final class GgufDaemonStartupCoordinator {
     private final LongSupplier nanoTime;
     private final Sleeper sleeper;
     private final long readinessPollMillis;
-    private final Consumer<String> startupFailureReporter;
+    private final Supplier<java.util.Optional<String>> startupFailure;
+    private final Consumer<String> failureReporter;
 
     GgufDaemonStartupCoordinator(
             Launcher launcher,
@@ -56,7 +57,7 @@ final class GgufDaemonStartupCoordinator {
             Sleeper sleeper,
             long readinessPollMillis) {
         this(launcher, portProvider, startupTimeoutMillis, nanoTime, sleeper,
-                readinessPollMillis, ignored -> { });
+                readinessPollMillis, java.util.Optional::empty, ignored -> { });
     }
 
     GgufDaemonStartupCoordinator(
@@ -66,14 +67,16 @@ final class GgufDaemonStartupCoordinator {
             LongSupplier nanoTime,
             Sleeper sleeper,
             long readinessPollMillis,
-            Consumer<String> startupFailureReporter) {
+            Supplier<java.util.Optional<String>> startupFailure,
+            Consumer<String> failureReporter) {
         this.launcher = launcher;
         this.portProvider = portProvider;
         this.startupTimeoutMillis = startupTimeoutMillis;
         this.nanoTime = nanoTime;
         this.sleeper = sleeper;
         this.readinessPollMillis = Math.max(1L, readinessPollMillis);
-        this.startupFailureReporter = startupFailureReporter;
+        this.startupFailure = startupFailure;
+        this.failureReporter = failureReporter;
     }
 
     boolean start(
@@ -96,10 +99,9 @@ final class GgufDaemonStartupCoordinator {
             if (portProvider.get().isPresent()) {
                 return true;
             }
-            OptionalFailure failure = startupFailure(logFile, logOffset);
-            if (failure.message != null) {
-                report("GGUF daemon exited during startup: " + failure.message
-                        + " (log: " + logFile + ")");
+            java.util.Optional<String> failure = startupFailure.get();
+            if (failure.isPresent()) {
+                reportFailure("daemon process failed during startup: " + failure.get());
                 return false;
             }
             sleeper.sleep(readinessPollMillis);
@@ -162,5 +164,16 @@ final class GgufDaemonStartupCoordinator {
     }
 
     private record OptionalFailure(String message) {
+        reportFailure("daemon did not publish its port within " + timeoutMillis
+                + " ms; inspect the daemon log for details");
+        return false;
+    }
+
+    private void reportFailure(String message) {
+        try {
+            failureReporter.accept(message);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not change startup outcome.
+        }
     }
 }
