@@ -1163,8 +1163,11 @@ public final class GgufStandaloneRunner {
     }
 
     private static boolean startDaemon() {
-        deleteDaemonPortFile();
-        try {
+        try (GgufDaemonStartupLock ignored = GgufDaemonStartupLock.acquire(
+                daemonRunDir().resolve("gguf-fast-daemon.start.lock"))) {
+            if (readDaemonPort().isPresent()) {
+                return true;
+            }
             Files.createDirectories(daemonLogFile().getParent());
             List<String> command = new ArrayList<>();
             command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
