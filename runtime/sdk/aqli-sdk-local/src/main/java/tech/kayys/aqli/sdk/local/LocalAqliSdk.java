@@ -101,7 +101,14 @@ public class LocalAqliSdk implements AqliSdk {
                 response.getInputTokens(),
                 response.getOutputTokens(),
                 response.getDurationMs(),
-                toTextFinishReason(response.getFinishReason()));
+                toTextFinishReason(response.getFinishReason()),
+                response.getToolCalls().stream()
+                        .map(call -> tech.kayys.aqli.spi.tool.ToolCall.builder()
+                                .id(java.util.UUID.randomUUID().toString())
+                                .name(call.name())
+                                .arguments(call.arguments())
+                                .build())
+                        .toList());
     }
 
     private static TextGenerationChunk toTextGenerationChunk(StreamingInferenceChunk chunk) {
