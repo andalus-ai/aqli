@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":sdk:aqli-sdk-core"))
     // Compose local inference engines and expose the local AqliSdk CDI producer.
     implementation(project(":sdk:aqli-sdk-local"))
+    implementation(project(":cli:aqli-cli-spi"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation(project(":audio:aqli-audio-core"))

@@ -198,3 +198,29 @@ the SDK contract usable by remote implementations. A local runtime may return a 
 
 `RunCommand` may still perform CLI-specific local-index checks and display pull progress, but it must not call `HuggingFaceRepository` directly. When its compatibility fallback needs to download a Hugging Face model, it maps the repository ID, revision, and preferred format into `HuggingFacePullRequest` and invokes `AqliSdk`/`HuggingFaceModelOperations`. The local SDK remains the adapter that delegates to the repository. This keeps explicit `aqli pull`, automatic `aqli run` preparation, REST, and gRPC on the same provider-owned download implementation.
 
+
+
+## CLI capability extension SPI
+
+The `aqli run` command supports an extensible CLI contribution boundary separate from
+the SDK capability API. The initial module is `:cli:aqli-cli-spi`.
+
+A provider is registered with the Java service provider mechanism at
+`META-INF/services/tech.kayys.aqli.cli.spi.run.RunCapabilityProvider`. Each provider
+creates one `RunCapability`, whose stable ID must match the provider's declared ID.
+The ServiceLoader registry validates IDs eagerly, rejects duplicates and mismatches,
+and exposes capabilities in deterministic ID order.
+
+A CLI capability may contribute Picocli options to the run command and validate the
+parsed invocation. This Picocli dependency is confined to the CLI adapter extension
+boundary. It must not leak into SDK capability modules or REST/gRPC contracts.
+
+Request mapping is intentionally not represented as a generic map or a second
+`RunRequest` envelope in this first increment. The next capability extraction must map
+to the canonical typed SDK capability payload and shared application service once those
+contracts are established. The registry remains discovery infrastructure; backend
+selection and execution stay in runtime.
+
+The base CLI should not depend on every optional capability provider. Distribution
+assembly decides which provider modules are present, allowing third-party extensions
+without edits to `RunCommand`.
