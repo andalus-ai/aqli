@@ -34,7 +34,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLocator
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
-import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
 import tech.kayys.aljabr.spi.model.ModelInfo;
@@ -126,7 +126,7 @@ public class RunCommand implements Runnable {
     AqliCommand parentCommand;
 
     @Inject
-    AqliSdk sdk;
+    AqliRuntime sdk;
     @Inject
     PluginAvailabilityChecker pluginChecker;
     @Inject
