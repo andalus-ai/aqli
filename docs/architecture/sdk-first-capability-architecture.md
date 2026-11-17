@@ -420,3 +420,19 @@ values. The local SDK adapter maps runtime tool-call names and arguments into th
 SDK result and assigns stable-per-response call IDs. The previous six-argument response
 constructor remains source-compatible and defaults the tool-call list to empty. Transport
 adapters should serialize these SDK tool calls rather than reconstructing them independently.
+
+
+### REST chat typed SDK migration progress
+
+The ChatResource non-streaming chat path now normalizes its wire messages and tool definitions
+into TextGenerationRequest, then delegates execution to AqliChatService.generateText
+and the SDK generateTextAsync operation. Sampling parameters are mapped once by the
+shared chat service. Tool-call results come from TextGenerationResponse rather than being
+reconstructed by the REST resource. The demo fallback SDK implements the typed operation
+so the fallback path retains its behavior.
+
+The REST streaming endpoint intentionally remains on the existing shared streamChat
+path in this increment. TextGenerationChunk does not yet carry the full tool-call delta
+and stream metadata needed to preserve the current StreamingInferenceChunk wire shape.
+Do not migrate that endpoint until the typed stream contract can represent those fields
+and cancellation is verified end-to-end.
