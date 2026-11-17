@@ -1164,6 +1164,11 @@ public final class GgufStandaloneRunner {
     }
 
     private static boolean startDaemon() {
+        try (GgufDaemonStartupLock ignored = GgufDaemonStartupLock.acquire(
+                daemonRunDir().resolve("gguf-fast-daemon.start.lock"))) {
+            if (readDaemonPort().isPresent()) {
+                return true;
+            }
         try {
             Files.createDirectories(daemonRunDir());
             Path lockPath = daemonRunDir().resolve("gguf-fast-daemon.start.lock");

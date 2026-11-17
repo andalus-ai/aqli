@@ -26,6 +26,12 @@ class GgufDaemonInfoStoreTest {
     }
 
     @Test
+    void replacesExistingMetadataWithOneCompleteRecord() throws Exception {
+        Path file = tempDir.resolve("gguf-fast-daemon.port");
+        GgufDaemonInfoStore store = new GgufDaemonInfoStore(file);
+        store.write(43210, 1234L, "old-runtime");
+
+        store.write(43211, 5678L, "new-runtime");
     void replacesExistingMetadataWithoutLeavingTemporaryFiles() throws Exception {
         Path file = tempDir.resolve("gguf-fast-daemon.port");
         GgufDaemonInfoStore store = new GgufDaemonInfoStore(file);
@@ -36,6 +42,8 @@ class GgufDaemonInfoStoreTest {
         GgufDaemonInfoStore.DaemonInfo info = store.read().orElseThrow();
         assertEquals(43211, info.port());
         assertEquals(5678L, info.pid());
+        assertEquals("new-runtime", info.key());
+        assertEquals(3, Files.readAllLines(file).size());
         assertEquals("new-key", info.key());
         try (var files = Files.list(tempDir)) {
             assertEquals(1L, files.count());
