@@ -411,3 +411,12 @@ The SDK-core TextGenerationRequestMapper transfers the list to the internal exec
 request. The original three-argument constructor remains available and defaults tools to
 an empty list, preserving source compatibility for existing SDK callers. Tool-choice
 semantics remain a separate contract decision; adapters must not silently invent them.
+
+
+### Text-generation tool-call results
+
+The canonical TextGenerationResponse includes an immutable list of generated ToolCall
+values. The local SDK adapter maps runtime tool-call names and arguments into the public
+SDK result and assigns stable-per-response call IDs. The previous six-argument response
+constructor remains source-compatible and defaults the tool-call list to empty. Transport
+adapters should serialize these SDK tool calls rather than reconstructing them independently.
