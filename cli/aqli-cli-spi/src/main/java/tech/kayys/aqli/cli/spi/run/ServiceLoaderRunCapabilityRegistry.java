@@ -95,6 +95,9 @@ final class ServiceLoaderRunCapabilityRegistry implements RunCapabilityRegistry 
         if (id == null || id.isBlank()) {
             throw new IllegalStateException("Run capability " + owner + " id must not be blank");
         }
-        return id.trim();
+        if (!id.equals(id.trim())) {
+            throw new IllegalStateException("Run capability " + owner + " id must not contain surrounding whitespace");
+        }
+        return id;
     }
 }
