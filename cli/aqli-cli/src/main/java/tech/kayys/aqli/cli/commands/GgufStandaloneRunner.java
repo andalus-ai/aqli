@@ -1169,17 +1169,13 @@ public final class GgufStandaloneRunner {
             if (readDaemonPort().isPresent()) {
                 return true;
             }
-        try {
-            Files.createDirectories(daemonRunDir());
-            Path lockPath = daemonRunDir().resolve("gguf-fast-daemon.start.lock");
-            try (FileChannel channel = FileChannel.open(lockPath,
-                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-                    FileLock ignored = channel.lock()) {
-                if (readDaemonPort().isPresent()) {
-                    return true;
-                }
-                return startDaemonUnderLock();
+            return startDaemonUnderLock();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (fastRunDebug()) {
+                System.err.println("GGUF daemon startup interrupted: " + briefMessage(e));
             }
+            return false;
         } catch (Exception e) {
             if (fastRunDebug()) {
                 System.err.println("GGUF daemon failed to start: " + briefMessage(e));
