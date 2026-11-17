@@ -31,7 +31,7 @@ public final class TextGenerationRequestMapper {
 
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .model(request.model())
-                .messages(request.messages())
+                .messages(SdkMessageMapper.toExecutionMessages(request.messages()))
                 .streaming(streaming);
 
         if (parameters.temperature() != null) {
