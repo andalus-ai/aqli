@@ -94,16 +94,14 @@ public final class AqliChatService {
             String prompt,
             ChatParams params,
             boolean streaming) {
-        InferenceRequest.Builder request = InferenceRequest.builder()
+        InferenceRequest.Builder builder = InferenceRequest.builder()
                 .requestId(UUID.randomUUID().toString())
                 .model(modelId)
                 .prompt(prompt)
                 .message(Message.user(prompt))
-                .streaming(streaming)
-                .preferredProvider(params.preferredProvider());
-
-        TextGenerationRequestMapper.apply(request, toTextGenerationOptions(params));
-        return request.build();
+                .streaming(streaming);
+        applyCommonParameters(builder, params);
+        return builder.build();
     }
 
     /**
@@ -131,8 +129,8 @@ public final class AqliChatService {
                 .requestId(UUID.randomUUID().toString())
                 .model(modelId)
                 .messages(messages)
-                .streaming(streaming)
-                .preferredProvider(params.preferredProvider());
+                .streaming(streaming);
+        applyCommonParameters(reqBuilder, p);
 
         TextGenerationRequestMapper.apply(request, toTextGenerationOptions(params));
         if (tools != null && !tools.isEmpty()) {
@@ -152,5 +150,16 @@ public final class AqliChatService {
                 params.maxTokens(),
                 0,
                 null);
+    }
+
+    /**
+     * Applies shared sampling and provider settings to every chat request shape.
+     */
+    private static void applyCommonParameters(InferenceRequest.Builder builder, ChatParams params) {
+        builder.preferredProvider(params.preferredProvider())
+                .parameter("temperature", params.temperature())
+                .parameter("max_tokens", params.maxTokens())
+                .parameter("top_p", params.topP())
+                .parameter("repeat_penalty", params.repeatPenalty());
     }
 }

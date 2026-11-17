@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class GgufDaemonStartupCoordinatorTest {
@@ -65,9 +66,37 @@ class GgufDaemonStartupCoordinatorTest {
     }
 
     @Test
+    void reportsChildStartupFailureWithoutWaitingForTimeout() throws Exception {
+        AtomicLong now = new AtomicLong();
+        AtomicInteger probes = new AtomicInteger();
+        List<String> failures = new java.util.ArrayList<>();
+        GgufDaemonStartupCoordinator coordinator = new GgufDaemonStartupCoordinator(
+                (command, mode, label, log, mac, debug, nativePaths) -> true,
+                () -> {
+                    probes.incrementAndGet();
+                    return OptionalInt.empty();
+                },
+                () -> 20_000L,
+                now::get,
+                millis -> now.addAndGet(millis * 1_000_000L),
+                100L,
+                () -> Optional.of("Unable to bind daemon socket"),
+                failures::add);
+
+        assertFalse(coordinator.start(
+                List.of("java", "__daemon"), "nohup", "daemon-label",
+                Path.of("/tmp/daemon.log"), false, true, ""));
+
+        assertEquals(List.of("daemon process failed during startup: Unable to bind daemon socket"), failures);
+        assertEquals(1, probes.get());
+        assertEquals(0L, now.get());
+    }
+
+    @Test
     void returnsFalseWhenReadinessTimeoutExpires() throws Exception {
         AtomicLong now = new AtomicLong();
         AtomicInteger probes = new AtomicInteger();
+        List<String> failures = new java.util.ArrayList<>();
         GgufDaemonStartupCoordinator coordinator = new GgufDaemonStartupCoordinator(
                 (command, mode, label, log, mac, debug, nativePaths) -> true,
                 () -> {
@@ -77,12 +106,16 @@ class GgufDaemonStartupCoordinatorTest {
                 () -> 200L,
                 now::get,
                 millis -> now.addAndGet(millis * 1_000_000L),
-                100L);
+                100L,
+                Optional::empty,
+                failures::add);
 
         assertFalse(coordinator.start(
                 List.of("java", "__daemon"), "nohup", "daemon-label",
                 Path.of("/tmp/daemon.log"), false, true, "/tmp/libs"));
 
         assertEquals(3, probes.get());
+        assertEquals(List.of("daemon did not publish its port within 200 ms; inspect the daemon log for details"),
+                failures);
     }
 }
