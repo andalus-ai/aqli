@@ -123,3 +123,15 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - Automatic model pulls initiated by `RunCommand` must use the SDK model-lifecycle capability (including `HuggingFaceModelOperations` for Hugging Face); never inject or call a repository implementation from the CLI. Keep local-index refresh and CLI progress presentation in the adapter.
 - Add cross-transport conformance tests for normalized application requests, defaults, validation, errors, streaming event order/termination, cancellation/resource cleanup, metadata/usage, and multimodal behavior.
 - Introduce capability API modules incrementally after auditing existing SPI ownership and consumers. Reuse existing modules where possible; do not create speculative empty modules.
+
+
+## 9. Pluggable `aqli run` capability contributions
+
+- Keep `RunCommand` an orchestration/adapter entry point; do not add modality-specific option fields or request-mapping logic to it as capabilities grow.
+- Put CLI extension contracts in `:cli:aqli-cli-spi` (`cli/aqli-cli-spi`). This is intentionally a CLI-only SPI and may depend on Picocli; SDK capability APIs and REST/gRPC contracts must never depend on it.
+- Discover optional CLI contributions through Java `ServiceLoader` using `RunCapabilityProvider`. Providers must have stable, unique capability IDs matching the created `RunCapability` ID.
+- Registry ordering must be deterministic. Fail fast for duplicate/blank IDs, provider/capability ID mismatches, and invalid service registrations.
+- A `RunCapability` may contribute Picocli options and validate parsed CLI arguments. Capability-specific mapping must target the canonical typed SDK capability request; do not introduce a permanent `Map<String,Object>` request sink or make the registry an API source of truth.
+- The registry must not choose inference backends or execute inference. Runtime owns backend selection and execution.
+- Keep optional capability providers out of the base CLI dependency graph unless they are intentionally packaged in that distribution. A third-party provider should be loadable without editing `RunCommand`.
+- Add capability-specific SDK request contribution only after the canonical SDK task payloads and application mapping boundary are defined. Do not expose internal SPI `InferenceRequest` as a substitute public SDK request.
