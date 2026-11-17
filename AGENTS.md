@@ -150,3 +150,7 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - Do not introduce a generic `AqliCapability<R, S>`, invocation envelope, or registry until existing SDK/API, application, and runtime contracts have been audited for reusable request, response, async, streaming, cancellation, and error semantics. Reuse and evolve existing contracts where possible; avoid parallel generic request models.
 - The common invocation context may eventually carry cross-cutting request identity, tracing, deadlines, cancellation, and execution hints. Define it only after confirming which fields are truly shared and how they map to existing request context and runtime contracts.
 - New capability work should proceed in this order: canonical typed SDK contract and application path; SDK implementation registration; CLI/REST/gRPC adapters; runtime execution support. Keep modality-specific option parsing out of the canonical SDK contract.
+
+
+- Non-streaming REST chat must normalize DTO messages and tools to TextGenerationRequest and invoke the shared SDK typed text operation through AqliChatService. Keep transport response serialization in the resource, but do not rebuild inference requests or sampling defaults there.
+- Do not migrate REST streaming chat to TextGenerationChunk until that contract preserves tool-call deltas and required stream metadata, and cancellation is verified. Keep the existing shared stream path until then.
