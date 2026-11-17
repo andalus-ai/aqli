@@ -1,6 +1,7 @@
 package tech.kayys.aqli.sdk.core;
 
 import org.junit.jupiter.api.Test;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.spi.Message;
@@ -21,7 +22,7 @@ class TextGenerationRequestMapperTest {
 
         InferenceRequest.Builder builder = request.toBuilder();
         TextGenerationRequestMapper.apply(builder, new TextGenerationOptions(
-                0.35, 0.82, 32, 1.15, true, 512, 2, "root ::= \"ok\""));
+                0.35, 0.82, 32, 1.15, true, 512, 2, "root ::= \\"ok\\""));
 
         InferenceRequest mapped = builder.build();
         assertEquals(0.35, mapped.getTemperature(), 0.0001);
@@ -31,23 +32,28 @@ class TextGenerationRequestMapperTest {
         assertTrue(mapped.isJsonMode());
         assertEquals(512, mapped.getMaxTokens());
         assertEquals(2, mapped.getMirostat());
-        assertEquals("root ::= \"ok\"", mapped.getGrammar());
+        assertEquals("root ::= \\"ok\\"", mapped.getGrammar());
     }
 
-
     @Test
-    void mapsTypedPublicRequestIntoInternalExecutionRequest() {
+    void mapsSdkOwnedMessagesAndParametersAtTheExecutionBoundary() {
         TextGenerationRequest publicRequest = new TextGenerationRequest(
                 "model-typed",
-                java.util.List.of(Message.system("be concise"), Message.user("hello")),
+                java.util.List.of(
+                        TextGenerationMessage.system("be concise"),
+                        TextGenerationMessage.user("hello"),
+                        TextGenerationMessage.tool("call-7", "tool result")),
                 new TextGenerationParameters(
                         0.35, 0.82, 24, 96, 1.12, 0.04, 7,
-                        true, "root ::= \"ok\"", java.util.List.of("END")));
+                        true, "root ::= \\"ok\\"", java.util.List.of("END")));
 
         InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(publicRequest);
 
         assertEquals("model-typed", mapped.getModel());
-        assertEquals(publicRequest.messages(), mapped.getMessages());
+        assertEquals(java.util.List.of(
+                Message.system("be concise"),
+                Message.user("hello"),
+                Message.tool("call-7", "tool result")), mapped.getMessages());
         assertEquals(0.35, mapped.getTemperature(), 0.0001);
         assertEquals(0.82, mapped.getTopP(), 0.0001);
         assertEquals(24, mapped.getTopK());
@@ -56,7 +62,7 @@ class TextGenerationRequestMapperTest {
         assertEquals(0.04, ((Number) mapped.getParameters().get("min_p")).doubleValue(), 0.0001);
         assertEquals(7, mapped.getParameters().get("seed"));
         assertTrue(mapped.isJsonMode());
-        assertEquals("root ::= \"ok\"", mapped.getGrammar());
+        assertEquals("root ::= \\"ok\\"", mapped.getGrammar());
         assertEquals(java.util.List.of("END"), mapped.getParameters().get("stop"));
         assertFalse(mapped.isStreaming());
     }
