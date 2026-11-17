@@ -76,9 +76,9 @@ public class SdkProvider {
         public java.util.concurrent.CompletionStage<tech.kayys.aqli.sdk.capability.text.TextGenerationResponse>
                 generateTextAsync(tech.kayys.aqli.sdk.capability.text.TextGenerationRequest request) {
             String prompt = request.messages().stream()
-                    .filter(message -> message.getRole() == tech.kayys.aqli.spi.Message.Role.USER)
+                    .filter(message -> message.role() == tech.kayys.aqli.sdk.capability.text.TextGenerationMessage.Role.USER)
                     .reduce((first, second) -> second)
-                    .map(tech.kayys.aqli.spi.Message::getContent)
+                    .map(tech.kayys.aqli.sdk.capability.text.TextGenerationMessage::content)
                     .orElse("");
             return java.util.concurrent.CompletableFuture.completedFuture(
                     new tech.kayys.aqli.sdk.capability.text.TextGenerationResponse(
@@ -94,9 +94,9 @@ public class SdkProvider {
         public java.util.concurrent.Flow.Publisher<tech.kayys.aqli.sdk.capability.text.TextGenerationChunk>
                 streamText(tech.kayys.aqli.sdk.capability.text.TextGenerationRequest request) {
             String prompt = request.messages().stream()
-                    .filter(message -> message.getRole() == tech.kayys.aqli.spi.Message.Role.USER)
+                    .filter(message -> message.role() == tech.kayys.aqli.sdk.capability.text.TextGenerationMessage.Role.USER)
                     .reduce((first, second) -> second)
-                    .map(tech.kayys.aqli.spi.Message::getContent)
+                    .map(tech.kayys.aqli.sdk.capability.text.TextGenerationMessage::content)
                     .orElse("");
             String content = "[demo] echo: " + prompt;
             return io.smallrye.mutiny.Multi.createFrom().items(
