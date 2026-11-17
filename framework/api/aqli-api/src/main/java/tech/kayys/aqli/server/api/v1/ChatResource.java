@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.server.SdkProvider;
 import tech.kayys.aqli.sdk.core.ChatParams;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.core.AqliChatService;
 import tech.kayys.aqli.server.api.v1.dto.ChatCompletionMapper;
 import tech.kayys.aqli.server.api.v1.dto.ChatCompletionMessage;
@@ -56,27 +58,24 @@ public class ChatResource {
         List<ToolDefinition> tools = req.tools() != null ? req.tools() : List.of();
         ChatParams params = ChatParams.of(req.temperature(), req.maxTokens());
 
-        return chatService.chat(sdkProvider.getSdk(), req.model(), null, history, tools, params)
+        TextGenerationRequest sdkRequest = chatService.createTextGenerationRequest(
+                req.model(), null, history, tools, params);
+        return chatService.generateText(sdkProvider.getSdk(), sdkRequest)
                 .map(resp -> {
-                    List<tech.kayys.aqli.spi.tool.ToolCall> mappedToolCalls = null;
-                    if (resp.getToolCalls() != null && !resp.getToolCalls().isEmpty()) {
-                        mappedToolCalls = resp.getToolCalls().stream()
-                                .map(tc -> new tech.kayys.aqli.spi.tool.ToolCall(UUID.randomUUID().toString(), tc.name(), tc.arguments(), "function"))
-                                .toList();
-                    }
+                    List<tech.kayys.aqli.spi.tool.ToolCall> mappedToolCalls =
+                            resp.toolCalls().isEmpty() ? null : resp.toolCalls();
                     ChatCompletionMessage message = new ChatCompletionMessage(
-                            "assistant", resp.getContent(), null, mappedToolCalls);
-                    String finishReasonStr = resp.getFinishReason() != null ? resp.getFinishReason().name().toLowerCase() : null;
+                            "assistant", resp.content(), null, mappedToolCalls);
+                    String finishReasonStr = resp.finishReason().name().toLowerCase(java.util.Locale.ROOT);
                     ChatCompletionResponse.Choice choice = new ChatCompletionResponse.Choice(
                             0, message, finishReasonStr);
-                    
+
                     ChatCompletionResponse.Usage usage = null;
-                    if (resp.getInputTokens() > 0 || resp.getOutputTokens() > 0) {
+                    if (resp.inputTokens() > 0 || resp.outputTokens() > 0) {
                         usage = new ChatCompletionResponse.Usage(
-                                resp.getInputTokens(),
-                                resp.getOutputTokens(),
-                                resp.getInputTokens() + resp.getOutputTokens()
-                        );
+                                resp.inputTokens(),
+                                resp.outputTokens(),
+                                resp.totalTokens());
                     }
 
                     sample.stop(meterRegistry.timer("aqli.rest.chat.duration"));
