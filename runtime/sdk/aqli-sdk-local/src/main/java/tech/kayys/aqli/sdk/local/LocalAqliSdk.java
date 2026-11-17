@@ -8,12 +8,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
+import org.reactivestreams.FlowAdapters;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.core.AqliSdk;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.exception.SdkException;
@@ -31,6 +37,7 @@ import tech.kayys.aqli.spi.inference.AsyncJobStatus;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
+import tech.kayys.aljabr.spi.model.ModalityType;
 import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aljabr.spi.model.ModelRegistry;
 
@@ -62,6 +69,73 @@ public class LocalAqliSdk implements AqliSdk {
         this.config = config != null ? config : SdkConfig.builder().build();
         this.models = java.util.Objects.requireNonNull(models, "models");
         this.huggingFaceRepository = huggingFaceRepository;
+    }
+
+    @Override
+    public TextGenerationResponse generateText(TextGenerationRequest request) {
+        InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
+                .toInferenceRequest(request);
+        return toTextGenerationResponse(createCompletion(executionRequest));
+    }
+
+    @Override
+    public CompletionStage<TextGenerationResponse> generateTextAsync(TextGenerationRequest request) {
+        InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
+                .toInferenceRequest(request);
+        return createCompletionAsync(executionRequest).thenApply(LocalAqliSdk::toTextGenerationResponse);
+    }
+
+    @Override
+    public Flow.Publisher<TextGenerationChunk> streamText(TextGenerationRequest request) {
+        InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
+                .toStreamingInferenceRequest(request);
+        return FlowAdapters.toFlowPublisher(streamCompletion(executionRequest)
+                .filter(chunk -> chunk.modality() == ModalityType.TEXT)
+                .map(LocalAqliSdk::toTextGenerationChunk));
+    }
+
+    private static TextGenerationResponse toTextGenerationResponse(InferenceResponse response) {
+        return new TextGenerationResponse(
+                response.getContent(),
+                response.getModel(),
+                response.getInputTokens(),
+                response.getOutputTokens(),
+                response.getDurationMs(),
+                toTextFinishReason(response.getFinishReason()));
+    }
+
+    private static TextGenerationChunk toTextGenerationChunk(StreamingInferenceChunk chunk) {
+        return new TextGenerationChunk(
+                chunk.index(),
+                chunk.delta() == null ? "" : chunk.delta(),
+                chunk.finished(),
+                chunk.finished() ? toTextFinishReason(chunk.finishReason()) : null);
+    }
+
+    private static TextGenerationResponse.FinishReason toTextFinishReason(
+            InferenceResponse.FinishReason finishReason) {
+        if (finishReason == null) {
+            return TextGenerationResponse.FinishReason.STOP;
+        }
+        return switch (finishReason) {
+            case STOP -> TextGenerationResponse.FinishReason.STOP;
+            case LENGTH -> TextGenerationResponse.FinishReason.LENGTH;
+            case TOOL_CALLS -> TextGenerationResponse.FinishReason.TOOL_CALLS;
+            case ERROR -> TextGenerationResponse.FinishReason.ERROR;
+        };
+    }
+
+    private static TextGenerationResponse.FinishReason toTextFinishReason(String finishReason) {
+        if (finishReason == null || finishReason.isBlank()) {
+            return TextGenerationResponse.FinishReason.STOP;
+        }
+        return switch (finishReason.toLowerCase(java.util.Locale.ROOT)) {
+            case "length" -> TextGenerationResponse.FinishReason.LENGTH;
+            case "tool_calls" -> TextGenerationResponse.FinishReason.TOOL_CALLS;
+            case "content_filter" -> TextGenerationResponse.FinishReason.CONTENT_FILTER;
+            case "error" -> TextGenerationResponse.FinishReason.ERROR;
+            default -> TextGenerationResponse.FinishReason.STOP;
+        };
     }
 
     @Override

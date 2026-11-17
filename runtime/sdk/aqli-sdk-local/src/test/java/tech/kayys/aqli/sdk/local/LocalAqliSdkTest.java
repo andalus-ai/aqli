@@ -18,12 +18,18 @@ import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Flow;
 
 import org.junit.jupiter.api.Test;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.sdk.model.PullProgress;
@@ -33,6 +39,7 @@ import tech.kayys.aqli.spi.inference.InferenceEngineDescriptor;
 import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.spi.inference.LocalInferenceEngine;
 
 class LocalAqliSdkTest {
@@ -58,6 +65,107 @@ class LocalAqliSdkTest {
                 .build());
 
         assertEquals(expected, actual);
+    }
+
+
+    @Test
+    void executesTypedTextCapabilityThroughTheSameLocalInferenceEngine() {
+        LocalInferenceEngine engine = engine();
+        InferenceResponse expected = InferenceResponse.builder()
+                .requestId("typed-request")
+                .model("model")
+                .content("typed hello")
+                .inputTokens(2)
+                .outputTokens(2)
+                .durationMs(12)
+                .build();
+        when(engine.infer(any(InferenceRequest.class)))
+                .thenReturn(Uni.createFrom().item(expected));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)),
+                SdkConfig.builder().requestTimeout(Duration.ofSeconds(2)).build());
+
+        var actual = sdk.generateText(TextGenerationRequest.of("model", "hello"));
+
+        assertEquals("typed hello", actual.content());
+        assertEquals(2, actual.inputTokens());
+        assertEquals(2, actual.outputTokens());
+        assertEquals(12, actual.durationMs());
+
+        org.mockito.ArgumentCaptor<InferenceRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(engine).infer(captor.capture());
+        assertEquals("model", captor.getValue().getModel());
+        assertEquals("hello", captor.getValue().getPrompt());
+    }
+
+
+
+    @Test
+    void executesTypedTextCapabilityAsynchronously() throws Exception {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().item(
+                InferenceResponse.builder()
+                        .requestId("async-typed")
+                        .model("model")
+                        .content("async hello")
+                        .inputTokens(1)
+                        .outputTokens(2)
+                        .build()));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        TextGenerationResponse response = sdk.generateTextAsync(TextGenerationRequest.of("model", "hello"))
+                .toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertEquals("async hello", response.content());
+        assertEquals(3, response.totalTokens());
+    }
+
+    @Test
+    void adaptsLocalInferenceStreamToTypedTextChunks() throws Exception {
+        LocalInferenceEngine engine = engine();
+        when(engine.stream(any(InferenceRequest.class))).thenReturn(Multi.createFrom().items(
+                StreamingInferenceChunk.textDelta("stream-1", 0, "hello"),
+                StreamingInferenceChunk.finalTextChunk("stream-1", 1, " world", null)));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+        List<TextGenerationChunk> chunks = new ArrayList<>();
+        CountDownLatch completed = new CountDownLatch(1);
+
+        sdk.streamText(TextGenerationRequest.of("model", "hello")).subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(TextGenerationChunk chunk) {
+                chunks.add(chunk);
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                completed.countDown();
+                throw new AssertionError("Unexpected stream failure", throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                completed.countDown();
+            }
+        });
+
+        org.junit.jupiter.api.Assertions.assertTrue(completed.await(2, TimeUnit.SECONDS));
+        assertEquals(2, chunks.size());
+        assertEquals("hello", chunks.get(0).delta());
+        assertEquals(" world", chunks.get(1).delta());
+        assertEquals(true, chunks.get(1).terminal());
+        assertEquals(TextGenerationResponse.FinishReason.STOP, chunks.get(1).finishReason());
+        assertEquals(TextGenerationChunk.class, chunks.get(0).getClass());
     }
 
     @Test
