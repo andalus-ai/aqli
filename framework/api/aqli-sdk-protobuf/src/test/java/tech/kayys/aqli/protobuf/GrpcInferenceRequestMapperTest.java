@@ -1,11 +1,11 @@
 package tech.kayys.aqli.protobuf;
 
 import org.junit.jupiter.api.Test;
-import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class GrpcInferenceRequestMapperTest {
 
@@ -25,16 +25,16 @@ class GrpcInferenceRequestMapperTest {
 
         assertEquals("model-id", request.getModel());
         assertEquals(2, request.getMessages().size());
-        assertEquals(Message.Role.SYSTEM, request.getMessages().get(0).role());
-        assertEquals("Be concise", request.getMessages().get(0).content());
-        assertEquals(Message.Role.USER, request.getMessages().get(1).role());
+        assertEquals(tech.kayys.aqli.spi.Message.Role.SYSTEM, request.getMessages().get(0).getRole());
+        assertEquals("Be concise", request.getMessages().get(0).getContent());
+        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, request.getMessages().get(1).role());
         assertEquals("hello", request.getMessages().get(1).content());
         assertEquals(0.25, request.getTemperature(), 0.0001);
         assertEquals(128, request.getMaxTokens());
         assertEquals(0.9, request.getTopP(), 0.0001);
         assertEquals(1.1, request.getRepeatPenalty(), 0.0001);
         assertEquals(40, request.getTopK());
-        assertTrue(!request.isStreaming());
+        assertFalse(request.isStreaming());
     }
 
     @Test
@@ -68,7 +68,7 @@ class GrpcInferenceRequestMapperTest {
 
         assertEquals("model-id", request.getModel());
         assertEquals("continue this", request.getPrompt());
-        assertEquals("continue this", request.getMessage().content());
+        assertEquals("continue this", request.getMessages().get(0).getContent());
         assertEquals(0.3, request.getTemperature(), 0.0001);
         assertEquals(96, request.getMaxTokens());
         assertEquals(0.9, request.getTopP(), 0.0001);
