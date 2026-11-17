@@ -126,14 +126,24 @@ the same.
 
 ## Initial decomposition sequence
 
-1. Inventory existing SDK, SPI, application, REST, and gRPC request/response contracts.
-2. Decide the canonical request envelope and compatibility strategy.
-3. Extract request assembly from `RunCommand` into application/capability mappers.
-4. Move CLI-only option parsing into CLI option groups and mapping adapters.
-5. Add transport conformance tests against the shared application boundary.
-6. Introduce capability API modules incrementally, starting with text and audio, then
-   image, and later video/spatial as their contracts mature.
-7. Reduce `RunCommand` to a thin command adapter and coordinator.
+1. Audit the existing SDK public facades, SDK implementation, application operations,
+   internal SPI requests, REST resources, gRPC services, and runtime engine catalog.
+2. Record the canonical public contract and compatibility strategy. Keep the current
+   internal `InferenceRequest` as an execution SPI during migration; do not expose it
+   as the final typed capability request.
+3. Define the SDK capability discovery/registration boundary and shared invocation
+   semantics by reusing existing contracts. Specify sync/async, streaming, cancellation,
+   deadlines, validation, defaults, and error categories before choosing new interfaces.
+4. Connect one shared application execution path to the SDK capability contract.
+5. Adapt CLI, REST, and gRPC to construct the same canonical typed requests and invoke
+   that shared path. Keep the CLI run registry limited to Picocli contributions.
+6. Add normalized-request and cross-transport conformance tests before moving existing
+   command behavior.
+7. Extract the text CLI options and mapping into a CLI adapter contribution, preserving
+   all current aliases, defaults, validation, and SDK behavior.
+8. Prove the boundary with an additional capability (audio or image) before expanding
+   to video, spatial, and other capabilities.
+9. Reduce `RunCommand` to a thin command adapter and coordinator.
 
 ## Acceptance criteria
 
@@ -224,3 +234,62 @@ selection and execution stay in runtime.
 The base CLI should not depend on every optional capability provider. Distribution
 assembly decides which provider modules are present, allowing third-party extensions
 without edits to `RunCommand`.
+
+
+## Registry ownership and capability lifecycle
+
+AQLI has multiple registries/catalogs because they resolve different kinds of
+extension points. They must not be collapsed into one registry.
+
+| Boundary | Owns | Must not own |
+| --- | --- | --- |
+| SDK capability registry | Discovery and resolution of public SDK capability implementations | Picocli options, HTTP/protobuf DTOs, backend selection |
+| CLI run capability registry | Picocli option contributions, CLI validation, CLI-to-SDK request mapping | Canonical capability contracts, inference execution, backend selection |
+| Runtime engine catalog | Engine/backend discovery and selection for execution | Public capability semantics or transport parsing |
+| REST/gRPC adapters | Protocol-specific endpoint/service wiring and wire mapping | Independent validation, defaults, dispatch, or execution semantics |
+
+The lifecycle for adding a capability is:
+
+1. Define its typed, transport-neutral SDK request/response contract and capability
+   descriptor, reusing existing domain types where appropriate.
+2. Define the shared application invocation and validation path for that capability.
+3. Register the SDK implementation with the SDK capability registry.
+4. Add optional transport adapters: CLI contribution, REST mapping, and gRPC mapping.
+5. Connect runtime engine/backend implementations through the runtime engine catalog.
+6. Verify all transports normalize to the same application request and observe the same
+   execution, streaming, cancellation, and error behavior.
+
+The SDK capability is independently usable without the CLI artifact. A CLI contribution
+is optional packaging and must resolve the corresponding SDK capability by stable ID;
+it is not the capability implementation itself.
+
+## Existing implementation audit (2026-11-17)
+
+The current codebase contains useful building blocks but does not yet implement the
+complete SDK-first capability registry described above:
+
+- `framework/sdk/aqli-sdk-api` exposes an `AqliSdk` facade whose primary completion
+  method accepts the internal SPI `InferenceRequest`. It also exposes Aljabr multimodal
+  SPI types and embedding SPI types. This is a compatibility surface, not yet the final
+  typed AQLI capability API.
+- `framework/sdk/aqli-sdk/src/main/java/tech/kayys/aqli/sdk/api/AqliClient.java`
+  exposes a separate, smaller text-oriented public client contract and its own
+  `GenerationRequest`. It must be reconciled with the broader SDK facade rather than
+  treated as a second long-term canonical request model.
+- `framework/sdk/aqli-sdk-core` contains `InferenceOperations`, `AqliChatService`,
+  `TextGenerationRequestMapper`, and `RequestValidator`. These are existing
+  application/SDK execution building blocks to audit and evolve before introducing
+  parallel capability invocation interfaces.
+- The internal SPI `InferenceRequest` contains runtime/execution context, a generic
+  parameter map, and a deprecated native context handle. Keep it as an internal
+  execution contract during migration; map canonical SDK requests to it in one shared
+  application boundary.
+- `:cli:aqli-cli-spi` provides `RunCapability`, `RunCapabilityProvider`, and
+  `RunCapabilityRegistry` for Picocli contributions. It is intentionally not an SDK
+  capability registry and must remain independent of canonical SDK semantics.
+- The runtime engine catalog remains responsible for execution engine/backend selection.
+
+Consequently, do not add a speculative generic `AqliCapability<R, S>` or a second
+invocation envelope as the next code change. First document and test the canonical
+request/response and invocation semantics against the existing SDK and application
+contracts. The current CLI registry can then be connected to that stable SDK surface.
