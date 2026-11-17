@@ -57,7 +57,7 @@ public final class AqliChatService {
                 params.temperature(),
                 params.topP(),
                 40,
-                params.maxTokens(),
+                params.maxTokens() > 0 ? params.maxTokens() : null,
                 params.repeatPenalty(),
                 null,
                 null,
