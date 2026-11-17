@@ -126,14 +126,24 @@ the same.
 
 ## Initial decomposition sequence
 
-1. Inventory existing SDK, SPI, application, REST, and gRPC request/response contracts.
-2. Decide the canonical request envelope and compatibility strategy.
-3. Extract request assembly from `RunCommand` into application/capability mappers.
-4. Move CLI-only option parsing into CLI option groups and mapping adapters.
-5. Add transport conformance tests against the shared application boundary.
-6. Introduce capability API modules incrementally, starting with text and audio, then
-   image, and later video/spatial as their contracts mature.
-7. Reduce `RunCommand` to a thin command adapter and coordinator.
+1. Audit the existing SDK public facades, SDK implementation, application operations,
+   internal SPI requests, REST resources, gRPC services, and runtime engine catalog.
+2. Record the canonical public contract and compatibility strategy. Keep the current
+   internal `InferenceRequest` as an execution SPI during migration; do not expose it
+   as the final typed capability request.
+3. Define the SDK capability discovery/registration boundary and shared invocation
+   semantics by reusing existing contracts. Specify sync/async, streaming, cancellation,
+   deadlines, validation, defaults, and error categories before choosing new interfaces.
+4. Connect one shared application execution path to the SDK capability contract.
+5. Adapt CLI, REST, and gRPC to construct the same canonical typed requests and invoke
+   that shared path. Keep the CLI run registry limited to Picocli contributions.
+6. Add normalized-request and cross-transport conformance tests before moving existing
+   command behavior.
+7. Extract the text CLI options and mapping into a CLI adapter contribution, preserving
+   all current aliases, defaults, validation, and SDK behavior.
+8. Prove the boundary with an additional capability (audio or image) before expanding
+   to video, spatial, and other capabilities.
+9. Reduce `RunCommand` to a thin command adapter and coordinator.
 
 ## Acceptance criteria
 
@@ -224,3 +234,150 @@ selection and execution stay in runtime.
 The base CLI should not depend on every optional capability provider. Distribution
 assembly decides which provider modules are present, allowing third-party extensions
 without edits to `RunCommand`.
+
+
+## Registry ownership and capability lifecycle
+
+AQLI has multiple registries/catalogs because they resolve different kinds of
+extension points. They must not be collapsed into one registry.
+
+| Boundary | Owns | Must not own |
+| --- | --- | --- |
+| SDK capability registry | Discovery and resolution of public SDK capability implementations | Picocli options, HTTP/protobuf DTOs, backend selection |
+| CLI run capability registry | Picocli option contributions, CLI validation, CLI-to-SDK request mapping | Canonical capability contracts, inference execution, backend selection |
+| Runtime engine catalog | Engine/backend discovery and selection for execution | Public capability semantics or transport parsing |
+| REST/gRPC adapters | Protocol-specific endpoint/service wiring and wire mapping | Independent validation, defaults, dispatch, or execution semantics |
+
+The lifecycle for adding a capability is:
+
+1. Define its typed, transport-neutral SDK request/response contract and capability
+   descriptor, reusing existing domain types where appropriate.
+2. Define the shared application invocation and validation path for that capability.
+3. Register the SDK implementation with the SDK capability registry.
+4. Add optional transport adapters: CLI contribution, REST mapping, and gRPC mapping.
+5. Connect runtime engine/backend implementations through the runtime engine catalog.
+6. Verify all transports normalize to the same application request and observe the same
+   execution, streaming, cancellation, and error behavior.
+
+The SDK capability is independently usable without the CLI artifact. A CLI contribution
+is optional packaging and must resolve the corresponding SDK capability by stable ID;
+it is not the capability implementation itself.
+
+## Existing implementation audit (2026-11-17)
+
+The current codebase contains useful building blocks but does not yet implement the
+complete SDK-first capability registry described above:
+
+- `framework/sdk/aqli-sdk-api` exposes an `AqliSdk` facade whose primary completion
+  method accepts the internal SPI `InferenceRequest`. It also exposes Aljabr multimodal
+  SPI types and embedding SPI types. This is a compatibility surface, not yet the final
+  typed AQLI capability API.
+- `framework/sdk/aqli-sdk/src/main/java/tech/kayys/aqli/sdk/api/AqliClient.java`
+  exposes a separate, smaller text-oriented public client contract and its own
+  `GenerationRequest`. It must be reconciled with the broader SDK facade rather than
+  treated as a second long-term canonical request model.
+- `framework/sdk/aqli-sdk-core` contains `InferenceOperations`, `AqliChatService`,
+  `TextGenerationRequestMapper`, and `RequestValidator`. These are existing
+  application/SDK execution building blocks to audit and evolve before introducing
+  parallel capability invocation interfaces.
+- The internal SPI `InferenceRequest` contains runtime/execution context, a generic
+  parameter map, and a deprecated native context handle. Keep it as an internal
+  execution contract during migration; map canonical SDK requests to it in one shared
+  application boundary.
+- `:cli:aqli-cli-spi` provides `RunCapability`, `RunCapabilityProvider`, and
+  `RunCapabilityRegistry` for Picocli contributions. It is intentionally not an SDK
+  capability registry and must remain independent of canonical SDK semantics.
+- The runtime engine catalog remains responsible for execution engine/backend selection.
+
+Consequently, do not add a speculative generic `AqliCapability<R, S>` or a second
+invocation envelope as the next code change. First document and test the canonical
+request/response and invocation semantics against the existing SDK and application
+contracts. The current CLI registry can then be connected to that stable SDK surface.
+
+
+## Transport parity audit (2026-11-17)
+
+The current REST and gRPC paths demonstrate partial reuse, but not yet semantic parity through
+one canonical typed SDK capability API.
+
+### REST server paths
+
+- `ChatResource` maps its chat DTO into shared `Message` and `ChatParams` values, then
+  delegates to `AqliChatService.chat(...)` or `streamChat(...)`. This is the strongest
+  existing shared application path in the server API.
+- `InferenceResource` accepts the internal SPI `InferenceRequest` directly from JSON and
+  calls `AqliSdk.createCompletion(...)` / `streamCompletion(...)`. This leaks an execution
+  SPI into the HTTP contract.
+- `OpenAiChatResource` parses a JSON tree through `AgenticApiMapper` into an internal
+  `InferenceRequest`, then invokes the SDK facade directly. Its mapping and error translation
+  path is separate from `ChatResource`.
+- `EmbeddingsResource` maps its wire payload to the internal SPI `EmbeddingRequest` and
+  calls the SDK facade directly. This is another direct SPI boundary.
+
+### gRPC server paths
+
+- `AqliGrpcService` uses `AqliChatService` to construct internal requests, but invokes
+  `sdk.createCompletion` / `sdk.streamCompletion` directly rather than using the same
+  chat application methods as `ChatResource`.
+- Its protocol-specific message mapping is reasonable, but its invocation, metrics, and
+  failure handling are independently implemented.
+- Streaming subscriptions are created inline. The service does not retain a cancellable
+  subscription tied to the gRPC call lifecycle; cancellation/disconnect propagation must be
+  addressed in the shared invocation design.
+
+### Remote SDK client paths
+
+- `AqliClient.GenerationRequest` is a second, compact text-generation request model
+  (prompt, max tokens, temperature, top-p, stop tokens), separate from the broader SDK
+  facade and internal `InferenceRequest`.
+- `RestAqliClient` serializes that request to a `/v1/generate` endpoint and parses a
+  legacy `GenerationResult`. Its streaming implementation is currently a placeholder that
+  performs a normal generation and emits the complete text as one token; embedding is a
+  zero-filled placeholder.
+- `GrpcAqliClient` maps the same compact request to the `InferenceService` protobuf
+  contract. The server-side `AqliGrpcService` shown in the API module implements the
+  separate `AqliService` protobuf contract. These are distinct service definitions and
+  should be reconciled rather than assumed to be equivalent.
+- The REST and gRPC client implementations independently apply defaults and map request
+  fields. For example, gRPC chooses configured defaults when request values are non-positive,
+  while REST serializes the request record as supplied.
+
+### Parity gaps to resolve
+
+1. **Canonical request:** HTTP resources currently accept a mix of internal SPI DTOs,
+   transport DTOs, and JSON trees. gRPC uses protobuf DTOs. Normalize all of them into
+   the same typed SDK capability request.
+2. **Validation/defaults:** centralize validation and defaults after transport mapping.
+   Transport adapters should validate only protocol syntax/required wire fields.
+3. **Invocation:** route REST and gRPC through the same SDK application operation, not
+   separate direct facade calls and request builders.
+4. **Streaming/cancellation:** define one streaming contract and cancellation propagation.
+   In particular, a disconnected REST subscriber or cancelled gRPC call must cancel the
+   underlying invocation consistently.
+5. **Errors:** define stable SDK error categories and map them to HTTP status/error bodies
+   and gRPC status codes. Do not let each resource invent its own category semantics.
+6. **Metadata/context:** propagate request ID, user/session identity, trace context, API key,
+   deadlines, and cancellation through one shared invocation context where supported.
+7. **Compatibility:** preserve existing REST/OpenAI-compatible and protobuf wire schemas
+   while mapping them to the canonical SDK model. Wire compatibility does not require
+   identical JSON and protobuf shapes.
+8. **Remote clients:** reconcile `AqliClient` with the primary SDK facade and bring the
+   remote REST/gRPC clients onto the same canonical request/response contract. Replace
+   placeholders and align client service definitions with the actual server endpoints.
+
+### Recommended implementation sequence after this audit
+
+1. Establish a transport-neutral typed text request/response contract in the SDK API,
+   with an explicit compatibility plan for `AqliSdk`, `AqliClient`, and existing SPI types.
+2. Introduce or identify one application invocation method that owns validation, defaults,
+   execution, async behavior, streaming, cancellation, and error semantics.
+3. Add adapter-level mapping tests proving REST and gRPC DTOs normalize to equivalent SDK
+   requests. Include default values, stop sequences, tools, metadata, and stream flags.
+4. Route `ChatResource`, `OpenAiChatResource`, `InferenceResource`, and
+   `AqliGrpcService` through that shared application method in separate small changes.
+5. Align the remote SDK REST and gRPC clients with the same canonical contract.
+6. Only after those paths are covered, extract text CLI mapping into the CLI capability
+   contribution.
+
+This audit is a migration baseline, not a claim that the current transports already have
+parity. It also does not authorize exposing `InferenceRequest` as the final public SDK model.
