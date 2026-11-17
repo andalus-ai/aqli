@@ -27,7 +27,6 @@ dependencies {
     implementation(project(":spi:aqli-spi-image"))
     implementation(project(":spi:aqli-spi-runner"))
     implementation("tech.kayys.aljabr:aljabr-model-flux:0.1.0-SNAPSHOT")
-    implementation("tech.kayys:suling:0.1.0")
     implementation(project(":spi:aqli-spi-multimodal"))
     implementation(project(":core:aqli-core"))
     implementation(project(":spi:aqli-spi-inference"))
