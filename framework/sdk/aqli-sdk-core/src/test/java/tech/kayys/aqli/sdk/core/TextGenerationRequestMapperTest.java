@@ -22,7 +22,7 @@ class TextGenerationRequestMapperTest {
 
         InferenceRequest.Builder builder = request.toBuilder();
         TextGenerationRequestMapper.apply(builder, new TextGenerationOptions(
-                0.35, 0.82, 32, 1.15, true, 512, 2, "root ::= \\"ok\\""));
+                0.35, 0.82, 32, 1.15, true, 512, 2, "root ::= \"ok\""));
 
         InferenceRequest mapped = builder.build();
         assertEquals(0.35, mapped.getTemperature(), 0.0001);
@@ -32,7 +32,7 @@ class TextGenerationRequestMapperTest {
         assertTrue(mapped.isJsonMode());
         assertEquals(512, mapped.getMaxTokens());
         assertEquals(2, mapped.getMirostat());
-        assertEquals("root ::= \\"ok\\"", mapped.getGrammar());
+        assertEquals("root ::= \"ok\"", mapped.getGrammar());
     }
 
     @Test
@@ -45,7 +45,7 @@ class TextGenerationRequestMapperTest {
                         TextGenerationMessage.tool("call-7", "tool result")),
                 new TextGenerationParameters(
                         0.35, 0.82, 24, 96, 1.12, 0.04, 7,
-                        true, "root ::= \\"ok\\"", java.util.List.of("END")));
+                        true, "root ::= \"ok\"", java.util.List.of("END")));
 
         InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(publicRequest);
 
@@ -62,7 +62,7 @@ class TextGenerationRequestMapperTest {
         assertEquals(0.04, ((Number) mapped.getParameters().get("min_p")).doubleValue(), 0.0001);
         assertEquals(7, mapped.getParameters().get("seed"));
         assertTrue(mapped.isJsonMode());
-        assertEquals("root ::= \\"ok\\"", mapped.getGrammar());
+        assertEquals("root ::= \"ok\"", mapped.getGrammar());
         assertEquals(java.util.List.of("END"), mapped.getParameters().get("stop"));
         assertFalse(mapped.isStreaming());
     }
