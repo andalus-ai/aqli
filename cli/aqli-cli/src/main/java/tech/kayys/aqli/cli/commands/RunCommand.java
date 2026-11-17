@@ -52,6 +52,7 @@ import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguratio
 import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeResponseCacheRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1425,6 +1426,8 @@ public class RunCommand implements Runnable {
                     effectiveSystemPrompt,
                     ragSystemPrompt,
                     prompt);
+
+            RuntimeResponseCacheRequestConfiguration.apply(requestBuilder, noCache);
 
             InferenceRequest request = requestBuilder.build();
 
