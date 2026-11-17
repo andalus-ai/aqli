@@ -283,3 +283,16 @@ The first SPI increment deliberately defines option contribution and validation 
 Typed request contribution will be added alongside the canonical SDK capability payloads
 and shared application mapper, rather than prematurely introducing an untyped request
 sink or exposing internal `InferenceRequest` as the public API.
+
+
+### Quarkus/Picocli lifecycle integration
+
+Dynamic run options are contributed while producing the Quarkus-managed Picocli
+`CommandLine`, using `PicocliCommandLineFactory`. The configuration locates the
+existing `run` subcommand and applies registry contributions to its `CommandSpec`
+before parsing begins. This preserves Quarkus' CDI-aware command instantiation and
+the annotated top-level command hierarchy.
+
+After parsing, a CDI observer receives the `CommandLine.ParseResult`, walks the
+selected command chain, and invokes registry validation only for the `run` command.
+Do not add provider discovery or modality-specific lifecycle logic to `RunCommand`.
