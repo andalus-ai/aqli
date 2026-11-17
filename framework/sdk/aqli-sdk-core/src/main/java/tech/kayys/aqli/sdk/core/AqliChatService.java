@@ -5,6 +5,8 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationToolDefinition;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.spi.Message;
@@ -64,7 +66,23 @@ public final class AqliChatService {
                 false,
                 null,
                 List.of());
-        return new TextGenerationRequest(modelId, messages, parameters, tools);
+        List<TextGenerationMessage> sdkMessages = messages.stream()
+                .map(message -> new TextGenerationMessage(
+                        TextGenerationMessage.Role.valueOf(message.getRole().name()),
+                        message.getContent() == null ? "" : message.getContent(),
+                        message.getName(),
+                        message.getToolCallId()))
+                .toList();
+        List<TextGenerationToolDefinition> sdkTools = tools == null ? List.of() : tools.stream()
+                .map(tool -> new TextGenerationToolDefinition(
+                        tool.getName(),
+                        TextGenerationToolDefinition.Type.valueOf(tool.getType().name()),
+                        tool.getDescription().orElse(null),
+                        tool.getParameters(),
+                        tool.isStrict(),
+                        tool.getMetadata()))
+                .toList();
+        return new TextGenerationRequest(modelId, sdkMessages, parameters, sdkTools);
     }
 
     /**
