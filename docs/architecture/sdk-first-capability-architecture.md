@@ -224,3 +224,18 @@ selection and execution stay in runtime.
 The base CLI should not depend on every optional capability provider. Distribution
 assembly decides which provider modules are present, allowing third-party extensions
 without edits to `RunCommand`.
+
+
+### Quarkus command model and validation lifecycle
+
+The CLI produces its customized Picocli `CommandLine` through Quarkus'
+`PicocliCommandLineFactory`. After the annotated command hierarchy is built, the
+registry contributes options to the existing `run` command's `CommandSpec` before
+the parser consumes arguments. This avoids a second CLI bootstrap path and preserves
+the Quarkus CDI-aware factory.
+
+A CDI observer consumes the parsed `CommandLine.ParseResult`, locates the selected
+`run` command in the nested parse-result chain, and invokes capability validation.
+The command itself does not know which providers were discovered. A test-only
+ServiceLoader provider verifies that an extension option is present before parsing
+and that the registry validation hook receives the selected run parse result.
