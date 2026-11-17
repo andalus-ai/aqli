@@ -55,6 +55,18 @@ class AqliChatServiceTest {
     }
 
     @Test
+    void treatsNonPositiveChatTokenLimitAsUnspecified() {
+        var request = service.createTextGenerationRequest(
+                "model-id",
+                null,
+                List.of(Message.user("hello")),
+                List.of(),
+                ChatParams.of(0.0, 0));
+
+        assertEquals(null, request.parameters().maxTokens());
+    }
+
+    @Test
     void createCompletionRequestPreservesPreferredProvider() {
         ChatParams params = new ChatParams(0.2, 256, 0.9, 1.1, "llamacpp");
 
