@@ -69,6 +69,30 @@ class LocalAqliSdkTest {
 
 
     @Test
+    void preservesGeneratedToolCallsInTypedTextResponse() {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().item(
+                InferenceResponse.builder()
+                        .requestId("tool-request")
+                        .model("model")
+                        .content("")
+                        .finishReason(InferenceResponse.FinishReason.TOOL_CALLS)
+                        .toolCall(new InferenceResponse.ToolCall("lookup", Map.of("query", "weather")))
+                        .build()));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        TextGenerationResponse response = sdk.generateText(TextGenerationRequest.of("model", "lookup weather"));
+
+        assertEquals(TextGenerationResponse.FinishReason.TOOL_CALLS, response.finishReason());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("lookup", response.toolCalls().getFirst().getName());
+        assertEquals(Map.of("query", "weather"), response.toolCalls().getFirst().getArguments());
+        org.junit.jupiter.api.Assertions.assertFalse(response.toolCalls().getFirst().getId().isBlank());
+    }
+
+    @Test
     void executesTypedTextCapabilityThroughTheSameLocalInferenceEngine() {
         LocalInferenceEngine engine = engine();
         InferenceResponse expected = InferenceResponse.builder()
