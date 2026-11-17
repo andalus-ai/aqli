@@ -13,7 +13,6 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
-import org.reactivestreams.FlowAdapters;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.sdk.config.SdkConfig;
@@ -89,9 +88,9 @@ public class LocalAqliSdk implements AqliSdk {
     public Flow.Publisher<TextGenerationChunk> streamText(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toStreamingInferenceRequest(request);
-        return FlowAdapters.toFlowPublisher(streamCompletion(executionRequest)
+        return streamCompletion(executionRequest)
                 .filter(chunk -> chunk.modality() == ModalityType.TEXT)
-                .map(LocalAqliSdk::toTextGenerationChunk));
+                .map(LocalAqliSdk::toTextGenerationChunk);
     }
 
     private static TextGenerationResponse toTextGenerationResponse(InferenceResponse response) {
