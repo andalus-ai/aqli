@@ -74,7 +74,11 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
     public TextGenerationResponse generateText(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toInferenceRequest(request);
-        return toTextGenerationResponse(createCompletion(executionRequest));
+        try {
+            return toTextGenerationResponse(createCompletion(executionRequest));
+        } catch (SdkException e) {
+            throw new IllegalStateException("Typed text generation failed", e);
+        }
     }
 
     @Override
