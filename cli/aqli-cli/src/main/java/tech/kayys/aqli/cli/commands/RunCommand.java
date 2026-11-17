@@ -112,7 +112,7 @@ import tech.kayys.suling.audio.FfmpegAudioEncoder;
 import tech.kayys.suling.audio.Suling;
 
 /**
- * Run inference command using AqliSdk.
+ * Run inference command using the AQLI runtime contract.
  * Usage: aqli run --model <model> --prompt <prompt> [--provider
  * litert|llamacpp|gemini] [--stream]
  */
