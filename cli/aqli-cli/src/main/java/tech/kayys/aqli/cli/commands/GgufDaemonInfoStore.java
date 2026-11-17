@@ -76,7 +76,11 @@ final class GgufDaemonInfoStore {
                 Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } finally {
-            Files.deleteIfExists(temporary);
+            try {
+                Files.deleteIfExists(temporary);
+            } catch (IOException ignored) {
+                // Preserve the publication failure if temporary-file cleanup also fails.
+            }
         }
     }
 
