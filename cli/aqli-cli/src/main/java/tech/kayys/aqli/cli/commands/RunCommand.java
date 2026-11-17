@@ -50,6 +50,8 @@ import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1316,6 +1318,12 @@ public class RunCommand implements Runnable {
                             quantizeBits,
                             quantizeKv,
                             runtimeProfile));
+            RuntimeQuantizationRequestConfiguration.apply(
+                    requestBuilder,
+                    quantizeStrategy,
+                    quantizeBits,
+                    quantizeKv);
+            RuntimeProfilingRequestConfiguration.apply(requestBuilder, runtimeProfile);
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
