@@ -3,6 +3,9 @@ package tech.kayys.aqli.sdk.core;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
@@ -28,6 +31,64 @@ public final class AqliChatService {
 
     public AqliChatService(SdkObservabilityProvider obs) {
         this.obs = obs != null ? obs : SdkObservabilityProvider.noop();
+    }
+
+    /**
+     * Builds the canonical public SDK text request used by transport adapters.
+     * Transport-specific DTOs must be normalized to Message before reaching this method.
+     */
+    public TextGenerationRequest createTextGenerationRequest(
+            String modelId,
+            String systemPrompt,
+            List<Message> history,
+            List<ToolDefinition> tools,
+            ChatParams params) {
+        List<Message> messages = new ArrayList<>();
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            messages.add(Message.system(systemPrompt));
+        }
+        if (history != null) {
+            messages.addAll(history);
+        }
+        if (params == null) {
+            params = ChatParams.defaults();
+        }
+        TextGenerationParameters parameters = new TextGenerationParameters(
+                params.temperature(),
+                params.topP(),
+                40,
+                params.maxTokens() > 0 ? params.maxTokens() : null,
+                params.repeatPenalty(),
+                null,
+                null,
+                false,
+                null,
+                List.of());
+        return new TextGenerationRequest(modelId, messages, parameters, tools);
+    }
+
+    /**
+     * Executes the canonical typed text capability and applies shared SDK observability.
+     */
+    public Uni<TextGenerationResponse> generateText(
+            AqliRuntime sdk,
+            TextGenerationRequest request) {
+        String requestId = UUID.randomUUID().toString();
+        String modelId = request.model();
+        obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+        long startMs = System.currentTimeMillis();
+
+        return Uni.createFrom().completionStage(() -> sdk.generateTextAsync(request))
+                .onItem().invoke(response -> {
+                    long duration = System.currentTimeMillis() - startMs;
+                    obs.getMetricsCollector().recordClientSuccess(modelId, duration, response.totalTokens());
+                    obs.getAuditLogger().logClientRequestComplete(requestId, modelId, response.totalTokens(), duration);
+                })
+                .onFailure().invoke(error -> {
+                    obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
+                    obs.getAuditLogger().logClientRequestFailure(
+                            requestId, modelId, error.getClass().getSimpleName());
+                });
     }
 
     public Multi<StreamingInferenceChunk> streamChat(
