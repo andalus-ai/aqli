@@ -42,7 +42,7 @@ class TextGenerationRequestMapperTest {
                 java.util.List.of(Message.system("be concise"), Message.user("hello")),
                 new TextGenerationParameters(
                         0.35, 0.82, 24, 96, 1.12, 0.04, 7,
-                        true, "root ::= \\"ok\\"", java.util.List.of("END")));
+                        true, "root ::= \"ok\"", java.util.List.of("END")));
 
         InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(publicRequest);
 
@@ -56,7 +56,7 @@ class TextGenerationRequestMapperTest {
         assertEquals(0.04, ((Number) mapped.getParameters().get("min_p")).doubleValue(), 0.0001);
         assertEquals(7, mapped.getParameters().get("seed"));
         assertTrue(mapped.isJsonMode());
-        assertEquals("root ::= \\"ok\\"", mapped.getGrammar());
+        assertEquals("root ::= \"ok\"", mapped.getGrammar());
         assertEquals(java.util.List.of("END"), mapped.getParameters().get("stop"));
         assertFalse(mapped.isStreaming());
     }
