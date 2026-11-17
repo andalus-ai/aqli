@@ -5,6 +5,7 @@ import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,20 +35,22 @@ class TextGenerationRequestMapperTest {
         assertEquals("root ::= \"ok\"", mapped.getGrammar());
     }
 
-
     @Test
-    void mapsTypedPublicRequestIntoInternalExecutionRequest() {
+    void mapsTypedPublicRequestAndToolDefinitionsIntoInternalExecutionRequest() {
+        ToolDefinition tool = ToolDefinition.builder().name("lookup").build();
         TextGenerationRequest publicRequest = new TextGenerationRequest(
                 "model-typed",
                 java.util.List.of(Message.system("be concise"), Message.user("hello")),
                 new TextGenerationParameters(
                         0.35, 0.82, 24, 96, 1.12, 0.04, 7,
-                        true, "root ::= \"ok\"", java.util.List.of("END")));
+                        true, "root ::= \"ok\"", java.util.List.of("END")),
+                java.util.List.of(tool));
 
         InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(publicRequest);
 
         assertEquals("model-typed", mapped.getModel());
         assertEquals(publicRequest.messages(), mapped.getMessages());
+        assertEquals(java.util.List.of(tool), mapped.getTools());
         assertEquals(0.35, mapped.getTemperature(), 0.0001);
         assertEquals(0.82, mapped.getTopP(), 0.0001);
         assertEquals(24, mapped.getTopK());
