@@ -21,6 +21,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
@@ -57,6 +58,26 @@ class LocalAqliSdkTest {
                 .build());
 
         assertEquals(expected, actual);
+    }
+
+    @Test
+    void streamsInferenceThroughTheSelectedEngine() {
+        LocalInferenceEngine engine = engine();
+        when(engine.stream(any(InferenceRequest.class)))
+                .thenReturn(Multi.createFrom().empty());
+        LocalInferenceEngineCatalog catalog = new LocalInferenceEngineCatalog(List.of(engine));
+        LocalAqliSdk sdk = new LocalAqliSdk(catalog, SdkConfig.builder().build());
+
+        sdk.streamCompletion(InferenceRequest.builder()
+                .model("model")
+                .prompt("hi")
+                .build())
+                .collect().asList().await().indefinitely();
+
+        org.mockito.ArgumentCaptor<InferenceRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(engine).stream(captor.capture());
+        assertEquals(true, captor.getValue().isStreaming());
     }
 
     @Test
