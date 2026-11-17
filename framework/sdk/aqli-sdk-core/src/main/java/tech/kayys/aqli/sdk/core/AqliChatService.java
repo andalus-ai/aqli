@@ -130,7 +130,7 @@ public final class AqliChatService {
                 .model(modelId)
                 .messages(messages)
                 .streaming(streaming);
-        applyCommonParameters(reqBuilder, p);
+        applyCommonParameters(request, params);
 
         TextGenerationRequestMapper.apply(request, toTextGenerationOptions(params));
         if (tools != null && !tools.isEmpty()) {
