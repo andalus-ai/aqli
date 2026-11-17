@@ -1,7 +1,9 @@
 package tech.kayys.aqli.sdk.core;
 
+import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 
 import java.util.Objects;
@@ -31,7 +33,7 @@ public final class TextGenerationRequestMapper {
 
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .model(request.model())
-                .messages(request.messages())
+                .messages(request.messages().stream().map(TextGenerationRequestMapper::toSpiMessage).toList())
                 .streaming(streaming);
 
         if (parameters.temperature() != null) {
@@ -65,6 +67,11 @@ public final class TextGenerationRequestMapper {
             builder.parameter("stop", parameters.stopSequences());
         }
         return builder.build();
+    }
+
+    private static Message toSpiMessage(TextGenerationMessage message) {
+        Message.Role role = Message.Role.valueOf(message.role().name());
+        return new Message(role, message.content(), null, message.name(), null, message.toolCallId());
     }
 
     /**
