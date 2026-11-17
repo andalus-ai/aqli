@@ -25,7 +25,7 @@ class TextGenerationRequestMapperTest {
 
         InferenceRequest.Builder builder = request.toBuilder();
         TextGenerationRequestMapper.apply(builder, new TextGenerationOptions(
-                0.35, 0.82, 32, 1.15, true, 512, 2, "root ::= \\"ok\\""));
+                0.35, 0.82, 32, 1.15, true, 512, 2, "root ::= \"ok\""));
 
         InferenceRequest mapped = builder.build();
         assertEquals(0.35, mapped.getTemperature(), 0.0001);
@@ -35,7 +35,7 @@ class TextGenerationRequestMapperTest {
         assertTrue(mapped.isJsonMode());
         assertEquals(512, mapped.getMaxTokens());
         assertEquals(2, mapped.getMirostat());
-        assertEquals("root ::= \\"ok\\"", mapped.getGrammar());
+        assertEquals("root ::= \"ok\"", mapped.getGrammar());
     }
 
     @Test
@@ -49,7 +49,7 @@ class TextGenerationRequestMapperTest {
                         "call-1",
                         "lookup",
                         SdkMessage.ToolType.FUNCTION,
-                        new SdkMessage.FunctionCall("lookup", "{\\"q\\":\\"aqli\\"}"),
+                        new SdkMessage.FunctionCall("lookup", "{\"q\":\"aqli\"}"),
                         Map.of("q", "aqli"))),
                 null);
         SdkMessage multimodal = SdkMessage.multimodal(
