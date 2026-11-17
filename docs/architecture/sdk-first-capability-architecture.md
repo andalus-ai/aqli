@@ -197,7 +197,7 @@ Compatibility rules for the transition:
 1. Existing `AqliSdk.createCompletion(InferenceRequest)` remains available as the legacy execution-SPI entry point.
 2. Existing `AqliClient.GenerationRequest` remains unchanged until its callers and both remote implementations are migrated through a deliberate compatibility adapter.
 3. The new API types must not depend on CLI, REST, gRPC, Quarkus, or concrete runners.
-4. The next implementation increment belongs in SDK core: map this typed request into the existing execution SPI once, and implement the three typed operations over the same execution path. Transport adapters must not write their own mapper.
+4. SDK core now owns the single mapper from this typed request into the existing execution SPI. The runtime inference port composes the typed operations, and the local SDK implements synchronous, asynchronous, and streaming calls through its existing engine catalog. Transport adapters must not write their own mapper.
 
 ## Provider-specific lifecycle capabilities
 
