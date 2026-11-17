@@ -187,6 +187,7 @@ includeOptionalProject("spi:aqli-spi-runtime", "framework/spi/aqli-spi-runtime")
 
 // Optional API
 includeOptionalProject("api:aqli-api", "framework/api/aqli-api", "ui/aqli-api")
+// CLI extension SPI is kept separate from SDK and transport-neutral capability APIs.
 includeOptionalProject("cli:aqli-cli-spi", "cli/aqli-cli-spi")
 includeOptionalProject("cli:aqli-cli", "cli/aqli-cli")
 
@@ -227,6 +228,7 @@ includeOptionalProject("runner:onnx:aqli-runner-onnx", "runtime/runner/onnx/aqli
 
 includeOptionalProject("runner:safetensor:aqli-safetensor-engine", "runtime/runner/safetensor/aqli-safetensor-engine")
 includeOptionalProject("runner:safetensor:aqli-runner-flux", "runtime/runner/safetensor/aqli-runner-flux")
+// includeOptionalProject("runner:safetensor:aqli-runner-stable-diffusion", "runtime/runner/safetensor/aqli-runner-stable-diffusion")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-api", "runtime/runner/safetensor/aqli-safetensor-api")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-core", "runtime/runner/safetensor/aqli-safetensor-core")
 // includeOptionalProject("runner:safetensor:aqli-safetensor-loader", "runtime/runner/safetensor/aqli-safetensor-loader")
@@ -234,7 +236,12 @@ includeOptionalProject("runner:safetensor:aqli-runner-flux", "runtime/runner/saf
 if (providers.gradleProperty("withQuantization").orNull == "true") {
     includeOptionalProject("runner:safetensor:aqli-safetensor-quantization", "runtime/runner/safetensor/aqli-safetensor-quantization")
 }
-// includeOptionalProject("runner:safetensor:aqli-safetensor-spi", "runtime/runner/aqli-safetensor-spi")
+// includeOptionalProject("runner:safetensor:aqli-safetensor-spi", "runtime/runner/safetensor/aqli-safetensor-spi")
 // includeOptionalProject("runner:tensorrt:aqli-runner-tensorrt", "runtime/runner/tensorrt/aqli-runner-tensorrt")
 // includeOptionalProject("runner:tensorrt:aqli-plugin-runner-tensorrt", "runtime/runner/tensorrt/aqli-plugin-tensorrt")
 // includeOptionalProject("runner:torch:aqli-runner-libtorch", "runtime/runner/torch/aqli-runner-libtorch")
+
+
+
+
+
