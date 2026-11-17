@@ -2,7 +2,6 @@ package tech.kayys.aqli.protobuf;
 
 import tech.kayys.aqli.sdk.core.AqliChatService;
 import tech.kayys.aqli.sdk.core.ChatParams;
-import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 
 import java.util.List;
@@ -27,9 +26,9 @@ public final class GrpcInferenceRequestMapper {
     }
 
     public InferenceRequest toChatRequest(ChatRequest request, boolean streaming) {
-        List<Message> messages = request.getMessagesList().stream()
-                .map(message -> new Message(
-                        Message.Role.valueOf(message.getRole().toUpperCase(Locale.ROOT)),
+        List<tech.kayys.aqli.spi.Message> messages = request.getMessagesList().stream()
+                .map(message -> new tech.kayys.aqli.spi.Message(
+                        tech.kayys.aqli.spi.Message.Role.valueOf(message.getRole().toUpperCase(Locale.ROOT)),
                         message.getContent()))
                 .toList();
 
