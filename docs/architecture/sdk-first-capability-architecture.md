@@ -400,3 +400,14 @@ one canonical typed SDK capability API.
 
 This audit is a migration baseline, not a claim that the current transports already have
 parity. It also does not authorize exposing `InferenceRequest` as the final public SDK model.
+
+
+### Text tool-calling request support
+
+The typed TextGenerationRequest also carries an immutable list of ToolDefinition values.
+Tool definitions are part of the canonical text-generation input, not a transport-only
+extension: REST, gRPC, and CLI adapters must map their tool declarations into this field.
+The SDK-core TextGenerationRequestMapper transfers the list to the internal execution
+request. The original three-argument constructor remains available and defaults tools to
+an empty list, preserving source compatibility for existing SDK callers. Tool-choice
+semantics remain a separate contract decision; adapters must not silently invent them.
