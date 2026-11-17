@@ -30,7 +30,6 @@ class ServiceLoaderRunCapabilityRegistryTest {
 
     @Test
     void rejectsDuplicateCapabilityIds() {
-        RunCapabilityRegistry registry = null;
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> ServiceLoaderRunCapabilityRegistry.fromProviders(List.of(
                         provider("text", capability("text")),
