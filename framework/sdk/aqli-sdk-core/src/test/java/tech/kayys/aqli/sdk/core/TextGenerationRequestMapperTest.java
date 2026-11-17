@@ -6,6 +6,7 @@ import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
 
 import java.util.List;
 import java.util.Map;
@@ -66,15 +67,20 @@ class TextGenerationRequestMapperTest {
         InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(publicRequest);
         List<Message> messages = mapped.getMessages();
 
-        assertEquals(4, messages.size());
-        assertEquals(Message.Role.SYSTEM, messages.get(0).getRole());
-        assertEquals("hello", messages.get(1).getContent());
-        assertEquals("assistant", messages.get(2).getName());
-        assertEquals("call-1", messages.get(2).getToolCalls().get(0).getId());
-        assertEquals("lookup", messages.get(2).getToolCalls().get(0).getFunction().getName());
-        assertEquals(Map.of("q", "aqli"), messages.get(2).getToolCalls().get(0).getArguments());
-        assertTrue(messages.get(3).isMultiModal());
-        assertEquals(Message.ContentType.IMAGE_URL, messages.get(3).getContentParts().get(1).type());
+        assertEquals("model-typed", mapped.getModel());
+        assertEquals(publicRequest.messages(), mapped.getMessages());
+        assertEquals(java.util.List.of(tool), mapped.getTools());
+        assertEquals(0.35, mapped.getTemperature(), 0.0001);
+        assertEquals(0.82, mapped.getTopP(), 0.0001);
+        assertEquals(24, mapped.getTopK());
+        assertEquals(96, mapped.getMaxTokens());
+        assertEquals(1.12, mapped.getRepeatPenalty(), 0.0001);
+        assertEquals(0.04, ((Number) mapped.getParameters().get("min_p")).doubleValue(), 0.0001);
+        assertEquals(7, mapped.getParameters().get("seed"));
+        assertTrue(mapped.isJsonMode());
+        assertEquals("root ::= \"ok\"", mapped.getGrammar());
+        assertEquals(java.util.List.of("END"), mapped.getParameters().get("stop"));
+        assertFalse(mapped.isStreaming());
     }
 
     @Test
