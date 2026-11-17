@@ -180,6 +180,25 @@ Instead:
 
 This gives the SDK a genuine single-source-of-truth role without leaking runner/runtime implementation details into its public contract.
 
+## First typed text capability contract
+
+The SDK API now defines the first typed capability payload under
+`tech.kayys.aqli.sdk.capability.text`:
+
+- `TextGenerationRequest` carries a model, immutable conversation messages, and typed generation parameters.
+- `TextGenerationParameters` models sampling, token limits, penalties, grammar, structured output, and stop sequences. Unspecified values remain unset so defaults are applied once by the shared application execution boundary.
+- `TextGenerationResponse` and `TextGenerationChunk` define completed and streaming output independently of a transport.
+- `TextGenerationOperations` defines synchronous, asynchronous, and publisher-based streaming entry points. `AqliSdk` composes this capability while retaining its existing SPI-based methods for source/binary migration compatibility.
+
+This is a first capability payload, not yet the complete cross-cutting invocation context. Request identity, caller/session metadata, deadlines, cancellation propagation, and shared error semantics must be owned by the application invocation boundary before transports are migrated. Do not add those concerns as ad hoc fields to each capability request.
+
+Compatibility rules for the transition:
+
+1. Existing `AqliSdk.createCompletion(InferenceRequest)` remains available as the legacy execution-SPI entry point.
+2. Existing `AqliClient.GenerationRequest` remains unchanged until its callers and both remote implementations are migrated through a deliberate compatibility adapter.
+3. The new API types must not depend on CLI, REST, gRPC, Quarkus, or concrete runners.
+4. The next implementation increment belongs in SDK core: map this typed request into the existing execution SPI once, and implement the three typed operations over the same execution path. Transport adapters must not write their own mapper.
+
 ## Provider-specific lifecycle capabilities
 
 Provider-specific options must not be added to a generic lifecycle request merely because
