@@ -53,6 +53,7 @@ import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterM
 import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeResponseCacheRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeOutputFormatRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -1400,9 +1401,7 @@ public class RunCommand implements Runnable {
                     disableLowLatencyAudio,
                     effectiveFlacCompression));
 
-            if (extension != null && !extension.isBlank()) {
-                requestBuilder.parameter("output_format", extension.toLowerCase());
-            }
+            RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
 
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
             RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
