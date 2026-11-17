@@ -9,15 +9,15 @@ import java.util.Objects;
 /**
  * Transport-neutral request for text generation.
  *
- * <p>The request contains conversation input, optional tool definitions, and
- * typed generation controls. It deliberately does not expose transport DTOs
- * or untyped parameter maps.</p>
+ * <p>The public text contract owns its message and parameter values. It does
+ * not expose execution SPI objects, transport DTOs, or untyped parameter maps.
+ * Multimodal payloads and tool-call declarations are modeled by their own
+ * capability contracts.</p>
  */
 public record TextGenerationRequest(
         String model,
-        List<Message> messages,
-        TextGenerationParameters parameters,
-        List<ToolDefinition> tools) {
+        List<TextGenerationMessage> messages,
+        TextGenerationParameters parameters) {
 
     public TextGenerationRequest {
         if (model == null || model.isBlank()) {
