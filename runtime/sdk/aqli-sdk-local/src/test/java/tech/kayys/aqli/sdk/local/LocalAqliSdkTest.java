@@ -69,6 +69,47 @@ class LocalAqliSdkTest {
 
 
     @Test
+    void preservesGeneratedToolCallsInTypedTextResponse() {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().item(
+                InferenceResponse.builder()
+                        .requestId("tool-request")
+                        .model("model")
+                        .content("")
+                        .finishReason(InferenceResponse.FinishReason.TOOL_CALLS)
+                        .toolCall(new InferenceResponse.ToolCall("lookup", Map.of("query", "weather")))
+                        .build()));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        TextGenerationResponse response = sdk.generateText(TextGenerationRequest.of("model", "lookup weather"));
+
+        assertEquals(TextGenerationResponse.FinishReason.TOOL_CALLS, response.finishReason());
+        assertEquals(1, response.toolCalls().size());
+        assertEquals("lookup", response.toolCalls().getFirst().getFunction().getName());
+        assertEquals(Map.of("query", "weather"), response.toolCalls().getFirst().getArguments());
+        org.junit.jupiter.api.Assertions.assertFalse(response.toolCalls().getFirst().getId().isBlank());
+    }
+
+    @Test
+    void wrapsCheckedInferenceFailuresAtTheTypedSynchronousBoundary() {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class)))
+                .thenReturn(Uni.createFrom().failure(new IllegalArgumentException("boom")));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        IllegalStateException failure = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> sdk.generateText(TextGenerationRequest.of("model", "hello")));
+
+        org.junit.jupiter.api.Assertions.assertInstanceOf(
+                tech.kayys.aqli.sdk.exception.SdkException.class, failure.getCause());
+    }
+
+    @Test
     void executesTypedTextCapabilityThroughTheSameLocalInferenceEngine() {
         LocalInferenceEngine engine = engine();
         InferenceResponse expected = InferenceResponse.builder()
@@ -101,6 +142,33 @@ class LocalAqliSdkTest {
     }
 
 
+
+
+    @Test
+    void exposesCanonicalPublicSdkTextCapabilityContract() {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().item(
+                InferenceResponse.builder()
+                        .requestId("public-sdk")
+                        .model("model")
+                        .content("public contract")
+                        .inputTokens(1)
+                        .outputTokens(2)
+                        .build()));
+
+        tech.kayys.aqli.sdk.AqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        TextGenerationResponse response = sdk.generateText(TextGenerationRequest.of("model", "hello"));
+
+        assertEquals("public contract", response.content());
+        assertEquals(3, response.totalTokens());
+        org.mockito.ArgumentCaptor<InferenceRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(engine).infer(captor.capture());
+        assertEquals("model", captor.getValue().getModel());
+        assertEquals("hello", captor.getValue().getPrompt());
+    }
 
     @Test
     void executesTypedTextCapabilityAsynchronously() throws Exception {

@@ -13,7 +13,6 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 
 import io.smallrye.mutiny.Multi;
-import org.reactivestreams.FlowAdapters;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.sdk.config.SdkConfig;
@@ -48,7 +47,7 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
  * runtime services. Hugging Face model pulls are delegated to the repository
  * capability; unsupported providers and uncomposed operations fail explicitly.</p>
  */
-public class LocalAqliSdk implements AqliSdk {
+public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
 
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
@@ -75,7 +74,11 @@ public class LocalAqliSdk implements AqliSdk {
     public TextGenerationResponse generateText(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toInferenceRequest(request);
-        return toTextGenerationResponse(createCompletion(executionRequest));
+        try {
+            return toTextGenerationResponse(createCompletion(executionRequest));
+        } catch (SdkException e) {
+            throw new IllegalStateException("Typed text generation failed", e);
+        }
     }
 
     @Override
@@ -89,9 +92,9 @@ public class LocalAqliSdk implements AqliSdk {
     public Flow.Publisher<TextGenerationChunk> streamText(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toStreamingInferenceRequest(request);
-        return FlowAdapters.toFlowPublisher(streamCompletion(executionRequest)
+        return streamCompletion(executionRequest)
                 .filter(chunk -> chunk.modality() == ModalityType.TEXT)
-                .map(LocalAqliSdk::toTextGenerationChunk));
+                .map(LocalAqliSdk::toTextGenerationChunk);
     }
 
     private static TextGenerationResponse toTextGenerationResponse(InferenceResponse response) {
@@ -101,7 +104,14 @@ public class LocalAqliSdk implements AqliSdk {
                 response.getInputTokens(),
                 response.getOutputTokens(),
                 response.getDurationMs(),
-                toTextFinishReason(response.getFinishReason()));
+                toTextFinishReason(response.getFinishReason()),
+                response.getToolCalls().stream()
+                        .map(call -> tech.kayys.aqli.spi.tool.ToolCall.builder()
+                                .id(java.util.UUID.randomUUID().toString())
+                                .name(call.name())
+                                .arguments(call.arguments())
+                                .build())
+                        .toList());
     }
 
     private static TextGenerationChunk toTextGenerationChunk(StreamingInferenceChunk chunk) {

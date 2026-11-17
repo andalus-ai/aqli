@@ -400,3 +400,57 @@ one canonical typed SDK capability API.
 
 This audit is a migration baseline, not a claim that the current transports already have
 parity. It also does not authorize exposing `InferenceRequest` as the final public SDK model.
+
+
+## SDK-owned conversation message boundary
+
+The typed text-generation API now models conversation messages with
+`SdkMessage` and nested SDK-owned content-part and tool-call types. The public
+`TextGenerationRequest` must not expose `tech.kayys.aqli.spi.Message`,
+`ToolCall`, or other execution SPI message types.
+
+`SdkMessageMapper` in SDK core is the sole conversion boundary into the
+legacy execution SPI. It preserves roles, text and multimodal content parts,
+message names, tool calls (including function arguments and argument maps),
+and tool-call IDs. Local and remote SDK implementations must consume the same
+SDK-owned request shape; transport adapters must not perform this conversion.
+
+This is an incremental boundary improvement, not yet a claim that the entire
+SDK API is SPI-independent. Other legacy SDK methods still expose SPI and
+Aljabr types and require their own audited compatibility migrations. Do not
+remove the SDK API module's SPI dependencies until all public signatures and
+downstream consumers have been migrated.
+### Text tool-calling request support
+
+The typed TextGenerationRequest also carries an immutable list of ToolDefinition values.
+Tool definitions are part of the canonical text-generation input, not a transport-only
+extension: REST, gRPC, and CLI adapters must map their tool declarations into this field.
+The SDK-core TextGenerationRequestMapper transfers the list to the internal execution
+request. The original three-argument constructor remains available and defaults tools to
+an empty list, preserving source compatibility for existing SDK callers. Tool-choice
+semantics remain a separate contract decision; adapters must not silently invent them.
+
+
+### Text-generation tool-call results
+
+The canonical TextGenerationResponse includes an immutable list of generated ToolCall
+values. The local SDK adapter maps runtime tool-call names and arguments into the public
+SDK result and assigns stable-per-response call IDs. The previous six-argument response
+constructor remains source-compatible and defaults the tool-call list to empty. Transport
+adapters should serialize these SDK tool calls rather than reconstructing them independently.
+
+
+### REST chat typed SDK migration progress
+
+The ChatResource non-streaming chat path now normalizes its wire messages and tool definitions
+into TextGenerationRequest, then delegates execution to AqliChatService.generateText
+and the SDK generateTextAsync operation. Sampling parameters are mapped once by the
+shared chat service. Tool-call results come from TextGenerationResponse rather than being
+reconstructed by the REST resource. The demo fallback SDK implements the typed operation
+so the fallback path retains its behavior.
+
+The REST streaming endpoint intentionally remains on the existing shared streamChat
+path in this increment. TextGenerationChunk does not yet carry the full tool-call delta
+and stream metadata needed to preserve the current StreamingInferenceChunk wire shape.
+Do not migrate that endpoint until the typed stream contract can represent those fields
+and cancellation is verified end-to-end.
