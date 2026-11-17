@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.sdk.model.PullProgress;
@@ -58,6 +59,39 @@ class LocalAqliSdkTest {
                 .build());
 
         assertEquals(expected, actual);
+    }
+
+
+    @Test
+    void executesTypedTextCapabilityThroughTheSameLocalInferenceEngine() {
+        LocalInferenceEngine engine = engine();
+        InferenceResponse expected = InferenceResponse.builder()
+                .requestId("typed-request")
+                .model("model")
+                .content("typed hello")
+                .inputTokens(2)
+                .outputTokens(2)
+                .durationMs(12)
+                .build();
+        when(engine.infer(any(InferenceRequest.class)))
+                .thenReturn(Uni.createFrom().item(expected));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)),
+                SdkConfig.builder().requestTimeout(Duration.ofSeconds(2)).build());
+
+        var actual = sdk.generateText(TextGenerationRequest.of("model", "hello"));
+
+        assertEquals("typed hello", actual.content());
+        assertEquals(2, actual.inputTokens());
+        assertEquals(2, actual.outputTokens());
+        assertEquals(12, actual.durationMs());
+
+        org.mockito.ArgumentCaptor<InferenceRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(InferenceRequest.class);
+        verify(engine).infer(captor.capture());
+        assertEquals("model", captor.getValue().getModel());
+        assertEquals("hello", captor.getValue().getPrompt());
     }
 
     @Test
