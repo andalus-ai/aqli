@@ -293,3 +293,91 @@ Consequently, do not add a speculative generic `AqliCapability<R, S>` or a secon
 invocation envelope as the next code change. First document and test the canonical
 request/response and invocation semantics against the existing SDK and application
 contracts. The current CLI registry can then be connected to that stable SDK surface.
+
+
+## Transport parity audit (2026-11-17)
+
+The current REST and gRPC paths demonstrate partial reuse, but not yet semantic parity through
+one canonical typed SDK capability API.
+
+### REST server paths
+
+- `ChatResource` maps its chat DTO into shared `Message` and `ChatParams` values, then
+  delegates to `AqliChatService.chat(...)` or `streamChat(...)`. This is the strongest
+  existing shared application path in the server API.
+- `InferenceResource` accepts the internal SPI `InferenceRequest` directly from JSON and
+  calls `AqliSdk.createCompletion(...)` / `streamCompletion(...)`. This leaks an execution
+  SPI into the HTTP contract.
+- `OpenAiChatResource` parses a JSON tree through `AgenticApiMapper` into an internal
+  `InferenceRequest`, then invokes the SDK facade directly. Its mapping and error translation
+  path is separate from `ChatResource`.
+- `EmbeddingsResource` maps its wire payload to the internal SPI `EmbeddingRequest` and
+  calls the SDK facade directly. This is another direct SPI boundary.
+
+### gRPC server paths
+
+- `AqliGrpcService` uses `AqliChatService` to construct internal requests, but invokes
+  `sdk.createCompletion` / `sdk.streamCompletion` directly rather than using the same
+  chat application methods as `ChatResource`.
+- Its protocol-specific message mapping is reasonable, but its invocation, metrics, and
+  failure handling are independently implemented.
+- Streaming subscriptions are created inline. The service does not retain a cancellable
+  subscription tied to the gRPC call lifecycle; cancellation/disconnect propagation must be
+  addressed in the shared invocation design.
+
+### Remote SDK client paths
+
+- `AqliClient.GenerationRequest` is a second, compact text-generation request model
+  (prompt, max tokens, temperature, top-p, stop tokens), separate from the broader SDK
+  facade and internal `InferenceRequest`.
+- `RestAqliClient` serializes that request to a `/v1/generate` endpoint and parses a
+  legacy `GenerationResult`. Its streaming implementation is currently a placeholder that
+  performs a normal generation and emits the complete text as one token; embedding is a
+  zero-filled placeholder.
+- `GrpcAqliClient` maps the same compact request to the `InferenceService` protobuf
+  contract. The server-side `AqliGrpcService` shown in the API module implements the
+  separate `AqliService` protobuf contract. These are distinct service definitions and
+  should be reconciled rather than assumed to be equivalent.
+- The REST and gRPC client implementations independently apply defaults and map request
+  fields. For example, gRPC chooses configured defaults when request values are non-positive,
+  while REST serializes the request record as supplied.
+
+### Parity gaps to resolve
+
+1. **Canonical request:** HTTP resources currently accept a mix of internal SPI DTOs,
+   transport DTOs, and JSON trees. gRPC uses protobuf DTOs. Normalize all of them into
+   the same typed SDK capability request.
+2. **Validation/defaults:** centralize validation and defaults after transport mapping.
+   Transport adapters should validate only protocol syntax/required wire fields.
+3. **Invocation:** route REST and gRPC through the same SDK application operation, not
+   separate direct facade calls and request builders.
+4. **Streaming/cancellation:** define one streaming contract and cancellation propagation.
+   In particular, a disconnected REST subscriber or cancelled gRPC call must cancel the
+   underlying invocation consistently.
+5. **Errors:** define stable SDK error categories and map them to HTTP status/error bodies
+   and gRPC status codes. Do not let each resource invent its own category semantics.
+6. **Metadata/context:** propagate request ID, user/session identity, trace context, API key,
+   deadlines, and cancellation through one shared invocation context where supported.
+7. **Compatibility:** preserve existing REST/OpenAI-compatible and protobuf wire schemas
+   while mapping them to the canonical SDK model. Wire compatibility does not require
+   identical JSON and protobuf shapes.
+8. **Remote clients:** reconcile `AqliClient` with the primary SDK facade and bring the
+   remote REST/gRPC clients onto the same canonical request/response contract. Replace
+   placeholders and align client service definitions with the actual server endpoints.
+
+### Recommended implementation sequence after this audit
+
+1. Establish a transport-neutral typed text request/response contract in the SDK API,
+   with an explicit compatibility plan for `AqliSdk`, `AqliClient`, and existing SPI types.
+2. Introduce or identify one application invocation method that owns validation, defaults,
+   execution, async behavior, streaming, cancellation, and error semantics.
+3. Add adapter-level mapping tests proving REST and gRPC DTOs normalize to equivalent SDK
+   requests. Include default values, stop sequences, tools, metadata, and stream flags.
+4. Route `ChatResource`, `OpenAiChatResource`, `InferenceResource`, and
+   `AqliGrpcService` through that shared application method in separate small changes.
+5. Align the remote SDK REST and gRPC clients with the same canonical contract.
+6. Only after those paths are covered, extract text CLI mapping into the CLI capability
+   contribution.
+
+This audit is a migration baseline, not a claim that the current transports already have
+parity. It also does not authorize exposing `InferenceRequest` as the final public SDK model.
