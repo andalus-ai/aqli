@@ -135,3 +135,11 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - The registry must not choose inference backends or execute inference. Runtime owns backend selection and execution.
 - Keep optional capability providers out of the base CLI dependency graph unless they are intentionally packaged in that distribution. A third-party provider should be loadable without editing `RunCommand`.
 - Add capability-specific SDK request contribution only after the canonical SDK task payloads and application mapping boundary are defined. Do not expose internal SPI `InferenceRequest` as a substitute public SDK request.
+
+
+## 10. Quarkus Picocli capability lifecycle
+
+- Compose dynamic `aqli run` options through the Quarkus-provided `PicocliCommandLineFactory`; do not register options in `RunCommand.run()` or rely on a late `@Spec` callback.
+- Produce the customized `CommandLine` from the Quarkus factory, then contribute options to the existing `run` subcommand's `CommandSpec` before argument parsing. Preserve the Quarkus CDI-aware command factory and existing `@TopCommand` graph.
+- Observe Quarkus' parsed `CommandLine.ParseResult` event and validate the nested `run` parse result through the same registry.
+- Keep registry creation and Picocli composition in CLI configuration classes; `RunCommand` remains unaware of individual capability providers.
