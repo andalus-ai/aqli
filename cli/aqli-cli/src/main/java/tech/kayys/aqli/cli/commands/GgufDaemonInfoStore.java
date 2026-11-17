@@ -1,9 +1,13 @@
 package tech.kayys.aqli.cli.commands;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Objects;
@@ -41,18 +45,39 @@ final class GgufDaemonInfoStore {
     }
 
     void write(int port, long pid, String key) throws IOException {
-        Path parent = file.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
+        Path target = file.toAbsolutePath();
+        Path parent = target.getParent();
+        Files.createDirectories(parent);
+
+        byte[] contents = (port + System.lineSeparator()
+                + pid + System.lineSeparator()
+                + (key == null ? "" : key) + System.lineSeparator())
+                .getBytes(StandardCharsets.UTF_8);
+        String prefix = target.getFileName().toString();
+        if (prefix.length() < 3) {
+            prefix = (prefix + "___").substring(0, 3);
         }
-        Files.writeString(file,
-                port + System.lineSeparator()
-                        + pid + System.lineSeparator()
-                        + (key == null ? "" : key) + System.lineSeparator(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE);
+
+        Path temporary = Files.createTempFile(parent, prefix, ".tmp");
+        try {
+            try (FileChannel channel = FileChannel.open(temporary,
+                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(contents);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                channel.force(true);
+            }
+
+            try {
+                Files.move(temporary, target,
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     void delete() {
