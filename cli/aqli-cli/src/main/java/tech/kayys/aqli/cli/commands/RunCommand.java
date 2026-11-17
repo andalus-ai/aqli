@@ -21,7 +21,6 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
-import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
@@ -39,16 +38,18 @@ import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
 import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRunner;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
+import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
+import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeResponseCacheRequestConfiguration;
@@ -79,7 +80,6 @@ import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
-import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
 import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
@@ -95,6 +95,7 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -132,8 +133,6 @@ public class RunCommand implements Runnable {
     ChatUIRenderer uiRenderer;
     @Inject
     DirectInferenceEngine directInferenceEngine;
-    @Inject
-    Instance<HuggingFaceRepository> huggingFaceRepository;
     @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
 
@@ -1280,12 +1279,26 @@ public class RunCommand implements Runnable {
             RagRunRequestConfiguration.RagContext ragContext =
                     RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
 
-            InferenceRequest.Builder requestBuilder = RunRequestBaseAssembler.create(
-                    new RunRequestBaseAssembler.Options(
+            InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
+                    new RunInferenceRequestFactory.Options(
                             requestModelTarget,
                             prompt,
+                            temperature,
+                            topP,
+                            topK,
+                            repeatPenalty,
+                            jsonMode,
+                            maxTokens,
                             pluginId,
                             effectiveStream,
+                            sessionId,
+                            mirostat,
+                            grammar,
+                            noCache));
+
+            ModelSourceRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ModelSourceRunRequestParameterMapper.Options(
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
@@ -1299,6 +1312,13 @@ public class RunCommand implements Runnable {
                     mirostat,
                     grammar));
 
+            RuntimeExecutionRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new RuntimeExecutionRunRequestParameterMapper.Options(
+                            quantizeStrategy,
+                            quantizeBits,
+                            quantizeKv,
+                            runtimeProfile));
             RuntimeQuantizationRequestConfiguration.apply(
                     requestBuilder,
                     quantizeStrategy,
@@ -1308,8 +1328,6 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            // Keep backend/runner selection resolved by the runtime; this adapter
-            // only propagates the resulting hints into the shared request envelope.
             String ggufEngineHint = requestedGgufEngine();
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
@@ -1318,9 +1336,17 @@ public class RunCommand implements Runnable {
                             runner != null && !runner.isBlank(),
                             effectiveRunnerRouteReport.normalizedRunner(),
                             ggufEngineHint,
-                            featurePipelineId,
+                            null,
                             executionProviderId,
                             libtorchSafetensorCliBridge));
+            ImageGenerationRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            outputPath,
+                            width,
+                            height));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1381,7 +1407,18 @@ public class RunCommand implements Runnable {
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
             RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
 
+            boolean directSafetensorEligible = shouldUseDirectSafetensorRunPath(providerId, finalLocalPath);
+            boolean directSafetensorSdkRoute = directSafetensorEligible && !effectiveStream;
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
+            if (directSafetensorSdkRoute) {
+                DirectSafetensorRunProfile directProfile =
+                        directSafetensorRunProfile(executionProviderId, finalLocalPath);
+                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile)) {
+                    // Match the former direct runner: retain explicit prompts and Qwen's default,
+                    // but do not inject the generic CLI default for other direct model families.
+                    effectiveSystemPrompt = null;
+                }
+            }
             String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
             RunConversationRequestAssembler.apply(
                     requestBuilder,
@@ -1409,38 +1446,21 @@ public class RunCommand implements Runnable {
             }
 
             if (explicitJavaEngine() && isSafetensorModelPath(finalLocalPath)
-                    && !shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
+                    && !directSafetensorEligible) {
                 System.err.println("Error: --java requested the pure-Java safetensor engine, but it cannot run this request: "
                         + directSafetensorDeclineReason(finalLocalPath)
                         + ". Not falling back to libtorch or GGUF; drop --java to allow other routes.");
                 requestProcessExit(1);
                 return;
             }
-            if (shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
-                DirectSafetensorRunProfile directProfile =
-                        directSafetensorRunProfile(executionProviderId, finalLocalPath);
-                boolean useCliDirectSystemPrompt =
-                        DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile);
-                String explicitDirectSystemPrompt = useCliDirectSystemPrompt
-                        ? effectiveSystemPrompt
-                        : null;
-                System.err.println("Directly generating...");
-                InferenceResponse response = DirectSafetensorCompletionRunner.run(
-                        directInferenceEngine(),
-                        new DirectSafetensorCompletionRunner.Request(
-                                resolveSafetensorCheckpointPath(finalLocalPath),
-                                directProfile,
-                                prompt,
-                                explicitDirectSystemPrompt,
-                                maxTokens,
-                                temperature,
-                                topK,
-                                topP,
-                                repeatPenalty,
-                                quantizeKv,
-                                seed,
-                                quantizeStrategy));
-                System.err.println("Generated response: '" + response.getContent() + "'");
+            if (directSafetensorSdkRoute) {
+                System.err.println("Running pure-Java Safetensors completion through the AQLI SDK...");
+                InferenceResponse response = sdk.createCompletion(request);
+                if (response == null) {
+                    System.err.println("Error: inference returned an empty response.");
+                    requestProcessExit(1);
+                    return;
+                }
                 printResponse(response, startTime);
                 requestProcessExit();
             } else if (effectiveStream) {
@@ -2100,7 +2120,7 @@ public class RunCommand implements Runnable {
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
-        String repoId = hfRepoIdFromModelRef(requestedModel);
+        String repoId = ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
         if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
@@ -2116,23 +2136,34 @@ public class RunCommand implements Runnable {
             System.err.println("Run once online: aqli pull " + repoId);
             return null;
         }
-        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
-        }
-
         String revision = branch == null || branch.isBlank() ? "main" : branch.trim();
         if (!ttsVoicesJsonOutput()) {
             System.out.println("Model not found locally; pulling hf:" + repoId
                     + ("main".equalsIgnoreCase(revision) ? "" : "@" + revision) + "...");
         }
-        try (TerminalDownloadProgressRenderer progress = new TerminalDownloadProgressRenderer(0)) {
-            huggingFaceRepository.get().pullRepository(
-                    repoId,
-                    revision,
-                    preferredFormat,
-                    null,
-                    Map.of("fallback", "automatic-run-huggingface-repository"),
-                    progress);
+        sdk.pullHuggingFaceModel(
+                HuggingFacePullRequest.builder()
+                        .modelSpec("hf:" + repoId)
+                        .revision(revision)
+                        .format(preferredFormat)
+                        .build(),
+                progress -> {
+                    if (quietRouteResolutionOutput()) {
+                        return;
+                    }
+                    if (progress.getTotal() > 0) {
+                        System.out.printf("\r  Downloading %s: %3d%% (%d/%d MB)",
+                                repoId,
+                                progress.getPercentComplete(),
+                                progress.getCompleted() / 1024 / 1024,
+                                progress.getTotal() / 1024 / 1024);
+                    } else {
+                        System.out.printf("\r  %s", progress.getStatus());
+                    }
+                    System.out.flush();
+                });
+        if (!quietRouteResolutionOutput()) {
+            System.out.println();
         }
         LocalModelIndex.refreshFromDisk();
 
@@ -2152,13 +2183,6 @@ public class RunCommand implements Runnable {
                 (ref, format) -> format == null
                         ? LocalModelIndex.find(ref)
                         : LocalModelIndex.find(ref, format));
-    }
-
-    private String hfRepoIdFromModelRef(String requestedModel) {
-        ModelSourceResolver.Source source = ModelSourceResolver.classify(requestedModel);
-        return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
-                ? source.reference()
-                : null;
     }
 
     private String truncateDisplay(String value, int width) {

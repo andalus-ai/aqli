@@ -71,6 +71,8 @@ dependencies {
     implementation(project(":plugin:aqli-plugin-runner-core"))
     implementation(project(":runner:gguf:aqli-runner-gguf"))
     implementation(project(":observability:aqli-observability"))
+    // The GGUF daemon metrics server exposes Prometheus types in its public API.
+    implementation("io.micrometer:micrometer-registry-prometheus:1.14.4")
     implementation(project(":repository:aqli-model-repo-hf"))
     implementation(project(":repository:aqli-model-repo-kaggle"))
     implementation(project(":repository:aqli-model-repo-local"))

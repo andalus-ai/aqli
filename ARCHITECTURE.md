@@ -225,6 +225,18 @@ Avoid a flat request containing every modality's parameters and avoid untyped pa
 maps as the long-term public contract. Compatibility maps may remain temporarily only with
 documented ownership, validation, and a migration/removal plan.
 
+Provider-specific operations follow the same typed-capability rule. For example,
+`HuggingFacePullRequest` owns repository include patterns and task classification, while
+`ModelPullRequest` remains provider-neutral. It also preserves optional repository architecture and metadata for manifest classification and provenance. CLI, REST, gRPC, and programmatic adapters map
+provider-specific wire/CLI options into that SDK capability contract rather than calling a
+repository implementation directly or silently dropping options. REST uses `format`,
+`includePatterns`, and `taskType`; gRPC uses `format`, `include_patterns`, and `task_type`
+with additive protobuf fields. Other providers continue through the generic pull request.
+
+`RunCommand` automatic Hugging Face preparation follows the same rule: it calls the SDK's
+`HuggingFaceModelOperations` contract rather than injecting `HuggingFaceRepository` into
+the CLI. The command retains only local-index refresh and terminal progress presentation.
+
 ### Module introduction and parity
 
 Introduce capability API/core/runner modules incrementally, reusing current modules and
