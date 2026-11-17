@@ -1,9 +1,11 @@
 package tech.kayys.aqli.cli.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import jakarta.inject.Inject;
+import picocli.CommandLine.ParseResult;
 import org.junit.jupiter.api.Test;
 import io.quarkus.test.junit.QuarkusTest;
 import picocli.CommandLine;
@@ -14,6 +16,9 @@ class RunCapabilityCommandLineTest {
 
     @Inject
     CommandLine commandLine;
+
+    @Inject
+    RunCapabilityParseResultObserver observer;
 
     @Test
     void registersServiceLoadedCapabilityOptionsBeforeArgumentParsing() {
@@ -26,5 +31,10 @@ class RunCapabilityCommandLineTest {
         CommandLine.ParseResult parsed = commandLine.parseArgs("run", "--registry-probe");
         assertNotNull(parsed.subcommand());
         assertTrue(parsed.subcommand().hasMatchedOption("--registry-probe"));
+
+        RegistryProbeRunCapabilityProvider.VALIDATION_COUNT.set(0);
+        observer.validateRunCapabilities(parsed);
+        assertEquals(1, RegistryProbeRunCapabilityProvider.VALIDATION_COUNT.get(),
+                "the parsed run invocation must be validated by discovered capabilities");
     }
 }
