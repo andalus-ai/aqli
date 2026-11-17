@@ -135,3 +135,18 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - The registry must not choose inference backends or execute inference. Runtime owns backend selection and execution.
 - Keep optional capability providers out of the base CLI dependency graph unless they are intentionally packaged in that distribution. A third-party provider should be loadable without editing `RunCommand`.
 - Add capability-specific SDK request contribution only after the canonical SDK task payloads and application mapping boundary are defined. Do not expose internal SPI `InferenceRequest` as a substitute public SDK request.
+
+
+## 10. SDK capability registry and transport adapter separation
+
+- The SDK owns the canonical, transport-neutral capability API: typed capability contracts and payloads, shared invocation semantics, and the public capability discovery surface.
+- The SDK capability registry resolves available SDK capability implementations. It is not the CLI registry, runtime engine catalog, or transport adapter registry.
+- Shared application execution owns validation, defaults, capability dispatch, execution lifecycle, streaming, cancellation, deadlines, and error semantics. Keep this behavior behind SDK/application contracts; do not put it in transport registries.
+- The CLI run capability registry owns only Picocli contributions, CLI-specific validation, and mapping parsed arguments into canonical SDK requests. It must not define capability semantics or execute capabilities.
+- REST and gRPC adapters map their wire DTOs into the same canonical SDK requests and invoke the same application execution path. Their protocol-specific serialization, authentication, and error translation remain transport concerns.
+- The runtime engine catalog resolves execution engines/backends for an already-resolved application capability. It must not become a second public capability API.
+- Keep these registries separate. Integrate them through stable capability identifiers and typed SDK contracts, not by merging their lifecycle or responsibilities.
+- A capability must remain usable through the Java SDK and non-CLI transports when the CLI module is absent.
+- Do not introduce a generic `AqliCapability<R, S>`, invocation envelope, or registry until existing SDK/API, application, and runtime contracts have been audited for reusable request, response, async, streaming, cancellation, and error semantics. Reuse and evolve existing contracts where possible; avoid parallel generic request models.
+- The common invocation context may eventually carry cross-cutting request identity, tracing, deadlines, cancellation, and execution hints. Define it only after confirming which fields are truly shared and how they map to existing request context and runtime contracts.
+- New capability work should proceed in this order: canonical typed SDK contract and application path; SDK implementation registration; CLI/REST/gRPC adapters; runtime execution support. Keep modality-specific option parsing out of the canonical SDK contract.
