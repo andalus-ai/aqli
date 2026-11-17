@@ -1,20 +1,17 @@
 package tech.kayys.aqli.sdk.capability.text;
 
-import tech.kayys.aqli.spi.Message;
-
 import java.util.List;
 import java.util.Objects;
 
 /**
  * Transport-neutral request for text generation.
  *
- * <p>The request contains conversation input and typed generation controls.
- * It deliberately does not expose execution SPI objects, transport DTOs, or
- * untyped parameter maps.</p>
+ * <p>The public request uses SDK-owned conversation types. Conversion to
+ * execution SPI messages is performed only by SDK core.</p>
  */
 public record TextGenerationRequest(
         String model,
-        List<Message> messages,
+        List<SdkMessage> messages,
         TextGenerationParameters parameters) {
 
     public TextGenerationRequest {
@@ -38,7 +35,7 @@ public record TextGenerationRequest(
         }
         return new TextGenerationRequest(
                 model,
-                List.of(Message.user(prompt)),
+                List.of(SdkMessage.user(prompt)),
                 TextGenerationParameters.unspecified());
     }
 }
