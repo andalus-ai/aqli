@@ -29,6 +29,7 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.config.SdkConfig;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aljabr.spi.download.DownloadProgressListener;
 import tech.kayys.aqli.sdk.model.PullProgress;
@@ -100,6 +101,29 @@ class LocalAqliSdkTest {
     }
 
 
+
+    @Test
+    void executesTypedTextCapabilityAsynchronously() throws Exception {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().item(
+                InferenceResponse.builder()
+                        .requestId("async-typed")
+                        .model("model")
+                        .content("async hello")
+                        .inputTokens(1)
+                        .outputTokens(2)
+                        .build()));
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)), SdkConfig.builder().build());
+
+        TextGenerationResponse response = sdk.generateTextAsync(TextGenerationRequest.of("model", "hello"))
+                .toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertEquals("async hello", response.content());
+        assertEquals(3, response.totalTokens());
+    }
+
     @Test
     void adaptsLocalInferenceStreamToTypedTextChunks() throws Exception {
         LocalInferenceEngine engine = engine();
@@ -140,6 +164,7 @@ class LocalAqliSdkTest {
         assertEquals("hello", chunks.get(0).delta());
         assertEquals(" world", chunks.get(1).delta());
         assertEquals(true, chunks.get(1).terminal());
+        assertEquals(TextGenerationResponse.FinishReason.STOP, chunks.get(1).finishReason());
         assertEquals(TextGenerationChunk.class, chunks.get(0).getClass());
     }
 
