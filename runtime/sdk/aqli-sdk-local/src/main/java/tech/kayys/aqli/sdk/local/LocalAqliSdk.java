@@ -39,6 +39,8 @@ import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aljabr.spi.model.ModalityType;
 import tech.kayys.aljabr.spi.model.ModelManifest;
 import tech.kayys.aljabr.spi.model.ModelRegistry;
+import tech.kayys.aljabr.spi.model.MultimodalRequest;
+import tech.kayys.aljabr.spi.model.MultimodalResponse;
 
 /**
  * Local SDK facade over the AQLI inference-engine catalog.
@@ -149,14 +151,14 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
     }
 
     @Override
-    public InferenceResponse createCompletion(InferenceRequest request) throws SdkException {
+    public InferenceResponse createCompletion(InferenceRequest request) {
         InferenceRequest effective = applyDefaults(request);
         try {
             var selection = engines.select(effective);
             var timeout = effective.getTimeout().orElse(config.getRequestTimeout());
             return selection.engine().infer(effective).await().atMost(timeout);
         } catch (RuntimeException e) {
-            throw new SdkException("SDK_ERR_INFERENCE",
+            throw new IllegalStateException(
                     "Local inference failed for model '" + request.getModel() + "': " + e.getMessage(), e);
         }
     }
@@ -183,8 +185,19 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
     }
 
     @Override
-    public EmbeddingResponse createEmbedding(EmbeddingRequest request) throws SdkException {
-        throw unsupported("Embeddings");
+    public EmbeddingResponse createEmbedding(EmbeddingRequest request) {
+        throw new UnsupportedOperationException(
+                "Embeddings are not available in the local SDK: no production embedding service is composed.");
+    }
+
+    /**
+     * Resolves the competing default implementations inherited from the
+     * runtime capability port and the public SDK compatibility interface.
+     */
+    @Override
+    public MultimodalResponse processMultimodal(MultimodalRequest request) {
+        throw new UnsupportedOperationException(
+                "Multimodal processing is not available in the local SDK: no production multimodal service is composed.");
     }
 
     @Override
