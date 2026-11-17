@@ -93,7 +93,7 @@ class LocalAqliSdkTest {
     }
 
     @Test
-    void wrapsCheckedInferenceFailuresAtTheTypedSynchronousBoundary() {
+    void wrapsInferenceFailuresAtTheTypedSynchronousBoundary() {
         LocalInferenceEngine engine = engine();
         when(engine.infer(any(InferenceRequest.class)))
                 .thenReturn(Uni.createFrom().failure(new IllegalArgumentException("boom")));
@@ -106,7 +106,7 @@ class LocalAqliSdkTest {
                 () -> sdk.generateText(TextGenerationRequest.of("model", "hello")));
 
         org.junit.jupiter.api.Assertions.assertInstanceOf(
-                tech.kayys.aqli.sdk.exception.SdkException.class, failure.getCause());
+                IllegalArgumentException.class, failure.getCause());
     }
 
     @Test
