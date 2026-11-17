@@ -1,6 +1,7 @@
 package tech.kayys.aqli.sdk.capability.text;
 
 import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
 
 import java.util.List;
 import java.util.Objects;
@@ -8,13 +9,14 @@ import java.util.Objects;
 /**
  * Transport-neutral request for text generation.
  *
- * <p>The request contains conversation input and typed generation controls.
- * It deliberately does not expose execution SPI objects, transport DTOs, or
- * untyped parameter maps.</p>
+ * <p>The public text contract owns its message and parameter values. It does
+ * not expose execution SPI objects, transport DTOs, or untyped parameter maps.
+ * Multimodal payloads and tool-call declarations are modeled by their own
+ * capability contracts.</p>
  */
 public record TextGenerationRequest(
         String model,
-        List<Message> messages,
+        List<TextGenerationMessage> messages,
         TextGenerationParameters parameters) {
 
     public TextGenerationRequest {
@@ -30,6 +32,18 @@ public record TextGenerationRequest(
             throw new IllegalArgumentException("messages must not contain null entries");
         }
         parameters = parameters == null ? TextGenerationParameters.unspecified() : parameters;
+        tools = tools == null ? List.of() : List.copyOf(tools);
+        if (tools.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("tools must not contain null entries");
+        }
+    }
+
+    /**
+     * Source-compatible constructor for callers created before tool definitions
+     * became part of the canonical text-generation request.
+     */
+    public TextGenerationRequest(String model, List<Message> messages, TextGenerationParameters parameters) {
+        this(model, messages, parameters, List.of());
     }
 
     public static TextGenerationRequest of(String model, String prompt) {
@@ -39,6 +53,7 @@ public record TextGenerationRequest(
         return new TextGenerationRequest(
                 model,
                 List.of(Message.user(prompt)),
-                TextGenerationParameters.unspecified());
+                TextGenerationParameters.unspecified(),
+                List.of());
     }
 }

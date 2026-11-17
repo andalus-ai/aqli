@@ -22,6 +22,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1163,6 +1164,31 @@ public final class GgufStandaloneRunner {
     }
 
     private static boolean startDaemon() {
+        try (GgufDaemonStartupLock ignored = GgufDaemonStartupLock.acquire(
+                daemonRunDir().resolve("gguf-fast-daemon.start.lock"))) {
+            if (readDaemonPort().isPresent()) {
+                return true;
+            }
+        try {
+            Files.createDirectories(daemonRunDir());
+            Path lockPath = daemonRunDir().resolve("gguf-fast-daemon.start.lock");
+            try (FileChannel channel = FileChannel.open(lockPath,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                    FileLock ignored = channel.lock()) {
+                if (readDaemonPort().isPresent()) {
+                    return true;
+                }
+                return startDaemonUnderLock();
+            }
+        } catch (Exception e) {
+            if (fastRunDebug()) {
+                System.err.println("GGUF daemon failed to start: " + briefMessage(e));
+            }
+            return false;
+        }
+    }
+
+    private static boolean startDaemonUnderLock() {
         deleteDaemonPortFile();
         try {
             Files.createDirectories(daemonLogFile().getParent());
