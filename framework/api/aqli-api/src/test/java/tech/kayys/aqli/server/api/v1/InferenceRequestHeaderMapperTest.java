@@ -33,6 +33,7 @@ class InferenceRequestHeaderMapperTest {
         InferenceRequest request = InferenceRequest.builder()
                 .apiKey("request-secret")
                 .model("model-id")
+                .prompt("hello")
                 .build();
 
         InferenceRequest mapped = InferenceRequestHeaderMapper.withApiKeyHeader(request, "header-secret");
@@ -43,7 +44,10 @@ class InferenceRequestHeaderMapperTest {
 
     @Test
     void leavesRequestUnchangedWhenHeaderIsMissingOrBlank() {
-        InferenceRequest request = InferenceRequest.builder().model("model-id").build();
+        InferenceRequest request = InferenceRequest.builder()
+                .model("model-id")
+                .prompt("hello")
+                .build();
 
         assertSame(request, InferenceRequestHeaderMapper.withApiKeyHeader(request, null));
         assertSame(request, InferenceRequestHeaderMapper.withApiKeyHeader(request, "  "));
