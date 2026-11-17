@@ -2,6 +2,7 @@ package tech.kayys.aqli.sdk.capability.text;
 
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,17 +13,36 @@ class TextGenerationContractTest {
 
     @Test
     void requestCopiesMessagesAndUsesUnspecifiedParametersByDefault() {
-        List<Message> messages = new ArrayList<>();
-        messages.add(Message.user("hello"));
+        List<TextGenerationMessage> messages = new ArrayList<>();
+        messages.add(TextGenerationMessage.user("hello"));
 
         TextGenerationRequest request = new TextGenerationRequest(" model-a ", messages, null);
         messages.clear();
 
         assertEquals("model-a", request.model());
-        assertEquals(List.of(Message.user("hello")), request.messages());
+        assertEquals(List.of(TextGenerationMessage.user("hello")), request.messages());
         assertEquals(TextGenerationParameters.unspecified(), request.parameters());
+        assertEquals(List.of(), request.tools());
         assertThrows(UnsupportedOperationException.class,
-                () -> request.messages().add(Message.user("mutate")));
+                () -> request.messages().add(TextGenerationMessage.user("mutate")));
+    }
+
+    @Test
+    void requestCopiesToolDefinitionsAndRetainsLegacyConstructor() {
+        ToolDefinition tool = ToolDefinition.builder().name("lookup").build();
+        List<ToolDefinition> tools = new ArrayList<>(List.of(tool));
+
+        TextGenerationRequest request = new TextGenerationRequest(
+                "model-a", List.of(Message.user("find this")), null, tools);
+        tools.clear();
+
+        assertEquals(List.of(tool), request.tools());
+        assertThrows(UnsupportedOperationException.class,
+                () -> request.tools().add(ToolDefinition.builder().name("other").build()));
+
+        TextGenerationRequest legacy = new TextGenerationRequest(
+                "model-a", List.of(Message.user("hello")), null);
+        assertEquals(List.of(), legacy.tools());
     }
 
     @Test
@@ -30,8 +50,18 @@ class TextGenerationContractTest {
         TextGenerationRequest request = TextGenerationRequest.of("model-a", "hello");
 
         assertEquals("model-a", request.model());
-        assertEquals(Message.Role.USER, request.messages().getFirst().getRole());
-        assertEquals("hello", request.messages().getFirst().getContent());
+        assertEquals(TextGenerationMessage.Role.USER, request.messages().getFirst().role());
+        assertEquals("hello", request.messages().getFirst().content());
+    }
+
+    @Test
+    void textMessagesRetainToolResultCorrelationWithoutExecutionSpiTypes() {
+        TextGenerationMessage toolResult = TextGenerationMessage.tool("call-7", "result");
+
+        assertEquals(TextGenerationMessage.Role.TOOL, toolResult.role());
+        assertEquals("call-7", toolResult.toolCallId());
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationMessage(TextGenerationMessage.Role.USER, "hello", null, "call-7"));
     }
 
     @Test
@@ -39,7 +69,7 @@ class TextGenerationContractTest {
         assertThrows(IllegalArgumentException.class,
                 () -> TextGenerationRequest.of("model-a", " "));
         assertThrows(IllegalArgumentException.class,
-                () -> new TextGenerationRequest(" ", List.of(Message.user("hello")), null));
+                () -> new TextGenerationRequest(" ", List.of(TextGenerationMessage.user("hello")), null));
         assertThrows(IllegalArgumentException.class,
                 () -> new TextGenerationParameters(2.1, null, null, null,
                         null, null, null, null, null, List.of()));

@@ -1,6 +1,8 @@
 package tech.kayys.aqli.cli.commands;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -43,9 +45,42 @@ final class GgufDaemonInfoStore {
     }
 
     void write(int port, long pid, String key) throws IOException {
-        Path parent = file.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
+        Path target = file.toAbsolutePath();
+        Path parent = target.getParent();
+        Files.createDirectories(parent);
+
+        byte[] contents = (port + System.lineSeparator()
+                + pid + System.lineSeparator()
+                + (key == null ? "" : key) + System.lineSeparator())
+                .getBytes(StandardCharsets.UTF_8);
+        String prefix = target.getFileName().toString();
+        if (prefix.length() < 3) {
+            prefix = (prefix + "___").substring(0, 3);
+        }
+
+        Path temporary = Files.createTempFile(parent, prefix, ".tmp");
+        try {
+            try (FileChannel channel = FileChannel.open(temporary,
+                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(contents);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                channel.force(true);
+            }
+
+            try {
+                Files.move(temporary, target,
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            try {
+                Files.deleteIfExists(temporary);
+            } catch (IOException ignored) {
+                // Preserve the publication failure if temporary-file cleanup also fails.
+            }
         }
         Path temporary = Files.createTempFile(parent == null ? Path.of(".") : parent,
                 file.getFileName().toString(), ".tmp");
