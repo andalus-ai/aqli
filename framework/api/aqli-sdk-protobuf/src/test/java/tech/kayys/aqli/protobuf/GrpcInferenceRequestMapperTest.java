@@ -27,8 +27,8 @@ class GrpcInferenceRequestMapperTest {
         assertEquals(2, request.getMessages().size());
         assertEquals(tech.kayys.aqli.spi.Message.Role.SYSTEM, request.getMessages().get(0).getRole());
         assertEquals("Be concise", request.getMessages().get(0).getContent());
-        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, request.getMessages().get(1).role());
-        assertEquals("hello", request.getMessages().get(1).content());
+        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, request.getMessages().get(1).getRole());
+        assertEquals("hello", request.getMessages().get(1).getContent());
         assertEquals(0.25, request.getTemperature(), 0.0001);
         assertEquals(128, request.getMaxTokens());
         assertEquals(0.9, request.getTopP(), 0.0001);
@@ -49,7 +49,7 @@ class GrpcInferenceRequestMapperTest {
         InferenceRequest request = mapper.toChatRequest(grpcRequest, true);
 
         assertEquals("model-id", request.getModel());
-        assertEquals("hello", request.getMessages().get(0).content());
+        assertEquals("hello", request.getMessages().get(0).getContent());
         assertEquals(0.4, request.getTemperature(), 0.0001);
         assertEquals(64, request.getMaxTokens());
         assertTrue(request.isStreaming());
@@ -74,7 +74,7 @@ class GrpcInferenceRequestMapperTest {
         assertEquals(0.9, request.getTopP(), 0.0001);
         assertEquals(1.1, request.getRepeatPenalty(), 0.0001);
         assertEquals(40, request.getTopK());
-        assertTrue(!request.isStreaming());
+        assertFalse(request.isStreaming());
     }
 
     @Test
