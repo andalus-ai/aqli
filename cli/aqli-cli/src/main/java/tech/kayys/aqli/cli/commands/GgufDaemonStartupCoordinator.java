@@ -122,7 +122,7 @@ final class GgufDaemonStartupCoordinator {
 
     private void report(String message) {
         try {
-            startupFailureReporter.accept(message);
+            failureReporter.accept(message);
         } catch (RuntimeException ignored) {
             // Diagnostics must not change daemon startup or readiness behavior.
         }
@@ -164,9 +164,6 @@ final class GgufDaemonStartupCoordinator {
     }
 
     private record OptionalFailure(String message) {
-        reportFailure("daemon did not publish its port within " + timeoutMillis
-                + " ms; inspect the daemon log for details");
-        return false;
     }
 
     private void reportFailure(String message) {
