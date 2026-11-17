@@ -34,6 +34,9 @@ public final class TextGenerationRequestMapper {
                 .messages(request.messages())
                 .streaming(streaming);
 
+        if (!request.tools().isEmpty()) {
+            builder.tools(request.tools());
+        }
         if (parameters.temperature() != null) {
             builder.temperature(parameters.temperature());
         }
