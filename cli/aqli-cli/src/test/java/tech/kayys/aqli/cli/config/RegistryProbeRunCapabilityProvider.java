@@ -3,11 +3,14 @@ package tech.kayys.aqli.cli.config;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Model.OptionSpec;
 import picocli.CommandLine.ParseResult;
+import java.util.concurrent.atomic.AtomicInteger;
 import tech.kayys.aqli.cli.spi.run.RunCapability;
 import tech.kayys.aqli.cli.spi.run.RunCapabilityProvider;
 
 /** Test-only provider proving that Quarkus command construction sees ServiceLoader extensions. */
 public class RegistryProbeRunCapabilityProvider implements RunCapabilityProvider {
+
+    static final AtomicInteger VALIDATION_COUNT = new AtomicInteger();
 
     @Override
     public String capabilityId() {
@@ -33,7 +36,7 @@ public class RegistryProbeRunCapabilityProvider implements RunCapabilityProvider
 
             @Override
             public void validate(ParseResult parseResult) {
-                // No additional validation is needed for the test probe.
+                VALIDATION_COUNT.incrementAndGet();
             }
         };
     }
