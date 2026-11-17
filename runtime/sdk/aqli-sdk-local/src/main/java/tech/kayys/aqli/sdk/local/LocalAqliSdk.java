@@ -48,7 +48,7 @@ import tech.kayys.aljabr.spi.model.ModelRegistry;
  * runtime services. Hugging Face model pulls are delegated to the repository
  * capability; unsupported providers and uncomposed operations fail explicitly.</p>
  */
-public class LocalAqliSdk implements AqliSdk {
+public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
 
     private final LocalInferenceEngineCatalog engines;
     private final SdkConfig config;
