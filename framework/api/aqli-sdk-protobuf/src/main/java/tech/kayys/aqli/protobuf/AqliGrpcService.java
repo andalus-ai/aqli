@@ -9,15 +9,11 @@ import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-import tech.kayys.aqli.sdk.core.AqliChatService;
-import tech.kayys.aqli.sdk.core.ChatParams;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.aqli.spi.Message;
 
 import java.util.concurrent.CompletionException;
-import java.util.List;
 
 @GrpcService
 public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
@@ -30,7 +26,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     @Inject
     MeterRegistry meterRegistry;
 
-    private final AqliChatService chatService = new AqliChatService();
+    private final GrpcInferenceRequestMapper requestMapper = new GrpcInferenceRequestMapper();
 
     @Override
     public void chat(ChatRequest request, StreamObserver<ChatResponse> observer) {
@@ -38,13 +34,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
         LOG.info("Received chat request for model: {}", request.getModelId());
         
         Uni<ChatResponse> result = Uni.createFrom().item(() -> {
-            InferenceRequest internalRequest = chatService.createRequest(
-                    request.getModelId(),
-                    null,
-                    toMessages(request),
-                    List.of(),
-                    ChatParams.of(request.getTemperature(), request.getMaxTokens()),
-                    false);
+            InferenceRequest internalRequest = requestMapper.toChatRequest(request, false);
             
             InferenceResponse response = createCompletion(internalRequest);
             
@@ -67,13 +57,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     public void streamChat(ChatRequest request, StreamObserver<ChatResponse> observer) {
         LOG.info("Received streamChat request for model: {}", request.getModelId());
         try {
-            InferenceRequest internalRequest = chatService.createRequest(
-                    request.getModelId(),
-                    null,
-                    toMessages(request),
-                    List.of(),
-                    ChatParams.of(request.getTemperature(), request.getMaxTokens()),
-                    true);
+            InferenceRequest internalRequest = requestMapper.toChatRequest(request, true);
 
             sdk.streamCompletion(internalRequest).subscribe().with(
                     chunk -> {
@@ -113,11 +97,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
         LOG.info("Received complete request for model: {}", request.getModelId());
         
         Uni<CompletionResponse> result = Uni.createFrom().item(() -> {
-            InferenceRequest internalRequest = chatService.createCompletionRequest(
-                    request.getModelId(),
-                    request.getPrompt(),
-                    ChatParams.of(request.getTemperature(), request.getMaxTokens()),
-                    false);
+            InferenceRequest internalRequest = requestMapper.toCompletionRequest(request, false);
             
             InferenceResponse response = createCompletion(internalRequest);
             
@@ -140,11 +120,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
     public void streamComplete(CompletionRequest request, StreamObserver<CompletionResponse> observer) {
         LOG.info("Received streamComplete request for model: {}", request.getModelId());
         try {
-            InferenceRequest internalRequest = chatService.createCompletionRequest(
-                    request.getModelId(),
-                    request.getPrompt(),
-                    ChatParams.of(request.getTemperature(), request.getMaxTokens()),
-                    true);
+            InferenceRequest internalRequest = requestMapper.toCompletionRequest(request, true);
 
             sdk.streamCompletion(internalRequest).subscribe().with(
                     chunk -> {
@@ -175,13 +151,6 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
         }
     }
 
-    private static List<Message> toMessages(ChatRequest request) {
-        return request.getMessagesList().stream()
-                .map(message -> new Message(
-                        Message.Role.valueOf(message.getRole().toUpperCase(java.util.Locale.ROOT)),
-                        message.getContent()))
-                .toList();
-    }
 
     private InferenceResponse createCompletion(InferenceRequest request) {
         try {

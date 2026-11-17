@@ -154,3 +154,7 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 
 - Non-streaming REST chat must normalize DTO messages and tools to TextGenerationRequest and invoke the shared SDK typed text operation through AqliChatService. Keep transport response serialization in the resource, but do not rebuild inference requests or sampling defaults there.
 - Do not migrate REST streaming chat to TextGenerationChunk until that contract preserves tool-call deltas and required stream metadata, and cancellation is verified. Keep the existing shared stream path until then.
+- Public text-generation requests use SDK-owned `SdkMessage` and SDK-owned content-part/tool-call types. Do not add execution SPI message types (including `tech.kayys.aqli.spi.Message` or `ToolCall`) to public SDK capability signatures.
+- Convert SDK-owned messages to execution SPI messages only in the SDK-core `SdkMessageMapper`; CLI, REST, and gRPC adapters must construct the canonical SDK message types and must not duplicate this conversion.
+- Preserve all message semantics during migration: role, plain text, multimodal content parts, message name, tool calls and function arguments, and tool-call IDs. Keep legacy SPI-based methods until all consumers have an explicit compatibility migration.
+- Do not remove SDK API SPI dependencies wholesale based on this one change. Audit every public signature and consumer first; this migration only removes the SPI message type from the typed text-generation request.
