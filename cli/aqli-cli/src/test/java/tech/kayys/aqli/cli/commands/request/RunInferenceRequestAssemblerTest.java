@@ -29,7 +29,7 @@ class RunInferenceRequestAssemblerTest {
                                 "/models/model",
                                 "hf:org/model"),
                         new TextRunRequestParameterMapper.Options(
-                                0.4, 0.8, 32, 1.05, true, 128, 2, "root ::= \\"ok\\""),
+                                0.4, 0.8, 32, 1.05, true, 128, 2, "root ::= ok"),
                         new RunInferenceRequestAssembler.QuantizationOptions("awq", 4, "q8"),
                         true,
                         new RuntimeRoutingRunRequestConfiguration.Options(
@@ -68,8 +68,8 @@ class RunInferenceRequestAssemblerTest {
 
         assertEquals(0.4, request.getTemperature());
         assertEquals(128, request.getMaxTokens());
-        assertEquals("awq", request.getParameters().get("quantization_strategy"));
-        assertEquals(4, request.getParameters().get("quantization_bits"));
+        assertEquals("awq", request.getParameters().get("quantize_strategy"));
+        assertEquals(4, request.getParameters().get("quantize_bits"));
         assertEquals(true, request.getParameters().get("profile"));
         assertEquals("java", request.getParameters().get("gguf.backend"));
         assertEquals("retrieved context", request.getParameters().get("rag_context"));
