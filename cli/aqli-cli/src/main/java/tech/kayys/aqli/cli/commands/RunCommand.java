@@ -1169,7 +1169,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
+            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunOptions(
                     temperature,
                     topP,
                     topK,
@@ -1281,7 +1281,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            new TextRunRequestParameterMapper.Options(
+                            new TextRunOptions(
                                     temperature,
                                     topP,
                                     topK,
