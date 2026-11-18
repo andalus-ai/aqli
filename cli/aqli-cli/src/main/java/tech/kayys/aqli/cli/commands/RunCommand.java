@@ -70,7 +70,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.UUID;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
