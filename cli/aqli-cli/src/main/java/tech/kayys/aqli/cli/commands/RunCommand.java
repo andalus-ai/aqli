@@ -146,6 +146,7 @@ public class RunCommand implements Runnable {
     private picocli.CommandLine.Model.CommandSpec commandSpec;
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
+    private AudioRunOptions audioRunOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -353,18 +354,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
-    String ttsVoice;
-
-    String ttsVoiceLanguage;
-
-    String ttsVoiceGender;
-
-    String ttsVoiceSearch;
-
-    String ttsCodec;
-
-    boolean disableTtsAutoCodec;
-
     @Option(names = { "--list-voices", "--voices", "--tts-voices" }, description = "List TTS voice presets for the resolved model and exit")
     boolean listTtsVoices;
 
@@ -382,52 +371,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
     boolean ttsCachePruneApply;
-
-    Integer ttsMaxFrames;
-
-    Double ttsMaxSeconds;
-
-    String audioFormat;
-
-    String audioQuality;
-
-    Integer audioBitrateKbps;
-
-    String audioChannels;
-
-    String ttsCodecDecode;
-
-    boolean randomTtsSeed;
-
-    boolean disableAudioPolish;
-
-    boolean disableAudioNormalize;
-
-    Double audioGainDb;
-
-    Double audioPeakDb;
-
-    Double audioFadeMs;
-
-    boolean audioTrimSilence;
-
-    Double audioTrimDbfs;
-
-    Double audioTrimPaddingMs;
-
-    Integer audioStreamChunkKb;
-
-    Integer ttsStreamProgressFrames;
-
-    boolean disableTtsStreamProgress;
-
-    boolean ttsStreamPcm;
-
-    boolean liveAudio;
-
-    boolean disableLowLatencyAudio;
-
-    Integer flacCompression;
 
     @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
     Integer steps;
@@ -511,6 +454,13 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        audioRunOptions = runCapabilityRegistry.snapshot(
+                "audio",
+                commandSpec.commandLine().getParseResult(),
+                AudioRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
 
         AudioRunOptions audioOptions = runCapabilityRegistry.snapshot(
                 "audio",
@@ -1092,9 +1042,9 @@ public class RunCommand implements Runnable {
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
-            String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
+            String effectiveTtsCodec = audioRunOptions.codec() == null || audioRunOptions.codec().isBlank()
                     ? null
-                    : resolveTtsCodecReference(ttsCodec);
+                    : resolveTtsCodecReference(audioRunOptions.codec());
             AudioQualityPreset audioPreset = audioQualityPreset();
             String effectiveAudioFormat = effectiveAudioFormat(audioPreset);
             Integer effectiveAudioBitrateKbps = effectiveAudioBitrateKbps(audioPreset, effectiveAudioFormat);
@@ -1102,28 +1052,28 @@ public class RunCommand implements Runnable {
             AudioRunRequestParameterMapper.apply(requestBuilder, new AudioRunRequestParameterMapper.Options(
                     effectiveTtsVoice,
                     effectiveTtsCodec,
-                    ttsMaxFrames,
-                    ttsMaxSeconds,
-                    audioQuality,
+                    audioRunOptions.maxFrames(),
+                    audioRunOptions.maxSeconds(),
+                    audioRunOptions.quality(),
                     effectiveAudioFormat,
                     effectiveAudioBitrateKbps,
-                    audioChannels,
-                    ttsCodecDecode,
-                    randomTtsSeed,
-                    disableAudioPolish,
-                    disableAudioNormalize,
-                    audioGainDb,
-                    audioPeakDb,
-                    audioFadeMs,
-                    audioTrimSilence,
-                    audioTrimDbfs,
-                    audioTrimPaddingMs,
-                    audioStreamChunkKb,
-                    ttsStreamProgressFrames,
-                    disableTtsStreamProgress,
-                    ttsStreamPcm,
-                    liveAudio,
-                    disableLowLatencyAudio,
+                    audioRunOptions.channels(),
+                    audioRunOptions.codecDecode(),
+                    audioRunOptions.randomSeed(),
+                    audioRunOptions.disablePolish(),
+                    audioRunOptions.disableNormalize(),
+                    audioRunOptions.gainDb(),
+                    audioRunOptions.peakDb(),
+                    audioRunOptions.fadeMs(),
+                    audioRunOptions.trimSilence(),
+                    audioRunOptions.trimDbfs(),
+                    audioRunOptions.trimPaddingMs(),
+                    audioRunOptions.streamChunkKb(),
+                    audioRunOptions.streamProgressFrames(),
+                    audioRunOptions.disableStreamProgress(),
+                    audioRunOptions.streamPcm(),
+                    audioRunOptions.liveAudio(),
+                    audioRunOptions.disableLowLatency(),
                     effectiveFlacCompression));
 
             RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
@@ -1187,28 +1137,28 @@ public class RunCommand implements Runnable {
                             new AudioRunRequestParameterMapper.Options(
                                     effectiveTtsVoice,
                                     effectiveTtsCodec,
-                                    ttsMaxFrames,
-                                    ttsMaxSeconds,
-                                    audioQuality,
+                                    audioRunOptions.maxFrames(),
+                                    audioRunOptions.maxSeconds(),
+                                    audioRunOptions.quality(),
                                     effectiveAudioFormat,
                                     effectiveAudioBitrateKbps,
-                                    audioChannels,
-                                    ttsCodecDecode,
-                                    randomTtsSeed,
-                                    disableAudioPolish,
-                                    disableAudioNormalize,
-                                    audioGainDb,
-                                    audioPeakDb,
-                                    audioFadeMs,
-                                    audioTrimSilence,
-                                    audioTrimDbfs,
-                                    audioTrimPaddingMs,
-                                    audioStreamChunkKb,
-                                    ttsStreamProgressFrames,
-                                    disableTtsStreamProgress,
-                                    ttsStreamPcm,
-                                    liveAudio,
-                                    disableLowLatencyAudio,
+                                    audioRunOptions.channels(),
+                                    audioRunOptions.codecDecode(),
+                                    audioRunOptions.randomSeed(),
+                                    audioRunOptions.disablePolish(),
+                                    audioRunOptions.disableNormalize(),
+                                    audioRunOptions.gainDb(),
+                                    audioRunOptions.peakDb(),
+                                    audioRunOptions.fadeMs(),
+                                    audioRunOptions.trimSilence(),
+                                    audioRunOptions.trimDbfs(),
+                                    audioRunOptions.trimPaddingMs(),
+                                    audioRunOptions.streamChunkKb(),
+                                    audioRunOptions.streamProgressFrames(),
+                                    audioRunOptions.disableStreamProgress(),
+                                    audioRunOptions.streamPcm(),
+                                    audioRunOptions.liveAudio(),
+                                    audioRunOptions.disableLowLatency(),
                                     effectiveFlacCompression),
                             extension,
                             requestedTools,
@@ -1257,7 +1207,7 @@ public class RunCommand implements Runnable {
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
                 StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
-                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(liveAudio);
+                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(audioRunOptions.liveAudio());
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
@@ -1438,12 +1388,12 @@ public class RunCommand implements Runnable {
 
         if (positionalArgs.size() == 1
                 && outputPath == null
-                && ttsVoice != null
-                && ttsVoice.contains("--output")) {
-            String repairedVoice = ttsVoice.substring(0, ttsVoice.indexOf("--output")).trim();
+                && audioRunOptions.voice() != null
+                && audioRunOptions.voice().contains("--output")) {
+            String repairedVoice = audioRunOptions.voice().substring(0, audioRunOptions.voice().indexOf("--output")).trim();
             if (!repairedVoice.isBlank()) {
                 outputPath = positionalArgs.get(0);
-                ttsVoice = repairedVoice;
+                audioRunOptions = audioRunOptions.withVoice(repairedVoice);
                 positionalArgs = List.of();
                 System.err.println("Warning: detected a missing space before --output; interpreting as "
                         + "--voice \"" + repairedVoice + "\" --output " + outputPath);
@@ -1454,9 +1404,9 @@ public class RunCommand implements Runnable {
         System.err.println("Error: unexpected positional argument"
                 + (positionalArgs.size() == 1 ? "" : "s")
                 + ": " + String.join(" ", positionalArgs));
-        if (ttsVoice != null && ttsVoice.contains("--output")) {
+        if (audioRunOptions.voice() != null && audioRunOptions.voice().contains("--output")) {
             System.err.println("Hint: add a space before --output, for example:");
-            System.err.println("  --voice \"" + ttsVoice.substring(0, ttsVoice.indexOf("--output")).trim()
+            System.err.println("  --voice \"" + audioRunOptions.voice().substring(0, audioRunOptions.voice().indexOf("--output")).trim()
                     + "\" --output " + positionalArgs.get(0));
         }
         return false;
@@ -1496,7 +1446,7 @@ public class RunCommand implements Runnable {
             boolean outputExplicit = outputPath != null && !outputPath.isBlank();
             applyAudioMetadataReplayPlan(plan);
             if (!outputExplicit && (outputPath == null || outputPath.isBlank())) {
-                outputPath = defaultAudioReplayOutputPath(plan.outputPath(), audioFormat);
+                outputPath = defaultAudioReplayOutputPath(plan.outputPath(), audioRunOptions.format());
             }
             if (!ttsVoicesJsonOutput()) {
                 System.out.println("Loaded TTS replay metadata: " + sidecarPath.toAbsolutePath().normalize());
@@ -1509,6 +1459,7 @@ public class RunCommand implements Runnable {
     }
 
     private void applyAudioMetadataReplayPlan(AudioMetadataReplayParser.Plan plan) {
+        audioRunOptions = audioRunOptions.withReplayPlan(plan);
         for (AudioMetadataReplayParser.ReplayOption option : plan.options()) {
             Object value = option.value();
             switch (option.option()) {
@@ -1531,55 +1482,6 @@ public class RunCommand implements Runnable {
                 case PROMPT -> {
                     if (prompt == null || prompt.isBlank()) prompt = (String) value;
                 }
-                case VOICE -> {
-                    if (ttsVoice == null || ttsVoice.isBlank()) ttsVoice = (String) value;
-                }
-                case AUDIO_FORMAT -> {
-                    if (audioFormat == null || audioFormat.isBlank()) audioFormat = (String) value;
-                }
-                case SEED -> {
-                    if (seed == null && !randomTtsSeed) seed = (Long) value;
-                }
-                case OUTPUT -> { /* output is resolved from Plan.outputPath() after all options */ }
-                case AUDIO_QUALITY -> {
-                    if (audioQuality == null || audioQuality.isBlank()) audioQuality = (String) value;
-                }
-                case AUDIO_BITRATE -> {
-                    if (audioBitrateKbps == null) audioBitrateKbps = (Integer) value;
-                }
-                case AUDIO_CHANNELS -> {
-                    if (audioChannels == null || audioChannels.isBlank()) audioChannels = (String) value;
-                }
-                case CODEC_DECODE -> {
-                    if (ttsCodecDecode == null || ttsCodecDecode.isBlank()) ttsCodecDecode = (String) value;
-                }
-                case MAX_FRAMES -> {
-                    if (ttsMaxFrames == null) ttsMaxFrames = (Integer) value;
-                }
-                case MAX_SECONDS -> {
-                    if (ttsMaxSeconds == null) ttsMaxSeconds = (Double) value;
-                }
-                case GAIN_DB -> {
-                    if (audioGainDb == null) audioGainDb = (Double) value;
-                }
-                case PEAK_DB -> {
-                    if (audioPeakDb == null) audioPeakDb = (Double) value;
-                }
-                case FADE_MS -> {
-                    if (audioFadeMs == null) audioFadeMs = (Double) value;
-                }
-                case TRIM_DBFS -> {
-                    if (audioTrimDbfs == null) audioTrimDbfs = (Double) value;
-                }
-                case TRIM_PADDING_MS -> {
-                    if (audioTrimPaddingMs == null) audioTrimPaddingMs = (Double) value;
-                }
-                case FLAC_COMPRESSION -> {
-                    if (flacCompression == null) flacCompression = (Integer) value;
-                }
-                case DISABLE_AUDIO_POLISH -> disableAudioPolish = true;
-                case DISABLE_AUDIO_NORMALIZE -> disableAudioNormalize = true;
-                case TRIM_SILENCE -> audioTrimSilence = true;
             }
         }
     }
@@ -1625,136 +1527,97 @@ public class RunCommand implements Runnable {
         return AudioReplayOutputPathResolver.resolve(originalOutputPath, replayAudioFormat).toString();
     }
 
-    private void applyAudioRunOptions(AudioRunOptions options) {
-        ttsVoice = options.voice();
-        ttsVoiceLanguage = options.voiceLanguage();
-        ttsVoiceGender = options.voiceGender();
-        ttsVoiceSearch = options.voiceSearch();
-        ttsCodec = options.codec();
-        disableTtsAutoCodec = options.disableAutoCodec();
-        ttsMaxFrames = options.maxFrames();
-        ttsMaxSeconds = options.maxSeconds();
-        audioFormat = options.format();
-        audioQuality = options.quality();
-        audioBitrateKbps = options.bitrateKbps();
-        audioChannels = options.channels();
-        ttsCodecDecode = options.codecDecode();
-        randomTtsSeed = options.randomSeed();
-        disableAudioPolish = options.disablePolish();
-        disableAudioNormalize = options.disableNormalize();
-        audioGainDb = options.gainDb();
-        audioPeakDb = options.peakDb();
-        audioFadeMs = options.fadeMs();
-        audioTrimSilence = options.trimSilence();
-        audioTrimDbfs = options.trimDbfs();
-        audioTrimPaddingMs = options.trimPaddingMs();
-        audioStreamChunkKb = options.streamChunkKb();
-        ttsStreamProgressFrames = options.streamProgressFrames();
-        disableTtsStreamProgress = options.disableStreamProgress();
-        ttsStreamPcm = options.streamPcm();
-        liveAudio = options.liveAudio();
-        disableLowLatencyAudio = options.disableLowLatency();
-        flacCompression = options.flacCompression();
+    AudioRunOptions audioRunOptions() {
+        return audioRunOptions;
     }
 
     private boolean validateTtsAudioCliOptions() {
         boolean ok = true;
-        if (audioFormat != null && !audioFormat.isBlank()) {
+        if (audioRunOptions.format() != null && !audioRunOptions.format().isBlank()) {
             ok &= TtsCliOptionsValidator.validateChoice(
                     "--audio-format",
-                    audioFormat,
+                    audioRunOptions.format(),
                     Set.of("wav", "flac", "mp3"),
                     "wav, flac, mp3");
         }
-        if (audioQuality != null && !audioQuality.isBlank()) {
+        if (audioRunOptions.quality() != null && !audioRunOptions.quality().isBlank()) {
             ok &= TtsCliOptionsValidator.validateChoice(
                     "--audio-quality",
-                    audioQuality,
+                    audioRunOptions.quality(),
                     Set.of("auto", "default", "compact", "small", "speech", "balanced", "standard", "high",
                             "quality", "lossless", "archive", "flac"),
                     "compact, speech, balanced, high, lossless");
         }
-        if (audioChannels != null && !audioChannels.isBlank()) {
+        if (audioRunOptions.channels() != null && !audioRunOptions.channels().isBlank()) {
             ok &= TtsCliOptionsValidator.validateChoice(
                     "--audio-channels",
-                    audioChannels,
+                    audioRunOptions.channels(),
                     Set.of("auto", "1", "mono", "single", "2", "stereo", "dual-mono", "dual_mono",
                             "native", "source", "raw"),
                     "auto, mono, stereo, dual-mono, native");
         }
-        if (ttsCodecDecode != null && !ttsCodecDecode.isBlank()) {
+        if (audioRunOptions.codecDecode() != null && !audioRunOptions.codecDecode().isBlank()) {
             ok &= TtsCliOptionsValidator.validateChoice(
                     "--tts-codec-decode",
-                    ttsCodecDecode,
+                    audioRunOptions.codecDecode(),
                     Set.of("auto", "full", "full_decode", "decode_full", "stream", "streaming", "step",
                             "decode_step"),
                     "auto, streaming, full");
         }
-        if (audioBitrateKbps != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--audio-bitrate", audioBitrateKbps, 8, 320, "kbps");
+        if (audioRunOptions.bitrateKbps() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--audio-bitrate", audioRunOptions.bitrateKbps(), 8, 320, "kbps");
         }
-        if (flacCompression != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", flacCompression, 0, 8, "");
+        if (audioRunOptions.flacCompression() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", audioRunOptions.flacCompression(), 0, 8, "");
         }
-        if (ttsMaxFrames != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--tts-max-frames", ttsMaxFrames, 1, 4096, "frames");
+        if (audioRunOptions.maxFrames() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--tts-max-frames", audioRunOptions.maxFrames(), 1, 4096, "frames");
         }
-        if (ttsMaxSeconds != null) {
-            ok &= TtsCliOptionsValidator.validateDoubleRange("--tts-max-seconds", ttsMaxSeconds, 0.01, 300.0, "seconds");
+        if (audioRunOptions.maxSeconds() != null) {
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--tts-max-seconds", audioRunOptions.maxSeconds(), 0.01, 300.0, "seconds");
         }
-        if (audioStreamChunkKb != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--audio-stream-chunk-kb", audioStreamChunkKb, 4, 1024, "KiB");
+        if (audioRunOptions.streamChunkKb() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--audio-stream-chunk-kb", audioRunOptions.streamChunkKb(), 4, 1024, "KiB");
         }
-        if (ttsStreamProgressFrames != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--tts-stream-progress-frames", ttsStreamProgressFrames, 1, 4096, "frames");
+        if (audioRunOptions.streamProgressFrames() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--tts-stream-progress-frames", audioRunOptions.streamProgressFrames(), 1, 4096, "frames");
         }
-        if (audioFadeMs != null) {
-            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-fade-ms", audioFadeMs, 0.0, 10_000.0, "ms");
+        if (audioRunOptions.fadeMs() != null) {
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-fade-ms", audioRunOptions.fadeMs(), 0.0, 10_000.0, "ms");
         }
-        if (audioTrimDbfs != null) {
-            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-trim-db", audioTrimDbfs, -120.0, -0.1, "dBFS");
+        if (audioRunOptions.trimDbfs() != null) {
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-trim-db", audioRunOptions.trimDbfs(), -120.0, -0.1, "dBFS");
         }
-        if (audioTrimPaddingMs != null) {
-            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-trim-padding-ms", audioTrimPaddingMs, 0.0, 5_000.0, "ms");
+        if (audioRunOptions.trimPaddingMs() != null) {
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-trim-padding-ms", audioRunOptions.trimPaddingMs(), 0.0, 5_000.0, "ms");
         }
-        if (audioPeakDb != null) {
-            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-peak-db", audioPeakDb, -60.0, 0.0, "dBFS");
+        if (audioRunOptions.peakDb() != null) {
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-peak-db", audioRunOptions.peakDb(), -60.0, 0.0, "dBFS");
         }
-        if (audioGainDb != null) {
-            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-gain-db", audioGainDb, -60.0, 60.0, "dB");
+        if (audioRunOptions.gainDb() != null) {
+            ok &= TtsCliOptionsValidator.validateDoubleRange("--audio-gain-db", audioRunOptions.gainDb(), -60.0, 60.0, "dB");
         }
         return ok;
     }
 
     AudioQualityPreset audioQualityPreset() {
-        return TtsCliOptionsValidator.audioQualityPreset(audioQuality);
+        return TtsCliOptionsValidator.audioQualityPreset(audioRunOptions.quality());
     }
 
     String effectiveAudioFormat(AudioQualityPreset preset) {
-        return TtsCliOptionsValidator.effectiveAudioFormat(audioFormat, preset);
+        return TtsCliOptionsValidator.effectiveAudioFormat(audioRunOptions.format(), preset);
     }
 
     Integer effectiveAudioBitrateKbps(AudioQualityPreset preset, String effectiveAudioFormat) {
-        return TtsCliOptionsValidator.effectiveAudioBitrateKbps(audioBitrateKbps, preset, effectiveAudioFormat);
+        return TtsCliOptionsValidator.effectiveAudioBitrateKbps(audioRunOptions.bitrateKbps(), preset, effectiveAudioFormat);
     }
 
     Integer effectiveFlacCompression(AudioQualityPreset preset, String effectiveAudioFormat) {
-        return TtsCliOptionsValidator.effectiveFlacCompression(flacCompression, preset, effectiveAudioFormat);
+        return TtsCliOptionsValidator.effectiveFlacCompression(audioRunOptions.flacCompression(), preset, effectiveAudioFormat);
     }
 
     String effectiveTtsVoiceSelector() {
-        if (ttsVoice != null && !ttsVoice.isBlank()) {
-            return ttsVoice.trim();
-        }
-
-        List<String> parts = new ArrayList<>();
-        if (ttsVoiceLanguage != null && !ttsVoiceLanguage.isBlank()) {
-            parts.add(ttsVoiceLanguage.trim());
-        }
-        if (ttsVoiceGender != null && !ttsVoiceGender.isBlank()) {
-            parts.add(ttsVoiceGender.trim());
-        }
-        return parts.isEmpty() ? null : String.join(" ", parts);
+        return audioRunOptions.effectiveVoiceSelector();
     }
 
     private int printTtsVoices(String modelId, String finalLocalPath) {
@@ -3390,21 +3253,21 @@ public class RunCommand implements Runnable {
                 audioDefaultExtension(metadata),
                 replaySeed(metadata),
                 audioPath == null ? null : audioPath.toString(),
-                audioQuality,
-                audioBitrateKbps,
-                audioChannels,
-                ttsCodecDecode,
-                ttsMaxFrames,
-                ttsMaxSeconds,
-                audioGainDb,
-                audioPeakDb,
-                audioFadeMs,
-                audioTrimDbfs,
-                audioTrimPaddingMs,
-                flacCompression,
-                disableAudioPolish,
-                disableAudioNormalize,
-                audioTrimSilence));
+                audioRunOptions.quality(),
+                audioRunOptions.bitrateKbps(),
+                audioRunOptions.channels(),
+                audioRunOptions.codecDecode(),
+                audioRunOptions.maxFrames(),
+                audioRunOptions.maxSeconds(),
+                audioRunOptions.gainDb(),
+                audioRunOptions.peakDb(),
+                audioRunOptions.fadeMs(),
+                audioRunOptions.trimDbfs(),
+                audioRunOptions.trimPaddingMs(),
+                audioRunOptions.flacCompression(),
+                audioRunOptions.disablePolish(),
+                audioRunOptions.disableNormalize(),
+                audioRunOptions.trimSilence()));
     }
 
     private String replaySeed(Map<String, Object> metadata) {
