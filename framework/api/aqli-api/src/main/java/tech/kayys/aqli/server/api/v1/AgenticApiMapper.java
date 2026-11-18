@@ -105,6 +105,9 @@ final class AgenticApiMapper {
         AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
         InferenceRequest legacy = toResponsesInferenceRequest(root, apiKey, trace);
         List<TextGenerationMessage> messages = legacy.getMessages().stream()
+                .filter(message -> !(message.getRole() == Message.Role.SYSTEM
+                        && message.getContent() != null
+                        && message.getContent().startsWith("Retrieved context supplied by the caller.")))
                 .map(AgenticApiMapper::toTextGenerationMessage)
                 .toList();
         List<TextGenerationToolDefinition> tools = toTools(root.path("tools")).stream()
