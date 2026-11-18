@@ -15,18 +15,7 @@ public final class TextRunRequestParameterMapper {
     private TextRunRequestParameterMapper() {
     }
 
-    public record Options(
-            double temperature,
-            double topP,
-            int topK,
-            double repeatPenalty,
-            boolean jsonMode,
-            int maxTokens,
-            int mirostat,
-            String grammar) {
-    }
-
-    public static void apply(InferenceRequest.Builder request, Options options) {
+    public static void apply(InferenceRequest.Builder request, TextRunOptions options) {
         if (options == null) {
             throw new IllegalArgumentException("text-generation options are required");
         }
