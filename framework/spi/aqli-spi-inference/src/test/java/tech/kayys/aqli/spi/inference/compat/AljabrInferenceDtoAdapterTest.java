@@ -212,4 +212,24 @@ class AljabrInferenceDtoAdapterTest {
         assertArrayEquals(response.embeddings().get(0), restoredResponse.embeddings().get(0));
     }
 
+
+    @Test
+    void roundTripsTypedEmbeddingTaskAndOutputDimension() {
+        var request = new tech.kayys.aqli.spi.embedding.EmbeddingRequest(
+                "embedding-typed", "embedding-model", List.of("query"),
+                Map.of("normalize", true),
+                tech.kayys.aqli.spi.embedding.EmbeddingTask.RETRIEVAL_QUERY,
+                256);
+
+        var canonical = AljabrInferenceDtoAdapter.toAljabr(request);
+        assertEquals(tech.kayys.aljabr.spi.embedding.EmbeddingTask.RETRIEVAL_QUERY, canonical.task());
+        assertEquals(256, canonical.outputDimension());
+
+        var restored = AljabrInferenceDtoAdapter.fromAljabr(canonical);
+        assertEquals(request.task(), restored.task());
+        assertEquals(request.outputDimension(), restored.outputDimension());
+        assertEquals(request.inputs(), restored.inputs());
+        assertEquals(request.parameters(), restored.parameters());
+    }
+
 }
