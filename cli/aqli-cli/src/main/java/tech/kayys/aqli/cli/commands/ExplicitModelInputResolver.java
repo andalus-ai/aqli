@@ -112,7 +112,7 @@ final class ExplicitModelInputResolver {
             String modelId = dirPath.toAbsolutePath().toString();
             String detectedFormat = formatForModelDirectory(dirPath);
             if (!options.providerExplicit()) {
-                providerId = providerForModelDirectory(dirPath, detectedFormat);
+                providerId = providerForModelDirectory(detectedFormat);
             }
             if (format == null || format.isBlank()) {
                 format = detectedFormat;
@@ -149,7 +149,7 @@ final class ExplicitModelInputResolver {
         return ModelFormatResolver.canonicalFormat(detected);
     }
 
-    private static String providerForModelDirectory(Path directory, String detectedFormat) {
+    private static String providerForModelDirectory(String detectedFormat) {
         String provider = ModelFormatResolver.providerForFormat(detectedFormat);
         return provider != null ? provider : "safetensor";
     }
