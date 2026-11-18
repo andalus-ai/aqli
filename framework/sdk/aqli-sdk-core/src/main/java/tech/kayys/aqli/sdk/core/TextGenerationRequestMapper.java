@@ -1,6 +1,8 @@
 package tech.kayys.aqli.sdk.core;
 
 import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContext;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContextItem;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationToolDefinition;
@@ -30,9 +32,7 @@ public final class TextGenerationRequestMapper {
 
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .model(request.model())
-                .messages(request.messages().stream()
-                        .map(TextGenerationRequestMapper::toSpiMessage)
-                        .toList())
+                .messages(toSpiMessages(request))
                 .streaming(streaming)
                 .toolChoice(request.toolChoice())
                 .metadata(request.metadata());
@@ -43,6 +43,8 @@ public final class TextGenerationRequestMapper {
         if (request.userId() != null) builder.userId(request.userId());
         if (request.sessionId() != null) builder.sessionId(request.sessionId());
         if (request.traceId() != null) builder.traceId(request.traceId());
+
+        applyContext(builder, request.context());
 
         if (!request.tools().isEmpty()) {
             builder.tools(request.tools().stream()
@@ -63,7 +65,67 @@ public final class TextGenerationRequestMapper {
         if (!parameters.stopSequences().isEmpty()) {
             builder.parameter("stop", parameters.stopSequences());
         }
+        if (parameters.presencePenalty() != null) {
+            builder.parameter("presence_penalty", parameters.presencePenalty());
+        }
+        if (parameters.frequencyPenalty() != null) {
+            builder.parameter("frequency_penalty", parameters.frequencyPenalty());
+        }
+        if (!parameters.responseFormat().isEmpty()) {
+            builder.parameter("response_format", parameters.responseFormat());
+        }
         return builder.build();
+    }
+
+    private static java.util.List<Message> toSpiMessages(TextGenerationRequest request) {
+        java.util.List<Message> messages = new java.util.ArrayList<>();
+        java.util.List<TextGenerationMessage> source = request.messages();
+        int index = 0;
+        while (index < source.size() && source.get(index).role() == TextGenerationMessage.Role.SYSTEM) {
+            messages.add(toSpiMessage(source.get(index++)));
+        }
+        TextGenerationContext context = request.context();
+        if (context != null && !context.items().isEmpty() && !Boolean.FALSE.equals(context.enabled())) {
+            StringBuilder prompt = new StringBuilder("Retrieved context supplied by the caller. Use it when relevant.");
+            for (int i = 0; i < context.items().size(); i++) {
+                TextGenerationContextItem item = context.items().get(i);
+                prompt.append("\n\n[").append(i + 1).append("]");
+                java.util.List<String> labels = new java.util.ArrayList<>();
+                if (item.title() != null && !item.title().isBlank()) labels.add(item.title());
+                if (item.source() != null && !item.source().isBlank()) labels.add("source: " + item.source());
+                if (item.score() != null) labels.add("score: " + item.score());
+                if (!labels.isEmpty()) prompt.append(" ").append(String.join(", ", labels));
+                prompt.append("\n").append(item.text());
+            }
+            messages.add(Message.system(prompt.toString()));
+        }
+        while (index < source.size()) messages.add(toSpiMessage(source.get(index++)));
+        return messages;
+    }
+
+    private static void applyContext(InferenceRequest.Builder builder, TextGenerationContext context) {
+        if (context == null) return;
+        if (context.enabled() != null) {
+            builder.parameter("rag_enabled", context.enabled());
+            builder.metadata("rag_enabled", context.enabled());
+        }
+        if (context.embeddingModel() != null && !context.embeddingModel().isBlank()) {
+            builder.parameter("embedding_model", context.embeddingModel());
+        }
+        if (!context.sources().isEmpty()) builder.parameter("rag_sources", context.sources());
+        if (context.items().isEmpty() || Boolean.FALSE.equals(context.enabled())) return;
+        builder.parameter("rag_context", context.items().stream().map(item -> {
+            java.util.Map<String, Object> value = new java.util.LinkedHashMap<>();
+            value.put("text", item.text());
+            if (item.id() != null) value.put("id", item.id());
+            if (item.source() != null) value.put("source", item.source());
+            if (item.title() != null) value.put("title", item.title());
+            if (item.score() != null) value.put("score", item.score());
+            if (!item.metadata().isEmpty()) value.put("metadata", item.metadata());
+            return value;
+        }).toList());
+        builder.metadata("rag_context_injected", true);
+        builder.metadata("rag_context_items", context.items().size());
     }
 
     private static Message toSpiMessage(TextGenerationMessage message) {

@@ -2,6 +2,8 @@ package tech.kayys.aqli.server.api.v1;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContext;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContextItem;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 
@@ -21,6 +23,46 @@ final class RagContextMapper {
             "retrieved_documents");
 
     private RagContextMapper() {
+    }
+
+    static TextGenerationContext toTextGenerationContext(JsonNode root) {
+        ContextNode contextNode = contextNode(root);
+        List<ContextItem> items = contextNode == null ? List.of() : contextItems(contextNode.node());
+        List<TextGenerationContextItem> typedItems = items.stream()
+                .map(item -> new TextGenerationContextItem(
+                        item.text(), item.id(), item.source(), item.title(), item.score(), item.metadata()))
+                .toList();
+
+        List<Map<String, Object>> sources;
+        if (hasObjectOrArray(root.path("rag_sources"))) {
+            Object value = toJava(root.path("rag_sources"));
+            if (value instanceof List<?> list) {
+                sources = list.stream()
+                        .filter(Map.class::isInstance)
+                        .map(item -> (Map<String, Object>) item)
+                        .toList();
+            } else if (value instanceof Map<?, ?> map) {
+                sources = List.of((Map<String, Object>) map);
+            } else {
+                sources = List.of();
+            }
+        } else {
+            sources = sourceMetadata(items);
+        }
+
+        JsonNode enabledNode = root.path("rag_enabled");
+        Boolean enabled = enabledNode.isBoolean() ? enabledNode.asBoolean()
+                : contextNode != null ? Boolean.TRUE : null;
+        String embeddingModel = text(root, "embedding_model");
+        if (enabled == null && embeddingModel == null && typedItems.isEmpty() && sources.isEmpty()) {
+            return null;
+        }
+        return new TextGenerationContext(enabled, embeddingModel, typedItems, sources);
+    }
+
+    private static String text(JsonNode root, String field) {
+        JsonNode value = root == null ? null : root.path(field);
+        return value != null && value.isTextual() && !isBlank(value.asText()) ? value.asText() : null;
     }
 
     static boolean apply(InferenceRequest.Builder builder, JsonNode root) {
