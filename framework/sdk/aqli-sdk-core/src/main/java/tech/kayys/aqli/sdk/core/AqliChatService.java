@@ -5,6 +5,7 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationToolDefinition;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
