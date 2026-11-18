@@ -37,7 +37,7 @@ public final class RunInferenceRequestAssembler {
 
     public record Options(
             RunRequestBaseAssembler.Options base,
-            TextRunRequestParameterMapper.Options text,
+            TextRunOptions text,
             QuantizationOptions quantization,
             boolean profiling,
             RuntimeRoutingRunRequestConfiguration.Options routing,

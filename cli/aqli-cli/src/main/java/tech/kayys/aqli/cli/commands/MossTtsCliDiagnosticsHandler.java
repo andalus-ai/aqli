@@ -2,12 +2,11 @@ package tech.kayys.aqli.cli.commands;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.enterprise.inject.Instance;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.cli.commands.audio.AudioDetailsFormatter;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
-import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 import tech.kayys.aqli.sdk.util.AqliHome;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxRunner;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsCacheSettings;
 import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOnnxCacheDiagnostics;
@@ -19,7 +18,6 @@ import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLocator
 import tech.kayys.aqli.onnx.runner.tts.moss.diagnostics.MossTtsModelDiagnostics;
 import tech.kayys.aqli.onnx.runner.tts.moss.model.MossTtsModelLayout;
 import tech.kayys.aqli.onnx.runner.tts.moss.voice.MossTtsVoiceCatalog;
-import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.suling.FlacLibraryCheck;
 import tech.kayys.suling.audio.FfmpegAudioEncoder;
 import tech.kayys.suling.audio.Suling;
@@ -35,7 +33,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * Handles CLI operations for MOSS TTS, including voice listing, preflight diagnostics,
@@ -1048,19 +1045,27 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     private void pullMossAudioCodecRepository() throws Exception {
-        if (command.huggingFaceRepository == null || command.huggingFaceRepository.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
-        }
-        try (tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer progress =
-                new tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer(0)) {
-            command.huggingFaceRepository.get().pullRepository(
-                    MossAudioTokenizerModelLayout.REPOSITORY_ID,
-                    "main",
-                    null,
-                    "moss-audio-tokenizer",
-                    Map.of("fallback", "automatic-moss-tts-codec"),
-                    progress);
-        }
+        String repositoryId = MossAudioTokenizerModelLayout.REPOSITORY_ID;
+        command.sdk.pullHuggingFaceModel(
+                HuggingFacePullRequest.builder()
+                        .modelSpec("hf:" + repositoryId)
+                        .revision("main")
+                        .architecture("moss-audio-tokenizer")
+                        .metadata(Map.of("fallback", "automatic-moss-tts-codec"))
+                        .build(),
+                progress -> {
+                    if (progress.getTotal() > 0) {
+                        System.out.printf("\\r  Downloading %s: %3d%% (%d/%d MB)",
+                                repositoryId,
+                                progress.getPercentComplete(),
+                                progress.getCompleted() / 1024 / 1024,
+                                progress.getTotal() / 1024 / 1024);
+                    } else {
+                        System.out.printf("\\r  %s", progress.getStatus());
+                    }
+                    System.out.flush();
+                });
+        System.out.println();
     }
 
     private String effectiveTtsVoiceSelector() {

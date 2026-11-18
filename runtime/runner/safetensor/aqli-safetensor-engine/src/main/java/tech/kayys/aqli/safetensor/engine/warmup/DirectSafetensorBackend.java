@@ -41,9 +41,8 @@ import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy;
  *
  * <p>The model architecture is not decided here. {@code DirectInferenceEngine} resolves it through
  * the model-family plugin registry from the checkpoint's own {@code config.json}, so this class
- * stays architecture-neutral. It mirrors the CLI's direct-run driver
- * ({@code RunCommand#runDirectSafetensorCompletion}) so a request through this backend and
- * {@code aqli run --java} behave the same.
+ * stays architecture-neutral. The CLI selects this backend through the SDK engine catalog; prompt
+ * preparation, request mapping, loading, generation, and response sanitisation remain here.
  *
  * <p>Request mapping:
  * <ul>
@@ -52,7 +51,7 @@ import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorTextPolicy;
  *       {@code .safetensors} file;</li>
  *   <li>sampling: {@code temperature}, {@code topK}, {@code topP}, {@code repeatPenalty},
  *       {@code maxTokens} from the request, {@code seed} from parameters;</li>
- *   <li>optional parameters: {@code quantize} (weight quantisation strategy) and
+ *   <li>optional parameters: {@code quantize_strategy} (legacy alias {@code quantize}) and
  *       {@code quantize_kv} / {@code kv_cache_quant} ({@code int8}, {@code int4},
  *       {@code turbo});</li>
  *   <li>prompt: a single system+user turn (or {@code getPrompt()}) goes through
@@ -210,7 +209,7 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
                 .seed(seed)
                 .build();
 
-        String quantize = asString(param(request, "quantize"));
+        String quantize = asString(param(request, "quantize_strategy", "quantize"));
         return new Plan(modelPath, profile, config, buildPrompt(request, profile), quantize);
     }
 
@@ -295,17 +294,22 @@ public class DirectSafetensorBackend implements LocalInferenceEngine {
             return DirectSafetensorTextPolicy.preparePrompt(profile, null, prompt);
         }
 
-        String system = null;
+        List<String> systemMessages = new ArrayList<>();
         List<Message> turns = new ArrayList<>();
         for (Message m : messages) {
-            if (m.getRole() == Message.Role.SYSTEM && system == null) {
-                system = m.getContent();
+            if (m.getRole() == Message.Role.SYSTEM) {
+                if (m.getContent() != null && !m.getContent().isBlank()) {
+                    systemMessages.add(m.getContent());
+                }
             } else {
                 turns.add(m);
             }
         }
         boolean singleUserTurn = turns.size() == 1 && turns.get(0).getRole() == Message.Role.USER;
         if (singleUserTurn) {
+            // CLI can contribute both an instruction system prompt and a retrieval context.
+            // Preserve both in order while keeping the backend's single-turn prompt policy.
+            String system = systemMessages.isEmpty() ? null : String.join("\n\n", systemMessages);
             return DirectSafetensorTextPolicy.preparePrompt(profile, system, turns.get(0).getContent());
         }
         if (turns.isEmpty()) {

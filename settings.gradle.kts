@@ -187,6 +187,8 @@ includeOptionalProject("spi:aqli-spi-runtime", "framework/spi/aqli-spi-runtime")
 
 // Optional API
 includeOptionalProject("api:aqli-api", "framework/api/aqli-api", "ui/aqli-api")
+// CLI extension SPI is kept separate from SDK and transport-neutral capability APIs.
+includeOptionalProject("cli:aqli-cli-spi", "cli/aqli-cli-spi")
 includeOptionalProject("cli:aqli-cli", "cli/aqli-cli")
 
 // Optional backends

@@ -4,10 +4,18 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.quarkus.grpc.GrpcService;
 import io.grpc.stub.StreamObserver;
+import io.grpc.Status;
 import jakarta.inject.Inject;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.kayys.aqli.registry.service.ModelRegistryService;
+import tech.kayys.aqli.sdk.model.ModelPullRequest;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
+import tech.kayys.aqli.sdk.model.PullProgress;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import java.util.stream.Collectors;
 
@@ -15,12 +23,95 @@ import java.util.stream.Collectors;
 public class ModelGrpcService extends ModelServiceGrpc.ModelServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(ModelGrpcService.class);
+    private final ExecutorService pullExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Inject
     ModelRegistryService registryService;
 
     @Inject
     MeterRegistry meterRegistry;
+
+    @Inject
+    AqliRuntime runtime;
+
+    @Override
+    public void pullModel(PullModelRequest request, StreamObserver<PullModelProgress> observer) {
+        if (request.getModelSpec() == null || request.getModelSpec().isBlank()) {
+            observer.onError(Status.INVALID_ARGUMENT
+                    .withDescription("model_spec is required")
+                    .asRuntimeException());
+            return;
+        }
+
+        Timer.Sample sample = Timer.start(meterRegistry);
+        meterRegistry.counter("aqli.grpc.model.pull.count").increment();
+        boolean huggingFace = isHuggingFaceSpec(request.getModelSpec());
+        ModelPullRequest pullRequest = ModelPullRequest.builder()
+                .modelSpec(request.getModelSpec())
+                .revision(blankToNull(request.getRevision()))
+                .format(blankToNull(request.getFormat()))
+                .force(request.getForce())
+                .build();
+        HuggingFacePullRequest huggingFaceRequest = HuggingFacePullRequest.builder()
+                .modelSpec(request.getModelSpec())
+                .revision(blankToNull(request.getRevision()))
+                .format(blankToNull(request.getFormat()))
+                .includePatterns(request.getIncludePatternsList())
+                .force(request.getForce())
+                .taskType(blankToNull(request.getTaskType()))
+                .build();
+
+        pullExecutor.execute(() -> {
+            try {
+                if (huggingFace) {
+                    runtime.pullHuggingFaceModel(
+                            huggingFaceRequest, progress -> observer.onNext(toGrpcProgress(progress)));
+                } else {
+                    runtime.pullModel(pullRequest, progress -> observer.onNext(toGrpcProgress(progress)));
+                }
+                sample.stop(meterRegistry.timer("aqli.grpc.model.pull.duration"));
+                observer.onCompleted();
+            } catch (Exception error) {
+                sample.stop(meterRegistry.timer("aqli.grpc.model.pull.duration"));
+                meterRegistry.counter("aqli.grpc.model.pull.error").increment();
+                LOG.error("Failed to pull model {}", request.getModelSpec(), error);
+                observer.onError(Status.INTERNAL
+                        .withDescription("Model pull failed: " + error.getMessage())
+                        .withCause(error)
+                        .asRuntimeException());
+            }
+        });
+    }
+
+    @PreDestroy
+    void shutdownPullExecutor() {
+        pullExecutor.shutdown();
+    }
+
+    private static PullModelProgress toGrpcProgress(PullProgress progress) {
+        PullModelProgress.Builder response = PullModelProgress.newBuilder()
+                .setStatus(progress.getStatus() == null ? "" : progress.getStatus())
+                .setTotal(progress.getTotal())
+                .setCompleted(progress.getCompleted())
+                .setPercentComplete(progress.getPercentComplete())
+                .setComplete(progress.isComplete());
+        if (progress.getDigest() != null) {
+            response.setDigest(progress.getDigest());
+        }
+        return response.build();
+    }
+
+    private static boolean isHuggingFaceSpec(String modelSpec) {
+        if (modelSpec == null) {
+            return false;
+        }
+        String normalized = modelSpec.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.startsWith("hf:") || normalized.startsWith("huggingface:");
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
 
     @Override
     public void listModels(ListModelsRequest request, StreamObserver<ListModelsResponse> observer) {

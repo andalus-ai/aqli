@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":sdk:aqli-sdk-core"))
     // Compose local inference engines and expose the local AqliSdk CDI producer.
     implementation(project(":sdk:aqli-sdk-local"))
+    implementation(project(":cli:aqli-cli-spi"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation(project(":audio:aqli-audio-core"))
@@ -71,6 +72,8 @@ dependencies {
     implementation(project(":plugin:aqli-plugin-runner-core"))
     implementation(project(":runner:gguf:aqli-runner-gguf"))
     implementation(project(":observability:aqli-observability"))
+    // The GGUF daemon metrics server exposes Prometheus types in its public API.
+    implementation("io.micrometer:micrometer-registry-prometheus:1.14.4")
     implementation(project(":repository:aqli-model-repo-hf"))
     implementation(project(":repository:aqli-model-repo-kaggle"))
     implementation(project(":repository:aqli-model-repo-local"))
