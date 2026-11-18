@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
@@ -100,6 +102,37 @@ class AudioRunCapabilityTest {
         assertFalse(options.disablePolish());
         assertFalse(options.liveAudio());
         assertNull(options.flacCompression());
+    }
+
+
+    @Test
+    void replayMetadataOnlyFillsOptionsNotExplicitlyProvidedOnTheCommandLine() {
+        CommandLine commandLine = new CommandLine(new TestCommand());
+        new AudioRunCapability().registerOptions(commandLine.getCommandSpec());
+        commandLine.parseArgs("--audio-format", "wav", "--audio-gain-db", "2");
+
+        AudioRunOptions cliOptions = new AudioRunCapability().snapshot(commandLine.getParseResult());
+        AudioMetadataReplayParser.Plan replayPlan = new AudioMetadataReplayParser.Plan(List.of(
+                new AudioMetadataReplayParser.ReplayOption(AudioMetadataReplayParser.Option.VOICE, "ReplayVoice"),
+                new AudioMetadataReplayParser.ReplayOption(AudioMetadataReplayParser.Option.AUDIO_FORMAT, "flac"),
+                new AudioMetadataReplayParser.ReplayOption(AudioMetadataReplayParser.Option.AUDIO_QUALITY, "lossless"),
+                new AudioMetadataReplayParser.ReplayOption(AudioMetadataReplayParser.Option.GAIN_DB, 5.0),
+                new AudioMetadataReplayParser.ReplayOption(
+                        AudioMetadataReplayParser.Option.DISABLE_AUDIO_POLISH, Boolean.TRUE),
+                new AudioMetadataReplayParser.ReplayOption(AudioMetadataReplayParser.Option.TRIM_SILENCE, Boolean.TRUE)),
+                "replay.wav");
+
+        AudioRunOptions effective = cliOptions.withReplayPlan(replayPlan);
+
+        assertEquals("ReplayVoice", effective.voice());
+        assertEquals("wav", effective.format());
+        assertEquals("lossless", effective.quality());
+        assertEquals(2.0, effective.gainDb());
+        assertTrue(effective.disablePolish());
+        assertTrue(effective.trimSilence());
+        assertNull(cliOptions.voice());
+        assertNull(cliOptions.quality());
+        assertFalse(cliOptions.disablePolish());
     }
 
     @Command
