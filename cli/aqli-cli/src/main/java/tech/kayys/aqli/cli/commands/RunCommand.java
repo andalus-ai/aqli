@@ -1616,7 +1616,6 @@ public class RunCommand implements Runnable {
     }
 
     private boolean validateTtsAudioCliOptions() {
-        AudioRunOptions options = audioRunOptions;
         boolean ok = true;
         if (audioRunOptions.format() != null && !audioRunOptions.format().isBlank()) {
             ok &= TtsCliOptionsValidator.validateChoice(
