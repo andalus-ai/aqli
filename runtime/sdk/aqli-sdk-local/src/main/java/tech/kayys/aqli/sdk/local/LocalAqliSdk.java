@@ -113,11 +113,33 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
     }
 
     private static TextGenerationChunk toTextGenerationChunk(StreamingInferenceChunk chunk) {
+        TextGenerationChunk.ToolCallEvent toolCallEvent = null;
+        if (chunk.isToolCallStart()) {
+            toolCallEvent = TextGenerationChunk.ToolCallEvent.START;
+        } else if (chunk.isToolCallDelta()) {
+            toolCallEvent = TextGenerationChunk.ToolCallEvent.DELTA;
+        } else if (chunk.isToolCallEnd()) {
+            toolCallEvent = TextGenerationChunk.ToolCallEvent.END;
+        }
+
+        StreamingInferenceChunk.ChunkUsage chunkUsage = chunk.usage();
+        TextGenerationChunk.Usage usage = chunkUsage == null ? null
+                : new TextGenerationChunk.Usage(
+                        chunkUsage.inputTokens(), chunkUsage.outputTokens(), chunkUsage.latencyMs());
+
         return new TextGenerationChunk(
+                chunk.requestId(),
                 chunk.index(),
-                chunk.delta() == null ? "" : chunk.delta(),
+                chunk.delta(),
                 chunk.finished(),
-                chunk.finished() ? toTextFinishReason(chunk.finishReason()) : null);
+                chunk.finished() ? toTextFinishReason(chunk.finishReason()) : null,
+                toolCallEvent,
+                chunk.toolCallId(),
+                chunk.toolName(),
+                chunk.toolInputDelta(),
+                usage,
+                chunk.emittedAt(),
+                chunk.metadata());
     }
 
     private static TextGenerationResponse.FinishReason toTextFinishReason(
