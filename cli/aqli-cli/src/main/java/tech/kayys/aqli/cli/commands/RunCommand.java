@@ -462,13 +462,6 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
 
-        AudioRunOptions audioOptions = runCapabilityRegistry.snapshot(
-                "audio",
-                commandSpec.commandLine().getParseResult(),
-                AudioRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
-        applyAudioRunOptions(audioOptions);
 
         if (onlyText) {
             noBanner = true;
