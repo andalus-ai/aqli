@@ -45,4 +45,13 @@ public interface RunCapabilityRegistry {
      * Validates every discovered capability against the parsed invocation.
      */
     void validate(ParseResult parseResult);
+
+    /**
+     * Captures a capability's parsed options as its declared concrete type.
+     *
+     * <p>Returns empty when the capability is not registered or does not
+     * contribute an options snapshot. A requested type that differs from the
+     * contributor's declared type is rejected rather than coerced.</p>
+     */
+    <T> Optional<T> snapshot(String capabilityId, ParseResult parseResult, Class<T> optionsType);
 }
