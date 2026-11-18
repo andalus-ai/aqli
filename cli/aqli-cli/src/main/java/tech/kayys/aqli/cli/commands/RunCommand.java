@@ -1996,24 +1996,6 @@ public class RunCommand implements Runnable {
         return false;
     }
 
-    private String providerForModelDirectory(Path dirPath) {
-        String detectedFormat = formatForModelDirectory(dirPath);
-        String provider = providerForFormat(detectedFormat);
-        return provider != null ? provider : "safetensor";
-    }
-
-    private String formatForModelDirectory(Path dirPath) {
-        String detectedFormat = ManifestStore.detectFormat(dirPath);
-        if (detectedFormat == null || detectedFormat.isBlank() || "unknown".equalsIgnoreCase(detectedFormat)) {
-            return null;
-        }
-        return ModelFormatResolver.canonicalFormat(detectedFormat);
-    }
-
-    private String formatForLocalModelPath(Path modelPath) {
-        return ModelFormatResolver.formatForPath(modelPath);
-    }
-
     private String stripHfPrefix(String value) {
         if (value == null) {
             return "";
