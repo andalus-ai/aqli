@@ -37,7 +37,6 @@ import tech.kayys.aqli.sdk.model.ModelResolver;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
-import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
