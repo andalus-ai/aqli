@@ -3,6 +3,8 @@ package tech.kayys.aqli.sdk.core;
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.sdk.capability.text.SdkMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContext;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContextItem;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationToolCall;
@@ -143,6 +145,36 @@ class TextGenerationRequestMapperTest {
         assertEquals("SDK parity", mappedAssistant.getToolCalls().get(0).getArguments().get("query"));
     }
 
+    @Test
+    void mapsTypedRetrievalContextIntoExecutionRequest() {
+        TextGenerationContext context = new TextGenerationContext(
+                true,
+                "embedding-model-v2",
+                List.of(new TextGenerationContextItem(
+                        "AQLI exposes a transport-neutral text capability.",
+                        "chunk-1",
+                        "docs/sdk",
+                        "Text SDK",
+                        0.93,
+                        Map.of("section", "capabilities"))),
+                List.of(Map.of("id", "source-1", "title", "SDK docs")));
+        TextGenerationRequest typed = new TextGenerationRequest(
+                "model-context",
+                List.of(TextGenerationMessage.user("What is AQLI?")),
+                TextGenerationParameters.unspecified(),
+                List.of(), null, Map.of(), null, null, null, null, null, context);
+
+        InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(typed);
+
+        assertEquals("embedding-model-v2", mapped.getParameters().get("embedding_model"));
+        assertEquals(true, mapped.getParameters().get("rag_enabled"));
+        assertEquals(1, mapped.getParameters().get("rag_context") instanceof List<?> values ? values.size() : 0);
+        assertEquals(1, mapped.getParameters().get("rag_sources") instanceof List<?> values ? values.size() : 0);
+        assertEquals(true, mapped.getMetadata().get("rag_context_injected"));
+        assertEquals(1, mapped.getMetadata().get("rag_context_items"));
+        assertEquals(Message.Role.SYSTEM, mapped.getMessages().get(0).getRole());
+        assertTrue(mapped.getMessages().get(0).getContent().contains("AQLI exposes a transport-neutral"));
+    }
 
     @Test
     void mapsAdvancedSamplingAndStructuredResponseControls() {
