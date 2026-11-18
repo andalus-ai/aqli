@@ -353,22 +353,16 @@ public class RunCommand implements Runnable {
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
-    @Option(names = { "--voice", "--tts-voice" }, description = "TTS voice preset name/id for supported audio models")
     String ttsVoice;
 
-    @Option(names = { "--voice-lang", "--voice-language", "--tts-voice-lang", "--tts-voice-language" }, description = "TTS voice language selector, such as en, jp, zh, english, japanese, or chinese")
     String ttsVoiceLanguage;
 
-    @Option(names = { "--voice-gender", "--tts-voice-gender" }, description = "TTS voice gender selector, such as male/female. With --voice-lang, non-gender values are treated as voice preset terms.")
     String ttsVoiceGender;
 
-    @Option(names = { "--voice-search", "--tts-voice-search" }, description = "Search/filter MOSS TTS voices when used with --list-voices")
     String ttsVoiceSearch;
 
-    @Option(names = { "--tts-codec", "--codec" }, description = "MOSS TTS companion audio tokenizer path or local model id")
     String ttsCodec;
 
-    @Option(names = { "--no-tts-auto-codec", "--no-tts-auto-pull-codec" }, description = "Disable automatic pull of the MOSS TTS companion audio tokenizer")
     boolean disableTtsAutoCodec;
 
     @Option(names = { "--list-voices", "--voices", "--tts-voices" }, description = "List TTS voice presets for the resolved model and exit")
@@ -389,73 +383,50 @@ public class RunCommand implements Runnable {
     @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
     boolean ttsCachePruneApply;
 
-    @Option(names = { "--tts-max-frames", "--max-frames" }, description = "Maximum TTS audio frames to generate")
     Integer ttsMaxFrames;
 
-    @Option(names = { "--tts-max-seconds", "--max-seconds", "--tts-duration" }, description = "Maximum TTS audio duration in seconds")
     Double ttsMaxSeconds;
 
-    @Option(names = { "--audio-format", "--tts-audio-format" }, description = "Audio output format for TTS (wav, flac, mp3; opus/aac require the future FFmpeg backend)")
     String audioFormat;
 
-    @Option(names = { "--audio-quality", "--tts-audio-quality" }, description = "TTS audio quality preset (compact, speech, balanced, high, lossless)")
     String audioQuality;
 
-    @Option(names = { "--audio-bitrate", "--audio-bitrate-kbps", "--tts-bitrate", "--tts-bitrate-kbps" }, description = "Encoded TTS audio bitrate in kbps for formats that support it, such as MP3")
     Integer audioBitrateKbps;
 
-    @Option(names = { "--audio-channels", "--tts-audio-channels" }, description = "TTS audio channel mode (auto, mono, stereo/dual-mono, native)")
     String audioChannels;
 
-    @Option(names = { "--tts-codec-decode", "--codec-decode" }, description = "MOSS TTS codec decode mode (auto, streaming, full)")
     String ttsCodecDecode;
 
-    @Option(names = { "--random-seed", "--tts-random-seed" }, description = "Use a fresh random TTS seed when --seed is omitted")
     boolean randomTtsSeed;
 
-    @Option(names = { "--no-audio-polish", "--no-tts-audio-polish" }, description = "Disable TTS PCM polish (DC removal, edge fades, and peak normalization)")
     boolean disableAudioPolish;
 
-    @Option(names = { "--no-audio-normalize", "--no-tts-audio-normalize" }, description = "Disable TTS peak normalization while keeping other audio polish")
     boolean disableAudioNormalize;
 
-    @Option(names = { "--audio-gain-db", "--tts-gain-db" }, description = "Extra TTS output gain in dB before encoding")
     Double audioGainDb;
 
-    @Option(names = { "--audio-peak-db", "--audio-peak-dbfs", "--tts-peak-db" }, description = "TTS peak-normalization target in dBFS (default: -3)")
     Double audioPeakDb;
 
-    @Option(names = { "--audio-fade-ms", "--tts-fade-ms" }, description = "TTS fade-in/fade-out duration in milliseconds")
     Double audioFadeMs;
 
-    @Option(names = { "--audio-trim-silence", "--tts-trim-silence" }, description = "Trim leading/trailing low-level silence from TTS audio after decode")
     boolean audioTrimSilence;
 
-    @Option(names = { "--audio-trim-db", "--audio-trim-dbfs", "--tts-trim-db" }, description = "Silence trim threshold in dBFS for TTS audio (default: -48)")
     Double audioTrimDbfs;
 
-    @Option(names = { "--audio-trim-padding-ms", "--tts-trim-padding-ms" }, description = "Silence trim padding kept at each edge in milliseconds (default: 25)")
     Double audioTrimPaddingMs;
 
-    @Option(names = { "--audio-stream-chunk-kb", "--tts-stream-chunk-kb" }, description = "Audio chunk size for streamed TTS responses in KiB (default: 64)")
     Integer audioStreamChunkKb;
 
-    @Option(names = { "--tts-stream-progress-frames" }, description = "Emit a TTS streaming progress update every N generated frames")
     Integer ttsStreamProgressFrames;
 
-    @Option(names = { "--no-tts-stream-progress" }, description = "Hide live TTS progress updates during streaming")
     boolean disableTtsStreamProgress;
 
-    @Option(names = { "--tts-stream-pcm", "--audio-stream-pcm" }, description = "Emit decoded PCM chunks while streaming TTS")
     boolean ttsStreamPcm;
 
-    @Option(names = { "--live-audio", "--tts-live-audio" }, description = "Play decoded TTS PCM chunks while the final audio file is being generated")
     boolean liveAudio;
 
-    @Option(names = { "--no-low-latency-audio", "--no-tts-low-latency-audio" }, description = "Emit TTS PCM preview chunks after generation instead of during frame generation")
     boolean disableLowLatencyAudio;
 
-    @Option(names = { "--flac-compression" }, description = "FLAC compression level for TTS output, 0 fastest through 8 smallest")
     Integer flacCompression;
 
     @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
@@ -540,6 +511,14 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        AudioRunOptions audioOptions = runCapabilityRegistry.snapshot(
+                "audio",
+                commandSpec.commandLine().getParseResult(),
+                AudioRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+        applyAudioRunOptions(audioOptions);
 
         if (onlyText) {
             noBanner = true;
@@ -1735,6 +1714,38 @@ public class RunCommand implements Runnable {
 
     private String defaultAudioReplayOutputPath(String originalOutputPath, String replayAudioFormat) {
         return AudioReplayOutputPathResolver.resolve(originalOutputPath, replayAudioFormat).toString();
+    }
+
+    private void applyAudioRunOptions(AudioRunOptions options) {
+        ttsVoice = options.voice();
+        ttsVoiceLanguage = options.voiceLanguage();
+        ttsVoiceGender = options.voiceGender();
+        ttsVoiceSearch = options.voiceSearch();
+        ttsCodec = options.codec();
+        disableTtsAutoCodec = options.disableAutoCodec();
+        ttsMaxFrames = options.maxFrames();
+        ttsMaxSeconds = options.maxSeconds();
+        audioFormat = options.format();
+        audioQuality = options.quality();
+        audioBitrateKbps = options.bitrateKbps();
+        audioChannels = options.channels();
+        ttsCodecDecode = options.codecDecode();
+        randomTtsSeed = options.randomSeed();
+        disableAudioPolish = options.disablePolish();
+        disableAudioNormalize = options.disableNormalize();
+        audioGainDb = options.gainDb();
+        audioPeakDb = options.peakDb();
+        audioFadeMs = options.fadeMs();
+        audioTrimSilence = options.trimSilence();
+        audioTrimDbfs = options.trimDbfs();
+        audioTrimPaddingMs = options.trimPaddingMs();
+        audioStreamChunkKb = options.streamChunkKb();
+        ttsStreamProgressFrames = options.streamProgressFrames();
+        disableTtsStreamProgress = options.disableStreamProgress();
+        ttsStreamPcm = options.streamPcm();
+        liveAudio = options.liveAudio();
+        disableLowLatencyAudio = options.disableLowLatency();
+        flacCompression = options.flacCompression();
     }
 
     private boolean validateTtsAudioCliOptions() {
