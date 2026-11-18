@@ -1157,9 +1157,9 @@ public class RunCommand implements Runnable {
                 uiRenderer.printModelInfo(modelId, providerId, format, null, false);
                 printQuantizationInfo();
                 if (libtorchSafetensorCliBridge) {
-                    forcedExecutionRouteMetadata = bridgeExecutionRouteMetadata();
+                    forcedExecutionRouteMetadata = ExecutionRouteMetadata.bridgeMetadata();
                     forcedExecutionRouteMetadata =
-                            mergeExecutionRouteMetadata(effectiveRunnerRouteReport.toMetadata(),
+                            ExecutionRouteMetadata.merge(effectiveRunnerRouteReport.toMetadata(),
                                     forcedExecutionRouteMetadata);
                     printExecutionRouteInfo(forcedExecutionRouteMetadata);
                 } else {
@@ -3121,13 +3121,7 @@ public class RunCommand implements Runnable {
     }
 
     private Map<String, Object> effectiveExecutionRouteMetadata(Map<String, Object> responseMetadata) {
-        if (responseMetadata == null || responseMetadata.isEmpty()) {
-            return forcedExecutionRouteMetadata;
-        }
-        if (forcedExecutionRouteMetadata == null || forcedExecutionRouteMetadata.isEmpty()) {
-            return responseMetadata;
-        }
-        return mergeExecutionRouteMetadata(forcedExecutionRouteMetadata, responseMetadata);
+        return ExecutionRouteMetadata.effective(forcedExecutionRouteMetadata, responseMetadata);
     }
 
     private RunnerRouteReport applyCachedBenchmarkRouteProfile(
@@ -3157,28 +3151,6 @@ public class RunCommand implements Runnable {
                 metadata,
                 outputTokens,
                 durationMs);
-    }
-
-    private Map<String, Object> bridgeExecutionRouteMetadata() {
-        Map<String, Object> route = new LinkedHashMap<>();
-        route.put("requested_provider", "libtorch");
-        route.put("effective_provider", "safetensor");
-        route.put("provider_bridge_mode", "cli_libtorch_to_safetensor");
-        route.put("provider_bridge_reason", "raw_safetensor_checkpoint");
-        return route;
-    }
-
-    private Map<String, Object> mergeExecutionRouteMetadata(
-            Map<String, Object> baseMetadata,
-            Map<String, Object> overlayMetadata) {
-        Map<String, Object> merged = new LinkedHashMap<>();
-        if (baseMetadata != null && !baseMetadata.isEmpty()) {
-            merged.putAll(baseMetadata);
-        }
-        if (overlayMetadata != null && !overlayMetadata.isEmpty()) {
-            merged.putAll(overlayMetadata);
-        }
-        return merged;
     }
 
     private void printQuantCacheInfo(Map<String, Object> metadata) {
