@@ -461,3 +461,20 @@ StreamingInferenceChunk wire shape, and retains shared stream observability. Thi
 preserves the current REST response schema while moving capability execution behind
 the canonical SDK contract. Transport cancellation is delegated through the publisher
 subscription bridge; end-to-end disconnect behavior still requires integration testing.
+
+
+### gRPC chat typed SDK migration progress
+
+The protobuf `ChatRequest` adapter now maps into the canonical
+`TextGenerationRequest` through `GrpcInferenceRequestMapper`. The gRPC chat
+and chat-stream methods invoke `AqliChatService.generateText` and
+`AqliChatService.streamText`, respectively, matching the REST chat application
+path. The protobuf `ChatResponse` schema remains unchanged; completion and
+stream-completion endpoints remain on their legacy request path for a separate
+migration.
+
+For streaming chat, the service retains the Mutiny subscription and registers
+the gRPC cancellation callback. Cancelling the gRPC call cancels the SDK stream
+subscription. The transport still serializes only fields represented by the
+existing protobuf schema; expanding protobuf tool-call or richer metadata fields
+requires an explicit wire-compatibility decision.
