@@ -96,7 +96,6 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
-import tech.kayys.aqli.cli.commands.text.TextRunOptions;
 import tech.kayys.aqli.cli.commands.text.TextRunCliOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
@@ -2541,7 +2540,7 @@ public class RunCommand implements Runnable {
         }
         args.add("--max-tokens");
         args.add(Integer.toString(textOptions.maxTokens));
-        args.add("--textOptions.temperature");
+        args.add("--temperature");
         args.add(Double.toString(textOptions.temperature));
         args.add("--top-k");
         args.add(Integer.toString(textOptions.topK));
@@ -2689,7 +2688,7 @@ public class RunCommand implements Runnable {
             return "--session is not supported by the direct engine";
         }
         if (textOptions.grammar != null && !textOptions.grammar.isBlank()) {
-            return "--textOptions.grammar is not supported by the direct engine";
+            return "--grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
         if (checkpoint != null) {
