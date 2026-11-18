@@ -67,6 +67,34 @@ class AqliChatServiceTest {
     }
 
     @Test
+    void typedTextStreamPreservesSdkEventMetadataAndToolCallFields() {
+        var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
+        var emittedAt = java.time.Instant.parse("2026-11-18T02:00:00Z");
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var sourceChunk = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
+                "stream-request", 4, "", false, null,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.DELTA,
+                "call-1", null, "{\\"query\\":",
+                new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.Usage(5, 2, 18),
+                emittedAt, java.util.Map.of("provider", "cpu"));
+        org.mockito.Mockito.when(sdk.streamText(request))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().item(sourceChunk));
+
+        var chunks = service.streamText(sdk, request).collect().asList().await().indefinitely();
+
+        assertEquals(1, chunks.size());
+        var chunk = chunks.getFirst();
+        assertEquals("stream-request", chunk.requestId());
+        assertEquals(4, chunk.index());
+        assertEquals("call-1", chunk.toolCallId());
+        assertEquals("{\\"query\\":", chunk.toolInputDelta());
+        assertEquals(new tech.kayys.aqli.spi.inference.StreamingInferenceChunk.ChunkUsage(5, 2, 18),
+                chunk.usage());
+        assertEquals(emittedAt, chunk.emittedAt());
+        assertEquals(java.util.Map.of("provider", "cpu"), chunk.metadata());
+    }
+
+    @Test
     void createCompletionRequestPreservesPreferredProvider() {
         ChatParams params = new ChatParams(0.2, 256, 0.9, 1.1, "llamacpp");
 
