@@ -3,6 +3,7 @@ package tech.kayys.aqli.server.api.v1;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.spi.tool.ToolCall;
@@ -177,6 +178,47 @@ class AgenticApiMapperTest {
         assertTrue(request.getParameters().containsKey("rag_context"));
         assertEquals("retrieval_context", request.getMetadata().get("rag_context_alias"));
         assertEquals(true, request.getMetadata().get("rag_context_injected"));
+    }
+
+    @Test
+    void mapsResponsesPayloadToTypedSdkRequestWithToolLoopAndContext() throws Exception {
+        AgentTraceContext trace = AgentTraceContext.fromPayload(mapper.readTree("""
+                {"request_id":"req-responses-typed","trace_id":"trace-responses-typed"}
+                """));
+        var request = AgenticApiMapper.toResponsesTextGenerationRequest(mapper.readTree("""
+                {
+                  "model": "demo-model",
+                  "instructions": "Use retrieved context carefully.",
+                  "input": [
+                    {"type": "message", "role": "user", "content": "Find the API contract."},
+                    {"type": "function_call", "call_id": "call-1", "name": "lookup",
+                     "arguments": "{\\"query\\":\\"typed SDK\\"}"},
+                    {"type": "function_call_output", "call_id": "call-1",
+                     "output": "The SDK owns text generation."}
+                  ],
+                  "max_output_tokens": 48,
+                  "text": {"format": {"type": "json_object"}},
+                  "rag_enabled": true,
+                  "retrieval_context": {
+                    "documents": [{"id": "doc-1", "content": "Responses maps to typed SDK.", "metadata": {"source": "docs/responses"}}]
+                  },
+                  "conversation": "conversation-1"
+                }
+                """), "test-key", trace);
+
+        assertEquals("demo-model", request.model());
+        assertEquals("test-key", request.apiKey());
+        assertEquals("conversation-1", request.sessionId());
+        assertEquals("req-responses-typed", request.requestId());
+        assertEquals(48, request.parameters().maxTokens());
+        assertEquals("json_object", request.parameters().responseFormat().get("type"));
+        assertEquals(true, request.context().enabled());
+        assertEquals("doc-1", request.context().items().get(0).id());
+        assertEquals(4, request.messages().size());
+        assertEquals("Use retrieved context carefully.", request.messages().get(0).content());
+        assertEquals(TextGenerationMessage.Role.ASSISTANT, request.messages().get(2).role());
+        assertEquals("call-1", request.messages().get(2).toolCalls().get(0).id());
+        assertEquals(TextGenerationMessage.Role.TOOL, request.messages().get(3).role());
     }
 
     @Test
