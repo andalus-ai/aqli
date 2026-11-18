@@ -91,35 +91,6 @@ final class ServiceLoaderRunCapabilityRegistry implements RunCapabilityRegistry 
         orderedCapabilities.forEach(capability -> capability.validate(parseResult));
     }
 
-    @Override
-    public <T> Optional<T> snapshot(String capabilityId, ParseResult parseResult, Class<T> optionsType) {
-        Objects.requireNonNull(parseResult, "parseResult");
-        Objects.requireNonNull(optionsType, "optionsType");
-
-        RunCapability capability = byId.get(capabilityId);
-        if (!(capability instanceof RunCapabilityOptions<?> contributor)) {
-            return Optional.empty();
-        }
-
-        Class<?> declaredType = Objects.requireNonNull(
-                contributor.optionsType(), "Run capability '" + capabilityId + "' returned a null options type");
-        if (!declaredType.equals(optionsType)) {
-            throw new IllegalArgumentException("Run capability '" + capabilityId
-                    + "' contributes options of type " + declaredType.getName()
-                    + ", not " + optionsType.getName());
-        }
-
-        Object snapshot = Objects.requireNonNull(
-                contributor.snapshot(parseResult),
-                "Run capability '" + capabilityId + "' returned a null options snapshot");
-        if (!declaredType.isInstance(snapshot)) {
-            throw new IllegalStateException("Run capability '" + capabilityId
-                    + "' returned an options snapshot that is not an instance of "
-                    + declaredType.getName());
-        }
-        return Optional.of(optionsType.cast(snapshot));
-    }
-
     private static String requireId(String id, String owner) {
         if (id == null || id.isBlank()) {
             throw new IllegalStateException("Run capability " + owner + " id must not be blank");
