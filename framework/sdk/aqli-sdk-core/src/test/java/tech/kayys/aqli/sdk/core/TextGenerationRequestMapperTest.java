@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import tech.kayys.aqli.sdk.capability.text.SdkMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationToolCall;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.tool.ToolDefinition;
@@ -105,4 +107,40 @@ class TextGenerationRequestMapperTest {
         assertEquals(0, mapped.getMirostat());
         assertEquals(null, mapped.getGrammar());
     }
+    @Test
+    void mapsToolCallsAndAgenticContextIntoExecutionRequest() {
+        TextGenerationMessage assistant = new TextGenerationMessage(
+                TextGenerationMessage.Role.ASSISTANT,
+                "",
+                null,
+                null,
+                List.of(new TextGenerationToolCall("call-7", "search", TextGenerationToolCall.Type.FUNCTION,
+                        Map.of("query", "SDK parity"))));
+        TextGenerationRequest typed = new TextGenerationRequest(
+                "model-agent",
+                List.of(TextGenerationMessage.user("search this"), assistant),
+                TextGenerationParameters.unspecified(),
+                List.of(),
+                Map.of("type", "function", "function", Map.of("name", "search")),
+                Map.of("rag_context_injected", true, "trace_marker", "trace"),
+                "request-7",
+                "user-7",
+                "session-7",
+                "trace-7");
+
+        InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(typed);
+        Message mappedAssistant = mapped.getMessages().get(1);
+
+        assertEquals("request-7", mapped.getRequestId());
+        assertEquals("user-7", mapped.getUserId().orElseThrow());
+        assertEquals("session-7", mapped.getSessionId().orElseThrow());
+        assertEquals("trace-7", mapped.getTraceId().orElseThrow());
+        assertEquals(typed.toolChoice(), mapped.getToolChoice());
+        assertEquals(typed.metadata(), mapped.getMetadata());
+        assertEquals(1, mappedAssistant.getToolCalls().size());
+        assertEquals("call-7", mappedAssistant.getToolCalls().get(0).getId());
+        assertEquals("search", mappedAssistant.getToolCalls().get(0).getFunction().getName());
+        assertEquals("SDK parity", mappedAssistant.getToolCalls().get(0).getArguments().get("query"));
+    }
+
 }
