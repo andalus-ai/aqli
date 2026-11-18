@@ -196,7 +196,11 @@ class LocalAqliSdkTest {
     void adaptsLocalInferenceStreamToTypedTextChunks() throws Exception {
         LocalInferenceEngine engine = engine();
         when(engine.stream(any(InferenceRequest.class))).thenReturn(Multi.createFrom().items(
-                StreamingInferenceChunk.textDelta("stream-1", 0, "hello"),
+                new StreamingInferenceChunk("stream-1", 0, tech.kayys.aljabr.spi.model.ModalityType.TEXT,
+                        "hello", null, false, null,
+                        new StreamingInferenceChunk.ChunkUsage(3, 1, 12),
+                        java.time.Instant.parse("2026-11-18T02:00:00Z"),
+                        Map.of("provider", "cpu"), null, null, null),
                 StreamingInferenceChunk.finalTextChunk("stream-1", 1, " world", null)));
 
         LocalAqliSdk sdk = new LocalAqliSdk(
@@ -230,6 +234,10 @@ class LocalAqliSdkTest {
         org.junit.jupiter.api.Assertions.assertTrue(completed.await(2, TimeUnit.SECONDS));
         assertEquals(2, chunks.size());
         assertEquals("hello", chunks.get(0).delta());
+        assertEquals("stream-1", chunks.get(0).requestId());
+        assertEquals(new TextGenerationChunk.Usage(3, 1, 12), chunks.get(0).usage());
+        assertEquals(Map.of("provider", "cpu"), chunks.get(0).metadata());
+        assertEquals(java.time.Instant.parse("2026-11-18T02:00:00Z"), chunks.get(0).emittedAt());
         assertEquals(" world", chunks.get(1).delta());
         assertEquals(true, chunks.get(1).terminal());
         assertEquals(TextGenerationResponse.FinishReason.STOP, chunks.get(1).finishReason());
