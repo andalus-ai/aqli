@@ -115,6 +115,39 @@ class TextGenerationContractTest {
     }
 
     @Test
+    void chunkPreservesRequestUsageTimestampMetadataAndToolCallEvents() {
+        var emittedAt = java.time.Instant.parse("2026-11-18T02:00:00Z");
+        var metadata = new java.util.HashMap<String, Object>();
+        metadata.put("provider", "cpu");
+        var chunk = new TextGenerationChunk(
+                "request-1", 7, "", true, TextGenerationResponse.FinishReason.TOOL_CALLS,
+                TextGenerationChunk.ToolCallEvent.DELTA, "call-1", null, "{\\"city\\":",
+                new TextGenerationChunk.Usage(4, 2, 35), emittedAt, metadata);
+        metadata.put("mutated", true);
+
+        assertEquals("request-1", chunk.requestId());
+        assertEquals(7, chunk.sequence());
+        assertEquals(TextGenerationChunk.ToolCallEvent.DELTA, chunk.toolCallEvent());
+        assertEquals("call-1", chunk.toolCallId());
+        assertEquals("{\\"city\\":", chunk.toolInputDelta());
+        assertEquals(new TextGenerationChunk.Usage(4, 2, 35), chunk.usage());
+        assertEquals(emittedAt, chunk.emittedAt());
+        assertEquals(java.util.Map.of("provider", "cpu"), chunk.metadata());
+        assertThrows(UnsupportedOperationException.class,
+                () -> chunk.metadata().put("other", "value"));
+    }
+
+    @Test
+    void toolCallStartRequiresNameAndAllToolEventsRequireId() {
+        assertThrows(IllegalArgumentException.class, () -> new TextGenerationChunk(
+                null, 0, "", false, null, TextGenerationChunk.ToolCallEvent.START,
+                "call-1", null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new TextGenerationChunk(
+                null, 0, "", false, null, TextGenerationChunk.ToolCallEvent.END,
+                null, null, null, null, null, null));
+    }
+
+    @Test
     void chunkRequiresNonNegativeSequenceAndOnlyTerminalChunksCarryFinishReason() {
         assertThrows(IllegalArgumentException.class,
                 () -> new TextGenerationChunk(-1, "hello", false, null));
