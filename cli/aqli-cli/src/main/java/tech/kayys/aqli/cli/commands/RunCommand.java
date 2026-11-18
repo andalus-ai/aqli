@@ -1652,8 +1652,8 @@ public class RunCommand implements Runnable {
         if (audioRunOptions.bitrateKbps() != null) {
             ok &= TtsCliOptionsValidator.validateIntRange("--audio-bitrate", audioRunOptions.bitrateKbps(), 8, 320, "kbps");
         }
-        if (audioRunOptions.flacCompression()() != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", audioRunOptions.flacCompression()(), 0, 8, "");
+        if (audioRunOptions.flacCompression() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", audioRunOptions.flacCompression(), 0, 8, "");
         }
         if (audioRunOptions.maxFrames() != null) {
             ok &= TtsCliOptionsValidator.validateIntRange("--tts-max-frames", audioRunOptions.maxFrames(), 1, 4096, "frames");
@@ -1698,7 +1698,7 @@ public class RunCommand implements Runnable {
     }
 
     Integer effectiveFlacCompression(AudioQualityPreset preset, String effectiveAudioFormat) {
-        return TtsCliOptionsValidator.effectiveFlacCompression(audioRunOptions.flacCompression()(), preset, effectiveAudioFormat);
+        return TtsCliOptionsValidator.effectiveFlacCompression(audioRunOptions.flacCompression(), preset, effectiveAudioFormat);
     }
 
     String effectiveTtsVoiceSelector() {
@@ -3478,7 +3478,7 @@ public class RunCommand implements Runnable {
                 audioRunOptions.fadeMs(),
                 audioRunOptions.trimDbfs(),
                 audioRunOptions.trimPaddingMs(),
-                audioRunOptions.flacCompression()(),
+                audioRunOptions.flacCompression(),
                 audioRunOptions.disablePolish(),
                 audioRunOptions.disableNormalize(),
                 audioRunOptions.trimSilence()));
