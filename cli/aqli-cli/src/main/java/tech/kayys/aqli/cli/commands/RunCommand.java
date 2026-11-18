@@ -1264,13 +1264,14 @@ public class RunCommand implements Runnable {
                                             tokenCount.get(),
                                             duration,
                                             ttftMs);
-                                    recordRouteBenchmarkProfile(
+                                    RouteBenchmarkProfileCoordinator.record(
                                             request.getModel(),
                                             streamFinalLocalPath,
                                             streamMetrics,
                                             tokenCount.get(),
                                             duration,
-                                            audioOutput.hasOutput());
+                                            audioOutput.hasOutput(),
+                                            RunCommand::isAudioMetadata);
                                     if (enableJsonSse) {
                                         printOpenAiSseFinal(request.getRequestId(), request.getModel());
                                     } else {
@@ -2870,7 +2871,8 @@ public class RunCommand implements Runnable {
                 metadata,
                 outputTokens,
                 response.getDurationMs(),
-                audioResponse);
+                audioResponse,
+                RunCommand::isAudioMetadata);
                 
         try {
             ObservabilityManager obs = ObservabilityManager.global();
