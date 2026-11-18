@@ -841,102 +841,22 @@ public class RunCommand implements Runnable {
             }
             finalLocalPath = providerLocalPathResolution.localPath();
             CliLocalModelResolver localModelResolver = new CliLocalModelResolver();
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection gemma3Selection =
-                    DirectSafetensorRoutePolicy.selectGemma3AlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isProviderActive);
-            if (!quietRouteResolutionOutput() && gemma3Selection.hasNotice()) {
-                System.out.println(gemma3Selection.notice());
+            AlternateRuntimeSelectionCoordinator.Result alternateRuntimeSelection =
+                    AlternateRuntimeSelectionCoordinator.select(
+                            new AlternateRuntimeSelectionCoordinator.Options(
+                                    providerId, modelId, finalLocalPath, format,
+                                    providerExplicit, preferAlternateRuntime, runnerRouteReport),
+                            localModelResolver,
+                            this::isProviderActive,
+                            this::isRuntimeRouteActive);
+            if (!quietRouteResolutionOutput()) {
+                alternateRuntimeSelection.notices().forEach(System.out::println);
             }
-            if (gemma3Selection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = gemma3Selection.provider();
-                finalLocalPath = gemma3Selection.localPath();
-                format = gemma3Selection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        gemma3Selection.reason(),
-                        gemma3Selection.cacheHit(),
-                        gemma3Selection.cacheKind());
-                if ("gguf".equalsIgnoreCase(format)) {
-                    modelId = finalLocalPath;
-                }
-            }
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection gemma4MobileQatSelection =
-                    DirectSafetensorRoutePolicy.selectGemma4MobileQatAlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive,
-                            localModelResolver::resolveLiteRtModel);
-            if (!quietRouteResolutionOutput() && gemma4MobileQatSelection.hasNotice()) {
-                System.out.println(gemma4MobileQatSelection.notice());
-            }
-            if (gemma4MobileQatSelection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = gemma4MobileQatSelection.provider();
-                finalLocalPath = gemma4MobileQatSelection.localPath();
-                format = gemma4MobileQatSelection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        gemma4MobileQatSelection.reason(),
-                        gemma4MobileQatSelection.cacheHit(),
-                        gemma4MobileQatSelection.cacheKind());
-            }
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection nativeBf16MatvecSelection =
-                    DirectSafetensorRoutePolicy.selectGemma4TextAlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive,
-                            localModelResolver);
-            if (!quietRouteResolutionOutput() && nativeBf16MatvecSelection.hasNotice()) {
-                System.out.println(nativeBf16MatvecSelection.notice());
-            }
-            if (nativeBf16MatvecSelection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = nativeBf16MatvecSelection.provider();
-                finalLocalPath = nativeBf16MatvecSelection.localPath();
-                modelId = finalLocalPath;
-                format = nativeBf16MatvecSelection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        nativeBf16MatvecSelection.reason(),
-                        nativeBf16MatvecSelection.cacheHit(),
-                        nativeBf16MatvecSelection.cacheKind());
-            }
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection communityTextGgufSelection =
-                    DirectSafetensorRoutePolicy.selectCommunityTextGgufAlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive,
-                            localModelResolver);
-            if (!quietRouteResolutionOutput() && communityTextGgufSelection.hasNotice()) {
-                System.out.println(communityTextGgufSelection.notice());
-            }
-            if (communityTextGgufSelection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = communityTextGgufSelection.provider();
-                finalLocalPath = communityTextGgufSelection.localPath();
-                modelId = finalLocalPath;
-                format = communityTextGgufSelection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        communityTextGgufSelection.reason(),
-                        communityTextGgufSelection.cacheHit(),
-                        communityTextGgufSelection.cacheKind());
-            }
+            providerId = alternateRuntimeSelection.providerId();
+            modelId = alternateRuntimeSelection.modelId();
+            finalLocalPath = alternateRuntimeSelection.localPath();
+            format = alternateRuntimeSelection.format();
+            runnerRouteReport = alternateRuntimeSelection.routeReport();
             DirectSafetensorRoutePolicy.RouteValidation gemma3RouteValidation =
                     DirectSafetensorRoutePolicy.validateGemma3ExecutionRoute(providerId, modelId, finalLocalPath);
             if (!gemma3RouteValidation.allowed()) {
