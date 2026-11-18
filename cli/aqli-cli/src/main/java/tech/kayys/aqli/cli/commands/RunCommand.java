@@ -1157,7 +1157,7 @@ public class RunCommand implements Runnable {
                     audioRunOptions.streamProgressFrames(),
                     audioRunOptions.disableStreamProgress(),
                     audioRunOptions.streamPcm(),
-                    audioRunOptions.liveAudio()(),
+                    audioRunOptions.liveAudio(),
                     audioRunOptions.disableLowLatency(),
                     effectiveFlacCompression));
 
@@ -1242,7 +1242,7 @@ public class RunCommand implements Runnable {
                                     audioRunOptions.streamProgressFrames(),
                                     audioRunOptions.disableStreamProgress(),
                                     audioRunOptions.streamPcm(),
-                                    audioRunOptions.liveAudio()(),
+                                    audioRunOptions.liveAudio(),
                                     audioRunOptions.disableLowLatency(),
                                     effectiveFlacCompression),
                             extension,
@@ -1292,7 +1292,7 @@ public class RunCommand implements Runnable {
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
                 StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
-                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(audioRunOptions.liveAudio()());
+                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(audioRunOptions.liveAudio());
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
