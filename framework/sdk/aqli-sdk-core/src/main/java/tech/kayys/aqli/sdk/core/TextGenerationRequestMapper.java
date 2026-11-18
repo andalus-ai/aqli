@@ -4,6 +4,7 @@ import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationToolDefinition;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationToolCall;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.tool.ToolDefinition;
@@ -32,7 +33,13 @@ public final class TextGenerationRequestMapper {
                 .messages(request.messages().stream()
                         .map(TextGenerationRequestMapper::toSpiMessage)
                         .toList())
-                .streaming(streaming);
+                .streaming(streaming)
+                .toolChoice(request.toolChoice())
+                .metadata(request.metadata());
+        if (request.requestId() != null) builder.requestId(request.requestId());
+        if (request.userId() != null) builder.userId(request.userId());
+        if (request.sessionId() != null) builder.sessionId(request.sessionId());
+        if (request.traceId() != null) builder.traceId(request.traceId());
 
         if (!request.tools().isEmpty()) {
             builder.tools(request.tools().stream()
@@ -58,7 +65,17 @@ public final class TextGenerationRequestMapper {
 
     private static Message toSpiMessage(TextGenerationMessage message) {
         Message.Role role = Message.Role.valueOf(message.role().name());
-        return new Message(role, message.content(), null, message.name(), null, message.toolCallId());
+        return new Message(role, message.content(), null, message.name(), message.toolCalls().stream()
+                .map(TextGenerationRequestMapper::toSpiToolCall).toList(), message.toolCallId());
+    }
+
+    private static tech.kayys.aqli.spi.tool.ToolCall toSpiToolCall(TextGenerationToolCall call) {
+        return tech.kayys.aqli.spi.tool.ToolCall.builder()
+                .id(call.id())
+                .name(call.name())
+                .type(call.type().name().toLowerCase(java.util.Locale.ROOT))
+                .arguments(call.arguments())
+                .build();
     }
 
     private static ToolDefinition toSpiToolDefinition(TextGenerationToolDefinition tool) {
