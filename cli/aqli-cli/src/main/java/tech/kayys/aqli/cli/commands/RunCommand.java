@@ -18,7 +18,6 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Mixin;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.spi.run.RunCapabilityRegistry;
@@ -97,7 +96,6 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
-import tech.kayys.aqli.cli.commands.text.TextRunCliOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
@@ -196,9 +194,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
     boolean stream;
-
-    @Mixin
-    TextRunCliOptions textOptions = new TextRunCliOptions();
 
     @Option(names = { "--json" }, description = "Enable JSON output mode", defaultValue = "false")
     boolean jsonMode;
