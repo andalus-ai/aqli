@@ -20,6 +20,7 @@ import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 import java.util.concurrent.CompletionException;
+import java.util.UUID;
 
 @GrpcService
 public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
@@ -195,7 +196,7 @@ public class AqliGrpcService extends AqliServiceGrpc.AqliServiceImplBase {
 
     private ChatResponse mapChatResponse(TextGenerationResponse response) {
         return ChatResponse.newBuilder()
-                .setId("")
+                .setId(UUID.randomUUID().toString())
                 .setMessage(tech.kayys.aqli.protobuf.Message.newBuilder()
                         .setRole("assistant")
                         .setContent(response.content())
