@@ -107,6 +107,8 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - The SDK API is a contract, not the execution engine. Shared application services own orchestration, capability dispatch, defaults, validation, routing decisions, streaming lifecycle, cancellation, and error semantics.
 - CLI, REST, and gRPC are adapters. They may have transport-specific parsing/serialization and error mapping, but must invoke the same application service path. Never implement inference behavior independently in a command, REST resource, or RPC handler.
 - Capability APIs own typed capability-specific requests, responses, options, validation rules, and capability contracts. Keep audio/image/video/spatial parameters out of a growing flat text-generation request.
+- Keep provider-specific lifecycle options in provider-owned SDK capability contracts (for example, Hugging Face file include patterns and task classification); do not add them to the provider-neutral `ModelPullRequest` or silently discard them in generic overloads.
+- Preserve Hugging Face repository architecture and metadata through `HuggingFacePullRequest` when a caller needs manifest classification or provenance; the local SDK adapter must forward these fields to the repository without exposing repository types to CLI/REST/gRPC adapters.
 - Use a common request envelope for cross-cutting fields and typed capability task payloads for modality-specific fields. Support compatible multimodal composition; do not assume every request has exactly one modality.
 - Keep Picocli annotations and CLI option groups in CLI adapter code. Keep HTTP and protobuf wire DTOs at their adapter boundaries. Map all of them into the same SDK/application semantics.
 - Do not create one CLI Gradle module per capability by default. Start with capability-owned option/mapping packages; create separate modules only for a demonstrated packaging or dependency-isolation boundary.
@@ -117,5 +119,42 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - Avoid permanent duplicate generic request models and chains of converters. Define the canonical public model once, retain only deliberate compatibility adapters, and document their removal/versioning plan.
 - Elevate contracts that are genuinely engine-neutral and reusable by any ML/inference framework to Aljabr. Keep AQLI SDK contracts focused on AQLI's public client/use-case surface; do not duplicate Aljabr tensor, model, or general serving SPIs.
 - Preserve existing CLI behavior and REST/gRPC wire compatibility where feasible. Treat breaking protocol changes as explicit versioned migrations.
+- For Hugging Face pulls, map REST `format`/`includePatterns`/`taskType` and gRPC `format`/`include_patterns`/`task_type` into `HuggingFacePullRequest`; map non-Hugging-Face pulls into `ModelPullRequest`. Do not duplicate download logic in either transport.
+- Automatic model pulls initiated by `RunCommand` must use the SDK model-lifecycle capability (including `HuggingFaceModelOperations` for Hugging Face); never inject or call a repository implementation from the CLI. Keep local-index refresh and CLI progress presentation in the adapter.
 - Add cross-transport conformance tests for normalized application requests, defaults, validation, errors, streaming event order/termination, cancellation/resource cleanup, metadata/usage, and multimodal behavior.
 - Introduce capability API modules incrementally after auditing existing SPI ownership and consumers. Reuse existing modules where possible; do not create speculative empty modules.
+
+
+## 9. Pluggable `aqli run` capability contributions
+
+- Keep `RunCommand` an orchestration/adapter entry point; do not add modality-specific option fields or request-mapping logic to it as capabilities grow.
+- Put CLI extension contracts in `:cli:aqli-cli-spi` (`cli/aqli-cli-spi`). This is intentionally a CLI-only SPI and may depend on Picocli; SDK capability APIs and REST/gRPC contracts must never depend on it.
+- Discover optional CLI contributions through Java `ServiceLoader` using `RunCapabilityProvider`. Providers must have stable, unique capability IDs matching the created `RunCapability` ID.
+- Registry ordering must be deterministic. Fail fast for duplicate/blank IDs, provider/capability ID mismatches, and invalid service registrations.
+- A `RunCapability` may contribute Picocli options and validate parsed CLI arguments. Capability-specific mapping must target the canonical typed SDK capability request; do not introduce a permanent `Map<String,Object>` request sink or make the registry an API source of truth.
+- The registry must not choose inference backends or execute inference. Runtime owns backend selection and execution.
+- Keep optional capability providers out of the base CLI dependency graph unless they are intentionally packaged in that distribution. A third-party provider should be loadable without editing `RunCommand`.
+- Add capability-specific SDK request contribution only after the canonical SDK task payloads and application mapping boundary are defined. Do not expose internal SPI `InferenceRequest` as a substitute public SDK request.
+
+
+## 10. SDK capability registry and transport adapter separation
+
+- The SDK owns the canonical, transport-neutral capability API: typed capability contracts and payloads, shared invocation semantics, and the public capability discovery surface.
+- The SDK capability registry resolves available SDK capability implementations. It is not the CLI registry, runtime engine catalog, or transport adapter registry.
+- Shared application execution owns validation, defaults, capability dispatch, execution lifecycle, streaming, cancellation, deadlines, and error semantics. Keep this behavior behind SDK/application contracts; do not put it in transport registries.
+- The CLI run capability registry owns only Picocli contributions, CLI-specific validation, and mapping parsed arguments into canonical SDK requests. It must not define capability semantics or execute capabilities.
+- REST and gRPC adapters map their wire DTOs into the same canonical SDK requests and invoke the same application execution path. Their protocol-specific serialization, authentication, and error translation remain transport concerns.
+- The runtime engine catalog resolves execution engines/backends for an already-resolved application capability. It must not become a second public capability API.
+- Keep these registries separate. Integrate them through stable capability identifiers and typed SDK contracts, not by merging their lifecycle or responsibilities.
+- A capability must remain usable through the Java SDK and non-CLI transports when the CLI module is absent.
+- Do not introduce a generic `AqliCapability<R, S>`, invocation envelope, or registry until existing SDK/API, application, and runtime contracts have been audited for reusable request, response, async, streaming, cancellation, and error semantics. Reuse and evolve existing contracts where possible; avoid parallel generic request models.
+- The common invocation context may eventually carry cross-cutting request identity, tracing, deadlines, cancellation, and execution hints. Define it only after confirming which fields are truly shared and how they map to existing request context and runtime contracts.
+- New capability work should proceed in this order: canonical typed SDK contract and application path; SDK implementation registration; CLI/REST/gRPC adapters; runtime execution support. Keep modality-specific option parsing out of the canonical SDK contract.
+
+
+- Non-streaming REST chat must normalize DTO messages and tools to TextGenerationRequest and invoke the shared SDK typed text operation through AqliChatService. Keep transport response serialization in the resource, but do not rebuild inference requests or sampling defaults there.
+- Do not migrate REST streaming chat to TextGenerationChunk until that contract preserves tool-call deltas and required stream metadata, and cancellation is verified. Keep the existing shared stream path until then.
+- Public text-generation requests use SDK-owned `SdkMessage` and SDK-owned content-part/tool-call types. Do not add execution SPI message types (including `tech.kayys.aqli.spi.Message` or `ToolCall`) to public SDK capability signatures.
+- Convert SDK-owned messages to execution SPI messages only in the SDK-core `SdkMessageMapper`; CLI, REST, and gRPC adapters must construct the canonical SDK message types and must not duplicate this conversion.
+- Preserve all message semantics during migration: role, plain text, multimodal content parts, message name, tool calls and function arguments, and tool-call IDs. Keep legacy SPI-based methods until all consumers have an explicit compatibility migration.
+- Do not remove SDK API SPI dependencies wholesale based on this one change. Audit every public signature and consumer first; this migration only removes the SPI message type from the typed text-generation request.

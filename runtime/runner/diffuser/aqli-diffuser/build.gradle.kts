@@ -31,6 +31,13 @@ publishing {
     }
 }
 
+// VectorizedOps uses the incubating JDK Vector API directly.
+// Make the module observable to javac and to test JVMs on JDK 25.
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("--add-modules=jdk.incubator.vector")
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    jvmArgs("--add-modules=jdk.incubator.vector")
 }

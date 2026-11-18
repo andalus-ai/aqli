@@ -99,6 +99,34 @@ public final class LocalModelFileInventory {
         return java.time.Instant.EPOCH;
     }
 
+    /**
+     * Resolves the local index format label from a weight-file extension.
+     * This is metadata classification only; it does not imply runtime support.
+     */
+    public static String detectFormat(Path file, String fallbackFormat) {
+        String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (name.endsWith(".gguf")) {
+            return "gguf";
+        }
+        if (name.endsWith(".safetensors") || name.endsWith(".safetensor")) {
+            return "safetensors";
+        }
+        if (name.endsWith(".onnx")) {
+            return "onnx";
+        }
+        if (name.endsWith(".tflite") || name.endsWith(".litert")
+                || name.endsWith(".litertlm") || name.endsWith(".task")) {
+            return "litert";
+        }
+        if (name.endsWith(".pt") || name.endsWith(".pth")) {
+            return "torchscript";
+        }
+        if (name.endsWith(".bin")) {
+            return "bin";
+        }
+        return fallbackFormat;
+    }
+
     private static boolean isLikelyWeightFile(Path path) {
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         return name.endsWith(".gguf")

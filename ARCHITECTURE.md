@@ -225,6 +225,18 @@ Avoid a flat request containing every modality's parameters and avoid untyped pa
 maps as the long-term public contract. Compatibility maps may remain temporarily only with
 documented ownership, validation, and a migration/removal plan.
 
+Provider-specific operations follow the same typed-capability rule. For example,
+`HuggingFacePullRequest` owns repository include patterns and task classification, while
+`ModelPullRequest` remains provider-neutral. It also preserves optional repository architecture and metadata for manifest classification and provenance. CLI, REST, gRPC, and programmatic adapters map
+provider-specific wire/CLI options into that SDK capability contract rather than calling a
+repository implementation directly or silently dropping options. REST uses `format`,
+`includePatterns`, and `taskType`; gRPC uses `format`, `include_patterns`, and `task_type`
+with additive protobuf fields. Other providers continue through the generic pull request.
+
+`RunCommand` automatic Hugging Face preparation follows the same rule: it calls the SDK's
+`HuggingFaceModelOperations` contract rather than injecting `HuggingFaceRepository` into
+the CLI. The command retains only local-index refresh and terminal progress presentation.
+
 ### Module introduction and parity
 
 Introduce capability API/core/runner modules incrementally, reusing current modules and
@@ -240,3 +252,47 @@ resource cleanup, metadata/usage, and multimodal behavior.
 The detailed migration plan and acceptance criteria are maintained in
 `docs/architecture/sdk-first-capability-architecture.md`. Repository-level agent rules
 are maintained in `AGENTS.md`.
+
+
+## Pluggable CLI run capabilities
+
+`RunCommand` is a thin command adapter and orchestration boundary. It must not become
+the owner of audio, image, video, spatial/3D, embedding, or other capability-specific
+options and request semantics.
+
+The CLI-only extension contract lives in `:cli:aqli-cli-spi`:
+
+- `RunCapabilityProvider` is discovered with Java `ServiceLoader`.
+- `RunCapability` contributes Picocli options and validates parsed CLI input.
+- `RunCapabilityRegistry` provides deterministic discovery, lookup, option registration,
+  and validation, and rejects duplicate or inconsistent capability IDs.
+- Provider registration uses
+  `META-INF/services/tech.kayys.aqli.cli.spi.run.RunCapabilityProvider`.
+
+This SPI is intentionally allowed to depend on Picocli because it is an adapter extension
+point, not an SDK or domain capability contract. SDK capability APIs remain transport
+neutral and own typed request/response semantics. CLI capability adapters must map to
+those canonical SDK contracts; they must not create a second generic request map.
+
+The registry is discovery and composition infrastructure only. It does not select
+backends, execute inference, or define API semantics. Runtime remains responsible for
+backend selection and execution. Optional capability provider modules should be included
+only in distributions that need them.
+
+The first SPI increment deliberately defines option contribution and validation only.
+Typed request contribution will be added alongside the canonical SDK capability payloads
+and shared application mapper, rather than prematurely introducing an untyped request
+sink or exposing internal `InferenceRequest` as the public API.
+
+
+### Quarkus/Picocli lifecycle integration
+
+Dynamic run options are contributed while producing the Quarkus-managed Picocli
+`CommandLine`, using `PicocliCommandLineFactory`. The configuration locates the
+existing `run` subcommand and applies registry contributions to its `CommandSpec`
+before parsing begins. This preserves Quarkus' CDI-aware command instantiation and
+the annotated top-level command hierarchy.
+
+After parsing, a CDI observer receives the `CommandLine.ParseResult`, walks the
+selected command chain, and invokes registry validation only for the `run` command.
+Do not add provider discovery or modality-specific lifecycle logic to `RunCommand`.

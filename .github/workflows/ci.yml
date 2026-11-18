@@ -81,6 +81,9 @@ jobs:
           java-version: "25"
           cache: gradle
 
+      - name: Build Suling audio API
+        run: ./gradlew --no-daemon -p suling publishToMavenLocal
+
       - name: Check product boundaries
         shell: bash
         run: |
@@ -94,6 +97,17 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew --no-daemon --stacktrace :sdk:aqli-sdk-local:test
+
+      - name: Validate model repository, REST API, and gRPC SDK adapters
+        shell: bash
+        env:
+          GRADLE_OPTS: -Xmx2G
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --stacktrace \
+            :repository:aqli-model-repo-hf:test \
+            :api:aqli-api:test \
+            :sdk:aqli-sdk-protobuf:test
 
       - name: Prepare llama.cpp source
         shell: bash
@@ -142,6 +156,9 @@ jobs:
             :runner:gguf:aqli-plugin-runner-gguf-llamacpp:build \
             :runner:gguf:aqli-gguf-feature-text-llamacpp:build
 
+      - name: Verify ONNX runner audio dependency
+        run: ./gradlew --no-daemon --stacktrace :runner:onnx:aqli-runner-onnx:compileJava
+
       - name: Build Aqli CLI (JVM)
         shell: bash
         env:
@@ -177,6 +194,9 @@ jobs:
           distribution: graalvm
           java-version: "25"
           cache: gradle
+
+      - name: Build Suling audio API
+        run: ./gradlew --no-daemon -p suling publishToMavenLocal
 
       - name: Prepare llama.cpp source
         shell: bash
@@ -234,6 +254,9 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
+
+      - name: Build Suling audio API
+        run: ./gradlew --no-daemon -p suling publishToMavenLocal
 
       - name: Prepare llama.cpp source
         shell: bash

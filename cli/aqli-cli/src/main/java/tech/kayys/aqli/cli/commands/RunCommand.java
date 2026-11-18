@@ -20,8 +20,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
+import tech.kayys.aqli.cli.spi.run.RunCapabilityRegistry;
 import tech.kayys.aqli.cli.AqliCommand;
-import tech.kayys.aqli.model.repo.hf.HuggingFaceRepository;
 
 import tech.kayys.aqli.model.repo.local.ManifestStore;
 import tech.kayys.aqli.onnx.runner.OnnxModelDiagnostics;
@@ -38,16 +38,23 @@ import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
 import tech.kayys.aqli.sdk.model.ModelResolution;
+import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine;
-import tech.kayys.aqli.safetensor.engine.generation.DirectSafetensorCompletionRunner;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 import tech.kayys.aqli.cli.commands.request.RunInferenceRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
+import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeResponseCacheRequestConfiguration;
+import tech.kayys.aqli.cli.commands.request.RuntimeOutputFormatRequestConfiguration;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -75,7 +82,6 @@ import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
-import tech.kayys.aqli.cli.commands.progress.TerminalDownloadProgressRenderer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
 import tech.kayys.aqli.audio.output.StreamingAudioOutputSession;
@@ -91,6 +97,7 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -129,9 +136,15 @@ public class RunCommand implements Runnable {
     @Inject
     DirectInferenceEngine directInferenceEngine;
     @Inject
-    Instance<HuggingFaceRepository> huggingFaceRepository;
-    @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
+
+    @Inject
+    RunCapabilityRegistry runCapabilityRegistry;
+
+    @picocli.CommandLine.Spec
+    private picocli.CommandLine.Model.CommandSpec commandSpec;
+
+    private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -181,33 +194,12 @@ public class RunCommand implements Runnable {
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
     boolean stream;
 
-    @Option(names = { "--temperature" }, description = "Sampling temperature", defaultValue = "0.2")
-    double temperature;
-
-    @Option(names = { "--top-p" }, description = "Top-p sampling", defaultValue = "0.9")
-    double topP;
-
-    @Option(names = { "--top-k" }, description = "Top-k sampling", defaultValue = "40")
-    int topK;
-
-    @Option(names = { "--repeat-penalty" }, description = "Repeat penalty", defaultValue = "1.1")
-    double repeatPenalty;
-
-    @Option(names = { "--json" }, description = "Enable JSON mode", defaultValue = "false")
+    @Option(names = { "--json" }, description = "Enable JSON output mode", defaultValue = "false")
     boolean jsonMode;
 
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
-
-    @Option(names = { "--max-tokens" }, description = "Maximum tokens to generate", defaultValue = "2048")
-    int maxTokens;
-
-    @Option(names = { "--mirostat" }, description = "Mirostat mode (0, 1, 2)", defaultValue = "0")
-    int mirostat;
-
-    @Option(names = { "--grammar" }, description = "GBNF grammar string")
-    String grammar;
 
     @Option(names = { "--system" }, description = "System prompt")
     String systemPrompt;
@@ -541,6 +533,13 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        textRunOptions = runCapabilityRegistry.snapshot(
+                "text",
+                commandSpec.commandLine().getParseResult(),
+                tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
         if (onlyText) {
             noBanner = true;
             noInfo = true;
@@ -858,7 +857,7 @@ public class RunCommand implements Runnable {
             format = alternateRuntimeSelection.format();
             runnerRouteReport = alternateRuntimeSelection.routeReport();
             DirectSafetensorRoutePolicy.RouteValidation gemma3RouteValidation =
-                    DirectSafetensorRoutePolicy.validateGemma3ExecutionRoute(providerId, modelId, finalLocalPath);
+                    RunRouteValidationCoordinator.validateExecutionRoute(providerId, modelId, finalLocalPath);
             if (!gemma3RouteValidation.allowed()) {
                 gemma3RouteValidation.messages().forEach(System.err::println);
                 return;
@@ -866,44 +865,24 @@ public class RunCommand implements Runnable {
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
             if (routeReportJson) {
-                String routeExecutionProviderId = routeExecutionProviderId(providerId, finalLocalPath);
-                RunnerRouteReport effectiveRouteReport =
-                        runnerRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                if (effectiveDirect(finalLocalPath)) {
-                    routeExecutionProviderId = "safetensor";
-                    effectiveRouteReport = effectiveRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                }
-                effectiveRouteReport = applyCachedBenchmarkRouteProfile(
-                        effectiveRouteReport,
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath);
-                RoutePreflightReport routePreflight = RoutePreflightReport.evaluate(
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath,
-                        routeExecutionProviderId,
-                        format,
-                        routeReportAllowPull,
-                        routeReportRequireLocal);
-                routePreflight = DirectSafetensorRoutePreflight.applyGemma4UnifiedValidation(
-                        routePreflight,
-                        routeExecutionProviderId,
-                        modelId,
-                        finalLocalPath,
-                        !normalizedInputImages.isEmpty(),
-                        ocrMode);
-                printJsonPayload(RouteReportPayloads.routeReportPayload(
-                        effectiveRouteReport,
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath,
-                        routeExecutionProviderId,
-                        format,
-                        routeReportAllowPull,
-                        routeReportRepositoryResolutionSkipped,
-                        routePreflight));
-                requestProcessExit(routePreflight.exitCode());
+                RunRouteValidationCoordinator.RouteReportResult routeReportResult =
+                        RunRouteValidationCoordinator.prepareRouteReport(
+                                runnerRouteReport,
+                                requestedModelRef,
+                                modelId,
+                                finalLocalPath,
+                                routeExecutionProviderId(providerId, finalLocalPath),
+                                format,
+                                effectiveDirect(finalLocalPath),
+                                routeReportAllowPull,
+                                routeReportRepositoryResolutionSkipped,
+                                routeReportRequireLocal,
+                                !normalizedInputImages.isEmpty(),
+                                ocrMode,
+                                report -> applyCachedBenchmarkRouteProfile(
+                                        report, requestedModelRef, modelId, finalLocalPath));
+                printJsonPayload(routeReportResult.payload());
+                requestProcessExit(routeReportResult.exitCode());
                 return;
             }
 
@@ -1069,11 +1048,66 @@ public class RunCommand implements Runnable {
             RagRunRequestConfiguration.RagContext ragContext =
                     RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
 
+            InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
+                    new RunInferenceRequestFactory.Options(
+                            requestModelTarget,
+                            prompt,
+                            textRunOptions.temperature(),
+                            textRunOptions.topP(),
+                            textRunOptions.topK(),
+                            textRunOptions.repeatPenalty(),
+                            jsonMode,
+                            textRunOptions.maxTokens(),
+                            pluginId,
+                            effectiveStream,
+                            sessionId,
+                            textRunOptions.mirostat(),
+                            textRunOptions.grammar(),
+                            noCache));
+
+            ModelSourceRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ModelSourceRunRequestParameterMapper.Options(
+                            customModelPathUsed,
+                            finalLocalPath,
+                            requestedModelRef));
+            TextRunRequestParameterMapper.apply(requestBuilder, textRunOptions);
+
+            RuntimeExecutionRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new RuntimeExecutionRunRequestParameterMapper.Options(
+                            quantizeStrategy,
+                            quantizeBits,
+                            quantizeKv,
+                            runtimeProfile));
+            RuntimeQuantizationRequestConfiguration.apply(
+                    requestBuilder,
+                    quantizeStrategy,
+                    quantizeBits,
+                    quantizeKv);
+            RuntimeProfilingRequestConfiguration.apply(requestBuilder, runtimeProfile);
+
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            // Keep backend/runner selection resolved by the runtime; this adapter
-            // only propagates the resulting hints into the shared request envelope.
             String ggufEngineHint = requestedGgufEngine();
+            RuntimeRoutingRunRequestConfiguration.apply(
+                    requestBuilder,
+                    new RuntimeRoutingRunRequestConfiguration.Options(
+                            effectiveRunnerRouteReport.toMetadata(),
+                            runner != null && !runner.isBlank(),
+                            effectiveRunnerRouteReport.normalizedRunner(),
+                            ggufEngineHint,
+                            null,
+                            executionProviderId,
+                            libtorchSafetensorCliBridge));
+            ImageGenerationRunRequestParameterMapper.apply(
+                    requestBuilder,
+                    new ImageGenerationRunRequestParameterMapper.Options(
+                            featurePipelineId,
+                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            outputPath,
+                            width,
+                            height));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1085,7 +1119,50 @@ public class RunCommand implements Runnable {
             String effectiveAudioFormat = effectiveAudioFormat(audioPreset);
             Integer effectiveAudioBitrateKbps = effectiveAudioBitrateKbps(audioPreset, effectiveAudioFormat);
             Integer effectiveFlacCompression = effectiveFlacCompression(audioPreset, effectiveAudioFormat);
+            AudioRunRequestParameterMapper.apply(requestBuilder, new AudioRunRequestParameterMapper.Options(
+                    effectiveTtsVoice,
+                    effectiveTtsCodec,
+                    ttsMaxFrames,
+                    ttsMaxSeconds,
+                    audioQuality,
+                    effectiveAudioFormat,
+                    effectiveAudioBitrateKbps,
+                    audioChannels,
+                    ttsCodecDecode,
+                    randomTtsSeed,
+                    disableAudioPolish,
+                    disableAudioNormalize,
+                    audioGainDb,
+                    audioPeakDb,
+                    audioFadeMs,
+                    audioTrimSilence,
+                    audioTrimDbfs,
+                    audioTrimPaddingMs,
+                    audioStreamChunkKb,
+                    ttsStreamProgressFrames,
+                    disableTtsStreamProgress,
+                    ttsStreamPcm,
+                    liveAudio,
+                    disableLowLatencyAudio,
+                    effectiveFlacCompression));
+
+            RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
+
+            ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
+            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
+
+            boolean directSafetensorEligible = shouldUseDirectSafetensorRunPath(providerId, finalLocalPath);
+            boolean directSafetensorSdkRoute = directSafetensorEligible && !effectiveStream;
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
+            if (directSafetensorSdkRoute) {
+                DirectSafetensorRunProfile directProfile =
+                        directSafetensorRunProfile(executionProviderId, finalLocalPath);
+                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile)) {
+                    // Match the former direct runner: retain explicit prompts and Qwen's default,
+                    // but do not inject the generic CLI default for other direct model families.
+                    effectiveSystemPrompt = null;
+                }
+            }
             String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
 
             InferenceRequest request = RunInferenceRequestAssembler.assemble(
@@ -1098,15 +1175,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            new TextRunRequestParameterMapper.Options(
-                                    temperature,
-                                    topP,
-                                    topK,
-                                    repeatPenalty,
-                                    jsonMode,
-                                    maxTokens,
-                                    mirostat,
-                                    grammar),
+                            textRunOptions,
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
@@ -1177,9 +1246,9 @@ public class RunCommand implements Runnable {
                 uiRenderer.printModelInfo(modelId, providerId, format, null, false);
                 printQuantizationInfo();
                 if (libtorchSafetensorCliBridge) {
-                    forcedExecutionRouteMetadata = bridgeExecutionRouteMetadata();
+                    forcedExecutionRouteMetadata = ExecutionRouteMetadata.bridgeMetadata();
                     forcedExecutionRouteMetadata =
-                            mergeExecutionRouteMetadata(effectiveRunnerRouteReport.toMetadata(),
+                            ExecutionRouteMetadata.merge(effectiveRunnerRouteReport.toMetadata(),
                                     forcedExecutionRouteMetadata);
                     printExecutionRouteInfo(forcedExecutionRouteMetadata);
                 } else {
@@ -1188,38 +1257,21 @@ public class RunCommand implements Runnable {
             }
 
             if (explicitJavaEngine() && isSafetensorModelPath(finalLocalPath)
-                    && !shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
+                    && !directSafetensorEligible) {
                 System.err.println("Error: --java requested the pure-Java safetensor engine, but it cannot run this request: "
                         + directSafetensorDeclineReason(finalLocalPath)
                         + ". Not falling back to libtorch or GGUF; drop --java to allow other routes.");
                 requestProcessExit(1);
                 return;
             }
-            if (shouldUseDirectSafetensorRunPath(providerId, finalLocalPath)) {
-                DirectSafetensorRunProfile directProfile =
-                        directSafetensorRunProfile(executionProviderId, finalLocalPath);
-                boolean useCliDirectSystemPrompt =
-                        DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile);
-                String explicitDirectSystemPrompt = useCliDirectSystemPrompt
-                        ? effectiveSystemPrompt
-                        : null;
-                System.err.println("Directly generating...");
-                InferenceResponse response = DirectSafetensorCompletionRunner.run(
-                        directInferenceEngine(),
-                        new DirectSafetensorCompletionRunner.Request(
-                                resolveSafetensorCheckpointPath(finalLocalPath),
-                                directProfile,
-                                prompt,
-                                explicitDirectSystemPrompt,
-                                maxTokens,
-                                temperature,
-                                topK,
-                                topP,
-                                repeatPenalty,
-                                quantizeKv,
-                                seed,
-                                quantizeStrategy));
-                System.err.println("Generated response: '" + response.getContent() + "'");
+            if (directSafetensorSdkRoute) {
+                System.err.println("Running pure-Java Safetensors completion through the AQLI SDK...");
+                InferenceResponse response = sdk.createCompletion(request);
+                if (response == null) {
+                    System.err.println("Error: inference returned an empty response.");
+                    requestProcessExit(1);
+                    return;
+                }
                 printResponse(response, startTime);
                 requestProcessExit();
             } else if (effectiveStream) {
@@ -1709,13 +1761,8 @@ public class RunCommand implements Runnable {
     }
 
     private String routeExecutionProviderId(String provider, String localPath) {
-        if ("libtorch".equalsIgnoreCase(provider)
-                && localPath != null
-                && !localPath.isBlank()
-                && (isSafetensorCheckpointDir(localPath) || isSafetensorWeightFile(localPath))) {
-            return "safetensor";
-        }
-        return provider;
+        return RouteExecutionProviderResolver.resolve(
+                provider, localPath, this::isSafetensorCheckpointDir, this::isSafetensorWeightFile);
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
@@ -1861,7 +1908,7 @@ public class RunCommand implements Runnable {
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
-        String repoId = hfRepoIdFromModelRef(requestedModel);
+        String repoId = ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
         if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
             return null;
         }
@@ -1877,23 +1924,34 @@ public class RunCommand implements Runnable {
             System.err.println("Run once online: aqli pull " + repoId);
             return null;
         }
-        if (huggingFaceRepository == null || huggingFaceRepository.isUnsatisfied()) {
-            throw new IllegalStateException("Hugging Face repository service is not available in this runtime");
-        }
-
         String revision = branch == null || branch.isBlank() ? "main" : branch.trim();
         if (!ttsVoicesJsonOutput()) {
             System.out.println("Model not found locally; pulling hf:" + repoId
                     + ("main".equalsIgnoreCase(revision) ? "" : "@" + revision) + "...");
         }
-        try (TerminalDownloadProgressRenderer progress = new TerminalDownloadProgressRenderer(0)) {
-            huggingFaceRepository.get().pullRepository(
-                    repoId,
-                    revision,
-                    preferredFormat,
-                    null,
-                    Map.of("fallback", "automatic-run-huggingface-repository"),
-                    progress);
+        sdk.pullHuggingFaceModel(
+                HuggingFacePullRequest.builder()
+                        .modelSpec("hf:" + repoId)
+                        .revision(revision)
+                        .format(preferredFormat)
+                        .build(),
+                progress -> {
+                    if (quietRouteResolutionOutput()) {
+                        return;
+                    }
+                    if (progress.getTotal() > 0) {
+                        System.out.printf("\r  Downloading %s: %3d%% (%d/%d MB)",
+                                repoId,
+                                progress.getPercentComplete(),
+                                progress.getCompleted() / 1024 / 1024,
+                                progress.getTotal() / 1024 / 1024);
+                    } else {
+                        System.out.printf("\r  %s", progress.getStatus());
+                    }
+                    System.out.flush();
+                });
+        if (!quietRouteResolutionOutput()) {
+            System.out.println();
         }
         LocalModelIndex.refreshFromDisk();
 
@@ -1913,13 +1971,6 @@ public class RunCommand implements Runnable {
                 (ref, format) -> format == null
                         ? LocalModelIndex.find(ref)
                         : LocalModelIndex.find(ref, format));
-    }
-
-    private String hfRepoIdFromModelRef(String requestedModel) {
-        ModelSourceResolver.Source source = ModelSourceResolver.classify(requestedModel);
-        return source.kind() == ModelSourceResolver.Kind.HUGGING_FACE_REPOSITORY
-                ? source.reference()
-                : null;
     }
 
     private String truncateDisplay(String value, int width) {
@@ -1990,7 +2041,7 @@ public class RunCommand implements Runnable {
                 checkpointPath,
                 checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
-                grammar,
+                textRunOptions.grammar(),
                 prompt,
                 directInferenceEngine() != null);
     }
@@ -2283,7 +2334,7 @@ public class RunCommand implements Runnable {
 
     String[] buildStandaloneLiteRtRunArgs(String localPath) {
         return LiteRtStandaloneRunArguments.toArgs(
-                localPath, prompt, maxTokens, temperature, topK, topP);
+                localPath, prompt, textRunOptions.maxTokens(), textRunOptions.temperature(), textRunOptions.topK(), textRunOptions.topP());
     }
 
     private boolean tryStandaloneLiteRtRun(String localPath) {
@@ -2404,13 +2455,13 @@ public class RunCommand implements Runnable {
             args.add(prompt);
         }
         args.add("--max-tokens");
-        args.add(Integer.toString(maxTokens));
+        args.add(Integer.toString(textRunOptions.maxTokens()));
         args.add("--temperature");
-        args.add(Double.toString(temperature));
+        args.add(Double.toString(textRunOptions.temperature()));
         args.add("--top-k");
-        args.add(Integer.toString(topK));
+        args.add(Integer.toString(textRunOptions.topK()));
         args.add("--top-p");
-        args.add(Double.toString(topP));
+        args.add(Double.toString(textRunOptions.topP()));
 
         String engine = requestedGgufEngine();
         if (engine != null && !engine.isBlank()) {
@@ -2464,7 +2515,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSimpleStandaloneTextRun() {
         return isBlank(systemPrompt)
-                && isBlank(grammar)
+                && isBlank(textRunOptions.grammar())
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
@@ -2552,7 +2603,7 @@ public class RunCommand implements Runnable {
         if (sessionId != null && !sessionId.isBlank()) {
             return "--session is not supported by the direct engine";
         }
-        if (grammar != null && !grammar.isBlank()) {
+        if (textRunOptions.grammar() != null && !textRunOptions.grammar().isBlank()) {
             return "--grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
@@ -3146,13 +3197,7 @@ public class RunCommand implements Runnable {
     }
 
     private Map<String, Object> effectiveExecutionRouteMetadata(Map<String, Object> responseMetadata) {
-        if (responseMetadata == null || responseMetadata.isEmpty()) {
-            return forcedExecutionRouteMetadata;
-        }
-        if (forcedExecutionRouteMetadata == null || forcedExecutionRouteMetadata.isEmpty()) {
-            return responseMetadata;
-        }
-        return mergeExecutionRouteMetadata(forcedExecutionRouteMetadata, responseMetadata);
+        return ExecutionRouteMetadata.effective(forcedExecutionRouteMetadata, responseMetadata);
     }
 
     private RunnerRouteReport applyCachedBenchmarkRouteProfile(
@@ -3182,28 +3227,6 @@ public class RunCommand implements Runnable {
                 metadata,
                 outputTokens,
                 durationMs);
-    }
-
-    private Map<String, Object> bridgeExecutionRouteMetadata() {
-        Map<String, Object> route = new LinkedHashMap<>();
-        route.put("requested_provider", "libtorch");
-        route.put("effective_provider", "safetensor");
-        route.put("provider_bridge_mode", "cli_libtorch_to_safetensor");
-        route.put("provider_bridge_reason", "raw_safetensor_checkpoint");
-        return route;
-    }
-
-    private Map<String, Object> mergeExecutionRouteMetadata(
-            Map<String, Object> baseMetadata,
-            Map<String, Object> overlayMetadata) {
-        Map<String, Object> merged = new LinkedHashMap<>();
-        if (baseMetadata != null && !baseMetadata.isEmpty()) {
-            merged.putAll(baseMetadata);
-        }
-        if (overlayMetadata != null && !overlayMetadata.isEmpty()) {
-            merged.putAll(overlayMetadata);
-        }
-        return merged;
     }
 
     private void printQuantCacheInfo(Map<String, Object> metadata) {

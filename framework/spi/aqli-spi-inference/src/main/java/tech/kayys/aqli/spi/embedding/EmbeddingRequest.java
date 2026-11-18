@@ -6,13 +6,25 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Request for generating embeddings from text inputs.
+ * AQLI compatibility request for embedding generation.
+ *
+ * <p>The canonical model-execution contract is Aljabr's embedding request.
+ * This DTO mirrors its portable options while existing AQLI SDK and transport
+ * integrations migrate.
  */
 public record EmbeddingRequest(
         String requestId,
         String model,
         List<String> inputs,
-        Map<String, Object> parameters) {
+        Map<String, Object> parameters,
+        EmbeddingTask task,
+        Integer outputDimension) {
+
+    /** Backward-compatible constructor for existing four-argument callers. */
+    public EmbeddingRequest(
+            String requestId, String model, List<String> inputs, Map<String, Object> parameters) {
+        this(requestId, model, inputs, parameters, EmbeddingTask.UNSPECIFIED, null);
+    }
 
     public EmbeddingRequest {
         if (requestId == null) {
@@ -26,6 +38,12 @@ public record EmbeddingRequest(
         if (parameters == null) {
             parameters = Map.of();
         }
+        if (task == null) {
+            task = EmbeddingTask.UNSPECIFIED;
+        }
+        if (outputDimension != null && outputDimension <= 0) {
+            throw new IllegalArgumentException("outputDimension must be positive when specified");
+        }
     }
 
     public static Builder builder() {
@@ -37,6 +55,8 @@ public record EmbeddingRequest(
         private String model;
         private List<String> inputs;
         private Map<String, Object> parameters = Map.of();
+        private EmbeddingTask task = EmbeddingTask.UNSPECIFIED;
+        private Integer outputDimension;
 
         public Builder requestId(String requestId) {
             this.requestId = requestId;
@@ -63,8 +83,23 @@ public record EmbeddingRequest(
             return this;
         }
 
+        public Builder task(EmbeddingTask task) {
+            this.task = task;
+            return this;
+        }
+
+        public Builder outputDimension(Integer outputDimension) {
+            this.outputDimension = outputDimension;
+            return this;
+        }
+
+        public Builder outputDimension(int outputDimension) {
+            this.outputDimension = outputDimension;
+            return this;
+        }
+
         public EmbeddingRequest build() {
-            return new EmbeddingRequest(requestId, model, inputs, parameters);
+            return new EmbeddingRequest(requestId, model, inputs, parameters, task, outputDimension);
         }
     }
 }
