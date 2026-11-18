@@ -1273,7 +1273,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            textOptions.snapshot(jsonMode),
+                            textRunOptions,
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
@@ -2144,7 +2144,7 @@ public class RunCommand implements Runnable {
                 checkpointPath,
                 checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
-                textOptions.grammar,
+                textRunOptions.grammar(),
                 prompt,
                 directInferenceEngine() != null);
     }
@@ -2437,7 +2437,7 @@ public class RunCommand implements Runnable {
 
     String[] buildStandaloneLiteRtRunArgs(String localPath) {
         return LiteRtStandaloneRunArguments.toArgs(
-                localPath, prompt, textOptions.maxTokens, textOptions.temperature, textOptions.topK, textOptions.topP);
+                localPath, prompt, textRunOptions.maxTokens(), textRunOptions.temperature(), textRunOptions.topK(), textRunOptions.topP());
     }
 
     private boolean tryStandaloneLiteRtRun(String localPath) {
@@ -2558,13 +2558,13 @@ public class RunCommand implements Runnable {
             args.add(prompt);
         }
         args.add("--max-tokens");
-        args.add(Integer.toString(textOptions.maxTokens));
+        args.add(Integer.toString(textRunOptions.maxTokens()));
         args.add("--temperature");
-        args.add(Double.toString(textOptions.temperature));
+        args.add(Double.toString(textRunOptions.temperature()));
         args.add("--top-k");
-        args.add(Integer.toString(textOptions.topK));
+        args.add(Integer.toString(textRunOptions.topK()));
         args.add("--top-p");
-        args.add(Double.toString(textOptions.topP));
+        args.add(Double.toString(textRunOptions.topP()));
 
         String engine = requestedGgufEngine();
         if (engine != null && !engine.isBlank()) {
@@ -2618,7 +2618,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSimpleStandaloneTextRun() {
         return isBlank(systemPrompt)
-                && isBlank(textOptions.grammar)
+                && isBlank(textRunOptions.grammar())
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
@@ -2706,7 +2706,7 @@ public class RunCommand implements Runnable {
         if (sessionId != null && !sessionId.isBlank()) {
             return "--session is not supported by the direct engine";
         }
-        if (textOptions.grammar != null && !textOptions.grammar.isBlank()) {
+        if (textRunOptions.grammar() != null && !textRunOptions.grammar().isBlank()) {
             return "--grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
