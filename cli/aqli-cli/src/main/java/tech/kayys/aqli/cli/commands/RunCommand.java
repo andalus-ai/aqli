@@ -883,7 +883,8 @@ public class RunCommand implements Runnable {
                                 report -> applyCachedBenchmarkRouteProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
                 printJsonPayload(routeReportResult.payload());
-                requestProcessExit(routeReportResult.exitCode());                return;
+                requestProcessExit(routeReportResult.exitCode());
+                return;
             }
 
             if (listTtsVoices || listTtsVoicesJson) {
