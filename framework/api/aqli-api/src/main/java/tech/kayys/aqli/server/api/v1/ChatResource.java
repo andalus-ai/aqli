@@ -110,7 +110,9 @@ public class ChatResource {
         List<ToolDefinition> tools = req.tools() != null ? req.tools() : List.of();
         ChatParams params = ChatParams.of(req.temperature(), req.maxTokens());
         
-        return chatService.streamChat(sdkProvider.getSdk(), req.model(), null, history, tools, params)
+        TextGenerationRequest sdkRequest = chatService.createTextGenerationRequest(
+                req.model(), null, history, tools, params);
+        return chatService.streamText(sdkProvider.getSdk(), sdkRequest)
                 .onItem().invoke(chunk -> {
                     meterRegistry.counter("aqli.rest.chat.stream.chunks").increment();
                 })
