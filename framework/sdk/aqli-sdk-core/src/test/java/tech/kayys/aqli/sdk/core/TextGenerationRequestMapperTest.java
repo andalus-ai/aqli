@@ -175,4 +175,22 @@ class TextGenerationRequestMapperTest {
         assertEquals(Message.Role.SYSTEM, mapped.getMessages().get(0).getRole());
         assertTrue(mapped.getMessages().get(0).getContent().contains("AQLI exposes a transport-neutral"));
     }
+
+    @Test
+    void mapsAdvancedSamplingAndStructuredResponseControls() {
+        TextGenerationParameters parameters = new TextGenerationParameters(
+                null, null, null, null, null, null, null, null, null, List.of(),
+                0.4, -0.25,
+                Map.of("type", "json_schema", "json_schema",
+                        Map.of("name", "answer", "strict", true)));
+
+        InferenceRequest mapped = TextGenerationRequestMapper.toInferenceRequest(
+                new TextGenerationRequest("model-advanced",
+                        List.of(TextGenerationMessage.user("return JSON")), parameters));
+
+        assertEquals(0.4, ((Number) mapped.getParameters().get("presence_penalty")).doubleValue(), 0.0001);
+        assertEquals(-0.25, ((Number) mapped.getParameters().get("frequency_penalty")).doubleValue(), 0.0001);
+        assertEquals(parameters.responseFormat(), mapped.getParameters().get("response_format"));
+    }
+
 }

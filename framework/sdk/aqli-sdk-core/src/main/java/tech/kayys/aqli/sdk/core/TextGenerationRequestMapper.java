@@ -65,6 +65,15 @@ public final class TextGenerationRequestMapper {
         if (!parameters.stopSequences().isEmpty()) {
             builder.parameter("stop", parameters.stopSequences());
         }
+        if (parameters.presencePenalty() != null) {
+            builder.parameter("presence_penalty", parameters.presencePenalty());
+        }
+        if (parameters.frequencyPenalty() != null) {
+            builder.parameter("frequency_penalty", parameters.frequencyPenalty());
+        }
+        if (!parameters.responseFormat().isEmpty()) {
+            builder.parameter("response_format", parameters.responseFormat());
+        }
         return builder.build();
     }
 
