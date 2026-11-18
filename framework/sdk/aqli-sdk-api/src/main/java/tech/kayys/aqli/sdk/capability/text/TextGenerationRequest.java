@@ -18,8 +18,7 @@ public record TextGenerationRequest(
         String userId,
         String sessionId,
         String traceId,
-        String apiKey,
-        Map<String, Object> executionParameters) {
+        String apiKey) {
 
     public TextGenerationRequest {
         if (model == null || model.isBlank()) {
@@ -41,9 +40,6 @@ public record TextGenerationRequest(
         metadata = metadata == null
                 ? Map.of()
                 : Collections.unmodifiableMap(new HashMap<>(metadata));
-        executionParameters = executionParameters == null
-                ? Map.of()
-                : Collections.unmodifiableMap(new HashMap<>(executionParameters));
     }
 
     /** Source-compatible constructor for requests with tools but no agentic context. */
@@ -52,7 +48,23 @@ public record TextGenerationRequest(
             List<TextGenerationMessage> messages,
             TextGenerationParameters parameters,
             List<TextGenerationToolDefinition> tools) {
-        this(model, messages, parameters, tools, null, Map.of(), null, null, null, null, null, Map.of());
+        this(model, messages, parameters, tools, null, Map.of(), null, null, null, null, null);
+    }
+
+    /** Source-compatible constructor for the original agentic-context request shape. */
+    public TextGenerationRequest(
+            String model,
+            List<TextGenerationMessage> messages,
+            TextGenerationParameters parameters,
+            List<TextGenerationToolDefinition> tools,
+            Object toolChoice,
+            Map<String, Object> metadata,
+            String requestId,
+            String userId,
+            String sessionId,
+            String traceId) {
+        this(model, messages, parameters, tools, toolChoice, metadata,
+                requestId, userId, sessionId, traceId, null);
     }
 
     public TextGenerationRequest(String model, List<TextGenerationMessage> messages, TextGenerationParameters parameters) {
