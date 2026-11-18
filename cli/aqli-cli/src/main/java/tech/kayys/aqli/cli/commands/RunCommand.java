@@ -191,6 +191,9 @@ public class RunCommand implements Runnable {
     @Mixin
     TextRunCliOptions textOptions = new TextRunCliOptions();
 
+    @Option(names = { "--json" }, description = "Enable JSON output mode", defaultValue = "false")
+    boolean jsonMode;
+
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
@@ -685,7 +688,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || textOptions.jsonMode || listTtsVoicesJson || ocrJsonOutput || routeReportJson);
+            uiRenderer.setJsonMode(enableJsonSse || jsonMode || listTtsVoicesJson || ocrJsonOutput || routeReportJson);
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -732,7 +735,7 @@ public class RunCommand implements Runnable {
                                         providerId,
                                         providerExplicit,
                                         quietRouteResolutionOutput(),
-                                        textOptions.jsonMode,
+                                        jsonMode,
                                         ocrJsonOutput),
                                 this::inferProviderFromIndex,
                                 this::inferFormatFromIndex);
@@ -1023,7 +1026,7 @@ public class RunCommand implements Runnable {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
-                    (textOptions.jsonMode
+                    (jsonMode
                             || ocrJsonOutput
                             || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
                             || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
@@ -1135,7 +1138,7 @@ public class RunCommand implements Runnable {
                             textOptions.topP,
                             textOptions.topK,
                             textOptions.repeatPenalty,
-                            textOptions.jsonMode,
+                            jsonMode,
                             textOptions.maxTokens,
                             pluginId,
                             effectiveStream,
@@ -1150,7 +1153,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, textOptions.snapshot());
+            TextRunRequestParameterMapper.apply(requestBuilder, textOptions.snapshot(jsonMode));
 
             RuntimeExecutionRunRequestParameterMapper.apply(
                     requestBuilder,
@@ -1254,7 +1257,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            textOptions.snapshot(),
+                            textOptions.snapshot(jsonMode),
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
@@ -1828,7 +1831,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean ttsVoicesJsonOutput() {
-        return textOptions.jsonMode || listTtsVoicesJson;
+        return jsonMode || listTtsVoicesJson;
     }
 
     private boolean quietRouteResolutionOutput() {
@@ -2609,7 +2612,7 @@ public class RunCommand implements Runnable {
                 && isEmpty(ragContexts)
                 && isEmpty(ragFiles)
                 && isEmpty(inputImagePaths)
-                && !textOptions.jsonMode
+                && !jsonMode
                 && !enableJsonSse
                 && !ocrMode
                 && !ocrJsonOutput
@@ -3035,17 +3038,17 @@ public class RunCommand implements Runnable {
             OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
             Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
             Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || textOptions.jsonMode, System.out, System.err);
+                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
             if (overlayPath != null) {
                 ocrPayload.put("overlay_path", overlayPath.toString());
             }
-            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || textOptions.jsonMode, System.out, System.err);
-            if (ocrJsonOutput || textOptions.jsonMode) {
+            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
+            if (ocrJsonOutput || jsonMode) {
                 printJsonPayload(ocrPayload);
                 return;
             }
         }
-        if (textOptions.jsonMode) {
+        if (jsonMode) {
             Map<String, Object> jsonResult = new LinkedHashMap<>();
             jsonResult.put("text", response.getContent());
             jsonResult.put("tokenCount", response.getTokensUsed());
