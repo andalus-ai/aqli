@@ -41,6 +41,24 @@ class TextRunCapabilityTest {
         assertEquals(true, options.jsonMode());
     }
 
+    @Test
+    void snapshotsCapabilityDefaultsWhenOptionsAreOmitted() {
+        CommandLine commandLine = new CommandLine(new TestCommand());
+        new TextRunCapability().registerOptions(commandLine.getCommandSpec());
+        commandLine.parseArgs();
+
+        TextRunOptions options = new TextRunCapability().snapshot(commandLine.getParseResult());
+
+        assertEquals(0.2, options.temperature());
+        assertEquals(0.9, options.topP());
+        assertEquals(40, options.topK());
+        assertEquals(1.1, options.repeatPenalty());
+        assertEquals(2048, options.maxTokens());
+        assertEquals(0, options.mirostat());
+        assertEquals(null, options.grammar());
+        assertEquals(false, options.jsonMode());
+    }
+
     @Command
     private static final class TestCommand {
         @picocli.CommandLine.Option(names = "--json")
