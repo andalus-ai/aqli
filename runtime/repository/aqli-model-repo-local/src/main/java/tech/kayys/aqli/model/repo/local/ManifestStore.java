@@ -277,7 +277,7 @@ public class ManifestStore {
     }
 
     private static Path defaultManifestDir() {
-        return Path.of(System.getProperty("user.home"), ".aqli", "manifests");
+        return Path.of(System.getProperty("user.home"), ".aqli", "models", "manifests");
     }
 
     private static String safeFileName(String value) {
