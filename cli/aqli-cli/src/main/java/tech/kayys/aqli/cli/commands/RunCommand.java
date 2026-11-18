@@ -1,5 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
+import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
