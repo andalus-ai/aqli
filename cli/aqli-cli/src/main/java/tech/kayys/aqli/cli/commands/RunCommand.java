@@ -866,8 +866,8 @@ public class RunCommand implements Runnable {
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
             if (routeReportJson) {
-                RunRouteValidationCoordinator.PreflightResult routePreflightResult =
-                        RunRouteValidationCoordinator.preparePreflight(
+                RunRouteValidationCoordinator.RouteReportResult routeReportResult =
+                        RunRouteValidationCoordinator.prepareRouteReport(
                                 runnerRouteReport,
                                 requestedModelRef,
                                 modelId,
@@ -876,26 +876,14 @@ public class RunCommand implements Runnable {
                                 format,
                                 effectiveDirect(finalLocalPath),
                                 routeReportAllowPull,
+                                routeReportRepositoryResolutionSkipped,
                                 routeReportRequireLocal,
                                 !normalizedInputImages.isEmpty(),
                                 ocrMode,
                                 report -> applyCachedBenchmarkRouteProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
-                String routeExecutionProviderId = routePreflightResult.executionProviderId();
-                RunnerRouteReport effectiveRouteReport = routePreflightResult.routeReport();
-                RoutePreflightReport routePreflight = routePreflightResult.preflight();
-                printJsonPayload(RouteReportPayloads.routeReportPayload(
-                        effectiveRouteReport,
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath,
-                        routeExecutionProviderId,
-                        format,
-                        routeReportAllowPull,
-                        routeReportRepositoryResolutionSkipped,
-                        routePreflight));
-                requestProcessExit(routePreflight.exitCode());
-                return;
+                printJsonPayload(routeReportResult.payload());
+                requestProcessExit(routeReportResult.exitCode());                return;
             }
 
             if (listTtsVoices || listTtsVoicesJson) {
