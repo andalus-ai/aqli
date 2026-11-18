@@ -18,6 +18,7 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
@@ -96,6 +97,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunOptions;
+import tech.kayys.aqli.cli.commands.text.TextRunCliOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
@@ -187,33 +189,12 @@ public class RunCommand implements Runnable {
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
     boolean stream;
 
-    @Option(names = { "--temperature" }, description = "Sampling temperature", defaultValue = "0.2")
-    double temperature;
-
-    @Option(names = { "--top-p" }, description = "Top-p sampling", defaultValue = "0.9")
-    double topP;
-
-    @Option(names = { "--top-k" }, description = "Top-k sampling", defaultValue = "40")
-    int topK;
-
-    @Option(names = { "--repeat-penalty" }, description = "Repeat penalty", defaultValue = "1.1")
-    double repeatPenalty;
-
-    @Option(names = { "--json" }, description = "Enable JSON mode", defaultValue = "false")
-    boolean jsonMode;
+    @Mixin
+    TextRunCliOptions textOptions = new TextRunCliOptions();
 
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
-
-    @Option(names = { "--max-tokens" }, description = "Maximum tokens to generate", defaultValue = "2048")
-    int maxTokens;
-
-    @Option(names = { "--mirostat" }, description = "Mirostat mode (0, 1, 2)", defaultValue = "0")
-    int mirostat;
-
-    @Option(names = { "--grammar" }, description = "GBNF grammar string")
-    String grammar;
 
     @Option(names = { "--system" }, description = "System prompt")
     String systemPrompt;
