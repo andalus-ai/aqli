@@ -5,6 +5,12 @@ import tech.kayys.aljabr.error.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationContext;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationToolCall;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationToolDefinition;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
 import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
@@ -26,6 +32,97 @@ final class AgenticApiMapper {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private AgenticApiMapper() {
+    }
+
+    static TextGenerationRequest toTextGenerationRequest(
+            JsonNode root, String apiKey, AgentTraceContext traceContext) {
+        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        List<TextGenerationMessage> messages = new ArrayList<>();
+        for (JsonNode node : iterable(root.path("messages"))) {
+            messages.add(toTextGenerationMessage(toMessage(node)));
+        }
+        if (messages.isEmpty() && root.has("prompt") && !isBlank(root.path("prompt").asText())) {
+            messages.add(TextGenerationMessage.user(root.path("prompt").asText()));
+        }
+        if (messages.isEmpty()) {
+            throw new IllegalArgumentException("messages or prompt is required");
+        }
+
+        List<TextGenerationToolDefinition> tools = toTools(root.path("tools")).stream()
+                .map(tool -> new TextGenerationToolDefinition(
+                        tool.getName(),
+                        TextGenerationToolDefinition.Type.valueOf(tool.getType().name()),
+                        tool.getDescription().orElse(null),
+                        tool.getParameters(),
+                        tool.isStrict(),
+                        tool.getMetadata()))
+                .toList();
+
+        List<String> stops = new ArrayList<>();
+        JsonNode stop = root.path("stop");
+        if (stop.isTextual()) {
+            stops.add(stop.asText());
+        } else if (stop.isArray()) {
+            stop.forEach(value -> { if (value.isTextual()) stops.add(value.asText()); });
+        }
+        Map<String, Object> responseFormat = root.path("response_format").isObject()
+                ? map(root.path("response_format")) : Map.of();
+        TextGenerationParameters parameters = new TextGenerationParameters(
+                number(root, "temperature"),
+                number(root, "top_p"),
+                integer(root, "top_k"),
+                integer(root, "max_tokens") != null ? integer(root, "max_tokens") : integer(root, "max_output_tokens"),
+                number(root, "repeat_penalty"),
+                number(root, "min_p"),
+                integer(root, "seed"),
+                root.path("json_mode").isBoolean() ? root.path("json_mode").asBoolean() : null,
+                text(root, "grammar", null),
+                stops,
+                number(root, "presence_penalty"),
+                number(root, "frequency_penalty"),
+                responseFormat);
+
+        Map<String, Object> metadata = new LinkedHashMap<>(map(root.path("metadata")));
+        metadata.put("aqli_trace", trace.asMap());
+        TextGenerationContext context = RagContextMapper.toTextGenerationContext(root);
+        return new TextGenerationRequest(
+                requiredText(root, "model"),
+                messages,
+                parameters,
+                tools,
+                root.has("tool_choice") ? toJava(root.path("tool_choice")) : null,
+                metadata,
+                trace.requestId(),
+                (String) trace.asMap().get("user_id"),
+                (String) trace.asMap().get("session_id"),
+                (String) trace.asMap().get("trace_id"),
+                apiKey,
+                context);
+    }
+
+    private static TextGenerationMessage toTextGenerationMessage(Message message) {
+        List<TextGenerationToolCall> calls = message.getToolCalls() == null ? List.of()
+                : message.getToolCalls().stream()
+                        .map(call -> new TextGenerationToolCall(
+                                call.getId(),
+                                call.getFunction().getName(),
+                                TextGenerationToolCall.Type.FUNCTION,
+                                call.getArguments()))
+                        .toList();
+        return new TextGenerationMessage(
+                TextGenerationMessage.Role.valueOf(message.getRole().name()),
+                message.getContent() == null ? "" : message.getContent(),
+                message.getName(),
+                message.getToolCallId(),
+                calls);
+    }
+
+    private static Double number(JsonNode root, String field) {
+        return root.path(field).isNumber() ? root.path(field).asDouble() : null;
+    }
+
+    private static Integer integer(JsonNode root, String field) {
+        return root.path(field).isIntegralNumber() ? root.path(field).asInt() : null;
     }
 
     static InferenceRequest toInferenceRequest(JsonNode root, String apiKey) {

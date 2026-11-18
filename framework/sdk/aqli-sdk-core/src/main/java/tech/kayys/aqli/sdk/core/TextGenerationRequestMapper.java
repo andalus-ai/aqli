@@ -79,6 +79,11 @@ public final class TextGenerationRequestMapper {
 
     private static java.util.List<Message> toSpiMessages(TextGenerationRequest request) {
         java.util.List<Message> messages = new java.util.ArrayList<>();
+        java.util.List<TextGenerationMessage> source = request.messages();
+        int index = 0;
+        while (index < source.size() && source.get(index).role() == TextGenerationMessage.Role.SYSTEM) {
+            messages.add(toSpiMessage(source.get(index++)));
+        }
         TextGenerationContext context = request.context();
         if (context != null && !context.items().isEmpty() && !Boolean.FALSE.equals(context.enabled())) {
             StringBuilder prompt = new StringBuilder("Retrieved context supplied by the caller. Use it when relevant.");
@@ -94,7 +99,7 @@ public final class TextGenerationRequestMapper {
             }
             messages.add(Message.system(prompt.toString()));
         }
-        request.messages().stream().map(TextGenerationRequestMapper::toSpiMessage).forEach(messages::add);
+        while (index < source.size()) messages.add(toSpiMessage(source.get(index++)));
         return messages;
     }
 
