@@ -858,7 +858,7 @@ public class RunCommand implements Runnable {
             format = alternateRuntimeSelection.format();
             runnerRouteReport = alternateRuntimeSelection.routeReport();
             DirectSafetensorRoutePolicy.RouteValidation gemma3RouteValidation =
-                    DirectSafetensorRoutePolicy.validateGemma3ExecutionRoute(providerId, modelId, finalLocalPath);
+                    RunRouteValidationCoordinator.validateExecutionRoute(providerId, modelId, finalLocalPath);
             if (!gemma3RouteValidation.allowed()) {
                 gemma3RouteValidation.messages().forEach(System.err::println);
                 return;
@@ -866,33 +866,24 @@ public class RunCommand implements Runnable {
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
             if (routeReportJson) {
-                String routeExecutionProviderId = routeExecutionProviderId(providerId, finalLocalPath);
-                RunnerRouteReport effectiveRouteReport =
-                        runnerRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                if (effectiveDirect(finalLocalPath)) {
-                    routeExecutionProviderId = "safetensor";
-                    effectiveRouteReport = effectiveRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                }
-                effectiveRouteReport = applyCachedBenchmarkRouteProfile(
-                        effectiveRouteReport,
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath);
-                RoutePreflightReport routePreflight = RoutePreflightReport.evaluate(
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath,
-                        routeExecutionProviderId,
-                        format,
-                        routeReportAllowPull,
-                        routeReportRequireLocal);
-                routePreflight = DirectSafetensorRoutePreflight.applyGemma4UnifiedValidation(
-                        routePreflight,
-                        routeExecutionProviderId,
-                        modelId,
-                        finalLocalPath,
-                        !normalizedInputImages.isEmpty(),
-                        ocrMode);
+                RunRouteValidationCoordinator.PreflightResult routePreflightResult =
+                        RunRouteValidationCoordinator.preparePreflight(
+                                runnerRouteReport,
+                                requestedModelRef,
+                                modelId,
+                                finalLocalPath,
+                                routeExecutionProviderId(providerId, finalLocalPath),
+                                format,
+                                effectiveDirect(finalLocalPath),
+                                routeReportAllowPull,
+                                routeReportRequireLocal,
+                                !normalizedInputImages.isEmpty(),
+                                ocrMode,
+                                report -> applyCachedBenchmarkRouteProfile(
+                                        report, requestedModelRef, modelId, finalLocalPath));
+                String routeExecutionProviderId = routePreflightResult.executionProviderId();
+                RunnerRouteReport effectiveRouteReport = routePreflightResult.routeReport();
+                RoutePreflightReport routePreflight = routePreflightResult.preflight();
                 printJsonPayload(RouteReportPayloads.routeReportPayload(
                         effectiveRouteReport,
                         requestedModelRef,
