@@ -9,6 +9,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
@@ -16,6 +19,7 @@ import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -50,16 +54,13 @@ class AqliGrpcServiceTest {
     }
 
     @Test
-    void testChatSynchronous() throws Exception {
-        InferenceResponse mockResponse = InferenceResponse.builder()
-                .requestId("req-123")
-                .content("Hello from model")
-                .finishReason(InferenceResponse.FinishReason.STOP)
-                .inputTokens(12)
-                .outputTokens(8)
-                .build();
+    void testChatSynchronousUsesCanonicalTypedSdkRequest() throws Exception {
+        TextGenerationResponse mockResponse = new TextGenerationResponse(
+                "Hello from model", "test-model", 12, 8, 42,
+                TextGenerationResponse.FinishReason.STOP);
 
-        when(sdk.createCompletion(any(InferenceRequest.class))).thenReturn(mockResponse);
+        when(sdk.generateTextAsync(any(TextGenerationRequest.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockResponse));
 
         ChatRequest request = ChatRequest.newBuilder()
                 .setModelId("test-model")
@@ -71,22 +72,22 @@ class AqliGrpcServiceTest {
         TestStreamObserver<ChatResponse> observer = new TestStreamObserver<>();
         service.chat(request, observer);
 
-        ArgumentCaptor<InferenceRequest> requestCaptor = ArgumentCaptor.forClass(InferenceRequest.class);
-        verify(sdk).createCompletion(requestCaptor.capture());
-        InferenceRequest assembled = requestCaptor.getValue();
-        assertEquals("test-model", assembled.getModel());
-        assertEquals(0.7, assembled.getTemperature(), 0.0001);
-        assertEquals(50, assembled.getMaxTokens());
-        assertEquals(0.9, assembled.getTopP(), 0.0001);
-        assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
-        assertEquals(1, assembled.getMessages().size());
-        assertEquals(tech.kayys.aqli.spi.Message.Role.USER, assembled.getMessages().get(0).getRole());
-        assertFalse(assembled.isStreaming());
+        ArgumentCaptor<TextGenerationRequest> requestCaptor =
+                ArgumentCaptor.forClass(TextGenerationRequest.class);
+        verify(sdk).generateTextAsync(requestCaptor.capture());
+        TextGenerationRequest assembled = requestCaptor.getValue();
+        assertEquals("test-model", assembled.model());
+        assertEquals(0.7, assembled.parameters().temperature(), 0.0001);
+        assertEquals(50, assembled.parameters().maxTokens());
+        assertEquals(1, assembled.messages().size());
+        assertEquals(tech.kayys.aqli.sdk.capability.text.TextGenerationMessage.Role.USER,
+                assembled.messages().get(0).role());
+        assertEquals("Hi", assembled.messages().get(0).content());
 
         assertTrue(observer.completed);
         assertEquals(1, observer.responses.size());
         ChatResponse response = observer.responses.get(0);
-        assertEquals("req-123", response.getId());
+        assertFalse(response.getId().isBlank());
         assertEquals("assistant", response.getMessage().getRole());
         assertEquals("Hello from model", response.getMessage().getContent());
         assertEquals("STOP", response.getFinishReason());
@@ -141,12 +142,18 @@ class AqliGrpcServiceTest {
     }
 
     @Test
-    void testStreamChat() {
-        StreamingInferenceChunk chunk1 = StreamingInferenceChunk.of("req-stream-1", 0, "Hello ");
-        StreamingInferenceChunk chunk2 = StreamingInferenceChunk.finalTextChunk(
-                "req-stream-1", 1, "world!", new StreamingInferenceChunk.ChunkUsage(10, 5, 120));
+    void testStreamChatUsesCanonicalTypedSdkAndPreservesProtobufShape() {
+        TextGenerationChunk chunk1 = new TextGenerationChunk(
+                "req-stream-1", 0, "Hello ", false, null, null, null, null,
+                null, null, null, java.util.Map.of());
+        TextGenerationChunk chunk2 = new TextGenerationChunk(
+                "req-stream-1", 1, "world!", true, TextGenerationResponse.FinishReason.STOP,
+                null, null, null, null,
+                new TextGenerationChunk.Usage(10, 5, 120),
+                java.time.Instant.parse("2026-11-18T02:00:00Z"), java.util.Map.of());
 
-        when(sdk.streamCompletion(any(InferenceRequest.class))).thenReturn(Multi.createFrom().items(chunk1, chunk2));
+        when(sdk.streamText(any(TextGenerationRequest.class)))
+                .thenReturn(Multi.createFrom().items(chunk1, chunk2));
 
         ChatRequest request = ChatRequest.newBuilder()
                 .setModelId("test-model")
@@ -156,13 +163,13 @@ class AqliGrpcServiceTest {
         TestStreamObserver<ChatResponse> observer = new TestStreamObserver<>();
         service.streamChat(request, observer);
 
-        ArgumentCaptor<InferenceRequest> requestCaptor = ArgumentCaptor.forClass(InferenceRequest.class);
-        verify(sdk).streamCompletion(requestCaptor.capture());
-        InferenceRequest assembled = requestCaptor.getValue();
-        assertEquals("test-model", assembled.getModel());
-        assertEquals(0.9, assembled.getTopP(), 0.0001);
-        assertEquals(1.1, assembled.getRepeatPenalty(), 0.0001);
-        assertTrue(assembled.isStreaming());
+        ArgumentCaptor<TextGenerationRequest> requestCaptor =
+                ArgumentCaptor.forClass(TextGenerationRequest.class);
+        verify(sdk).streamText(requestCaptor.capture());
+        TextGenerationRequest assembled = requestCaptor.getValue();
+        assertEquals("test-model", assembled.model());
+        assertEquals(1, assembled.messages().size());
+        assertEquals("Hello", assembled.messages().get(0).content());
 
         assertTrue(observer.completed);
         assertEquals(2, observer.responses.size());
