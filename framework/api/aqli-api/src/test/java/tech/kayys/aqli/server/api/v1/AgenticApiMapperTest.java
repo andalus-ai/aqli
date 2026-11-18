@@ -180,6 +180,47 @@ class AgenticApiMapperTest {
     }
 
     @Test
+    void mapsChatPayloadToTypedSdkRequestWithRetrievalContext() throws Exception {
+        AgentTraceContext trace = AgentTraceContext.fromPayload(mapper.readTree("""
+                {"request_id":"req-typed-rag","trace_id":"trace-typed-rag"}
+                """));
+        var request = AgenticApiMapper.toTextGenerationRequest(mapper.readTree("""
+                {
+                  "model": "demo-model",
+                  "messages": [
+                    {"role": "system", "content": "Follow the system policy."},
+                    {"role": "user", "content": "What does the API support?"}
+                  ],
+                  "temperature": 0.4,
+                  "presence_penalty": 0.2,
+                  "embedding_model": "embed-v2",
+                  "rag_enabled": true,
+                  "rag_context": [
+                    {
+                      "id": "chunk-1",
+                      "title": "API docs",
+                      "source": "docs/api",
+                      "score": 0.95,
+                      "text": "The API exposes a typed text capability."
+                    }
+                  ]
+                }
+                """), "test-key", trace);
+
+        assertEquals("demo-model", request.model());
+        assertEquals("test-key", request.apiKey());
+        assertEquals("req-typed-rag", request.requestId());
+        assertEquals(0.4, request.parameters().temperature());
+        assertEquals(0.2, request.parameters().presencePenalty());
+        assertEquals(true, request.context().enabled());
+        assertEquals("embed-v2", request.context().embeddingModel());
+        assertEquals(1, request.context().items().size());
+        assertEquals("chunk-1", request.context().items().get(0).id());
+        assertEquals("docs/api", request.context().items().get(0).source());
+        assertEquals("trace-typed-rag", request.traceId());
+    }
+
+    @Test
     void emitsChatStreamUsageOnlyWhenRequested() throws Exception {
         AgentTraceContext trace = AgentTraceContext.fromPayload(mapper.readTree("""
                 {
