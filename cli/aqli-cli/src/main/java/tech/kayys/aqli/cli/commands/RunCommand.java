@@ -99,7 +99,6 @@ import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
-import tech.kayys.aqli.sdk.route.RunnerRouteReportFields;
 import tech.kayys.aqli.plugin.kernel.KernelPlatform;
 import tech.kayys.aqli.sdk.util.AqliHome;
 import tech.kayys.suling.FlacLibraryCheck;
@@ -3073,53 +3072,7 @@ public class RunCommand implements Runnable {
     }
 
     private void printExecutionRouteInfo(Map<String, Object> metadata) {
-        if (metadata == null || metadata.isEmpty() || noBanner) {
-            return;
-        }
-        Object requested = metadata.get("requested_provider");
-        Object effective = metadata.get("effective_provider");
-        Object backend = metadata.get("execution_backend");
-        Object bridgeMode = metadata.get("provider_bridge_mode");
-        Object bridgeReason = metadata.get("provider_bridge_reason");
-        Object runnerRoute = metadata.get(
-                RunnerRouteReportFields.metadataKey(RunnerRouteReportFields.Report.NORMALIZED_RUNNER));
-        Object runnerMode = metadata.get(
-                RunnerRouteReportFields.metadataKey(RunnerRouteReportFields.Report.MODE));
-
-        if (requested == null && effective == null && backend == null && bridgeMode == null && runnerRoute == null) {
-            return;
-        }
-
-        StringBuilder line = new StringBuilder("Execution route: ");
-        if (requested != null && effective != null
-                && !String.valueOf(requested).equalsIgnoreCase(String.valueOf(effective))) {
-            line.append(requested).append(" -> ").append(effective);
-        } else if (effective != null) {
-            line.append(effective);
-        } else if (requested != null) {
-            line.append(requested);
-        } else {
-            line.append(backend);
-        }
-        if (backend != null) {
-            line.append(" (backend=").append(backend).append(")");
-        }
-        if (runnerRoute != null) {
-            line.append(" (runner=").append(runnerRoute);
-            if (runnerMode != null && !RunnerRoutePolicy.AUTO.equals(String.valueOf(runnerMode))) {
-                line.append(", mode=").append(runnerMode);
-            }
-            line.append(")");
-        }
-        if (bridgeMode != null) {
-            line.append(" [").append(bridgeMode);
-            if (bridgeReason != null) {
-                line.append(": ").append(bridgeReason);
-            }
-            line.append("]");
-        }
-        System.out.println(line);
-        System.out.println("--------------------------------------------------");
+        ExecutionRouteTerminalRenderer.print(metadata, noBanner, System.out::println);
     }
 
     private Map<String, Object> effectiveExecutionRouteMetadata(Map<String, Object> responseMetadata) {
