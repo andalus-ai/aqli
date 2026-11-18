@@ -4,13 +4,7 @@ import picocli.CommandLine.ParseResult;
 import tech.kayys.aqli.cli.spi.run.RunCapability;
 import tech.kayys.aqli.cli.spi.run.RunCapabilityOptions;
 
-/**
- * Text-generation CLI capability and typed options snapshot contributor.
- *
- * <p>The existing {@link TextRunCliOptions} mixin remains the Picocli binding
- * owner during this migration step. This capability reads the parsed invocation
- * and produces the immutable value consumed by text request mapping.</p>
- */
+/** Text-generation CLI capability and typed options snapshot contributor. */
 public final class TextRunCapability implements RunCapability, RunCapabilityOptions<TextRunOptions> {
 
     @Override
@@ -20,8 +14,28 @@ public final class TextRunCapability implements RunCapability, RunCapabilityOpti
 
     @Override
     public void registerOptions(picocli.CommandLine.Model.CommandSpec commandSpec) {
-        // TextRunCliOptions is currently registered as a RunCommand mixin.
-        // Moving registration here is a separate step to avoid duplicate flags.
+        java.util.Objects.requireNonNull(commandSpec, "commandSpec");
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--temperature")
+                .type(double.class).defaultValue("0.2")
+                .description("Sampling temperature").build());
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--top-p")
+                .type(double.class).defaultValue("0.9")
+                .description("Top-p sampling").build());
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--top-k")
+                .type(int.class).defaultValue("40")
+                .description("Top-k sampling").build());
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--repeat-penalty")
+                .type(double.class).defaultValue("1.1")
+                .description("Repeat penalty").build());
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--max-tokens")
+                .type(int.class).defaultValue("2048")
+                .description("Maximum tokens to generate").build());
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--mirostat")
+                .type(int.class).defaultValue("0")
+                .description("Mirostat mode (0, 1, 2)").build());
+        commandSpec.addOption(picocli.CommandLine.Model.OptionSpec.builder("--grammar")
+                .type(String.class)
+                .description("GBNF grammar string").build());
     }
 
     @Override
