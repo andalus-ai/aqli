@@ -116,7 +116,7 @@ public class OpenAiResponsesResource {
         Multi<String> body = Multi.createFrom().publisher(sdkProvider.getSdk().streamText(request))
                 .onItem().transformToMultiAndConcatenate(chunk -> {
                     StreamingInferenceChunk spiChunk = toStreamingChunk(chunk, requestId);
-                    if (!spiChunk.delta().isEmpty()) outputText.append(spiChunk.delta());
+                    if (spiChunk.delta() != null && !spiChunk.delta().isEmpty()) outputText.append(spiChunk.delta());
                     List<String> events = AgenticApiMapper.toOpenAiResponseStreamJson(
                             spiChunk, request.model(), outputText.toString(), trace, streamOptions);
                     return Multi.createFrom().items(events.toArray(String[]::new));
@@ -133,12 +133,14 @@ public class OpenAiResponsesResource {
 
     private static InferenceResponse toInferenceResponse(
             TextGenerationResponse generated, TextGenerationRequest request) {
-        InferenceResponse.FinishReason finishReason = switch (generated.finishReason()) {
-            case LENGTH -> InferenceResponse.FinishReason.LENGTH;
-            case TOOL_CALLS -> InferenceResponse.FinishReason.TOOL_CALLS;
-            case ERROR -> InferenceResponse.FinishReason.ERROR;
-            default -> InferenceResponse.FinishReason.STOP;
-        };
+        InferenceResponse.FinishReason finishReason = generated.finishReason() == null
+                ? InferenceResponse.FinishReason.STOP
+                : switch (generated.finishReason()) {
+                    case LENGTH -> InferenceResponse.FinishReason.LENGTH;
+                    case TOOL_CALLS -> InferenceResponse.FinishReason.TOOL_CALLS;
+                    case ERROR -> InferenceResponse.FinishReason.ERROR;
+                    default -> InferenceResponse.FinishReason.STOP;
+                };
         InferenceResponse.Builder response = InferenceResponse.builder()
                 .requestId(request.requestId() != null ? request.requestId() : java.util.UUID.randomUUID().toString())
                 .content(generated.content())
@@ -150,8 +152,10 @@ public class OpenAiResponsesResource {
                 .finishReason(finishReason)
                 .sessionId(request.sessionId())
                 .metadata(Map.of());
-        generated.toolCalls().forEach(call -> response.toolCall(
-                new InferenceResponse.ToolCall(call.getFunction().getName(), call.getArguments())));
+        if (generated.toolCalls() != null) {
+            generated.toolCalls().forEach(call -> response.toolCall(
+                    new InferenceResponse.ToolCall(call.getFunction().getName(), call.getArguments())));
+        }
         return response.build();
     }
 
@@ -169,7 +173,7 @@ public class OpenAiResponsesResource {
                 requestId,
                 Math.toIntExact(chunk.sequence()),
                 ModalityType.TEXT,
-                chunk.delta(),
+                chunk.delta() == null ? "" : chunk.delta(),
                 null,
                 chunk.terminal(),
                 finishReason,
