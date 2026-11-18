@@ -95,6 +95,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.text.TextRunOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
@@ -1169,7 +1170,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
+            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunOptions(
                     temperature,
                     topP,
                     topK,
@@ -1281,7 +1282,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            new TextRunRequestParameterMapper.Options(
+                            new TextRunOptions(
                                     temperature,
                                     topP,
                                     topK,
