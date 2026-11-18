@@ -1,13 +1,15 @@
 package tech.kayys.aqli.sdk.capability.text;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Typed, optional controls for text generation.
  *
  * <p>Null numeric/boolean values mean that the caller did not specify the
- * control; defaults are applied once by the SDK execution boundary. This
- * keeps transport adapters from independently inventing defaults.</p>
+ * control; defaults are applied once by the SDK execution boundary.</p>
  */
 public record TextGenerationParameters(
         Double temperature,
@@ -19,7 +21,10 @@ public record TextGenerationParameters(
         Integer seed,
         Boolean jsonMode,
         String grammar,
-        List<String> stopSequences) {
+        List<String> stopSequences,
+        Double presencePenalty,
+        Double frequencyPenalty,
+        Map<String, Object> responseFormat) {
 
     public TextGenerationParameters {
         stopSequences = stopSequences == null ? List.of() : List.copyOf(stopSequences);
@@ -44,10 +49,38 @@ public record TextGenerationParameters(
         if (minP != null && (minP < 0.0 || minP > 1.0)) {
             throw new IllegalArgumentException("minP must be between 0.0 and 1.0");
         }
+        validatePenalty("presencePenalty", presencePenalty);
+        validatePenalty("frequencyPenalty", frequencyPenalty);
+        responseFormat = responseFormat == null
+                ? Map.of()
+                : Collections.unmodifiableMap(new HashMap<>(responseFormat));
+    }
+
+    /** Preserves the original constructor shape. */
+    public TextGenerationParameters(
+            Double temperature,
+            Double topP,
+            Integer topK,
+            Integer maxTokens,
+            Double repeatPenalty,
+            Double minP,
+            Integer seed,
+            Boolean jsonMode,
+            String grammar,
+            List<String> stopSequences) {
+        this(temperature, topP, topK, maxTokens, repeatPenalty, minP, seed,
+                jsonMode, grammar, stopSequences, null, null, Map.of());
     }
 
     public static TextGenerationParameters unspecified() {
         return new TextGenerationParameters(
-                null, null, null, null, null, null, null, null, null, List.of());
+                null, null, null, null, null, null, null, null, null, List.of(),
+                null, null, Map.of());
+    }
+
+    private static void validatePenalty(String name, Double value) {
+        if (value != null && (value < -2.0 || value > 2.0)) {
+            throw new IllegalArgumentException(name + " must be between -2.0 and 2.0");
+        }
     }
 }
