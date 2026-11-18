@@ -1,7 +1,6 @@
 package tech.kayys.aqli.cli.commands.audio;
 
 import picocli.CommandLine.ParseResult;
-import tech.kayys.aqli.cli.spi.run.RunCapabilityOptions;
 
 /**
  * Immutable snapshot of audio-generation options parsed by the {@code run} command.
