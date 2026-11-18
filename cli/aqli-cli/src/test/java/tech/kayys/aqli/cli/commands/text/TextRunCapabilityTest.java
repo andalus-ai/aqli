@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Mixin;
 import tech.kayys.aqli.cli.spi.run.RunCapabilityRegistry;
 
 /** Verifies the text capability's parsed-options snapshot contract. */
@@ -16,6 +15,7 @@ class TextRunCapabilityTest {
     void snapshotsParsedTextOptionsThroughRegistry() {
         TestCommand command = new TestCommand();
         CommandLine commandLine = new CommandLine(command);
+        new TextRunCapability().registerOptions(commandLine.getCommandSpec());
         commandLine.parseArgs(
                 "--temperature", "0.7",
                 "--top-p", "0.8",
@@ -43,9 +43,6 @@ class TextRunCapabilityTest {
 
     @Command
     private static final class TestCommand {
-        @Mixin
-        private TextRunCliOptions text = new TextRunCliOptions();
-
         @picocli.CommandLine.Option(names = "--json")
         private boolean json;
     }
