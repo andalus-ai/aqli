@@ -1157,7 +1157,7 @@ public class RunCommand implements Runnable {
                     audioRunOptions.streamProgressFrames(),
                     audioRunOptions.disableStreamProgress(),
                     audioRunOptions.streamPcm(),
-                    audioRunOptions.audioRunOptions.liveAudio()(),
+                    audioRunOptions.liveAudio()(),
                     audioRunOptions.disableLowLatency(),
                     effectiveFlacCompression));
 
@@ -1242,7 +1242,7 @@ public class RunCommand implements Runnable {
                                     audioRunOptions.streamProgressFrames(),
                                     audioRunOptions.disableStreamProgress(),
                                     audioRunOptions.streamPcm(),
-                                    audioRunOptions.audioRunOptions.liveAudio()(),
+                                    audioRunOptions.liveAudio()(),
                                     audioRunOptions.disableLowLatency(),
                                     effectiveFlacCompression),
                             extension,
@@ -1292,7 +1292,7 @@ public class RunCommand implements Runnable {
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
                 StreamingAudioOutputSession audioOutput = new StreamingAudioOutputSession();
-                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(audioRunOptions.audioRunOptions.liveAudio()());
+                LivePcmAudioPlayer liveAudioSink = new LivePcmAudioPlayer(audioRunOptions.liveAudio()());
                 java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Object>> metricsRef = new java.util.concurrent.atomic.AtomicReference<>();
                 java.util.concurrent.atomic.AtomicInteger tokenCount = new java.util.concurrent.atomic.AtomicInteger(0);
                 java.util.concurrent.atomic.AtomicLong firstTokenTime = new java.util.concurrent.atomic.AtomicLong(0);
@@ -1652,8 +1652,8 @@ public class RunCommand implements Runnable {
         if (audioRunOptions.bitrateKbps() != null) {
             ok &= TtsCliOptionsValidator.validateIntRange("--audio-bitrate", audioRunOptions.bitrateKbps(), 8, 320, "kbps");
         }
-        if (audioRunOptions.audioRunOptions.flacCompression()() != null) {
-            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", audioRunOptions.audioRunOptions.flacCompression()(), 0, 8, "");
+        if (audioRunOptions.flacCompression()() != null) {
+            ok &= TtsCliOptionsValidator.validateIntRange("--flac-compression", audioRunOptions.flacCompression()(), 0, 8, "");
         }
         if (audioRunOptions.maxFrames() != null) {
             ok &= TtsCliOptionsValidator.validateIntRange("--tts-max-frames", audioRunOptions.maxFrames(), 1, 4096, "frames");
@@ -1698,7 +1698,7 @@ public class RunCommand implements Runnable {
     }
 
     Integer effectiveFlacCompression(AudioQualityPreset preset, String effectiveAudioFormat) {
-        return TtsCliOptionsValidator.effectiveFlacCompression(audioRunOptions.audioRunOptions.flacCompression()(), preset, effectiveAudioFormat);
+        return TtsCliOptionsValidator.effectiveFlacCompression(audioRunOptions.flacCompression()(), preset, effectiveAudioFormat);
     }
 
     String effectiveTtsVoiceSelector() {
@@ -3478,7 +3478,7 @@ public class RunCommand implements Runnable {
                 audioRunOptions.fadeMs(),
                 audioRunOptions.trimDbfs(),
                 audioRunOptions.trimPaddingMs(),
-                audioRunOptions.audioRunOptions.flacCompression()(),
+                audioRunOptions.flacCompression()(),
                 audioRunOptions.disablePolish(),
                 audioRunOptions.disableNormalize(),
                 audioRunOptions.trimSilence()));
