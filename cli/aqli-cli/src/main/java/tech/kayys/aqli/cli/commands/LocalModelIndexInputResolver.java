@@ -30,7 +30,7 @@ final class LocalModelIndexInputResolver {
             boolean customModelPathUsed,
             String providerId,
             String format,
-            String error,
+            boolean disabled,
             List<String> messages) {
 
         Result {
@@ -83,7 +83,7 @@ final class LocalModelIndexInputResolver {
                         false,
                         providerId,
                         format,
-                        "disabled",
+                        true,
                         List.of(
                                 "\\n\\u001B[31mError: Model '" + entry.id + "' is disabled.\\u001B[0m",
                                 "\\u001B[33mUse 'aqli model enable " + entry.shortId
@@ -108,7 +108,7 @@ final class LocalModelIndexInputResolver {
             if (!options.quietOutput() && !options.jsonMode() && !options.ocrJsonOutput()) {
                 messages.add("Resolved local model index entry: " + localPath);
             }
-            return new Result(modelId, localPath, true, providerId, format, null, messages);
+            return new Result(modelId, localPath, true, providerId, format, false, messages);
         } catch (Exception indexLookupFailure) {
             // Preserve the existing fallback to the normal SDK resolution flow.
             return unresolved(modelId, providerId, format);
@@ -116,6 +116,6 @@ final class LocalModelIndexInputResolver {
     }
 
     private static Result unresolved(String modelId, String providerId, String format) {
-        return new Result(modelId, null, false, providerId, format, null, List.of());
+        return new Result(modelId, null, false, providerId, format, false, List.of());
     }
 }
