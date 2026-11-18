@@ -770,125 +770,59 @@ public class RunCommand implements Runnable {
             }
 
             boolean routeReportRepositoryResolutionSkipped = false;
-            if (!customModelPathUsed && (modelFile == null || modelFile.isBlank()) && (modelDir == null || modelDir.isBlank())
+            if (!customModelPathUsed && (modelFile == null || modelFile.isBlank())
+                    && (modelDir == null || modelDir.isBlank())
                     && (modelPath == null || modelPath.isEmpty())) {
                 if (!shouldAllowRepositoryResolutionDuringRouteReport()) {
                     routeReportRepositoryResolutionSkipped = true;
                 } else {
-                    // Prepare model using SDK (this handles pulling, registration, and conversion).
-                    try {
-                        String quant = ggufQuant != null ? ggufQuant : (ggufOutType != null ? ggufOutType : "Q4_K_M");
-                        var resolution = sdk.prepareModel(modelId, (String) format, pluginId, forceGguf, quant,
-                                fallbackModelIds == null ? List.of() : fallbackModelIds,
-                                (Consumer<PullProgress>) progress -> {
-                            if (quietRouteResolutionOutput()) {
-                                return;
-                            }
-                            if (progress.getTotal() > 0) {
-                                System.out.printf("\r%s %s %3d%% (%d/%d MB)",
-                                        ChatUIRenderer.CYAN + progress.getStatus() + ChatUIRenderer.RESET,
-                                        progress.getProgressBar(20),
-                                        progress.getPercentComplete(),
-                                        progress.getCompleted() / 1024 / 1024,
-                                        progress.getTotal() / 1024 / 1024);
-                            } else {
-                                System.out.print("\r" + ChatUIRenderer.CYAN + progress.getStatus() + ChatUIRenderer.RESET);
-                            }
-                        });
-                        if (!quietRouteResolutionOutput()) {
-                            System.out.println();
-                        }
-
-                        modelId = resolution.getModelId();
-                        if (resolution.getLocalPath() != null) {
-                            finalLocalPath = resolution.getLocalPath();
-                            String displayPath = finalLocalPath;
-                            String userHome = System.getProperty("user.home");
-                            if (userHome != null && displayPath.startsWith(userHome)) {
-                                displayPath = "~" + displayPath.substring(userHome.length());
-                            }
-                            if (!quietRouteResolutionOutput()) {
-                                System.out.println("Model ready at: " + displayPath);
-                            }
-                            customModelPathUsed = true;
-                        }
-                        if (!customModelPathUsed) {
-                            LocalModelIndex.Entry downloaded = autoPullHfRepositoryForRunIfNeeded(
-                                    requestedModelRef != null ? requestedModelRef : modelId,
-                                    ModelFormatResolver.preferredLocalIndexFormat(requestedModelRef, format, providerId));
-                            if (downloaded != null && downloaded.path != null && Files.exists(Path.of(downloaded.path))) {
-                                finalLocalPath = Path.of(downloaded.path).toAbsolutePath().toString();
-                                modelId = finalLocalPath;
-                                customModelPathUsed = true;
-                                if (!providerExplicit) {
-                                    String inferred = inferProviderFromIndex(downloaded);
-                                    if (inferred != null && !inferred.isBlank()) {
-                                        providerId = inferred;
-                                    }
-                                }
-                                if (format == null || format.isBlank()) {
-                                    format = inferFormatFromIndex(downloaded);
-                                }
-                                if (!quietRouteResolutionOutput()) {
-                                    System.out.println("Model ready at: " + displayPath(Path.of(finalLocalPath)));
-                                }
-                            } else if (ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
-                                    requestedModelRef, providerId, isMcpProvider())) {
-                                return;
-                            }
-                        }
-
-                        if (resolution.getNotice() != null && !resolution.getNotice().isBlank()) {
-                            String notice = resolution.getNotice();
-                            String compatibilityIssue = detectSafetensorCompatibilityIssue(providerId, finalLocalPath);
-                            boolean staleGemma4Notice = notice.contains("Gemma4 multimodal text checkpoints")
-                                    && compatibilityIssue == null;
-                            if (!staleGemma4Notice && !quietRouteResolutionOutput()) {
-                                System.out.println(notice);
-                            }
-                        }
-
-                        if (providerId == null || providerId.isBlank()) {
-                            providerId = resolution.getProviderId();
-                        }
-                        if ((providerId == null || providerId.isBlank()) && resolution.getLocalPath() != null) {
-                            providerId = null;
-                            if (providerId != null) {
-                                
-                            }
-                        }
-
-                    } catch (Exception e) {
-                        try {
-                            LocalModelIndex.Entry downloaded = autoPullHfRepositoryForRunIfNeeded(
-                                    requestedModelRef != null ? requestedModelRef : modelId,
-                                    ModelFormatResolver.preferredLocalIndexFormat(requestedModelRef, format, providerId));
-                            if (downloaded != null && downloaded.path != null && Files.exists(Path.of(downloaded.path))) {
-                                finalLocalPath = Path.of(downloaded.path).toAbsolutePath().toString();
-                                modelId = finalLocalPath;
-                                customModelPathUsed = true;
-                                if (!providerExplicit) {
-                                    String inferred = inferProviderFromIndex(downloaded);
-                                    if (inferred != null && !inferred.isBlank()) {
-                                        providerId = inferred;
-                                    }
-                                }
-                                if (format == null || format.isBlank()) {
-                                    format = inferFormatFromIndex(downloaded);
-                                }
-                                if (!quietRouteResolutionOutput()) {
-                                    System.out.println("Model ready at: " + displayPath(Path.of(finalLocalPath)));
-                                }
-                            }
-                        } catch (Exception fallbackError) {
-                            System.err.println("\nError: Failed to prepare model: " + fallbackError.getMessage());
-                            return;
-                        }
-                        if (!customModelPathUsed) {
-                            System.err.println("\nError: Failed to prepare model: " + e.getMessage());
-                            return;
-                        }
+                    String preparationProviderId = providerId;
+                    RunModelPreparationResolver.Result preparation =
+                            RunModelPreparationResolver.resolve(
+                                    new RunModelPreparationResolver.Options(
+                                            modelId, requestedModelRef, format, providerId, pluginId,
+                                            ggufQuant, ggufOutType, forceGguf, providerExplicit,
+                                            quietRouteResolutionOutput(), fallbackModelIds),
+                                    sdk,
+                                    reference -> autoPullHfRepositoryForRunIfNeeded(
+                                            reference.modelId(), reference.preferredFormat()),
+                                    this::inferProviderFromIndex,
+                                    this::inferFormatFromIndex,
+                                    path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
+                                    (reference, selectedProvider) ->
+                                            ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
+                                                    reference, selectedProvider, isMcpProvider()),
+                                    progress -> {
+                                        if (quietRouteResolutionOutput()) {
+                                            return;
+                                        }
+                                        if (progress.getTotal() > 0) {
+                                            System.out.printf("\r%s %s %3d%% (%d/%d MB)",
+                                                    ChatUIRenderer.CYAN + progress.getStatus() + ChatUIRenderer.RESET,
+                                                    progress.getProgressBar(20), progress.getPercentComplete(),
+                                                    progress.getCompleted() / 1024 / 1024,
+                                                    progress.getTotal() / 1024 / 1024);
+                                        } else {
+                                            System.out.print("\r" + ChatUIRenderer.CYAN
+                                                    + progress.getStatus() + ChatUIRenderer.RESET);
+                                        }
+                                    });
+                    if (!quietRouteResolutionOutput()) {
+                        System.out.println();
+                        preparation.notices().forEach(System.out::println);
                     }
+                    if (preparation.error() != null) {
+                        System.err.println("\nError: " + preparation.error());
+                        return;
+                    }
+                    if (preparation.stopExecution()) {
+                        return;
+                    }
+                    modelId = preparation.modelId();
+                    finalLocalPath = preparation.localPath();
+                    customModelPathUsed = preparation.customModelPathUsed();
+                    providerId = preparation.providerId();
+                    format = preparation.format();
                 }
             }
 
@@ -3829,7 +3763,7 @@ public class RunCommand implements Runnable {
 
     private String escapeJson(String value) {
         if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\r").replace("\t", "\\t");
     }
 
     private void printCompatibilityHintBeforeInference() {
