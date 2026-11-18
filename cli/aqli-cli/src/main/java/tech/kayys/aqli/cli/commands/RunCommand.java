@@ -18,6 +18,7 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.AqliCommand;
@@ -95,7 +96,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
-import tech.kayys.aqli.cli.commands.text.TextRunOptions;
+import tech.kayys.aqli.cli.commands.text.TextRunCliOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
@@ -187,33 +188,15 @@ public class RunCommand implements Runnable {
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
     boolean stream;
 
-    @Option(names = { "--temperature" }, description = "Sampling temperature", defaultValue = "0.2")
-    double temperature;
+    @Mixin
+    TextRunCliOptions textOptions = new TextRunCliOptions();
 
-    @Option(names = { "--top-p" }, description = "Top-p sampling", defaultValue = "0.9")
-    double topP;
-
-    @Option(names = { "--top-k" }, description = "Top-k sampling", defaultValue = "40")
-    int topK;
-
-    @Option(names = { "--repeat-penalty" }, description = "Repeat penalty", defaultValue = "1.1")
-    double repeatPenalty;
-
-    @Option(names = { "--json" }, description = "Enable JSON mode", defaultValue = "false")
+    @Option(names = { "--json" }, description = "Enable JSON output mode", defaultValue = "false")
     boolean jsonMode;
 
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
-
-    @Option(names = { "--max-tokens" }, description = "Maximum tokens to generate", defaultValue = "2048")
-    int maxTokens;
-
-    @Option(names = { "--mirostat" }, description = "Mirostat mode (0, 1, 2)", defaultValue = "0")
-    int mirostat;
-
-    @Option(names = { "--grammar" }, description = "GBNF grammar string")
-    String grammar;
 
     @Option(names = { "--system" }, description = "System prompt")
     String systemPrompt;
@@ -1151,17 +1134,17 @@ public class RunCommand implements Runnable {
                     new RunInferenceRequestFactory.Options(
                             requestModelTarget,
                             prompt,
-                            temperature,
-                            topP,
-                            topK,
-                            repeatPenalty,
+                            textOptions.temperature,
+                            textOptions.topP,
+                            textOptions.topK,
+                            textOptions.repeatPenalty,
                             jsonMode,
-                            maxTokens,
+                            textOptions.maxTokens,
                             pluginId,
                             effectiveStream,
                             sessionId,
-                            mirostat,
-                            grammar,
+                            textOptions.mirostat,
+                            textOptions.grammar,
                             noCache));
 
             ModelSourceRunRequestParameterMapper.apply(
@@ -1170,15 +1153,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunOptions(
-                    temperature,
-                    topP,
-                    topK,
-                    repeatPenalty,
-                    jsonMode,
-                    maxTokens,
-                    mirostat,
-                    grammar));
+            TextRunRequestParameterMapper.apply(requestBuilder, textOptions.snapshot(jsonMode));
 
             RuntimeExecutionRunRequestParameterMapper.apply(
                     requestBuilder,
@@ -1282,15 +1257,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            new TextRunOptions(
-                                    temperature,
-                                    topP,
-                                    topK,
-                                    repeatPenalty,
-                                    jsonMode,
-                                    maxTokens,
-                                    mirostat,
-                                    grammar),
+                            textOptions.snapshot(jsonMode),
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
@@ -2161,7 +2128,7 @@ public class RunCommand implements Runnable {
                 checkpointPath,
                 checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
-                grammar,
+                textOptions.grammar,
                 prompt,
                 directInferenceEngine() != null);
     }
@@ -2454,7 +2421,7 @@ public class RunCommand implements Runnable {
 
     String[] buildStandaloneLiteRtRunArgs(String localPath) {
         return LiteRtStandaloneRunArguments.toArgs(
-                localPath, prompt, maxTokens, temperature, topK, topP);
+                localPath, prompt, textOptions.maxTokens, textOptions.temperature, textOptions.topK, textOptions.topP);
     }
 
     private boolean tryStandaloneLiteRtRun(String localPath) {
@@ -2575,13 +2542,13 @@ public class RunCommand implements Runnable {
             args.add(prompt);
         }
         args.add("--max-tokens");
-        args.add(Integer.toString(maxTokens));
+        args.add(Integer.toString(textOptions.maxTokens));
         args.add("--temperature");
-        args.add(Double.toString(temperature));
+        args.add(Double.toString(textOptions.temperature));
         args.add("--top-k");
-        args.add(Integer.toString(topK));
+        args.add(Integer.toString(textOptions.topK));
         args.add("--top-p");
-        args.add(Double.toString(topP));
+        args.add(Double.toString(textOptions.topP));
 
         String engine = requestedGgufEngine();
         if (engine != null && !engine.isBlank()) {
@@ -2635,7 +2602,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSimpleStandaloneTextRun() {
         return isBlank(systemPrompt)
-                && isBlank(grammar)
+                && isBlank(textOptions.grammar)
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
@@ -2723,7 +2690,7 @@ public class RunCommand implements Runnable {
         if (sessionId != null && !sessionId.isBlank()) {
             return "--session is not supported by the direct engine";
         }
-        if (grammar != null && !grammar.isBlank()) {
+        if (textOptions.grammar != null && !textOptions.grammar.isBlank()) {
             return "--grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
