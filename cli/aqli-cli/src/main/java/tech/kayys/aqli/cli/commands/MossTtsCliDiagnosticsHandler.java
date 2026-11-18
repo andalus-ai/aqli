@@ -185,17 +185,17 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     private TtsVoiceListFilter ttsVoiceListFilter() {
-        String language = MossTtsVoiceCatalog.normalizeLanguageFilter(command.ttsVoiceLanguage);
-        String gender = MossTtsVoiceCatalog.normalizeGenderFilter(command.ttsVoiceGender);
+        String language = MossTtsVoiceCatalog.normalizeLanguageFilter(command.audioRunOptions().voiceLanguage());
+        String gender = MossTtsVoiceCatalog.normalizeGenderFilter(command.audioRunOptions().voiceGender());
         List<String> terms = new ArrayList<>();
 
-        if (command.ttsVoiceGender != null && !command.ttsVoiceGender.isBlank() && gender == null) {
-            terms.addAll(MossTtsVoiceCatalog.filterTerms(command.ttsVoiceGender));
+        if (command.audioRunOptions().voiceGender() != null && !command.audioRunOptions().voiceGender().isBlank() && gender == null) {
+            terms.addAll(MossTtsVoiceCatalog.filterTerms(command.audioRunOptions().voiceGender()));
         }
 
-        String selectorText = command.ttsVoiceSearch != null && !command.ttsVoiceSearch.isBlank()
-                ? command.ttsVoiceSearch
-                : command.ttsVoice;
+        String selectorText = command.audioRunOptions().voiceSearch() != null && !command.audioRunOptions().voiceSearch().isBlank()
+                ? command.audioRunOptions().voiceSearch()
+                : command.audioRunOptions().voice();
         for (String term : MossTtsVoiceCatalog.filterTerms(selectorText)) {
             String termLanguage = MossTtsVoiceCatalog.normalizeLanguageFilter(term);
             if (termLanguage != null) {
@@ -273,11 +273,11 @@ final class MossTtsCliDiagnosticsHandler {
         } else {
             exitCode = 1;
             System.out.println("Codec directory: missing");
-            if (command.ttsCodec != null && !command.ttsCodec.isBlank()) {
-                System.out.println("Explicit codec ref: " + command.ttsCodec);
+            if (command.audioRunOptions().codec() != null && !command.audioRunOptions().codec().isBlank()) {
+                System.out.println("Explicit codec ref: " + command.audioRunOptions().codec());
             } else if (command.offline) {
                 System.out.println("Auto pull: disabled by --offline/--local");
-            } else if (command.disableTtsAutoCodec) {
+            } else if (command.audioRunOptions().disableAutoCodec()) {
                 System.out.println("Auto pull: disabled by --no-tts-auto-codec");
             } else {
                 System.out.println("Auto pull: enabled for generation");
@@ -299,9 +299,9 @@ final class MossTtsCliDiagnosticsHandler {
         Integer bitrate = command.effectiveAudioBitrateKbps(preset, diagnosticFormat);
         Integer compression = command.effectiveFlacCompression(preset, diagnosticFormat);
         System.out.println("Format: " + diagnosticFormat);
-        System.out.println("Quality preset: " + (command.audioQuality == null || command.audioQuality.isBlank()
+        System.out.println("Quality preset: " + (command.audioRunOptions().quality() == null || command.audioRunOptions().quality().isBlank()
                 ? "auto/default"
-                : command.audioQuality.trim().toLowerCase(Locale.ROOT)));
+                : command.audioRunOptions().quality().trim().toLowerCase(Locale.ROOT)));
         String encoderStatus = diagnosticAudioEncoderStatus(diagnosticFormat);
         System.out.println("Encoder: " + encoderStatus);
         if (encoderStatus.startsWith("missing")) {
@@ -313,20 +313,20 @@ final class MossTtsCliDiagnosticsHandler {
         if (compression != null) {
             System.out.println("FLAC compression: " + compression);
         }
-        System.out.println("Channels: " + (command.audioChannels == null || command.audioChannels.isBlank()
+        System.out.println("Channels: " + (command.audioRunOptions().channels() == null || command.audioRunOptions().channels().isBlank()
                 ? "auto"
-                : command.audioChannels.trim().toLowerCase(Locale.ROOT)));
-        System.out.println("Polish: " + (command.disableAudioPolish ? "disabled" : "enabled")
-                + (command.disableAudioNormalize ? " (peak normalization disabled)" : ""));
-        System.out.println("Trim silence: " + (command.audioTrimSilence ? "enabled" : "disabled")
-                + (command.audioTrimSilence
-                        ? " (threshold " + (command.audioTrimDbfs == null ? "-48" : formatRangeNumber(command.audioTrimDbfs))
+                : command.audioRunOptions().channels().trim().toLowerCase(Locale.ROOT)));
+        System.out.println("Polish: " + (command.audioRunOptions().disablePolish() ? "disabled" : "enabled")
+                + (command.audioRunOptions().disableNormalize() ? " (peak normalization disabled)" : ""));
+        System.out.println("Trim silence: " + (command.audioRunOptions().trimSilence() ? "enabled" : "disabled")
+                + (command.audioRunOptions().trimSilence()
+                        ? " (threshold " + (command.audioRunOptions().trimDbfs() == null ? "-48" : formatRangeNumber(command.audioRunOptions().trimDbfs()))
                                 + " dBFS, padding "
-                                + (command.audioTrimPaddingMs == null ? "25" : formatRangeNumber(command.audioTrimPaddingMs))
+                                + (command.audioRunOptions().trimPaddingMs() == null ? "25" : formatRangeNumber(command.audioRunOptions().trimPaddingMs()))
                                 + " ms)"
                         : ""));
-        System.out.println("Low-latency PCM: " + (command.disableLowLatencyAudio ? "disabled" : "enabled when streaming PCM/live audio"));
-        System.out.println("Live audio: " + (command.liveAudio ? "requested" : "off"));
+        System.out.println("Low-latency PCM: " + (command.audioRunOptions().disableLowLatency() ? "disabled" : "enabled when streaming PCM/live audio"));
+        System.out.println("Live audio: " + (command.audioRunOptions().liveAudio() ? "requested" : "off"));
 
         System.out.println();
         System.out.println("Suling audio backends");
@@ -345,9 +345,9 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     Optional<Path> diagnosticCodecDirectory() {
-        if (command.ttsCodec != null && !command.ttsCodec.isBlank()) {
+        if (command.audioRunOptions().codec() != null && !command.audioRunOptions().codec().isBlank()) {
             try {
-                return MossAudioTokenizerModelLayout.directoryFrom(Path.of(resolveTtsCodecReference(command.ttsCodec)));
+                return MossAudioTokenizerModelLayout.directoryFrom(Path.of(resolveTtsCodecReference(command.audioRunOptions().codec())));
             } catch (Exception ignored) {
                 return Optional.empty();
             }
@@ -424,16 +424,16 @@ final class MossTtsCliDiagnosticsHandler {
         String encoderStatus = diagnosticAudioEncoderStatus(diagnosticFormat);
         Map<String, Object> audio = new LinkedHashMap<>();
         audio.put("format", diagnosticFormat);
-        audio.put("quality_preset", command.audioQuality == null || command.audioQuality.isBlank()
+        audio.put("quality_preset", command.audioRunOptions().quality() == null || command.audioRunOptions().quality().isBlank()
                 ? "auto/default"
-                : command.audioQuality.trim().toLowerCase(Locale.ROOT));
+                : command.audioRunOptions().quality().trim().toLowerCase(Locale.ROOT));
         audio.put("encoder", encoderStatus);
-        audio.put("channels", command.audioChannels == null || command.audioChannels.isBlank()
+        audio.put("channels", command.audioRunOptions().channels() == null || command.audioRunOptions().channels().isBlank()
                 ? "auto"
-                : command.audioChannels.trim().toLowerCase(Locale.ROOT));
-        audio.put("polish", !command.disableAudioPolish);
-        audio.put("trim_silence", command.audioTrimSilence);
-        audio.put("live_audio", command.liveAudio);
+                : command.audioRunOptions().channels().trim().toLowerCase(Locale.ROOT));
+        audio.put("polish", !command.audioRunOptions().disablePolish());
+        audio.put("trim_silence", command.audioRunOptions().trimSilence());
+        audio.put("live_audio", command.audioRunOptions().liveAudio());
         if (encoderStatus.startsWith("missing")) {
             exitCode = 1;
         }
@@ -984,7 +984,7 @@ final class MossTtsCliDiagnosticsHandler {
         if (command.providerId != null && !command.providerId.isBlank() && !"onnx".equalsIgnoreCase(command.providerId)) {
             return true;
         }
-        if (command.ttsCodec != null && !command.ttsCodec.isBlank()) {
+        if (command.audioRunOptions().codec() != null && !command.audioRunOptions().codec().isBlank()) {
             return true;
         }
         if (MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId).isEmpty()) {
@@ -999,7 +999,7 @@ final class MossTtsCliDiagnosticsHandler {
             System.err.println("Run once online: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
         }
-        if (command.disableTtsAutoCodec) {
+        if (command.audioRunOptions().disableAutoCodec()) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and automatic codec pull is disabled.");
             System.err.println("Pull it with: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
