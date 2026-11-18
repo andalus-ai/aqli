@@ -18,9 +18,9 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Mixin;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
+import tech.kayys.aqli.cli.spi.run.RunCapabilityRegistry;
 import tech.kayys.aqli.cli.AqliCommand;
 
 import tech.kayys.aqli.model.repo.local.ManifestStore;
@@ -96,7 +96,6 @@ import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
-import tech.kayys.aqli.cli.commands.text.TextRunCliOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
@@ -139,6 +138,14 @@ public class RunCommand implements Runnable {
     DirectInferenceEngine directInferenceEngine;
     @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
+
+    @Inject
+    RunCapabilityRegistry runCapabilityRegistry;
+
+    @picocli.CommandLine.Spec
+    private picocli.CommandLine.Model.CommandSpec commandSpec;
+
+    private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -187,9 +194,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
     boolean stream;
-
-    @Mixin
-    TextRunCliOptions textOptions = new TextRunCliOptions();
 
     @Option(names = { "--json" }, description = "Enable JSON output mode", defaultValue = "false")
     boolean jsonMode;
@@ -530,6 +534,13 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        textRunOptions = runCapabilityRegistry.snapshot(
+                "text",
+                commandSpec.commandLine().getParseResult(),
+                tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
         if (onlyText) {
             noBanner = true;
             noInfo = true;
@@ -1134,17 +1145,17 @@ public class RunCommand implements Runnable {
                     new RunInferenceRequestFactory.Options(
                             requestModelTarget,
                             prompt,
-                            textOptions.temperature,
-                            textOptions.topP,
-                            textOptions.topK,
-                            textOptions.repeatPenalty,
+                            textRunOptions.temperature(),
+                            textRunOptions.topP(),
+                            textRunOptions.topK(),
+                            textRunOptions.repeatPenalty(),
                             jsonMode,
-                            textOptions.maxTokens,
+                            textRunOptions.maxTokens(),
                             pluginId,
                             effectiveStream,
                             sessionId,
-                            textOptions.mirostat,
-                            textOptions.grammar,
+                            textRunOptions.mirostat(),
+                            textRunOptions.grammar(),
                             noCache));
 
             ModelSourceRunRequestParameterMapper.apply(
@@ -1153,7 +1164,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, textOptions.snapshot(jsonMode));
+            TextRunRequestParameterMapper.apply(requestBuilder, textRunOptions);
 
             RuntimeExecutionRunRequestParameterMapper.apply(
                     requestBuilder,
@@ -1257,7 +1268,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            textOptions.snapshot(jsonMode),
+                            textRunOptions,
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
@@ -2128,7 +2139,7 @@ public class RunCommand implements Runnable {
                 checkpointPath,
                 checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
-                textOptions.grammar,
+                textRunOptions.grammar(),
                 prompt,
                 directInferenceEngine() != null);
     }
@@ -2421,7 +2432,7 @@ public class RunCommand implements Runnable {
 
     String[] buildStandaloneLiteRtRunArgs(String localPath) {
         return LiteRtStandaloneRunArguments.toArgs(
-                localPath, prompt, textOptions.maxTokens, textOptions.temperature, textOptions.topK, textOptions.topP);
+                localPath, prompt, textRunOptions.maxTokens(), textRunOptions.temperature(), textRunOptions.topK(), textRunOptions.topP());
     }
 
     private boolean tryStandaloneLiteRtRun(String localPath) {
@@ -2542,13 +2553,13 @@ public class RunCommand implements Runnable {
             args.add(prompt);
         }
         args.add("--max-tokens");
-        args.add(Integer.toString(textOptions.maxTokens));
+        args.add(Integer.toString(textRunOptions.maxTokens()));
         args.add("--temperature");
-        args.add(Double.toString(textOptions.temperature));
+        args.add(Double.toString(textRunOptions.temperature()));
         args.add("--top-k");
-        args.add(Integer.toString(textOptions.topK));
+        args.add(Integer.toString(textRunOptions.topK()));
         args.add("--top-p");
-        args.add(Double.toString(textOptions.topP));
+        args.add(Double.toString(textRunOptions.topP()));
 
         String engine = requestedGgufEngine();
         if (engine != null && !engine.isBlank()) {
@@ -2602,7 +2613,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSimpleStandaloneTextRun() {
         return isBlank(systemPrompt)
-                && isBlank(textOptions.grammar)
+                && isBlank(textRunOptions.grammar())
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
@@ -2690,7 +2701,7 @@ public class RunCommand implements Runnable {
         if (sessionId != null && !sessionId.isBlank()) {
             return "--session is not supported by the direct engine";
         }
-        if (textOptions.grammar != null && !textOptions.grammar.isBlank()) {
+        if (textRunOptions.grammar() != null && !textRunOptions.grammar().isBlank()) {
             return "--grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
