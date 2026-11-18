@@ -172,7 +172,7 @@ class TextGenerationRequestMapperTest {
         assertEquals(1, mapped.getParameters().get("rag_sources") instanceof List<?> values ? values.size() : 0);
         assertEquals(true, mapped.getMetadata().get("rag_context_injected"));
         assertEquals(1, mapped.getMetadata().get("rag_context_items"));
-        assertEquals(Message.Role.SYSTEM, mapped.getMessages().get(1).getRole());
-        assertTrue(mapped.getMessages().get(1).getContent().contains("AQLI exposes a transport-neutral"));
+        assertEquals(Message.Role.SYSTEM, mapped.getMessages().get(0).getRole());
+        assertTrue(mapped.getMessages().get(0).getContent().contains("AQLI exposes a transport-neutral"));
     }
 }
