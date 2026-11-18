@@ -827,8 +827,16 @@ public class RunCommand implements Runnable {
                         modelId, finalLocalPath, quantizeStrategy, false);
             }
 
-            ProviderLocalPathResolution providerLocalPathResolution =
-                    resolveProviderSpecificLocalPath(providerId, modelId, finalLocalPath);
+            ProviderLocalPathResolver.Result providerLocalPathResolution =
+                    ProviderLocalPathResolver.resolve(
+                            sdk,
+                            providerId,
+                            modelId,
+                            finalLocalPath,
+                            this::isSafetensorCheckpointDir,
+                            this::isSafetensorWeightFile,
+                            System.out::println,
+                            System.err::println);
             if (!providerLocalPathResolution.ok()) {
                 return;
             }
@@ -2881,74 +2889,6 @@ public class RunCommand implements Runnable {
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private String extractModelPath(ModelInfo modelInfo) {
-        if (modelInfo == null || modelInfo.getMetadata() == null) {
-            return null;
-        }
-        Object value = modelInfo.getMetadata().get("path");
-        return value != null ? value.toString() : null;
-    }
-
-    private ProviderLocalPathResolution resolveProviderSpecificLocalPath(
-            String currentProvider,
-            String requestedModelId,
-            String localPath) {
-        if (localPath == null || localPath.isBlank() || currentProvider == null || currentProvider.isBlank()) {
-            return new ProviderLocalPathResolution(true, localPath);
-        }
-
-        String normalizedProvider = normalizeRequestedProvider(currentProvider);
-        if (!"libtorch".equals(normalizedProvider)) {
-            return new ProviderLocalPathResolution(true, localPath);
-        }
-
-        try {
-            Path originalPath = Path.of(localPath).toAbsolutePath().normalize();
-            Optional<Path> directArtifact = ProviderArtifactResolver.resolveLibtorchArtifact(originalPath);
-            if (directArtifact.isPresent()) {
-                Path resolved = directArtifact.get().toAbsolutePath().normalize();
-                if (!resolved.equals(originalPath)) {
-                    System.out.println("Provider 'libtorch' selected; using local TorchScript artifact: " + resolved);
-                }
-                return new ProviderLocalPathResolution(true, resolved.toString());
-            }
-        } catch (Exception ignored) {
-            // Fall through to registry-based lookup and explicit compatibility hint.
-        }
-
-        Optional<Path> alternative;
-        try {
-            alternative = ProviderArtifactResolver.findLibtorchArtifact(
-                    sdk.listModels().stream()
-                            .map(model -> new ProviderArtifactResolver.Artifact(
-                                    model.getModelId(),
-                                    model.getShortId(),
-                                    extractModelPath(model),
-                                    model.getFormat()))
-                            .toList(),
-                    requestedModelId,
-                    localPath);
-        } catch (Exception ignored) {
-            alternative = Optional.empty();
-        }
-        if (alternative.isPresent()) {
-            Path artifactPath = alternative.get().toAbsolutePath().normalize();
-            System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
-                    + artifactPath);
-            return new ProviderLocalPathResolution(true, artifactPath.toString());
-        }
-
-        if (isSafetensorCheckpointDir(localPath) || isSafetensorWeightFile(localPath)) {
-            System.out.println("Provider 'libtorch' selected; using safetensor bridge mode for this checkpoint.");
-            return new ProviderLocalPathResolution(true, localPath);
-        }
-
-        System.err.println("Error: Provider 'libtorch' currently needs a runnable TorchScript-style artifact "
-                + "(.pt, .pts, .pth, .bin).");
-        System.err.println("Resolved local path: " + localPath);
-        return new ProviderLocalPathResolution(false, localPath);
     }
 
     private boolean isSafetensorWeightFile(String localPath) {
