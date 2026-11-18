@@ -25,6 +25,27 @@ public final class GrpcInferenceRequestMapper {
         this.chatService = chatService;
     }
 
+
+    /**
+     * Converts the gRPC chat payload into the canonical public SDK request.
+     * Protobuf fields are translated here; defaults and request semantics are
+     * applied by the shared chat service.
+     */
+    public tech.kayys.aqli.sdk.capability.text.TextGenerationRequest toTextGenerationRequest(
+            ChatRequest request) {
+        List<tech.kayys.aqli.spi.Message> messages = request.getMessagesList().stream()
+                .map(message -> new tech.kayys.aqli.spi.Message(
+                        tech.kayys.aqli.spi.Message.Role.valueOf(message.getRole().toUpperCase(Locale.ROOT)),
+                        message.getContent()))
+                .toList();
+        return chatService.createTextGenerationRequest(
+                request.getModelId(),
+                null,
+                messages,
+                List.of(),
+                ChatParams.of(request.getTemperature(), request.getMaxTokens()));
+    }
+
     public InferenceRequest toChatRequest(ChatRequest request, boolean streaming) {
         List<tech.kayys.aqli.spi.Message> messages = request.getMessagesList().stream()
                 .map(message -> new tech.kayys.aqli.spi.Message(
