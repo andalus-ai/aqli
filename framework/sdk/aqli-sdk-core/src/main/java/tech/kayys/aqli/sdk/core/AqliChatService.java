@@ -5,6 +5,7 @@ import io.smallrye.mutiny.Uni;
 import tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationParameters;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationToolDefinition;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
@@ -107,6 +108,69 @@ public final class AqliChatService {
                     obs.getAuditLogger().logClientRequestFailure(
                             requestId, modelId, error.getClass().getSimpleName());
                 });
+    }
+
+
+    /**
+     * Streams the canonical typed text capability while retaining the legacy
+     * StreamingInferenceChunk shape consumed by existing REST and gRPC clients.
+     *
+     * <p>The JDK Flow publisher is adapted in the Flow-to-Reactive-Streams
+     * direction. Mutiny owns the downstream subscription, so cancellation is
+     * propagated to the SDK publisher when the transport cancels.</p>
+     */
+    public Multi<StreamingInferenceChunk> streamText(
+            AqliRuntime sdk,
+            TextGenerationRequest request) {
+        String requestId = UUID.randomUUID().toString();
+        String modelId = request.model();
+        obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+        long startMs = System.currentTimeMillis();
+
+        org.reactivestreams.Publisher<TextGenerationChunk> publisher =
+                org.reactivestreams.FlowAdapters.toPublisher(sdk.streamText(request));
+
+        return Multi.createFrom().publisher(publisher)
+                .map(AqliChatService::toStreamingInferenceChunk)
+                .onItem().invoke(chunk -> {
+                    obs.getMetricsCollector().recordClientChunk(modelId);
+                    if (chunk.delta() != null && !chunk.delta().isEmpty()) {
+                        obs.getMetricsCollector().recordClientTtft(
+                                modelId, System.currentTimeMillis() - startMs);
+                    }
+                })
+                .onCompletion().invoke(() -> {
+                    long duration = System.currentTimeMillis() - startMs;
+                    obs.getAuditLogger().logClientRequestComplete(requestId, modelId, 0, duration);
+                })
+                .onFailure().invoke(error -> {
+                    obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
+                    obs.getAuditLogger().logClientRequestFailure(
+                            requestId, modelId, error.getClass().getSimpleName());
+                });
+    }
+
+    private static StreamingInferenceChunk toStreamingInferenceChunk(TextGenerationChunk chunk) {
+        TextGenerationChunk.Usage sourceUsage = chunk.usage();
+        StreamingInferenceChunk.ChunkUsage usage = sourceUsage == null ? null
+                : new StreamingInferenceChunk.ChunkUsage(
+                        sourceUsage.inputTokens(), sourceUsage.outputTokens(), sourceUsage.latencyMs());
+        String finishReason = chunk.finishReason() == null ? null
+                : chunk.finishReason().name().toLowerCase(java.util.Locale.ROOT);
+        return new StreamingInferenceChunk(
+                chunk.requestId(),
+                Math.toIntExact(chunk.sequence()),
+                tech.kayys.aljabr.spi.model.ModalityType.TEXT,
+                chunk.delta(),
+                null,
+                chunk.terminal(),
+                finishReason,
+                usage,
+                chunk.emittedAt(),
+                chunk.metadata(),
+                chunk.toolCallId(),
+                chunk.toolName(),
+                chunk.toolInputDelta());
     }
 
     public Multi<StreamingInferenceChunk> streamChat(
