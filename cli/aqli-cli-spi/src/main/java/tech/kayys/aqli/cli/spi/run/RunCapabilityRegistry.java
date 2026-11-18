@@ -53,5 +53,32 @@ public interface RunCapabilityRegistry {
      * contribute an options snapshot. A requested type that differs from the
      * contributor's declared type is rejected rather than coerced.</p>
      */
-    <T> Optional<T> snapshot(String capabilityId, ParseResult parseResult, Class<T> optionsType);
+    default <T> Optional<T> snapshot(String capabilityId, ParseResult parseResult, Class<T> optionsType) {
+        java.util.Objects.requireNonNull(parseResult, "parseResult");
+        java.util.Objects.requireNonNull(optionsType, "optionsType");
+
+        RunCapability capability = find(capabilityId).orElse(null);
+        if (!(capability instanceof RunCapabilityOptions<?> contributor)) {
+            return Optional.empty();
+        }
+
+        Class<?> declaredType = java.util.Objects.requireNonNull(
+                contributor.optionsType(),
+                "Run capability '" + capabilityId + "' returned a null options type");
+        if (!declaredType.equals(optionsType)) {
+            throw new IllegalArgumentException("Run capability '" + capabilityId
+                    + "' contributes options of type " + declaredType.getName()
+                    + ", not " + optionsType.getName());
+        }
+
+        Object value = java.util.Objects.requireNonNull(
+                contributor.snapshot(parseResult),
+                "Run capability '" + capabilityId + "' returned a null options snapshot");
+        if (!declaredType.isInstance(value)) {
+            throw new IllegalStateException("Run capability '" + capabilityId
+                    + "' returned an options snapshot that is not an instance of "
+                    + declaredType.getName());
+        }
+        return Optional.of(optionsType.cast(value));
+    }
 }
