@@ -2865,7 +2865,7 @@ public class RunCommand implements Runnable {
                 metadata,
                 audioResponse);
         int outputTokens = response.getOutputTokens() > 0 ? response.getOutputTokens() : response.getTokensUsed();
-        recordRouteBenchmarkProfile(
+        RouteBenchmarkProfileCoordinator.record(
                 response.getModel(),
                 response.getModel(),
                 metadata,
