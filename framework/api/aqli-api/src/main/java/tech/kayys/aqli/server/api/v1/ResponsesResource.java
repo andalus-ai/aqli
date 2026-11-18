@@ -30,9 +30,16 @@ import tech.kayys.aljabr.spi.model.ModalityType;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Serves AQLI's Responses API endpoint.
+ *
+ * <p>The resource uses neutral AQLI naming while accepting and emitting the
+ * OpenAI Responses-compatible wire contract. Protocol compatibility is
+ * documented at this transport boundary rather than encoded in Java type names.</p>
+ */
 @Path("/v1/responses")
-@Tag(name = "Agentic AI", description = "OpenAI-compatible serving endpoints for agent integrations")
-public class OpenAiResponsesResource {
+@Tag(name = "Responses API", description = "AQLI Responses endpoint with OpenAI Responses API compatibility")
+public class ResponsesResource {
 
     @Inject
     SdkProvider sdkProvider;
@@ -42,8 +49,8 @@ public class OpenAiResponsesResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(
             operationId = "createResponse",
-            summary = "Create an OpenAI Responses-compatible response",
-            description = "Accepts Responses-style input, instructions, tools, function-call loop items, "
+            summary = "Create a Responses API response",
+            description = "Accepts the OpenAI Responses-compatible input shape, instructions, tools, function-call loop items, "
                     + "and caller-supplied RAG context.")
     @RequestBody(content = @Content(
             mediaType = MediaType.APPLICATION_JSON,
@@ -82,8 +89,8 @@ public class OpenAiResponsesResource {
     @RestStreamElementType(MediaType.TEXT_PLAIN)
     @Operation(
             operationId = "streamResponse",
-            summary = "Stream an OpenAI Responses-compatible response",
-            description = "Streams response lifecycle and output text events as server-sent events.")
+            summary = "Stream a Responses API response",
+            description = "Streams the OpenAI Responses-compatible lifecycle and output events as server-sent events.")
     @RequestBody(content = @Content(
             mediaType = MediaType.APPLICATION_JSON,
             examples = @ExampleObject(name = "agentic-response-stream", value = AgentOpenApiExamples.RESPONSES_STREAM_REQUEST)))
@@ -99,13 +106,13 @@ public class OpenAiResponsesResource {
         try {
             TextGenerationRequest request = AgenticApiMapper.toResponsesTextGenerationRequest(
                     payload, AgenticApiMapper.apiKey(headers), trace);
-            return openAiResponseStream(request, trace, streamOptions);
+            return responsesEventStream(request, trace, streamOptions);
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw AgentErrorMapper.badRequestException(e, trace);
         }
     }
 
-    private Multi<String> openAiResponseStream(
+    private Multi<String> responsesEventStream(
             TextGenerationRequest request, AgentTraceContext trace, AgentStreamOptions streamOptions) {
         String requestId = request.requestId() != null ? request.requestId() : trace.requestId();
         InferenceRequest eventRequest = InferenceRequest.builder()
