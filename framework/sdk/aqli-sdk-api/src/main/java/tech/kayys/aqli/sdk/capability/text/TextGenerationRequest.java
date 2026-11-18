@@ -1,19 +1,23 @@
 package tech.kayys.aqli.sdk.capability.text;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
-/**
- * Transport-neutral request for text generation.
- *
- * <p>The public text contract owns its message, tool and parameter values.
- * It does not expose execution SPI objects or transport DTOs.</p>
- */
+/** Transport-neutral text generation request. */
 public record TextGenerationRequest(
         String model,
         List<TextGenerationMessage> messages,
         TextGenerationParameters parameters,
-        List<TextGenerationToolDefinition> tools) {
+        List<TextGenerationToolDefinition> tools,
+        Object toolChoice,
+        Map<String, Object> metadata,
+        String requestId,
+        String userId,
+        String sessionId,
+        String traceId) {
 
     public TextGenerationRequest {
         if (model == null || model.isBlank()) {
@@ -32,12 +36,21 @@ public record TextGenerationRequest(
         if (tools.stream().anyMatch(Objects::isNull)) {
             throw new IllegalArgumentException("tools must not contain null entries");
         }
+        metadata = metadata == null
+                ? Map.of()
+                : Collections.unmodifiableMap(new HashMap<>(metadata));
     }
 
+    /** Source-compatible constructor for requests with tools but no agentic context. */
     public TextGenerationRequest(
             String model,
             List<TextGenerationMessage> messages,
-            TextGenerationParameters parameters) {
+            TextGenerationParameters parameters,
+            List<TextGenerationToolDefinition> tools) {
+        this(model, messages, parameters, tools, null, Map.of(), null, null, null, null);
+    }
+
+    public TextGenerationRequest(String model, List<TextGenerationMessage> messages, TextGenerationParameters parameters) {
         this(model, messages, parameters, List.of());
     }
 
