@@ -19,8 +19,12 @@ import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import tech.kayys.aqli.server.SdkProvider;
-import tech.kayys.aqli.spi.inference.InferenceRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
+import tech.kayys.aqli.spi.inference.StreamingInferenceChunk;
+import tech.kayys.aljabr.spi.model.ModalityType;
 
 @Path("/v1/chat/completions")
 @Tag(name = "Chat Completions", description = "OpenAI-compatible chat completion API for agent integrations")
@@ -49,20 +53,21 @@ public class ChatCompletionsResource {
     public Response createChatCompletion(@Context HttpHeaders headers, JsonNode payload) {
         AgentTraceContext trace = AgentTraceContext.from(headers, payload);
         try {
-            InferenceRequest request = AgenticApiMapper.toInferenceRequest(
+            TextGenerationRequest request = AgenticApiMapper.toTextGenerationRequest(
                     payload,
                     AgenticApiMapper.apiKey(headers),
                     trace);
-            if (request.isStreaming()) {
+            if (payload.path("stream").asBoolean(false)) {
                 return AgentErrorMapper.badRequest(
                         "Streaming chat completions require Accept: text/event-stream.",
                         AgentErrorMapper.UNSUPPORTED_STREAMING_ACCEPT,
                         trace);
             }
 
-            InferenceResponse response = sdkProvider.getSdk().createCompletion(request);
+            TextGenerationResponse generated = sdkProvider.getSdk().generateText(request);
+            InferenceResponse response = toInferenceResponse(generated, request);
             return trace.applyHeaders(Response.ok(
-                    AgenticApiMapper.toOpenAiChatResponse(response, request.getModel(), trace))).build();
+                    AgenticApiMapper.toOpenAiChatResponse(response, request.model(), trace))).build();
         } catch (IllegalArgumentException e) {
             return AgentErrorMapper.badRequest(e, trace);
         } catch (Exception e) {
@@ -92,31 +97,57 @@ public class ChatCompletionsResource {
         AgentTraceContext trace = AgentTraceContext.from(headers, payload);
         AgentStreamOptions streamOptions = AgentStreamOptions.from(payload);
         try {
-            InferenceRequest request = AgenticApiMapper.toInferenceRequest(
+            TextGenerationRequest request = AgenticApiMapper.toTextGenerationRequest(
                     payload,
                     AgenticApiMapper.apiKey(headers),
-                    trace)
-                    .toBuilder()
-                    .streaming(true)
-                    .build();
+                    trace);
             return openAiStream(request, trace, streamOptions);
         } catch (IllegalArgumentException e) {
             throw AgentErrorMapper.badRequestException(e, trace);
         }
     }
 
-    private Multi<String> openAiStream(
-            InferenceRequest request, AgentTraceContext trace, AgentStreamOptions streamOptions) {
-        return sdkProvider.getSdk()
-                .streamCompletion(request)
+    private Multi<String> openAiStream(TextGenerationRequest request, AgentTraceContext trace, AgentStreamOptions streamOptions) {
+        return Multi.createFrom().publisher(sdkProvider.getSdk().streamText(request))
                 .map(chunk -> AgenticApiMapper.toOpenAiChatStreamJson(
-                        chunk,
-                        request.getModel(),
-                        trace,
-                        streamOptions))
+                        toStreamingInferenceChunk(chunk, request), request.model(), trace, streamOptions))
                 .onCompletion().continueWith("[DONE]")
                 .onFailure().recoverWithMulti(error -> Multi.createFrom().items(
-                        AgenticApiMapper.toOpenAiChatStreamErrorJson(error, trace),
-                        "[DONE]"));
+                        AgenticApiMapper.toOpenAiChatStreamErrorJson(error, trace), "[DONE]"));
+    }
+
+    private static InferenceResponse toInferenceResponse(TextGenerationResponse generated, TextGenerationRequest request) {
+        InferenceResponse.Builder builder = InferenceResponse.builder()
+                .requestId(request.requestId() != null ? request.requestId() : java.util.UUID.randomUUID().toString())
+                .content(generated.content())
+                .model(generated.model() != null ? generated.model() : request.model())
+                .inputTokens(generated.inputTokens())
+                .outputTokens(generated.outputTokens())
+                .tokensUsed(generated.totalTokens())
+                .durationMs(generated.durationMs())
+                .finishReason(switch (generated.finishReason()) {
+                    case LENGTH -> InferenceResponse.FinishReason.LENGTH;
+                    case TOOL_CALLS -> InferenceResponse.FinishReason.TOOL_CALLS;
+                    case ERROR -> InferenceResponse.FinishReason.ERROR;
+                    default -> InferenceResponse.FinishReason.STOP;
+                })
+                .metadata(request.metadata());
+        for (tech.kayys.aqli.spi.tool.ToolCall call : generated.toolCalls()) {
+            builder.toolCall(new InferenceResponse.ToolCall(call.getFunction().getName(), call.getArguments()));
+        }
+        return builder.build();
+    }
+
+    private static StreamingInferenceChunk toStreamingInferenceChunk(TextGenerationChunk chunk, TextGenerationRequest request) {
+        TextGenerationChunk.Usage sourceUsage = chunk.usage();
+        StreamingInferenceChunk.ChunkUsage usage = sourceUsage == null ? null
+                : new StreamingInferenceChunk.ChunkUsage(sourceUsage.inputTokens(), sourceUsage.outputTokens(), sourceUsage.latencyMs());
+        String finishReason = chunk.finishReason() == null ? null
+                : chunk.finishReason().name().toLowerCase(java.util.Locale.ROOT);
+        return new StreamingInferenceChunk(
+                chunk.requestId() != null ? chunk.requestId() : request.requestId(),
+                Math.toIntExact(chunk.sequence()), ModalityType.TEXT, chunk.delta(), null, chunk.terminal(),
+                finishReason, usage, chunk.emittedAt(), chunk.metadata(),
+                chunk.toolCallId(), chunk.toolName(), chunk.toolInputDelta());
     }
 }
