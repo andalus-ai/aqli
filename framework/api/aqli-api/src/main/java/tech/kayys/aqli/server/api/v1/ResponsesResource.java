@@ -112,7 +112,7 @@ public class ResponsesResource {
         }
     }
 
-    private Multi<String> openAiResponseStream(
+    private Multi<String> responsesEventStream(
             TextGenerationRequest request, AgentTraceContext trace, AgentStreamOptions streamOptions) {
         String requestId = request.requestId() != null ? request.requestId() : trace.requestId();
         InferenceRequest eventRequest = InferenceRequest.builder()
