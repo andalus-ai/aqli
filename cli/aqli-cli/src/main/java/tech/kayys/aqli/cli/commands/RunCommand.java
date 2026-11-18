@@ -772,6 +772,7 @@ public class RunCommand implements Runnable {
                 if (!shouldAllowRepositoryResolutionDuringRouteReport()) {
                     routeReportRepositoryResolutionSkipped = true;
                 } else {
+                    String preparationProviderId = providerId;
                     RunModelPreparationResolver.Result preparation =
                             RunModelPreparationResolver.resolve(
                                     new RunModelPreparationResolver.Options(
@@ -783,7 +784,7 @@ public class RunCommand implements Runnable {
                                             reference.modelId(), reference.preferredFormat()),
                                     this::inferProviderFromIndex,
                                     this::inferFormatFromIndex,
-                                    path -> detectSafetensorCompatibilityIssue(providerId, path),
+                                    path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                                                     reference, selectedProvider, isMcpProvider()),
