@@ -743,41 +743,29 @@ public class RunCommand implements Runnable {
             }
 
             if (!customModelPathUsed && modelId != null && !modelId.isBlank()) {
-                try {
-                    String preferredIndexFormat = ModelFormatResolver.preferredLocalIndexFormat(modelId, format, providerId);
-                    var indexed = LocalModelIndexResolver.findExactReference(
-                            modelId,
-                            preferredIndexFormat,
-                            (reference, lookupFormat) -> lookupFormat == null
-                                    ? LocalModelIndex.find(reference)
-                                    : LocalModelIndex.find(reference, lookupFormat));
-                    if (indexed.isPresent()) {
-                        var entry = indexed.get();
-                        if (!entry.enabled) {
-                            System.err.println("\n\u001B[31mError: Model '" + entry.id + "' is disabled.\u001B[0m");
-                            System.err.println("\u001B[33mUse 'aqli model enable " + entry.shortId + "' to enable it for inference.\u001B[0m\n");
-                            return;
-                        }
-                        if (entry.path != null && !entry.path.isBlank() && Files.exists(Path.of(entry.path))) {
-                            finalLocalPath = Path.of(entry.path).toAbsolutePath().toString();
-                            modelId = finalLocalPath;
-                            customModelPathUsed = true;
-                            if (!providerExplicit) {
-                                String inferred = inferProviderFromIndex(entry);
-                                if (inferred != null && !inferred.isBlank()) {
-                                    providerId = inferred;
-                                }
-                            }
-                            if (format == null || format.isBlank()) {
-                                format = inferFormatFromIndex(entry);
-                            }
-                            if (!quietRouteResolutionOutput() && !jsonMode && !ocrJsonOutput) {
-                                System.out.println("Resolved local model index entry: " + finalLocalPath);
-                            }
-                        }
-                    }
-                } catch (Exception indexLookupFailure) {
-                    // Fallback to normal SDK resolution flow.
+                LocalModelIndexInputResolver.Result indexedModel =
+                        LocalModelIndexInputResolver.resolve(
+                                new LocalModelIndexInputResolver.Options(
+                                        modelId,
+                                        format,
+                                        providerId,
+                                        providerExplicit,
+                                        quietRouteResolutionOutput(),
+                                        jsonMode,
+                                        ocrJsonOutput),
+                                this::inferProviderFromIndex,
+                                this::inferFormatFromIndex);
+                if (indexedModel.disabled()) {
+                    indexedModel.messages().forEach(System.err::println);
+                    return;
+                }
+                if (indexedModel.resolved()) {
+                    modelId = indexedModel.modelId();
+                    finalLocalPath = indexedModel.localPath();
+                    customModelPathUsed = true;
+                    providerId = indexedModel.providerId();
+                    format = indexedModel.format();
+                    indexedModel.messages().forEach(System.out::println);
                 }
             }
 
