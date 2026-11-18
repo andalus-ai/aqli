@@ -1761,13 +1761,8 @@ public class RunCommand implements Runnable {
     }
 
     private String routeExecutionProviderId(String provider, String localPath) {
-        if ("libtorch".equalsIgnoreCase(provider)
-                && localPath != null
-                && !localPath.isBlank()
-                && (isSafetensorCheckpointDir(localPath) || isSafetensorWeightFile(localPath))) {
-            return "safetensor";
-        }
-        return provider;
+        return RouteExecutionProviderResolver.resolve(
+                provider, localPath, this::isSafetensorCheckpointDir, this::isSafetensorWeightFile);
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
