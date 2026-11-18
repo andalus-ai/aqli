@@ -880,7 +880,7 @@ public class RunCommand implements Runnable {
                                 routeReportRequireLocal,
                                 !normalizedInputImages.isEmpty(),
                                 ocrMode,
-                                report -> applyCachedBenchmarkRouteProfile(
+                                report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
                 printJsonPayload(routeReportResult.payload());
                 requestProcessExit(routeReportResult.exitCode());
@@ -991,7 +991,7 @@ public class RunCommand implements Runnable {
             } else if (executionProviderId != null && !executionProviderId.isEmpty()) {
                 
             }
-            effectiveRunnerRouteReport = applyCachedBenchmarkRouteProfile(
+            effectiveRunnerRouteReport = RouteBenchmarkProfileCoordinator.applyCachedProfile(
                     effectiveRunnerRouteReport,
                     requestedModelRef,
                     modelId,
@@ -3122,35 +3122,6 @@ public class RunCommand implements Runnable {
 
     private Map<String, Object> effectiveExecutionRouteMetadata(Map<String, Object> responseMetadata) {
         return ExecutionRouteMetadata.effective(forcedExecutionRouteMetadata, responseMetadata);
-    }
-
-    private RunnerRouteReport applyCachedBenchmarkRouteProfile(
-            RunnerRouteReport report,
-            String requestedModel,
-            String effectiveModel,
-            String localPath) {
-        return RunnerRouteBenchmarkCache.profileFor(report, requestedModel, effectiveModel, localPath)
-                .map(report::withRouteProfile)
-                .orElse(report);
-    }
-
-    private void recordRouteBenchmarkProfile(
-            String model,
-            String localPath,
-            Map<String, Object> metadata,
-            int outputTokens,
-            long durationMs,
-            boolean audioOutput) {
-        if (audioOutput || isAudioMetadata(metadata)) {
-            return;
-        }
-        RunnerRouteBenchmarkCache.record(
-                model,
-                model,
-                localPath,
-                metadata,
-                outputTokens,
-                durationMs);
     }
 
     private void printQuantCacheInfo(Map<String, Object> metadata) {
