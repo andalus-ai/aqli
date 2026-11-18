@@ -21,7 +21,9 @@ class AudioRunCapabilityTest {
                 "--tts-voice", "en_female_1",
                 "--voice-language", "en",
                 "--voice-gender", "female",
+                "--tts-voice-search", "english female",
                 "--codec", "models/codec",
+                "--no-tts-auto-pull-codec",
                 "--tts-max-frames", "512",
                 "--max-seconds", "12.5",
                 "--tts-audio-format", "flac",
@@ -51,7 +53,9 @@ class AudioRunCapabilityTest {
         assertEquals("en_female_1", options.voice());
         assertEquals("en", options.voiceLanguage());
         assertEquals("female", options.voiceGender());
+        assertEquals("english female", options.voiceSearch());
         assertEquals("models/codec", options.codec());
+        assertTrue(options.disableAutoCodec());
         assertEquals(512, options.maxFrames());
         assertEquals(12.5, options.maxSeconds());
         assertEquals("flac", options.format());
@@ -87,6 +91,8 @@ class AudioRunCapabilityTest {
 
         assertNull(options.voice());
         assertNull(options.codec());
+        assertNull(options.voiceSearch());
+        assertFalse(options.disableAutoCodec());
         assertNull(options.maxFrames());
         assertNull(options.maxSeconds());
         assertNull(options.format());
