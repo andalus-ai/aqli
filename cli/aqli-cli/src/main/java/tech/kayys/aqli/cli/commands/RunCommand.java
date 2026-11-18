@@ -713,89 +713,32 @@ public class RunCommand implements Runnable {
                 if (!quietRouteResolutionOutput()) {
                     System.out.println("MCP provider selected; skipping local model lookup.");
                 }
-            } else if (modelFile != null && !modelFile.isBlank()) {
-                // --- Resolve from --modelFile ---
-                Path filePath = Paths.get(modelFile);
-                if (!Files.exists(filePath)) {
-                    System.err.println("Error: Model file not found: " + modelFile);
+            } else {
+                ExplicitModelInputResolver.Result explicitModelInput =
+                        ExplicitModelInputResolver.resolve(
+                                new ExplicitModelInputResolver.Options(
+                                        modelFile,
+                                        modelDir,
+                                        modelPath,
+                                        importModel,
+                                        copyModel,
+                                        providerExplicit,
+                                        providerId,
+                                        format),
+                                sdk);
+                if (!explicitModelInput.successful()) {
+                    System.err.println(explicitModelInput.error());
                     return;
                 }
-
-                if (importModel || copyModel) {
-                    var res = sdk.importModel(filePath, importModel);
-                    filePath = Paths.get(res.getLocalPath());
+                if (explicitModelInput.resolved()) {
+                    modelId = explicitModelInput.modelId();
+                    finalLocalPath = explicitModelInput.localPath();
+                    customModelPathUsed = true;
+                    providerId = explicitModelInput.providerId();
+                    format = explicitModelInput.format();
                     if (!quietRouteResolutionOutput()) {
-                        System.out.println((importModel ? "Imported" : "Copied") + " model to: " + filePath.toAbsolutePath());
+                        explicitModelInput.messages().forEach(System.out::println);
                     }
-                }
-
-                modelId = filePath.toAbsolutePath().toString();
-                finalLocalPath = modelId;
-                customModelPathUsed = true;
-
-                String inferredFormat = formatForLocalModelPath(filePath);
-                if ((format == null || format.isBlank()) && inferredFormat != null) {
-                    format = inferredFormat;
-                }
-                if (!providerExplicit && (providerId == null || providerId.isBlank())) {
-                    providerId = providerForFormat(inferredFormat);
-                }
-                if ("native".equals(providerId)) {
-                    if (modelFile.endsWith(".litertlm") || modelFile.endsWith(".tflite") || modelFile.endsWith(".task")) {
-                        providerId = "litert";
-                    }
-                }
-                if (!quietRouteResolutionOutput()) {
-                    System.out.println("Model path: " + filePath.toAbsolutePath());
-                }
-
-            } else if (modelDir != null && !modelDir.isBlank()) {
-                // --- Resolve from --modelDir ---
-                Path dirPath = Paths.get(modelDir);
-                if (!Files.isDirectory(dirPath)) {
-                    System.err.println("Error: Model directory not found: " + modelDir);
-                    return;
-                }
-
-                if (importModel || copyModel) {
-                    var res = sdk.importModel(dirPath, importModel);
-                    dirPath = Paths.get(res.getLocalPath());
-                    if (!quietRouteResolutionOutput()) {
-                        System.out.println((importModel ? "Imported" : "Copied") + " model to: " + dirPath.toAbsolutePath());
-                    }
-                }
-
-                modelId = dirPath.toAbsolutePath().toString();
-                finalLocalPath = modelId;
-                customModelPathUsed = true;
-                if (!providerExplicit) {
-                    providerId = providerForModelDirectory(dirPath);
-                }
-                if (format == null || format.isBlank()) {
-                    format = formatForModelDirectory(dirPath);
-                }
-                if (!quietRouteResolutionOutput()) {
-                    System.out.println("Model dir: " + dirPath.toAbsolutePath());
-                }
-
-            } else if (modelPath != null && !modelPath.isEmpty()) {
-                Path customModelPath = Paths.get(modelPath);
-                if (!Files.exists(customModelPath)) {
-                    System.err.println("Error: Model file not found: " + modelPath);
-                    return;
-                }
-                if (!quietRouteResolutionOutput()) {
-                    System.out.println("Using model from: " + customModelPath.toAbsolutePath());
-                }
-                modelId = customModelPath.toAbsolutePath().toString();
-                finalLocalPath = modelId;
-                customModelPathUsed = true;
-                String inferredFormat = formatForLocalModelPath(customModelPath);
-                if ((format == null || format.isBlank()) && inferredFormat != null) {
-                    format = inferredFormat;
-                }
-                if (!providerExplicit && (providerId == null || providerId.isBlank())) {
-                    providerId = providerForFormat(inferredFormat);
                 }
             }
 
@@ -2144,24 +2087,6 @@ public class RunCommand implements Runnable {
             // Treat non-path model references with the text checks above.
         }
         return false;
-    }
-
-    private String providerForModelDirectory(Path dirPath) {
-        String detectedFormat = formatForModelDirectory(dirPath);
-        String provider = providerForFormat(detectedFormat);
-        return provider != null ? provider : "safetensor";
-    }
-
-    private String formatForModelDirectory(Path dirPath) {
-        String detectedFormat = ManifestStore.detectFormat(dirPath);
-        if (detectedFormat == null || detectedFormat.isBlank() || "unknown".equalsIgnoreCase(detectedFormat)) {
-            return null;
-        }
-        return ModelFormatResolver.canonicalFormat(detectedFormat);
-    }
-
-    private String formatForLocalModelPath(Path modelPath) {
-        return ModelFormatResolver.formatForPath(modelPath);
     }
 
     private String stripHfPrefix(String value) {
