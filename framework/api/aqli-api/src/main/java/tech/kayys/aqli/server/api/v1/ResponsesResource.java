@@ -30,15 +30,15 @@ import tech.kayys.aljabr.spi.model.ModalityType;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Serves AQLI's Responses API endpoint.
+ *
+ * <p>The resource uses neutral AQLI naming while accepting and emitting the
+ * OpenAI Responses-compatible wire contract. Protocol compatibility is
+ * documented at this transport boundary rather than encoded in Java type names.</p>
+ */
 @Path("/v1/responses")
 @Tag(name = "Responses API", description = "AQLI Responses endpoint with OpenAI Responses API compatibility")
-/**
- * Serves the Responses API contract.
- *
- * <p>The HTTP resource uses neutral AQLI naming. Its request and response shape is
- * compatible with the OpenAI Responses API; that protocol compatibility belongs
- * to this transport boundary and its API documentation, not the Java type name.</p>
- */
 public class ResponsesResource {
 
     @Inject
@@ -123,7 +123,7 @@ public class ResponsesResource {
         Multi<String> body = Multi.createFrom().publisher(sdkProvider.getSdk().streamText(request))
                 .onItem().transformToMultiAndConcatenate(chunk -> {
                     StreamingInferenceChunk spiChunk = toStreamingChunk(chunk, requestId);
-                    if (!spiChunk.delta().isEmpty()) outputText.append(spiChunk.delta());
+                    if (spiChunk.delta() != null && !spiChunk.delta().isEmpty()) outputText.append(spiChunk.delta());
                     List<String> events = AgenticApiMapper.toOpenAiResponseStreamJson(
                             spiChunk, request.model(), outputText.toString(), trace, streamOptions);
                     return Multi.createFrom().items(events.toArray(String[]::new));
@@ -140,12 +140,14 @@ public class ResponsesResource {
 
     private static InferenceResponse toInferenceResponse(
             TextGenerationResponse generated, TextGenerationRequest request) {
-        InferenceResponse.FinishReason finishReason = switch (generated.finishReason()) {
-            case LENGTH -> InferenceResponse.FinishReason.LENGTH;
-            case TOOL_CALLS -> InferenceResponse.FinishReason.TOOL_CALLS;
-            case ERROR -> InferenceResponse.FinishReason.ERROR;
-            default -> InferenceResponse.FinishReason.STOP;
-        };
+        InferenceResponse.FinishReason finishReason = generated.finishReason() == null
+                ? InferenceResponse.FinishReason.STOP
+                : switch (generated.finishReason()) {
+                    case LENGTH -> InferenceResponse.FinishReason.LENGTH;
+                    case TOOL_CALLS -> InferenceResponse.FinishReason.TOOL_CALLS;
+                    case ERROR -> InferenceResponse.FinishReason.ERROR;
+                    default -> InferenceResponse.FinishReason.STOP;
+                };
         InferenceResponse.Builder response = InferenceResponse.builder()
                 .requestId(request.requestId() != null ? request.requestId() : java.util.UUID.randomUUID().toString())
                 .content(generated.content())
@@ -157,8 +159,10 @@ public class ResponsesResource {
                 .finishReason(finishReason)
                 .sessionId(request.sessionId())
                 .metadata(Map.of());
-        generated.toolCalls().forEach(call -> response.toolCall(
-                new InferenceResponse.ToolCall(call.getFunction().getName(), call.getArguments())));
+        if (generated.toolCalls() != null) {
+            generated.toolCalls().forEach(call -> response.toolCall(
+                    new InferenceResponse.ToolCall(call.getFunction().getName(), call.getArguments())));
+        }
         return response.build();
     }
 
@@ -176,7 +180,7 @@ public class ResponsesResource {
                 requestId,
                 Math.toIntExact(chunk.sequence()),
                 ModalityType.TEXT,
-                chunk.delta(),
+                chunk.delta() == null ? "" : chunk.delta(),
                 null,
                 chunk.terminal(),
                 finishReason,
