@@ -21,6 +21,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Parameters;
+import tech.kayys.aqli.cli.spi.run.RunCapabilityRegistry;
 import tech.kayys.aqli.cli.AqliCommand;
 
 import tech.kayys.aqli.model.repo.local.ManifestStore;
@@ -139,6 +140,14 @@ public class RunCommand implements Runnable {
     DirectInferenceEngine directInferenceEngine;
     @Inject
     Instance<MossTtsOnnxRunner> mossTtsWarmupRunner;
+
+    @Inject
+    RunCapabilityRegistry runCapabilityRegistry;
+
+    @picocli.CommandLine.Spec
+    private picocli.CommandLine.Model.CommandSpec commandSpec;
+
+    private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -530,6 +539,13 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        textRunOptions = runCapabilityRegistry.snapshot(
+                "text",
+                commandSpec.commandLine().getParseResult(),
+                tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
         if (onlyText) {
             noBanner = true;
             noInfo = true;
@@ -1134,17 +1150,17 @@ public class RunCommand implements Runnable {
                     new RunInferenceRequestFactory.Options(
                             requestModelTarget,
                             prompt,
-                            textOptions.temperature,
-                            textOptions.topP,
-                            textOptions.topK,
-                            textOptions.repeatPenalty,
+                            textRunOptions.temperature(),
+                            textRunOptions.topP(),
+                            textRunOptions.topK(),
+                            textRunOptions.repeatPenalty(),
                             jsonMode,
-                            textOptions.maxTokens,
+                            textRunOptions.maxTokens(),
                             pluginId,
                             effectiveStream,
                             sessionId,
-                            textOptions.mirostat,
-                            textOptions.grammar,
+                            textRunOptions.mirostat(),
+                            textRunOptions.grammar(),
                             noCache));
 
             ModelSourceRunRequestParameterMapper.apply(
@@ -1153,7 +1169,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, textOptions.snapshot(jsonMode));
+            TextRunRequestParameterMapper.apply(requestBuilder, textRunOptions);
 
             RuntimeExecutionRunRequestParameterMapper.apply(
                     requestBuilder,
