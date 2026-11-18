@@ -37,7 +37,6 @@ import tech.kayys.aqli.sdk.model.ModelResolver;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
-import tech.kayys.aljabr.spi.model.ModelInfo;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
 import tech.kayys.aqli.sdk.model.PullProgress;
@@ -826,111 +825,39 @@ public class RunCommand implements Runnable {
                         modelId, finalLocalPath, quantizeStrategy, false);
             }
 
-            ProviderLocalPathResolution providerLocalPathResolution =
-                    resolveProviderSpecificLocalPath(providerId, modelId, finalLocalPath);
+            ProviderLocalPathResolver.Result providerLocalPathResolution =
+                    ProviderLocalPathResolver.resolve(
+                            sdk,
+                            providerId,
+                            modelId,
+                            finalLocalPath,
+                            this::isSafetensorCheckpointDir,
+                            this::isSafetensorWeightFile,
+                            System.out::println,
+                            System.err::println);
             if (!providerLocalPathResolution.ok()) {
                 return;
             }
             finalLocalPath = providerLocalPathResolution.localPath();
             CliLocalModelResolver localModelResolver = new CliLocalModelResolver();
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection gemma3Selection =
-                    DirectSafetensorRoutePolicy.selectGemma3AlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isProviderActive);
-            if (!quietRouteResolutionOutput() && gemma3Selection.hasNotice()) {
-                System.out.println(gemma3Selection.notice());
+            AlternateRuntimeSelectionCoordinator.Result alternateRuntimeSelection =
+                    AlternateRuntimeSelectionCoordinator.select(
+                            new AlternateRuntimeSelectionCoordinator.Options(
+                                    providerId, modelId, finalLocalPath, format,
+                                    providerExplicit, preferAlternateRuntime, runnerRouteReport),
+                            localModelResolver,
+                            this::isProviderActive,
+                            this::isRuntimeRouteActive);
+            if (!quietRouteResolutionOutput()) {
+                alternateRuntimeSelection.notices().forEach(System.out::println);
             }
-            if (gemma3Selection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = gemma3Selection.provider();
-                finalLocalPath = gemma3Selection.localPath();
-                format = gemma3Selection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        gemma3Selection.reason(),
-                        gemma3Selection.cacheHit(),
-                        gemma3Selection.cacheKind());
-                if ("gguf".equalsIgnoreCase(format)) {
-                    modelId = finalLocalPath;
-                }
-            }
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection gemma4MobileQatSelection =
-                    DirectSafetensorRoutePolicy.selectGemma4MobileQatAlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive,
-                            localModelResolver::resolveLiteRtModel);
-            if (!quietRouteResolutionOutput() && gemma4MobileQatSelection.hasNotice()) {
-                System.out.println(gemma4MobileQatSelection.notice());
-            }
-            if (gemma4MobileQatSelection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = gemma4MobileQatSelection.provider();
-                finalLocalPath = gemma4MobileQatSelection.localPath();
-                format = gemma4MobileQatSelection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        gemma4MobileQatSelection.reason(),
-                        gemma4MobileQatSelection.cacheHit(),
-                        gemma4MobileQatSelection.cacheKind());
-            }
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection nativeBf16MatvecSelection =
-                    DirectSafetensorRoutePolicy.selectGemma4TextAlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive,
-                            localModelResolver);
-            if (!quietRouteResolutionOutput() && nativeBf16MatvecSelection.hasNotice()) {
-                System.out.println(nativeBf16MatvecSelection.notice());
-            }
-            if (nativeBf16MatvecSelection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = nativeBf16MatvecSelection.provider();
-                finalLocalPath = nativeBf16MatvecSelection.localPath();
-                modelId = finalLocalPath;
-                format = nativeBf16MatvecSelection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        nativeBf16MatvecSelection.reason(),
-                        nativeBf16MatvecSelection.cacheHit(),
-                        nativeBf16MatvecSelection.cacheKind());
-            }
-            DirectSafetensorRoutePolicy.AlternateRuntimeSelection communityTextGgufSelection =
-                    DirectSafetensorRoutePolicy.selectCommunityTextGgufAlternateRuntime(
-                            providerId, modelId, finalLocalPath, providerExplicit,
-                            preferAlternateRuntime, this::isRuntimeRouteActive,
-                            localModelResolver);
-            if (!quietRouteResolutionOutput() && communityTextGgufSelection.hasNotice()) {
-                System.out.println(communityTextGgufSelection.notice());
-            }
-            if (communityTextGgufSelection.selected()) {
-                String previousProviderId = providerId;
-                String previousFormat = format;
-                providerId = communityTextGgufSelection.provider();
-                finalLocalPath = communityTextGgufSelection.localPath();
-                modelId = finalLocalPath;
-                format = communityTextGgufSelection.format();
-                runnerRouteReport = runnerRouteReport.withRuntimeRedirect(
-                        previousProviderId,
-                        previousFormat,
-                        providerId,
-                        format,
-                        communityTextGgufSelection.reason(),
-                        communityTextGgufSelection.cacheHit(),
-                        communityTextGgufSelection.cacheKind());
-            }
+            providerId = alternateRuntimeSelection.providerId();
+            modelId = alternateRuntimeSelection.modelId();
+            finalLocalPath = alternateRuntimeSelection.localPath();
+            format = alternateRuntimeSelection.format();
+            runnerRouteReport = alternateRuntimeSelection.routeReport();
             DirectSafetensorRoutePolicy.RouteValidation gemma3RouteValidation =
-                    DirectSafetensorRoutePolicy.validateGemma3ExecutionRoute(providerId, modelId, finalLocalPath);
+                    RunRouteValidationCoordinator.validateExecutionRoute(providerId, modelId, finalLocalPath);
             if (!gemma3RouteValidation.allowed()) {
                 gemma3RouteValidation.messages().forEach(System.err::println);
                 return;
@@ -938,44 +865,24 @@ public class RunCommand implements Runnable {
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
             if (routeReportJson) {
-                String routeExecutionProviderId = routeExecutionProviderId(providerId, finalLocalPath);
-                RunnerRouteReport effectiveRouteReport =
-                        runnerRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                if (effectiveDirect(finalLocalPath)) {
-                    routeExecutionProviderId = "safetensor";
-                    effectiveRouteReport = effectiveRouteReport.withEffectiveRoute(routeExecutionProviderId, format);
-                }
-                effectiveRouteReport = applyCachedBenchmarkRouteProfile(
-                        effectiveRouteReport,
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath);
-                RoutePreflightReport routePreflight = RoutePreflightReport.evaluate(
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath,
-                        routeExecutionProviderId,
-                        format,
-                        routeReportAllowPull,
-                        routeReportRequireLocal);
-                routePreflight = DirectSafetensorRoutePreflight.applyGemma4UnifiedValidation(
-                        routePreflight,
-                        routeExecutionProviderId,
-                        modelId,
-                        finalLocalPath,
-                        !normalizedInputImages.isEmpty(),
-                        ocrMode);
-                printJsonPayload(RouteReportPayloads.routeReportPayload(
-                        effectiveRouteReport,
-                        requestedModelRef,
-                        modelId,
-                        finalLocalPath,
-                        routeExecutionProviderId,
-                        format,
-                        routeReportAllowPull,
-                        routeReportRepositoryResolutionSkipped,
-                        routePreflight));
-                requestProcessExit(routePreflight.exitCode());
+                RunRouteValidationCoordinator.RouteReportResult routeReportResult =
+                        RunRouteValidationCoordinator.prepareRouteReport(
+                                runnerRouteReport,
+                                requestedModelRef,
+                                modelId,
+                                finalLocalPath,
+                                routeExecutionProviderId(providerId, finalLocalPath),
+                                format,
+                                effectiveDirect(finalLocalPath),
+                                routeReportAllowPull,
+                                routeReportRepositoryResolutionSkipped,
+                                routeReportRequireLocal,
+                                !normalizedInputImages.isEmpty(),
+                                ocrMode,
+                                report -> applyCachedBenchmarkRouteProfile(
+                                        report, requestedModelRef, modelId, finalLocalPath));
+                printJsonPayload(routeReportResult.payload());
+                requestProcessExit(routeReportResult.exitCode());
                 return;
             }
 
@@ -2957,74 +2864,6 @@ public class RunCommand implements Runnable {
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private String extractModelPath(ModelInfo modelInfo) {
-        if (modelInfo == null || modelInfo.getMetadata() == null) {
-            return null;
-        }
-        Object value = modelInfo.getMetadata().get("path");
-        return value != null ? value.toString() : null;
-    }
-
-    private ProviderLocalPathResolution resolveProviderSpecificLocalPath(
-            String currentProvider,
-            String requestedModelId,
-            String localPath) {
-        if (localPath == null || localPath.isBlank() || currentProvider == null || currentProvider.isBlank()) {
-            return new ProviderLocalPathResolution(true, localPath);
-        }
-
-        String normalizedProvider = normalizeRequestedProvider(currentProvider);
-        if (!"libtorch".equals(normalizedProvider)) {
-            return new ProviderLocalPathResolution(true, localPath);
-        }
-
-        try {
-            Path originalPath = Path.of(localPath).toAbsolutePath().normalize();
-            Optional<Path> directArtifact = ProviderArtifactResolver.resolveLibtorchArtifact(originalPath);
-            if (directArtifact.isPresent()) {
-                Path resolved = directArtifact.get().toAbsolutePath().normalize();
-                if (!resolved.equals(originalPath)) {
-                    System.out.println("Provider 'libtorch' selected; using local TorchScript artifact: " + resolved);
-                }
-                return new ProviderLocalPathResolution(true, resolved.toString());
-            }
-        } catch (Exception ignored) {
-            // Fall through to registry-based lookup and explicit compatibility hint.
-        }
-
-        Optional<Path> alternative;
-        try {
-            alternative = ProviderArtifactResolver.findLibtorchArtifact(
-                    sdk.listModels().stream()
-                            .map(model -> new ProviderArtifactResolver.Artifact(
-                                    model.getModelId(),
-                                    model.getShortId(),
-                                    extractModelPath(model),
-                                    model.getFormat()))
-                            .toList(),
-                    requestedModelId,
-                    localPath);
-        } catch (Exception ignored) {
-            alternative = Optional.empty();
-        }
-        if (alternative.isPresent()) {
-            Path artifactPath = alternative.get().toAbsolutePath().normalize();
-            System.out.println("Provider 'libtorch' selected; rerouting to registered TorchScript artifact: "
-                    + artifactPath);
-            return new ProviderLocalPathResolution(true, artifactPath.toString());
-        }
-
-        if (isSafetensorCheckpointDir(localPath) || isSafetensorWeightFile(localPath)) {
-            System.out.println("Provider 'libtorch' selected; using safetensor bridge mode for this checkpoint.");
-            return new ProviderLocalPathResolution(true, localPath);
-        }
-
-        System.err.println("Error: Provider 'libtorch' currently needs a runnable TorchScript-style artifact "
-                + "(.pt, .pts, .pth, .bin).");
-        System.err.println("Resolved local path: " + localPath);
-        return new ProviderLocalPathResolution(false, localPath);
     }
 
     private boolean isSafetensorWeightFile(String localPath) {
