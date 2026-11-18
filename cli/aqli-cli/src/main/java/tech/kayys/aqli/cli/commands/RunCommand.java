@@ -686,7 +686,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || listTtsVoicesJson || ocrJsonOutput || routeReportJson);
+            uiRenderer.setJsonMode(enableJsonSse || textOptions.jsonMode || listTtsVoicesJson || ocrJsonOutput || routeReportJson);
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -733,7 +733,7 @@ public class RunCommand implements Runnable {
                                         providerId,
                                         providerExplicit,
                                         quietRouteResolutionOutput(),
-                                        jsonMode,
+                                        textOptions.jsonMode,
                                         ocrJsonOutput),
                                 this::inferProviderFromIndex,
                                 this::inferFormatFromIndex);
@@ -1024,7 +1024,7 @@ public class RunCommand implements Runnable {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
-                    (jsonMode
+                    (textOptions.jsonMode
                             || ocrJsonOutput
                             || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
                             || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
@@ -1132,17 +1132,17 @@ public class RunCommand implements Runnable {
                     new RunInferenceRequestFactory.Options(
                             requestModelTarget,
                             prompt,
-                            temperature,
-                            topP,
-                            topK,
-                            repeatPenalty,
-                            jsonMode,
-                            maxTokens,
+                            textOptions.temperature,
+                            textOptions.topP,
+                            textOptions.topK,
+                            textOptions.repeatPenalty,
+                            textOptions.jsonMode,
+                            textOptions.maxTokens,
                             pluginId,
                             effectiveStream,
                             sessionId,
-                            mirostat,
-                            grammar,
+                            textOptions.mirostat,
+                            textOptions.grammar,
                             noCache));
 
             ModelSourceRunRequestParameterMapper.apply(
@@ -1152,14 +1152,14 @@ public class RunCommand implements Runnable {
                             finalLocalPath,
                             requestedModelRef));
             TextRunRequestParameterMapper.apply(requestBuilder, new TextRunOptions(
-                    temperature,
-                    topP,
-                    topK,
-                    repeatPenalty,
-                    jsonMode,
-                    maxTokens,
-                    mirostat,
-                    grammar));
+                    textOptions.temperature,
+                    textOptions.topP,
+                    textOptions.topK,
+                    textOptions.repeatPenalty,
+                    textOptions.jsonMode,
+                    textOptions.maxTokens,
+                    textOptions.mirostat,
+                    textOptions.grammar));
 
             RuntimeExecutionRunRequestParameterMapper.apply(
                     requestBuilder,
@@ -1264,14 +1264,14 @@ public class RunCommand implements Runnable {
                                     finalLocalPath,
                                     requestedModelRef),
                             new TextRunOptions(
-                                    temperature,
-                                    topP,
-                                    topK,
-                                    repeatPenalty,
-                                    jsonMode,
-                                    maxTokens,
-                                    mirostat,
-                                    grammar),
+                                    textOptions.temperature,
+                                    textOptions.topP,
+                                    textOptions.topK,
+                                    textOptions.repeatPenalty,
+                                    textOptions.jsonMode,
+                                    textOptions.maxTokens,
+                                    textOptions.mirostat,
+                                    textOptions.grammar),
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
@@ -1845,7 +1845,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean ttsVoicesJsonOutput() {
-        return jsonMode || listTtsVoicesJson;
+        return textOptions.jsonMode || listTtsVoicesJson;
     }
 
     private boolean quietRouteResolutionOutput() {
@@ -2142,7 +2142,7 @@ public class RunCommand implements Runnable {
                 checkpointPath,
                 checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
-                grammar,
+                textOptions.grammar,
                 prompt,
                 directInferenceEngine() != null);
     }
@@ -2435,7 +2435,7 @@ public class RunCommand implements Runnable {
 
     String[] buildStandaloneLiteRtRunArgs(String localPath) {
         return LiteRtStandaloneRunArguments.toArgs(
-                localPath, prompt, maxTokens, temperature, topK, topP);
+                localPath, prompt, textOptions.maxTokens, textOptions.temperature, textOptions.topK, textOptions.topP);
     }
 
     private boolean tryStandaloneLiteRtRun(String localPath) {
@@ -2556,13 +2556,13 @@ public class RunCommand implements Runnable {
             args.add(prompt);
         }
         args.add("--max-tokens");
-        args.add(Integer.toString(maxTokens));
-        args.add("--temperature");
-        args.add(Double.toString(temperature));
+        args.add(Integer.toString(textOptions.maxTokens));
+        args.add("--textOptions.temperature");
+        args.add(Double.toString(textOptions.temperature));
         args.add("--top-k");
-        args.add(Integer.toString(topK));
+        args.add(Integer.toString(textOptions.topK));
         args.add("--top-p");
-        args.add(Double.toString(topP));
+        args.add(Double.toString(textOptions.topP));
 
         String engine = requestedGgufEngine();
         if (engine != null && !engine.isBlank()) {
@@ -2616,7 +2616,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSimpleStandaloneTextRun() {
         return isBlank(systemPrompt)
-                && isBlank(grammar)
+                && isBlank(textOptions.grammar)
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
@@ -2626,7 +2626,7 @@ public class RunCommand implements Runnable {
                 && isEmpty(ragContexts)
                 && isEmpty(ragFiles)
                 && isEmpty(inputImagePaths)
-                && !jsonMode
+                && !textOptions.jsonMode
                 && !enableJsonSse
                 && !ocrMode
                 && !ocrJsonOutput
@@ -2704,8 +2704,8 @@ public class RunCommand implements Runnable {
         if (sessionId != null && !sessionId.isBlank()) {
             return "--session is not supported by the direct engine";
         }
-        if (grammar != null && !grammar.isBlank()) {
-            return "--grammar is not supported by the direct engine";
+        if (textOptions.grammar != null && !textOptions.grammar.isBlank()) {
+            return "--textOptions.grammar is not supported by the direct engine";
         }
         Path checkpoint = resolveSafetensorCheckpointPath(localPath);
         if (checkpoint != null) {
@@ -3052,17 +3052,17 @@ public class RunCommand implements Runnable {
             OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
             Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
             Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
+                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || textOptions.jsonMode, System.out, System.err);
             if (overlayPath != null) {
                 ocrPayload.put("overlay_path", overlayPath.toString());
             }
-            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
-            if (ocrJsonOutput || jsonMode) {
+            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || textOptions.jsonMode, System.out, System.err);
+            if (ocrJsonOutput || textOptions.jsonMode) {
                 printJsonPayload(ocrPayload);
                 return;
             }
         }
-        if (jsonMode) {
+        if (textOptions.jsonMode) {
             Map<String, Object> jsonResult = new LinkedHashMap<>();
             jsonResult.put("text", response.getContent());
             jsonResult.put("tokenCount", response.getTokensUsed());
