@@ -793,13 +793,13 @@ public class RunCommand implements Runnable {
                                             return;
                                         }
                                         if (progress.getTotal() > 0) {
-                                            System.out.printf("\\r%s %s %3d%% (%d/%d MB)",
+                                            System.out.printf("\r%s %s %3d%% (%d/%d MB)",
                                                     ChatUIRenderer.CYAN + progress.getStatus() + ChatUIRenderer.RESET,
                                                     progress.getProgressBar(20), progress.getPercentComplete(),
                                                     progress.getCompleted() / 1024 / 1024,
                                                     progress.getTotal() / 1024 / 1024);
                                         } else {
-                                            System.out.print("\\r" + ChatUIRenderer.CYAN
+                                            System.out.print("\r" + ChatUIRenderer.CYAN
                                                     + progress.getStatus() + ChatUIRenderer.RESET);
                                         }
                                     });
@@ -808,7 +808,7 @@ public class RunCommand implements Runnable {
                         preparation.notices().forEach(System.out::println);
                     }
                     if (preparation.error() != null) {
-                        System.err.println("\\nError: " + preparation.error());
+                        System.err.println("\nError: " + preparation.error());
                         return;
                     }
                     if (preparation.stopExecution()) {
@@ -3666,7 +3666,7 @@ public class RunCommand implements Runnable {
 
     private String escapeJson(String value) {
         if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\r").replace("\t", "\\t");
     }
 
     private void printCompatibilityHintBeforeInference() {
