@@ -22,7 +22,7 @@ class TextRunCliOptionsTest {
 
         new CommandLine(command).parseArgs();
 
-        TextRunOptions options = command.text.snapshot();
+        TextRunOptions options = command.text.snapshot(false);
         assertEquals(0.2, options.temperature());
         assertEquals(0.9, options.topP());
         assertEquals(40, options.topK());
@@ -42,12 +42,11 @@ class TextRunCliOptionsTest {
                 "--top-p", "0.8",
                 "--top-k", "12",
                 "--repeat-penalty", "1.25",
-                "--json",
                 "--max-tokens", "96",
                 "--mirostat", "2",
                 "--grammar", "root ::= \"ok\"");
 
-        TextRunOptions options = command.text.snapshot();
+        TextRunOptions options = command.text.snapshot(true);
         assertEquals(0.7, options.temperature());
         assertEquals(0.8, options.topP());
         assertEquals(12, options.topK());
