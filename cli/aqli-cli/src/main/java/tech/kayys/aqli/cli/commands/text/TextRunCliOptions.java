@@ -23,9 +23,6 @@ public final class TextRunCliOptions {
     @Option(names = { "--repeat-penalty" }, description = "Repeat penalty", defaultValue = "1.1")
     public double repeatPenalty;
 
-    @Option(names = { "--json" }, description = "Enable JSON mode", defaultValue = "false")
-    public boolean jsonMode;
-
     @Option(names = { "--max-tokens" }, description = "Maximum tokens to generate", defaultValue = "2048")
     public int maxTokens;
 
@@ -35,7 +32,7 @@ public final class TextRunCliOptions {
     @Option(names = { "--grammar" }, description = "GBNF grammar string")
     public String grammar;
 
-    public TextRunOptions snapshot() {
+    public TextRunOptions snapshot(boolean jsonMode) {
         return new TextRunOptions(
                 temperature, topP, topK, repeatPenalty, jsonMode, maxTokens, mirostat, grammar);
     }
