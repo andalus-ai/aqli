@@ -1281,65 +1281,14 @@ public class RunCommand implements Runnable {
             RagRunRequestConfiguration.RagContext ragContext =
                     RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
 
-            InferenceRequest.Builder requestBuilder = RunRequestBaseAssembler.create(
-                    new RunRequestBaseAssembler.Options(
-                            requestModelTarget,
-                            prompt,
-                            pluginId,
-                            effectiveStream,
-                            customModelPathUsed,
-                            finalLocalPath,
-                            requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunRequestParameterMapper.Options(
-                    temperature,
-                    topP,
-                    topK,
-                    repeatPenalty,
-                    jsonMode,
-                    maxTokens,
-                    mirostat,
-                    grammar));
-
-            RuntimeQuantizationRequestConfiguration.apply(
-                    requestBuilder,
-                    quantizeStrategy,
-                    quantizeBits,
-                    quantizeKv);
-            RuntimeProfilingRequestConfiguration.apply(requestBuilder, runtimeProfile);
-
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
             // Keep backend/runner selection resolved by the runtime; this adapter
             // only propagates the resulting hints into the shared request envelope.
             String ggufEngineHint = requestedGgufEngine();
-            RuntimeRoutingRunRequestConfiguration.apply(
-                    requestBuilder,
-                    new RuntimeRoutingRunRequestConfiguration.Options(
-                            effectiveRunnerRouteReport.toMetadata(),
-                            runner != null && !runner.isBlank(),
-                            effectiveRunnerRouteReport.normalizedRunner(),
-                            ggufEngineHint,
-                            featurePipelineId,
-                            executionProviderId,
-                            libtorchSafetensorCliBridge));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
-            ImageRunRequestParameterMapper.apply(requestBuilder, new ImageRunRequestParameterMapper.Options(
-                    seed,
-                    steps,
-                    format,
-                    guidanceScale,
-                    outputPath,
-                    width,
-                    height,
-                    normalizedInputImages,
-                    ocrMode,
-                    ocrImageTokens,
-                    ocrRawOutput,
-                    effectiveOnnxVariant,
-                    raw,
-                    debugPrompt));
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = ttsCodec == null || ttsCodec.isBlank()
                     ? null
@@ -1348,50 +1297,93 @@ public class RunCommand implements Runnable {
             String effectiveAudioFormat = effectiveAudioFormat(audioPreset);
             Integer effectiveAudioBitrateKbps = effectiveAudioBitrateKbps(audioPreset, effectiveAudioFormat);
             Integer effectiveFlacCompression = effectiveFlacCompression(audioPreset, effectiveAudioFormat);
-            AudioRunRequestParameterMapper.apply(requestBuilder, new AudioRunRequestParameterMapper.Options(
-                    effectiveTtsVoice,
-                    effectiveTtsCodec,
-                    ttsMaxFrames,
-                    ttsMaxSeconds,
-                    audioQuality,
-                    effectiveAudioFormat,
-                    effectiveAudioBitrateKbps,
-                    audioChannels,
-                    ttsCodecDecode,
-                    randomTtsSeed,
-                    disableAudioPolish,
-                    disableAudioNormalize,
-                    audioGainDb,
-                    audioPeakDb,
-                    audioFadeMs,
-                    audioTrimSilence,
-                    audioTrimDbfs,
-                    audioTrimPaddingMs,
-                    audioStreamChunkKb,
-                    ttsStreamProgressFrames,
-                    disableTtsStreamProgress,
-                    ttsStreamPcm,
-                    liveAudio,
-                    disableLowLatencyAudio,
-                    effectiveFlacCompression));
-
-            RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
-
-            ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
-            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
-
             String effectiveSystemPrompt = effectiveRunSystemPrompt(executionProviderId, finalLocalPath);
             String ragSystemPrompt = RagRunRequestConfiguration.systemPrompt(ragContext);
-            RunConversationRequestAssembler.apply(
-                    requestBuilder,
-                    sessionId,
-                    effectiveSystemPrompt,
-                    ragSystemPrompt,
-                    prompt);
 
-            RuntimeResponseCacheRequestConfiguration.apply(requestBuilder, noCache);
-
-            InferenceRequest request = requestBuilder.build();
+            InferenceRequest request = RunInferenceRequestAssembler.assemble(
+                    new RunInferenceRequestAssembler.Options(
+                            new RunRequestBaseAssembler.Options(
+                                    requestModelTarget,
+                                    prompt,
+                                    pluginId,
+                                    effectiveStream,
+                                    customModelPathUsed,
+                                    finalLocalPath,
+                                    requestedModelRef),
+                            new TextRunRequestParameterMapper.Options(
+                                    temperature,
+                                    topP,
+                                    topK,
+                                    repeatPenalty,
+                                    jsonMode,
+                                    maxTokens,
+                                    mirostat,
+                                    grammar),
+                            new RunInferenceRequestAssembler.QuantizationOptions(
+                                    quantizeStrategy,
+                                    quantizeBits,
+                                    quantizeKv),
+                            runtimeProfile,
+                            new RuntimeRoutingRunRequestConfiguration.Options(
+                                    effectiveRunnerRouteReport.toMetadata(),
+                                    runner != null && !runner.isBlank(),
+                                    effectiveRunnerRouteReport.normalizedRunner(),
+                                    ggufEngineHint,
+                                    featurePipelineId,
+                                    executionProviderId,
+                                    libtorchSafetensorCliBridge),
+                            new ImageRunRequestParameterMapper.Options(
+                                    seed,
+                                    steps,
+                                    format,
+                                    guidanceScale,
+                                    outputPath,
+                                    width,
+                                    height,
+                                    normalizedInputImages,
+                                    ocrMode,
+                                    ocrImageTokens,
+                                    ocrRawOutput,
+                                    effectiveOnnxVariant,
+                                    raw,
+                                    debugPrompt),
+                            new AudioRunRequestParameterMapper.Options(
+                                    effectiveTtsVoice,
+                                    effectiveTtsCodec,
+                                    ttsMaxFrames,
+                                    ttsMaxSeconds,
+                                    audioQuality,
+                                    effectiveAudioFormat,
+                                    effectiveAudioBitrateKbps,
+                                    audioChannels,
+                                    ttsCodecDecode,
+                                    randomTtsSeed,
+                                    disableAudioPolish,
+                                    disableAudioNormalize,
+                                    audioGainDb,
+                                    audioPeakDb,
+                                    audioFadeMs,
+                                    audioTrimSilence,
+                                    audioTrimDbfs,
+                                    audioTrimPaddingMs,
+                                    audioStreamChunkKb,
+                                    ttsStreamProgressFrames,
+                                    disableTtsStreamProgress,
+                                    ttsStreamPcm,
+                                    liveAudio,
+                                    disableLowLatencyAudio,
+                                    effectiveFlacCompression),
+                            extension,
+                            requestedTools,
+                            requestedToolChoice,
+                            ragContext,
+                            embeddingModel,
+                            new RunInferenceRequestAssembler.ConversationOptions(
+                                    sessionId,
+                                    effectiveSystemPrompt,
+                                    ragSystemPrompt,
+                                    prompt),
+                            noCache));
 
             if (!quietRouteResolutionOutput() && !enableJsonSse) {
                 uiRenderer.printModelInfo(modelId, providerId, format, null, false);
