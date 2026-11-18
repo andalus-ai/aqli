@@ -449,8 +449,15 @@ shared chat service. Tool-call results come from TextGenerationResponse rather t
 reconstructed by the REST resource. The demo fallback SDK implements the typed operation
 so the fallback path retains its behavior.
 
-The REST streaming endpoint intentionally remains on the existing shared streamChat
-path in this increment. TextGenerationChunk does not yet carry the full tool-call delta
-and stream metadata needed to preserve the current StreamingInferenceChunk wire shape.
-Do not migrate that endpoint until the typed stream contract can represent those fields
-and cancellation is verified end-to-end.
+The typed stream contract now carries request IDs, sequence numbers, tool-call
+start/delta/end events, usage, emission timestamps, and metadata. LocalAqliSdk maps
+these fields from StreamingInferenceChunk without dropping them.
+
+The REST chat streaming endpoint now normalizes its wire request into the same
+TextGenerationRequest used by non-streaming chat and delegates to
+AqliChatService.streamText. The service adapts the SDK JDK Flow publisher to Mutiny
+in the Flow-to-Reactive-Streams direction, maps typed events back to the existing
+StreamingInferenceChunk wire shape, and retains shared stream observability. This
+preserves the current REST response schema while moving capability execution behind
+the canonical SDK contract. Transport cancellation is delegated through the publisher
+subscription bridge; end-to-end disconnect behavior still requires integration testing.
