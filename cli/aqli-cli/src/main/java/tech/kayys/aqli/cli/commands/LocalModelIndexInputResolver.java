@@ -85,10 +85,10 @@ final class LocalModelIndexInputResolver {
                         format,
                         true,
                         List.of(
-                                "\\n" + (char) 27 + "[31mError: Model '" + entry.id + "' is disabled."
+                                System.lineSeparator() + (char) 27 + "[31mError: Model '" + entry.id + "' is disabled."
                                         + (char) 27 + "[0m",
                                 (char) 27 + "[33mUse 'aqli model enable " + entry.shortId
-                                        + "' to enable it for inference." + (char) 27 + "[0m\\n"));
+                                        + "' to enable it for inference." + (char) 27 + "[0m" + System.lineSeparator()));
             }
 
             if (entry.path == null || entry.path.isBlank() || !Files.exists(Path.of(entry.path))) {

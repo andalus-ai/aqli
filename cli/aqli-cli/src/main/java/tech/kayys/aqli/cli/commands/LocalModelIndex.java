@@ -175,7 +175,7 @@ final class LocalModelIndex {
             Path file = candidate.file();
             if (seenPaths.add(normalizePath(file))) {
                 Entry entry = toEntry(candidate.base(), file, candidate.fallbackFormat(), candidate.runnable());
-                discovered.putIfAbsent(entryKey(entry), entry);
+                discovered.putIfAbsent(normalizePath(file), entry);
             }
         }
         out.addAll(discovered.values());
@@ -252,7 +252,7 @@ final class LocalModelIndex {
         e.id = LocalModelRepositoryIdentity.modelId(relative, file);
         e.shortId = normalizeShortId(null, e.id);
         e.name = LocalModelRepositoryIdentity.displayName(relative, file);
-        e.format = detectFormat(file, fallbackFormat);
+        e.format = LocalModelFileInventory.detectFormat(file, fallbackFormat);
         e.runnable = runnable && !e.format.equalsIgnoreCase("safetensors") && !e.format.equalsIgnoreCase("bin");
         Path listedPath = LocalModelRepositoryIdentity.aggregateRepositoryFile(relative, file) ? file.getParent() : file;
         e.path = listedPath.toAbsolutePath().toString();
@@ -331,14 +331,6 @@ final class LocalModelIndex {
         return path.toAbsolutePath().normalize().toString();
     }
 
-    private static String text(com.fasterxml.jackson.databind.JsonNode node, String field) {
-        if (node == null || field == null || !node.hasNonNull(field)) {
-            return null;
-        }
-        String value = node.get(field).asText();
-        return value == null || value.isBlank() ? null : value;
-    }
-
     private static void detectArchitecture(Entry e, Path modelDir) {
         if (modelDir == null) return;
         if (Files.isRegularFile(modelDir.resolve("tts_browser_onnx_meta.json"))) {
@@ -368,29 +360,6 @@ final class LocalModelIndex {
             e.quantGroupSize = metadata.groupSize();
             e.quantSourceModel = metadata.sourceModel();
         });
-    }
-
-    private static String detectFormat(Path file, String fallback) {
-        String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".gguf")) {
-            return "gguf";
-        }
-        if (name.endsWith(".safetensors") || name.endsWith(".safetensor")) {
-            return "safetensors";
-        }
-        if (name.endsWith(".onnx")) {
-            return "onnx";
-        }
-        if (name.endsWith(".tflite") || name.endsWith(".litert") || name.endsWith(".litertlm") || name.endsWith(".task")) {
-            return "litert";
-        }
-        if (name.endsWith(".pt") || name.endsWith(".pth")) {
-            return "torchscript";
-        }
-        if (name.endsWith(".bin")) {
-            return "bin";
-        }
-        return fallback;
     }
 
     static Instant parseInstant(String value) {

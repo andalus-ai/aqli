@@ -1,5 +1,6 @@
 package tech.kayys.aqli.sdk;
 
+import tech.kayys.aqli.sdk.capability.text.TextGenerationOperations;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
 import tech.kayys.aqli.spi.embedding.EmbeddingResponse;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
@@ -53,7 +54,7 @@ import java.util.concurrent.Flow;
  *         .build());
  * }</pre>
  */
-public interface AqliSdk {
+public interface AqliSdk extends TextGenerationOperations {
 
     // ═══════════════════════════════════════════════════════════════════════
     // Text Completion (original contract)

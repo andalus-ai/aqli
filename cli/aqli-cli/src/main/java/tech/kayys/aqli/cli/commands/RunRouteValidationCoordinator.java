@@ -1,18 +1,21 @@
 package tech.kayys.aqli.cli.commands;
 
 import tech.kayys.aqli.sdk.route.RoutePreflightReport;
+import tech.kayys.aqli.sdk.route.RouteReportPayloads;
 import tech.kayys.aqli.sdk.route.RunnerRouteReport;
 import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRoutePolicy;
 import tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRoutePreflight;
 
-import java.util.List;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 
 /**
- * Coordinates route validation and preflight evaluation for the {@code run} CLI adapter.
+ * Coordinates selected-route validation and route-report preparation for the
+ * {@code run} CLI adapter.
  *
- * <p>This class does not select a runtime route or execute inference. It validates the
- * selected route and prepares the report consumed by the CLI's route-report output.</p>
+ * <p>This class does not select a runtime route or execute inference. It prepares
+ * the structured route-report payload; terminal output and process lifecycle remain
+ * the responsibility of the CLI command.</p>
  */
 public final class RunRouteValidationCoordinator {
 
@@ -27,7 +30,7 @@ public final class RunRouteValidationCoordinator {
                 providerId, modelId, localPath);
     }
 
-    public static PreflightResult preparePreflight(
+    public static RouteReportResult prepareRouteReport(
             RunnerRouteReport routeReport,
             String requestedModelRef,
             String modelId,
@@ -36,6 +39,7 @@ public final class RunRouteValidationCoordinator {
             String format,
             boolean directExecution,
             boolean allowPull,
+            boolean repositoryResolutionSkipped,
             boolean requireLocal,
             boolean hasInputImages,
             boolean ocrMode,
@@ -68,12 +72,20 @@ public final class RunRouteValidationCoordinator {
                 localPath,
                 hasInputImages,
                 ocrMode);
-        return new PreflightResult(executionProviderId, effectiveRouteReport, preflight);
+
+        Map<String, Object> payload = RouteReportPayloads.routeReportPayload(
+                effectiveRouteReport,
+                requestedModelRef,
+                modelId,
+                localPath,
+                executionProviderId,
+                format,
+                allowPull,
+                repositoryResolutionSkipped,
+                preflight);
+        return new RouteReportResult(payload, preflight.exitCode());
     }
 
-    public record PreflightResult(
-            String executionProviderId,
-            RunnerRouteReport routeReport,
-            RoutePreflightReport preflight) {
+    public record RouteReportResult(Map<String, Object> payload, int exitCode) {
     }
 }
