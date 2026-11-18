@@ -36,6 +36,9 @@ public final class TextGenerationRequestMapper {
                 .streaming(streaming)
                 .toolChoice(request.toolChoice())
                 .metadata(request.metadata());
+        if (request.apiKey() != null && !request.apiKey().isBlank()) {
+            builder.apiKey(request.apiKey());
+        }
         if (request.requestId() != null) builder.requestId(request.requestId());
         if (request.userId() != null) builder.userId(request.userId());
         if (request.sessionId() != null) builder.sessionId(request.sessionId());

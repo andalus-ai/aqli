@@ -17,7 +17,8 @@ public record TextGenerationRequest(
         String requestId,
         String userId,
         String sessionId,
-        String traceId) {
+        String traceId,
+        String apiKey) {
 
     public TextGenerationRequest {
         if (model == null || model.isBlank()) {
@@ -47,7 +48,23 @@ public record TextGenerationRequest(
             List<TextGenerationMessage> messages,
             TextGenerationParameters parameters,
             List<TextGenerationToolDefinition> tools) {
-        this(model, messages, parameters, tools, null, Map.of(), null, null, null, null);
+        this(model, messages, parameters, tools, null, Map.of(), null, null, null, null, null);
+    }
+
+    /** Source-compatible constructor for the original agentic-context request shape. */
+    public TextGenerationRequest(
+            String model,
+            List<TextGenerationMessage> messages,
+            TextGenerationParameters parameters,
+            List<TextGenerationToolDefinition> tools,
+            Object toolChoice,
+            Map<String, Object> metadata,
+            String requestId,
+            String userId,
+            String sessionId,
+            String traceId) {
+        this(model, messages, parameters, tools, toolChoice, metadata,
+                requestId, userId, sessionId, traceId, null);
     }
 
     public TextGenerationRequest(String model, List<TextGenerationMessage> messages, TextGenerationParameters parameters) {

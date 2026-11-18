@@ -23,8 +23,8 @@ import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 @Path("/v1/chat/completions")
-@Tag(name = "Agentic AI", description = "OpenAI-compatible serving endpoints for agent integrations")
-public class OpenAiChatResource {
+@Tag(name = "Chat Completions", description = "OpenAI-compatible chat completion API for agent integrations")
+public class ChatCompletionsResource {
 
     @Inject
     SdkProvider sdkProvider;
