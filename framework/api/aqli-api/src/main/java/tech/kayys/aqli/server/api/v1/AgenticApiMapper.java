@@ -100,6 +100,56 @@ final class AgenticApiMapper {
                 context);
     }
 
+    static TextGenerationRequest toResponsesTextGenerationRequest(
+            JsonNode root, String apiKey, AgentTraceContext traceContext) {
+        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        InferenceRequest legacy = toResponsesInferenceRequest(root, apiKey, trace);
+        List<TextGenerationMessage> messages = legacy.getMessages().stream()
+                .map(AgenticApiMapper::toTextGenerationMessage)
+                .toList();
+        List<TextGenerationToolDefinition> tools = toTools(root.path("tools")).stream()
+                .map(tool -> new TextGenerationToolDefinition(
+                        tool.getName(),
+                        TextGenerationToolDefinition.Type.valueOf(tool.getType().name()),
+                        tool.getDescription().orElse(null),
+                        tool.getParameters(),
+                        tool.isStrict(),
+                        tool.getMetadata()))
+                .toList();
+        JsonNode format = root.path("text").path("format");
+        if (!format.isObject()) format = root.path("response_format");
+        Map<String, Object> responseFormat = format.isObject() ? map(format) : Map.of();
+        JsonNode stop = root.path("stop");
+        List<String> stops = new ArrayList<>();
+        if (stop.isTextual()) stops.add(stop.asText());
+        else if (stop.isArray()) stop.forEach(value -> { if (value.isTextual()) stops.add(value.asText()); });
+        TextGenerationParameters parameters = new TextGenerationParameters(
+                number(root, "temperature"),
+                number(root, "top_p"),
+                integer(root, "top_k"),
+                integer(root, "max_tokens") != null ? integer(root, "max_tokens") : integer(root, "max_output_tokens"),
+                number(root, "repeat_penalty"),
+                number(root, "min_p"),
+                integer(root, "seed"),
+                root.path("json_mode").isBoolean() ? root.path("json_mode").asBoolean() : null,
+                text(root, "grammar", null),
+                stops,
+                number(root, "presence_penalty"),
+                number(root, "frequency_penalty"),
+                responseFormat);
+        Map<String, Object> metadata = new LinkedHashMap<>(map(root.path("metadata")));
+        metadata.put("aqli_trace", trace.asMap());
+        return new TextGenerationRequest(
+                legacy.getModel(), messages, parameters, tools,
+                root.has("tool_choice") ? toJava(root.path("tool_choice")) : null,
+                metadata, trace.requestId(),
+                (String) trace.asMap().get("user_id"),
+                (String) trace.asMap().get("session_id"),
+                (String) trace.asMap().get("trace_id"),
+                apiKey,
+                RagContextMapper.toTextGenerationContext(root));
+    }
+
     private static TextGenerationMessage toTextGenerationMessage(Message message) {
         List<TextGenerationToolCall> calls = message.getToolCalls() == null ? List.of()
                 : message.getToolCalls().stream()
