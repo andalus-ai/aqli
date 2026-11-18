@@ -1151,15 +1151,7 @@ public class RunCommand implements Runnable {
                             customModelPathUsed,
                             finalLocalPath,
                             requestedModelRef));
-            TextRunRequestParameterMapper.apply(requestBuilder, new TextRunOptions(
-                    textOptions.temperature,
-                    textOptions.topP,
-                    textOptions.topK,
-                    textOptions.repeatPenalty,
-                    textOptions.jsonMode,
-                    textOptions.maxTokens,
-                    textOptions.mirostat,
-                    textOptions.grammar));
+            TextRunRequestParameterMapper.apply(requestBuilder, textOptions.snapshot());
 
             RuntimeExecutionRunRequestParameterMapper.apply(
                     requestBuilder,
@@ -1263,15 +1255,7 @@ public class RunCommand implements Runnable {
                                     customModelPathUsed,
                                     finalLocalPath,
                                     requestedModelRef),
-                            new TextRunOptions(
-                                    textOptions.temperature,
-                                    textOptions.topP,
-                                    textOptions.topK,
-                                    textOptions.repeatPenalty,
-                                    textOptions.jsonMode,
-                                    textOptions.maxTokens,
-                                    textOptions.mirostat,
-                                    textOptions.grammar),
+                            textOptions.snapshot(),
                             new RunInferenceRequestAssembler.QuantizationOptions(
                                     quantizeStrategy,
                                     quantizeBits,
