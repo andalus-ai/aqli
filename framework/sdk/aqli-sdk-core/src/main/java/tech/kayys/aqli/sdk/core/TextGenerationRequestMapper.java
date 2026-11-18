@@ -32,9 +32,7 @@ public final class TextGenerationRequestMapper {
 
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .model(request.model())
-                .messages(request.messages().stream()
-                        .map(TextGenerationRequestMapper::toSpiMessage)
-                        .toList())
+                .messages(toSpiMessages(request))
                 .streaming(streaming)
                 .toolChoice(request.toolChoice())
                 .metadata(request.metadata());
@@ -70,6 +68,27 @@ public final class TextGenerationRequestMapper {
         return builder.build();
     }
 
+    private static java.util.List<Message> toSpiMessages(TextGenerationRequest request) {
+        java.util.List<Message> messages = new java.util.ArrayList<>();
+        TextGenerationContext context = request.context();
+        if (context != null && !context.items().isEmpty() && !Boolean.FALSE.equals(context.enabled())) {
+            StringBuilder prompt = new StringBuilder("Retrieved context supplied by the caller. Use it when relevant.");
+            for (int i = 0; i < context.items().size(); i++) {
+                TextGenerationContextItem item = context.items().get(i);
+                prompt.append("\n\n[").append(i + 1).append("]");
+                java.util.List<String> labels = new java.util.ArrayList<>();
+                if (item.title() != null && !item.title().isBlank()) labels.add(item.title());
+                if (item.source() != null && !item.source().isBlank()) labels.add("source: " + item.source());
+                if (item.score() != null) labels.add("score: " + item.score());
+                if (!labels.isEmpty()) prompt.append(" ").append(String.join(", ", labels));
+                prompt.append("\n").append(item.text());
+            }
+            messages.add(Message.system(prompt.toString()));
+        }
+        request.messages().stream().map(TextGenerationRequestMapper::toSpiMessage).forEach(messages::add);
+        return messages;
+    }
+
     private static void applyContext(InferenceRequest.Builder builder, TextGenerationContext context) {
         if (context == null) return;
         if (context.enabled() != null) {
@@ -81,18 +100,6 @@ public final class TextGenerationRequestMapper {
         }
         if (!context.sources().isEmpty()) builder.parameter("rag_sources", context.sources());
         if (context.items().isEmpty() || Boolean.FALSE.equals(context.enabled())) return;
-        StringBuilder prompt = new StringBuilder("Retrieved context supplied by the caller. Use it when relevant.");
-        for (int i = 0; i < context.items().size(); i++) {
-            TextGenerationContextItem item = context.items().get(i);
-            prompt.append("\n\n[").append(i + 1).append("]");
-            java.util.List<String> labels = new java.util.ArrayList<>();
-            if (item.title() != null && !item.title().isBlank()) labels.add(item.title());
-            if (item.source() != null && !item.source().isBlank()) labels.add("source: " + item.source());
-            if (item.score() != null) labels.add("score: " + item.score());
-            if (!labels.isEmpty()) prompt.append(" ").append(String.join(", ", labels));
-            prompt.append("\n").append(item.text());
-        }
-        builder.message(Message.system(prompt.toString()));
         builder.parameter("rag_context", context.items().stream().map(item -> {
             java.util.Map<String, Object> value = new java.util.LinkedHashMap<>();
             value.put("text", item.text());
