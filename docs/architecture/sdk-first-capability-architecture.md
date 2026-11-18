@@ -455,8 +455,8 @@ these fields from StreamingInferenceChunk without dropping them.
 
 The REST chat streaming endpoint now normalizes its wire request into the same
 TextGenerationRequest used by non-streaming chat and delegates to
-AqliChatService.streamText. The service adapts the SDK JDK Flow publisher to Mutiny
-in the Flow-to-Reactive-Streams direction, maps typed events back to the existing
+AqliChatService.streamText. The service consumes the SDK JDK Flow publisher directly through Mutiny's
+Flow-based publisher API, maps typed events back to the existing
 StreamingInferenceChunk wire shape, and retains shared stream observability. This
 preserves the current REST response schema while moving capability execution behind
 the canonical SDK contract. Transport cancellation is delegated through the publisher

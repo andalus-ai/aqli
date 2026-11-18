@@ -127,10 +127,7 @@ public final class AqliChatService {
         obs.getAuditLogger().logClientRequestStart(requestId, modelId);
         long startMs = System.currentTimeMillis();
 
-        org.reactivestreams.Publisher<TextGenerationChunk> publisher =
-                org.reactivestreams.FlowAdapters.toPublisher(sdk.streamText(request));
-
-        return Multi.createFrom().publisher(publisher)
+        return Multi.createFrom().publisher(sdk.streamText(request))
                 .map(AqliChatService::toStreamingInferenceChunk)
                 .onItem().invoke(chunk -> {
                     obs.getMetricsCollector().recordClientChunk(modelId);
