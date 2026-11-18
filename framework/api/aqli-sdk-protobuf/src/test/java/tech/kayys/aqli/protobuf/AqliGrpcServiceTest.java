@@ -1,6 +1,7 @@
 package tech.kayys.aqli.protobuf;
 
 import io.grpc.stub.StreamObserver;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.smallrye.mutiny.Multi;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,9 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.Mockito.when;
 
@@ -178,6 +184,43 @@ class AqliGrpcServiceTest {
         assertEquals("stop", observer.responses.get(1).getFinishReason());
         assertEquals(10, observer.responses.get(1).getPromptTokens());
         assertEquals(5, observer.responses.get(1).getCompletionTokens());
+    }
+
+
+    @Test
+    void testStreamChatCancellationCancelsSdkPublisher() {
+        AtomicBoolean upstreamCancelled = new AtomicBoolean();
+        Flow.Publisher<TextGenerationChunk> publisher = subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+            @Override
+            public void request(long n) {
+                // Keep the stream open until the simulated gRPC cancellation.
+            }
+
+            @Override
+            public void cancel() {
+                upstreamCancelled.set(true);
+            }
+        });
+        when(sdk.streamText(any(TextGenerationRequest.class))).thenReturn(publisher);
+
+        ServerCallStreamObserver<ChatResponse> observer = mock(ServerCallStreamObserver.class);
+        AtomicReference<Runnable> cancellationHandler = new AtomicReference<>();
+        when(observer.isCancelled()).thenReturn(false);
+        doAnswer(invocation -> {
+            cancellationHandler.set(invocation.getArgument(0));
+            return null;
+        }).when(observer).setOnCancelHandler(any(Runnable.class));
+
+        ChatRequest request = ChatRequest.newBuilder()
+                .setModelId("test-model")
+                .addMessages(Message.newBuilder().setRole("USER").setContent("Hello").build())
+                .build();
+
+        service.streamChat(request, observer);
+        assertFalse(upstreamCancelled.get());
+        cancellationHandler.get().run();
+
+        assertTrue(upstreamCancelled.get());
     }
 
     @Test
