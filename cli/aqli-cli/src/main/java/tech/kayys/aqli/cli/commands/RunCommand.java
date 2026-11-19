@@ -1,4 +1,5 @@
 package tech.kayys.aqli.cli.commands;
+import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
@@ -697,8 +698,7 @@ public class RunCommand implements Runnable {
                 if (!shouldAllowRepositoryResolutionDuringRouteReport()) {
                     routeReportRepositoryResolutionSkipped = true;
                 } else {
-                    String preparationProviderId = providerId;
-                    RunModelPreparationResolver.Result preparation =
+                    String preparationProviderId = providerId;                    RunModelPreparationResolver.Result preparation =
                             RunModelPreparationResolver.resolve(
                                     new RunModelPreparationResolver.Options(
                                             modelId, requestedModelRef, format, providerId, pluginId,
@@ -1397,7 +1397,6 @@ public class RunCommand implements Runnable {
                 return true;
             }
         }
-
         System.err.println("Error: unexpected positional argument"
                 + (positionalArgs.size() == 1 ? "" : "s")
                 + ": " + String.join(" ", positionalArgs));
@@ -2097,7 +2096,6 @@ public class RunCommand implements Runnable {
         }
         return args.toArray(String[]::new);
     }
-
     private boolean tryStandaloneGgufRun() {
         return tryStandaloneGgufRun(false);
     }
@@ -2542,7 +2540,7 @@ public class RunCommand implements Runnable {
             Double ttftMs,
             Map<String, Object> metadata,
             boolean audioOutput) {
-        if (audioOutput || isAudioMetadata(metadata)) {
+        if (audioOutput || AudioRunStatsRenderer.isAudioMetadata(metadata)) {
             printAudioRunStats(metadata, durationMs);
             return;
         }
@@ -2555,69 +2553,9 @@ public class RunCommand implements Runnable {
         if (enableJsonSse || noBanner) {
             return;
         }
-        List<String> parts = new ArrayList<>();
-        Double audioSeconds = audioDurationSeconds(metadata);
-        Double generationSeconds = audioGenerationSeconds(metadata, fallbackDurationMs);
-        if (audioSeconds != null && audioSeconds > 0.0) {
-            parts.add(String.format(Locale.ROOT, "Audio: %.2fs", audioSeconds));
-        }
-        if (generationSeconds != null && generationSeconds > 0.0) {
-            parts.add(String.format(Locale.ROOT, "Generation: %.2fs", generationSeconds));
-        }
-
-        Double speed = metadataDouble(metadata, "audio_realtime_speed");
-        if (speed == null && audioSeconds != null && generationSeconds != null && generationSeconds > 0.0) {
-            speed = audioSeconds / generationSeconds;
-        }
-        if (speed != null && speed > 0.0) {
-            parts.add(String.format(Locale.ROOT, "Speed: %.2fx realtime", speed));
-        }
-
-        Double realtimeFactor = metadataDouble(metadata, "audio_realtime_factor");
-        if (realtimeFactor == null && audioSeconds != null && audioSeconds > 0.0
-                && generationSeconds != null && generationSeconds > 0.0) {
-            realtimeFactor = generationSeconds / audioSeconds;
-        }
-        if (realtimeFactor != null && realtimeFactor > 0.0) {
-            parts.add(String.format(Locale.ROOT, "RTF: %.2f", realtimeFactor));
-        }
-
-        Double framesPerSecond = metadataDouble(metadata, "tts_frames_per_second");
-        Double frames = metadataDouble(metadata, "tts_frames");
-        if (framesPerSecond == null && frames != null && generationSeconds != null && generationSeconds > 0.0) {
-            framesPerSecond = frames / generationSeconds;
-        }
-        if (framesPerSecond != null && framesPerSecond > 0.0) {
-            parts.add(String.format(Locale.ROOT, "Synthesis: %.1f frames/s", framesPerSecond));
-        }
-
-        if (!parts.isEmpty()) {
-            System.out.println(ChatUIRenderer.DIM + "\n[" + String.join(", ", parts) + "]" + ChatUIRenderer.RESET);
-        }
+        AudioRunStatsRenderer.render(metadata, fallbackDurationMs).ifPresent(line ->
+                System.out.println(ChatUIRenderer.DIM + line + ChatUIRenderer.RESET));
     }
-
-    private static boolean isAudioMetadata(Map<String, Object> metadata) {
-        return metadata != null
-                && (metadata.containsKey("audio_format")
-                || metadata.containsKey("audio_duration_seconds")
-                || metadata.containsKey("tts_frames"));
-    }
-
-    private static Double audioGenerationSeconds(Map<String, Object> metadata, long fallbackDurationMs) {
-        Double generationSeconds = metadataDouble(metadata, "audio_generation_duration_seconds");
-        if (generationSeconds != null && generationSeconds > 0.0) {
-            return generationSeconds;
-        }
-        Double latencyMs = metadataDouble(metadata, "bench.latency_ms");
-        if (latencyMs != null && latencyMs > 0.0) {
-            return latencyMs / 1000.0;
-        }
-        if (fallbackDurationMs > 0L) {
-            return fallbackDurationMs / 1000.0;
-        }
-        return null;
-    }
-
     private static long observedStreamDurationMillis(
             long streamStartTimeMs,
             long completionTimeMs,
@@ -2797,8 +2735,7 @@ public class RunCommand implements Runnable {
                 audioRunOptions.fadeMs(),
                 audioRunOptions.trimDbfs(),
                 audioRunOptions.trimPaddingMs(),
-                audioRunOptions.flacCompression(),
-                audioRunOptions.disablePolish(),
+                audioRunOptions.flacCompression(),                audioRunOptions.disablePolish(),
                 audioRunOptions.disableNormalize(),
                 audioRunOptions.trimSilence()));
     }
