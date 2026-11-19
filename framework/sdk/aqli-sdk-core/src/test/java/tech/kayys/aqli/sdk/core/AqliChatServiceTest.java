@@ -170,16 +170,16 @@ class AqliChatServiceTest {
         var serviceWithMetrics = new AqliChatService(observability);
         var empty = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
                 "stream-request", 0, "", false, null,
-                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.NONE,
+                null,
                 null, null, null, null, java.time.Instant.now(), java.util.Map.of());
         var firstToken = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
                 "stream-request", 1, "a", false, null,
-                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.NONE,
+                null,
                 null, null, null, null, java.time.Instant.now(), java.util.Map.of());
         var secondToken = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
                 "stream-request", 2, "b", true,
                 tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP,
-                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.NONE,
+                null,
                 null, null, null, null, java.time.Instant.now(), java.util.Map.of());
         org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(io.smallrye.mutiny.Multi.createFrom().items(empty, firstToken, secondToken));
