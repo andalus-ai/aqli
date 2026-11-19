@@ -222,3 +222,17 @@ This sequence is intentionally dependency-aware. A later phase should not hide a
 ### Current evidence policy
 
 The roadmap and ownership audit are planning artifacts, not build evidence. Track CI and PR status from the current run/commit rather than carrying forward an old green or red result. In particular, a generated-binding migration is not verified until both AQLI compile paths and the relevant native checks pass; a Safetensors API migration is not verified until the engine compiles and its tests pass.
+
+
+## Strategic ecosystem direction
+
+The consolidation work is part of a larger product goal: AQLI, Aljabr, and Tafkir together should form a coherent Java-first AI/ML ecosystem that can be used from research and development through training, inference, and production serving. The target is practical capability coverage for workflows commonly assembled from PyTorch, Hugging Face Transformers, scikit-learn, training toolkits, and inference servers—not an unsupported claim of complete parity.
+
+- Aljabr remains independently usable as the general ML/compute framework and reusable model foundation.
+- Tafkir owns training, fine-tuning, adaptation, and evaluation on Aljabr.
+- AQLI owns inference, deployment, model lifecycle, scheduling, SDK/CLI/API, and production runtime.
+- The triad must be usable through embedded Java APIs, SDKs, CLI, JBang/scripts, JShell/Jupyter workflows, and AQLI production runtime/service.
+- Portable model artifacts and stable public contracts connect development/training to inference; AQLI's default inference dependency graph remains independent of Tafkir.
+- Developer experience is a first-class deliverable: published artifacts, documentation, tutorials, examples, capability matrices, reproducible benchmarks, and clean-checkout workflows.
+
+Use [Triad Ecosystem Vision](TRIAD_ECOSYSTEM_VISION.md) as the product-level reference. Extend the phase roadmap with feature-level capability coverage and evidence; do not treat repository consolidation alone as completion of the Java AI/ML ecosystem.

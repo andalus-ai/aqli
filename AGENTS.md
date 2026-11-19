@@ -158,3 +158,19 @@ Apply these rules when changing inference requests, `RunCommand`, REST endpoints
 - Convert SDK-owned messages to execution SPI messages only in the SDK-core `SdkMessageMapper`; CLI, REST, and gRPC adapters must construct the canonical SDK message types and must not duplicate this conversion.
 - Preserve all message semantics during migration: role, plain text, multimodal content parts, message name, tool calls and function arguments, and tool-call IDs. Keep legacy SPI-based methods until all consumers have an explicit compatibility migration.
 - Do not remove SDK API SPI dependencies wholesale based on this one change. Audit every public signature and consumer first; this migration only removes the SPI message type from the typed text-generation request.
+
+
+## 11. Triad ecosystem vision: AQLI, Aljabr, and Tafkir
+
+The strategic product direction is documented in `docs/architecture/TRIAD_ECOSYSTEM_VISION.md`. Treat it as the product-level vision alongside the detailed ownership and SDK-first architecture documents.
+
+- The triad is intended to provide a coherent Java-first AI/ML ecosystem and a practical alternative to the Python AI/ML toolchain across framework development, model ecosystems, training/adaptation, inference, and production serving. This is a capability-coverage goal, not a claim of complete PyTorch, Transformers, or scikit-learn parity.
+- **Aljabr** is the independently usable general ML/compute framework: tensors, operators, autograd/optimization where implemented, model topology/execution, formats, tokenizers, backends, and FFM/native foundations.
+- **Tafkir** owns training, fine-tuning, adaptation, and evaluation workflows built on Aljabr. It must not become an AQLI training mode or a mandatory AQLI dependency.
+- **AQLI** owns inference, model lifecycle, scheduling, deployment, serving, streaming, CLI/SDK/API, and production operations on top of Aljabr.
+- Preserve independent usability: Aljabr without AQLI; Tafkir on Aljabr without AQLI internals; AQLI inference without Tafkir.
+- Support multiple entry points over the same Java APIs and artifacts: embedded libraries, Java SDK, CLI, JBang/scripts, JShell/Jupyter workflows, and AQLI production runtime/service.
+- Do not make CLI, notebook, REST, or gRPC the exclusive owner of a capability. They are entry points/adapters over the owning typed API and shared application behavior.
+- Capability coverage must be tracked honestly by owner, API/module, task, model/format/backend, maturity, tests, examples, and known limitations. Do not claim blanket parity with PyTorch, Hugging Face Transformers, or scikit-learn without a published feature matrix.
+- Keep framework-generic ML utilities in Aljabr only when they belong to its reusable framework scope; training workflow orchestration belongs in Tafkir; serving and production policy belongs in AQLI.
+- Keep public APIs, artifacts, examples, and documentation independently consumable through published dependencies; do not rely exclusively on sibling checkouts or composite builds.
