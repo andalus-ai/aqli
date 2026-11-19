@@ -1,0 +1,158 @@
+package tech.kayys.aqli.sdk.capability.text;
+
+import org.junit.jupiter.api.Test;
+import tech.kayys.aqli.spi.Message;
+import tech.kayys.aqli.spi.tool.ToolDefinition;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class TextGenerationContractTest {
+
+    @Test
+    void requestCopiesMessagesAndUsesUnspecifiedParametersByDefault() {
+        List<TextGenerationMessage> messages = new ArrayList<>();
+        messages.add(TextGenerationMessage.user("hello"));
+
+        TextGenerationRequest request = new TextGenerationRequest(" model-a ", messages, null);
+        messages.clear();
+
+        assertEquals("model-a", request.model());
+        assertEquals(List.of(TextGenerationMessage.user("hello")), request.messages());
+        assertEquals(TextGenerationParameters.unspecified(), request.parameters());
+        assertEquals(List.of(), request.tools());
+        assertThrows(UnsupportedOperationException.class,
+                () -> request.messages().add(TextGenerationMessage.user("mutate")));
+    }
+
+    @Test
+    void requestCopiesToolDefinitionsAndRetainsLegacyConstructor() {
+        ToolDefinition tool = ToolDefinition.builder().name("lookup").build();
+        List<ToolDefinition> tools = new ArrayList<>(List.of(tool));
+
+        TextGenerationRequest request = new TextGenerationRequest(
+                "model-a", List.of(Message.user("find this")), null, tools);
+        tools.clear();
+
+        assertEquals(List.of(tool), request.tools());
+        assertThrows(UnsupportedOperationException.class,
+                () -> request.tools().add(ToolDefinition.builder().name("other").build()));
+
+        TextGenerationRequest legacy = new TextGenerationRequest(
+                "model-a", List.of(Message.user("hello")), null);
+        assertEquals(List.of(), legacy.tools());
+    }
+
+    @Test
+    void promptFactoryCreatesUserMessage() {
+        TextGenerationRequest request = TextGenerationRequest.of("model-a", "hello");
+
+        assertEquals("model-a", request.model());
+        assertEquals(TextGenerationMessage.Role.USER, request.messages().getFirst().role());
+        assertEquals("hello", request.messages().getFirst().content());
+    }
+
+    @Test
+    void textMessagesRetainToolResultCorrelationWithoutExecutionSpiTypes() {
+        TextGenerationMessage toolResult = TextGenerationMessage.tool("call-7", "result");
+
+        assertEquals(TextGenerationMessage.Role.TOOL, toolResult.role());
+        assertEquals("call-7", toolResult.toolCallId());
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationMessage(TextGenerationMessage.Role.USER, "hello", null, "call-7"));
+    }
+
+    @Test
+    void rejectsInvalidRequestAndGenerationControls() {
+        assertThrows(IllegalArgumentException.class,
+                () -> TextGenerationRequest.of("model-a", " "));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationRequest(" ", List.of(TextGenerationMessage.user("hello")), null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationParameters(2.1, null, null, null,
+                        null, null, null, null, null, List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationParameters(null, 0.0, null, null,
+                        null, null, null, null, null, List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationParameters(null, null, null, 0,
+                        null, null, null, null, null, List.of()));
+    }
+
+    @Test
+    void responseCalculatesTotalTokensAndDefaultsFinishReason() {
+        TextGenerationResponse response =
+                new TextGenerationResponse("hello", "model-a", 3, 2, 10, null);
+
+        assertEquals(5, response.totalTokens());
+        assertEquals(TextGenerationResponse.FinishReason.STOP, response.finishReason());
+        assertEquals(List.of(), response.toolCalls());
+    }
+
+    @Test
+    void responsePreservesImmutableToolCallsAndLegacyConstructor() {
+        var toolCall = tech.kayys.aqli.spi.tool.ToolCall.builder()
+                .id("call-1")
+                .name("lookup")
+                .argument("query", "weather")
+                .build();
+        List<tech.kayys.aqli.spi.tool.ToolCall> toolCalls = new ArrayList<>(List.of(toolCall));
+
+        TextGenerationResponse response = new TextGenerationResponse(
+                "", "model-a", 1, 2, 3,
+                TextGenerationResponse.FinishReason.TOOL_CALLS, toolCalls);
+        toolCalls.clear();
+
+        assertEquals(List.of(toolCall), response.toolCalls());
+        assertThrows(UnsupportedOperationException.class,
+                () -> response.toolCalls().add(toolCall));
+
+        TextGenerationResponse legacy =
+                new TextGenerationResponse("hello", "model-a", 1, 1, 2, null);
+        assertEquals(List.of(), legacy.toolCalls());
+    }
+
+    @Test
+    void chunkPreservesRequestUsageTimestampMetadataAndToolCallEvents() {
+        var emittedAt = java.time.Instant.parse("2026-11-18T02:00:00Z");
+        var metadata = new java.util.HashMap<String, Object>();
+        metadata.put("provider", "cpu");
+        var chunk = new TextGenerationChunk(
+                "request-1", 7, "", true, TextGenerationResponse.FinishReason.TOOL_CALLS,
+                TextGenerationChunk.ToolCallEvent.DELTA, "call-1", null, "{\\"city\\":",
+                new TextGenerationChunk.Usage(4, 2, 35), emittedAt, metadata);
+        metadata.put("mutated", true);
+
+        assertEquals("request-1", chunk.requestId());
+        assertEquals(7, chunk.sequence());
+        assertEquals(TextGenerationChunk.ToolCallEvent.DELTA, chunk.toolCallEvent());
+        assertEquals("call-1", chunk.toolCallId());
+        assertEquals("{\\"city\\":", chunk.toolInputDelta());
+        assertEquals(new TextGenerationChunk.Usage(4, 2, 35), chunk.usage());
+        assertEquals(emittedAt, chunk.emittedAt());
+        assertEquals(java.util.Map.of("provider", "cpu"), chunk.metadata());
+        assertThrows(UnsupportedOperationException.class,
+                () -> chunk.metadata().put("other", "value"));
+    }
+
+    @Test
+    void toolCallStartRequiresNameAndAllToolEventsRequireId() {
+        assertThrows(IllegalArgumentException.class, () -> new TextGenerationChunk(
+                null, 0, "", false, null, TextGenerationChunk.ToolCallEvent.START,
+                "call-1", null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new TextGenerationChunk(
+                null, 0, "", false, null, TextGenerationChunk.ToolCallEvent.END,
+                null, null, null, null, null, null));
+    }
+
+    @Test
+    void chunkRequiresNonNegativeSequenceAndOnlyTerminalChunksCarryFinishReason() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationChunk(-1, "hello", false, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new TextGenerationChunk(0, "hello", false,
+                        TextGenerationResponse.FinishReason.STOP));
+    }
+}

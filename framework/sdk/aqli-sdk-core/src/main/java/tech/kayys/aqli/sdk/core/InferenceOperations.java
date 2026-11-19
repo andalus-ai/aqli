@@ -1,6 +1,7 @@
 package tech.kayys.aqli.sdk.core;
 
 import io.smallrye.mutiny.Multi;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationOperations;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.spi.batch.BatchInferenceRequest;
 import tech.kayys.aqli.spi.embedding.EmbeddingRequest;
@@ -21,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
  * Implementations may provide synchronous, asynchronous, streaming,
  * embedding, batch, and multimodal operations according to their capabilities.</p>
  */
-public interface InferenceOperations {
+public interface InferenceOperations extends TextGenerationOperations {
 
     InferenceResponse createCompletion(InferenceRequest request) throws SdkException;
 

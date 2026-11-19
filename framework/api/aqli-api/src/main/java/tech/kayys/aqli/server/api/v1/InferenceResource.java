@@ -43,10 +43,8 @@ public class InferenceResource {
         
         AqliSdk sdk = sdkProvider.getSdk();
         try {
-            String apiKey = headers.getHeaderString("X-API-Key");
-            if (apiKey != null && (request.getApiKey() == null || request.getApiKey().isBlank())) {
-                request = request.toBuilder().apiKey(apiKey).build();
-            }
+            request = InferenceRequestHeaderMapper.withApiKeyHeader(
+                    request, headers.getHeaderString("X-API-Key"));
             InferenceResponse resp = sdk.createCompletion(request);
             
             sample.stop(meterRegistry.timer("aqli.rest.complete.duration"));
@@ -74,10 +72,8 @@ public class InferenceResource {
         LOG.info("Received REST completion stream request for model: {}", request.getModel());
         
         AqliSdk sdk = sdkProvider.getSdk();
-        String apiKey = headers.getHeaderString("X-API-Key");
-        final InferenceRequest finalRequest = (apiKey != null && (request.getApiKey() == null || request.getApiKey().isBlank()))
-                ? request.toBuilder().apiKey(apiKey).build()
-                : request;
+        final InferenceRequest finalRequest = InferenceRequestHeaderMapper.withApiKeyHeader(
+                request, headers.getHeaderString("X-API-Key"));
         
         return sdk.streamCompletion(finalRequest)
                 .onItem().invoke(chunk -> meterRegistry.counter("aqli.rest.complete.stream.chunks").increment())

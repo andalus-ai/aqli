@@ -46,6 +46,38 @@ class DirectSafetensorBackendTest {
     }
 
     @Test
+    void singleUserTurnPreservesMultipleSystemMessagesInOrder() {
+        InferenceRequest request = InferenceRequest.builder()
+                .model("/models/qwen")
+                .message(tech.kayys.aljabr.spi.Message.system("Primary instruction"))
+                .message(tech.kayys.aljabr.spi.Message.system("Retrieved context"))
+                .message(tech.kayys.aljabr.spi.Message.user("Hello"))
+                .build();
+        var profile = new tech.kayys.aqli.safetensor.engine.route.DirectSafetensorRunProfile(
+                null, "qwen2", tech.kayys.aljabr.spi.model.ModelRuntimeTraits.EMPTY);
+
+        String actual = DirectSafetensorBackend.buildPrompt(request, profile);
+        String expected = tech.kayys.aljabr.spi.tokenizer.ChatTemplateFormatter.format(
+                java.util.List.of(
+                        tech.kayys.aljabr.spi.Message.system("Primary instruction\n\nRetrieved context"),
+                        tech.kayys.aljabr.spi.Message.user("Hello")),
+                "qwen2");
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void planReadsTheSdkRequestQuantizationStrategyParameter() {
+        InferenceRequest request = InferenceRequest.builder()
+                .model(tmp.toString())
+                .prompt("Hello")
+                .parameter("quantize_strategy", "int8")
+                .build();
+
+        assertEquals("int8", new DirectSafetensorBackend().plan(request).quantizeStrategy());
+    }
+
+    @Test
     void checkpointDirectoryIsUsedAsIs() throws Exception {
         Path dir = Files.createDirectory(tmp.resolve("model"));
         assertEquals(dir.toAbsolutePath().normalize(), DirectSafetensorBackend.resolveCheckpointPath(dir.toString()));
