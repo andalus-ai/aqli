@@ -106,4 +106,46 @@ class AqliChatServiceTest {
         assertEquals(0.9, request.getTopP(), 0.0001);
         assertEquals(1.1, request.getRepeatPenalty(), 0.0001);
     }
+
+    @Test
+    void typedTextExecutionPreservesCallerRequestId() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var request = new tech.kayys.aqli.sdk.capability.text.TextGenerationRequest(
+                "model-id",
+                List.of(tech.kayys.aqli.sdk.capability.text.TextGenerationMessage.user("hello")),
+                tech.kayys.aqli.sdk.capability.text.TextGenerationParameters.unspecified(),
+                List.of(), null, java.util.Map.of(),
+                "caller-request-42", "user-1", "session-1", "trace-1");
+        var response = new tech.kayys.aqli.sdk.capability.text.TextGenerationResponse(
+                "hello", "model-id", 1, 1, 10,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP);
+        org.mockito.Mockito.when(sdk.generateTextAsync(request))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(response));
+
+        service.generateText(sdk, request).await().indefinitely();
+
+        var captor = org.mockito.ArgumentCaptor.forClass(
+                tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.class);
+        org.mockito.Mockito.verify(sdk).generateTextAsync(captor.capture());
+        assertEquals("caller-request-42", captor.getValue().requestId());
+        assertEquals("user-1", captor.getValue().userId());
+        assertEquals("session-1", captor.getValue().sessionId());
+        assertEquals("trace-1", captor.getValue().traceId());
+    }
+
+    @Test
+    void typedTextStreamingAssignsRequestIdWhenCallerOmitsIt() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
+        org.mockito.Mockito.when(sdk.streamText(request))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().empty());
+
+        service.streamText(sdk, request).collect().asList().await().indefinitely();
+
+        var captor = org.mockito.ArgumentCaptor.forClass(
+                tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.class);
+        org.mockito.Mockito.verify(sdk).streamText(captor.capture());
+        assertEquals(false, captor.getValue().requestId() == null
+                || captor.getValue().requestId().isBlank());
+    }
 }
