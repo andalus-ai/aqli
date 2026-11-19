@@ -137,7 +137,7 @@ class AqliChatServiceTest {
     void typedTextStreamingAssignsRequestIdWhenCallerOmitsIt() {
         var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
         var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
-        org.mockito.Mockito.when(sdk.streamText(request))
+        org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(io.smallrye.mutiny.Multi.createFrom().empty());
 
         service.streamText(sdk, request).collect().asList().await().indefinitely();
