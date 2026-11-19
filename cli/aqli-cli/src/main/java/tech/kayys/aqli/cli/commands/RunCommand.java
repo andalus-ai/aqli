@@ -1,6 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
+import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
@@ -784,7 +785,7 @@ public class RunCommand implements Runnable {
                                             reference.modelId(), reference.preferredFormat()),
                                     this::inferProviderFromIndex,
                                     this::inferFormatFromIndex,
-                                    path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
+                                    path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                                                     reference, selectedProvider, isMcpProvider()),
@@ -833,7 +834,7 @@ public class RunCommand implements Runnable {
                             providerId,
                             modelId,
                             finalLocalPath,
-                            this::isSafetensorCheckpointDir,
+                            SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir,
                             this::isSafetensorWeightFile,
                             System.out::println,
                             System.err::println);
@@ -1692,7 +1693,7 @@ public class RunCommand implements Runnable {
 
     private String routeExecutionProviderId(String provider, String localPath) {
         return RouteExecutionProviderResolver.resolve(
-                provider, localPath, this::isSafetensorCheckpointDir, this::isSafetensorWeightFile);
+                provider, localPath, SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir, this::isSafetensorWeightFile);
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
@@ -1965,7 +1966,7 @@ public class RunCommand implements Runnable {
         return DirectSafetensorRoutePolicy.shouldUseDirectRun(
                 currentProvider,
                 checkpointPath,
-                checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
+                checkpointPath != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
                 grammar,
                 prompt,
@@ -2019,101 +2020,6 @@ public class RunCommand implements Runnable {
         } catch (Exception ignored) {
         }
         return null;
-    }
-
-    private boolean isSafetensorCheckpointDir(String localPath) {
-        if (localPath == null || localPath.isBlank()) {
-            return false;
-        }
-        try {
-            Path path = Path.of(localPath);
-            if (!Files.isDirectory(path)) {
-                return false;
-            }
-            if (!Files.exists(path.resolve("config.json"))) {
-                return false;
-            }
-            return Files.exists(path.resolve("model.safetensors"))
-                    || Files.exists(path.resolve("model.safetensor"))
-                    || Files.exists(path.resolve("model.safetensors.index.json"));
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private String detectSafetensorCompatibilityIssue(String providerId, String localPath) {
-        if (!"safetensor".equalsIgnoreCase(providerId) || localPath == null || localPath.isBlank()) {
-            return null;
-        }
-        if (!isSafetensorCheckpointDir(localPath)) {
-            return null;
-        }
-
-        try {
-            Path configPath = Path.of(localPath).resolve("config.json");
-            ModelConfig parsed = ModelConfig.load(configPath, new ObjectMapper());
-            String modelType = parsed.modelType() == null ? "" : parsed.modelType().toLowerCase(Locale.ROOT);
-            String architecture = parsed.primaryArchitecture() == null
-                    ? ""
-                    : parsed.primaryArchitecture().toLowerCase(Locale.ROOT);
-            boolean gemma4UnifiedWrapper = isGemma4UnifiedWrapper(modelType, architecture);
-            boolean resolvedGemma4Text = modelType.startsWith("gemma4")
-                    && parsed.hiddenSize() > 0
-                    && parsed.numHiddenLayers() > 0
-                    && parsed.numAttentionHeads() > 0;
-            if (resolvedGemma4Text) {
-                return null;
-            }
-            if (gemma4UnifiedWrapper) {
-                return "this local safetensor runtime build recognizes Gemma 4 unified checkpoints like "
-                        + Path.of(localPath).getFileName()
-                        + ", but does not run their unified multimodal embedder path yet. "
-                        + "Use a runtime plugin with Gemma 4 unified support, or convert to a supported artifact.";
-            }
-        } catch (Exception ignored) {
-            // Fall back to raw config heuristics only when structured parsing cannot
-            // reconcile the checkpoint into a supported text model shape.
-        }
-
-        try {
-            Path configPath = Path.of(localPath).resolve("config.json");
-            String config = Files.readString(configPath);
-            boolean gemma4Conditional = config.contains("\"Gemma4ForConditionalGeneration\"")
-                    || config.contains("\"Gemma4ForMultimodalLM\"")
-                    || config.contains("\"Gemma4ForImageTextToText\"")
-                    || config.contains("\"model_type\": \"gemma4\"");
-            boolean gemma4Unified = config.contains("\"model_type\": \"gemma4_unified\"")
-                    || config.contains("\"Gemma4ForMultimodalLM\"")
-                    || config.contains("\"Gemma4ForImageTextToText\"");
-            boolean multimodalWrapper = config.contains("\"vision_config\"")
-                    || config.contains("\"audio_config\"");
-            boolean hasTextConfig = config.contains("\"text_config\"");
-
-            if (gemma4Unified && multimodalWrapper && hasTextConfig) {
-                return null;
-            }
-            if (gemma4Unified && multimodalWrapper) {
-                return "this local safetensor runtime build recognizes Gemma 4 unified checkpoints like "
-                        + Path.of(localPath).getFileName()
-                        + ", but does not run their unified multimodal embedder path yet. "
-                        + "Use a runtime plugin with Gemma 4 unified support, or convert to a supported artifact.";
-            }
-            if (gemma4Conditional && multimodalWrapper && !hasTextConfig) {
-                return "this local safetensor runtime build does not reliably support Gemma4 multimodal text checkpoints like "
-                        + Path.of(localPath).getFileName()
-                        + ". It may run but produce incorrect output. Use a newer safetensor engine build or convert the model to a supported runtime first.";
-            }
-        } catch (Exception ignored) {
-            return null;
-        }
-
-        return null;
-    }
-
-    private boolean isGemma4UnifiedWrapper(String modelType, String architecture) {
-        return modelType.equals("gemma4_unified")
-                || architecture.equals("gemma4formultimodallm")
-                || architecture.equals("gemma4forimagetexttotext");
     }
 
     private String detectNativeGgufCompatibilityIssue(String providerId, String modelId, String localPath) {
@@ -2509,7 +2415,7 @@ public class RunCommand implements Runnable {
     private Path localSafetensorCheckpointForConversion() {
         for (String ref : new String[] { modelDir, modelFile, modelPath, modelId }) {
             Path p = resolveSafetensorCheckpointPath(ref);
-            if (p != null && isSafetensorCheckpointDir(p.toString())) {
+            if (p != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(p.toString())) {
                 return p;
             }
         }
@@ -2518,7 +2424,7 @@ public class RunCommand implements Runnable {
                 Optional<LocalModelIndex.Entry> indexed = findSafetensorIndexEntry(modelId);
                 if (indexed.isPresent() && LocalModelIndex.find(modelId, "gguf").isEmpty()) {
                     Path p = resolveSafetensorCheckpointPath(indexed.get().path);
-                    if (p != null && isSafetensorCheckpointDir(p.toString())) {
+                    if (p != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(p.toString())) {
                         return p;
                     }
                 }
@@ -2531,7 +2437,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSafetensorModelPath(String localPath) {
         Path p = resolveSafetensorCheckpointPath(localPath);
-        return p != null && isSafetensorCheckpointDir(p.toString());
+        return p != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(p.toString());
     }
 
     /**
@@ -2551,7 +2457,7 @@ public class RunCommand implements Runnable {
             if (ref == null || ref.isBlank()) {
                 continue;
             }
-            if (ref.toLowerCase(Locale.ROOT).endsWith(".safetensors") || isSafetensorCheckpointDir(ref)) {
+            if (ref.toLowerCase(Locale.ROOT).endsWith(".safetensors") || SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(ref)) {
                 return true;
             }
         }
