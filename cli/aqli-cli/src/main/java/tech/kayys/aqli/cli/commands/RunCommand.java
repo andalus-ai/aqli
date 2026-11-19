@@ -102,6 +102,7 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -150,6 +151,7 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private ImageGenerationRunOptions imageGenerationOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -375,19 +377,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
     boolean ttsCachePruneApply;
 
-    @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
-    Integer steps;
-
-    @Option(names = { "--guidance-scale", "--cfg" }, description = "Classifier-free guidance scale (default: 7.5)")
-    Float guidanceScale;
-
-    @Option(names = { "--width" }, description = "Output image width in pixels (default: 512, must be multiple of 64)")
-    Integer width;
-
-    @Option(names = {
-            "--height" }, description = "Output image height in pixels (default: 512, must be multiple of 64)")
-    Integer height;
-
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
@@ -464,6 +453,13 @@ public class RunCommand implements Runnable {
                 AudioRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+
+        imageGenerationOptions = runCapabilityRegistry.snapshot(
+                "image-generation",
+                commandSpec.commandLine().getParseResult(),
+                ImageGenerationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -1029,10 +1025,12 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            imageGenerationOptions.guidanceScale() == null
+                                    ? null
+                                    : imageGenerationOptions.guidanceScale().doubleValue(),
                             outputPath,
-                            width,
-                            height));
+                            imageGenerationOptions.width(),
+                            imageGenerationOptions.height()));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1116,12 +1114,12 @@ public class RunCommand implements Runnable {
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
                                     seed,
-                                    steps,
+                                    imageGenerationOptions.steps(),
                                     format,
-                                    guidanceScale,
+                                    imageGenerationOptions.guidanceScale(),
                                     outputPath,
-                                    width,
-                                    height,
+                                    imageGenerationOptions.width(),
+                                    imageGenerationOptions.height(),
                                     normalizedInputImages,
                                     ocrMode,
                                     ocrImageTokens,
@@ -2779,10 +2777,10 @@ public class RunCommand implements Runnable {
                 runner,
                 prompt,
                 imageReplaySeed(metadata),
-                steps,
-                guidanceScale,
-                width,
-                height,
+                imageGenerationOptions.steps(),
+                imageGenerationOptions.guidanceScale(),
+                imageGenerationOptions.width(),
+                imageGenerationOptions.height(),
                 metadata
         ));
     }
