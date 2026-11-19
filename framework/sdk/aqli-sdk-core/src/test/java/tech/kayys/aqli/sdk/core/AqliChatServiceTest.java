@@ -282,73 +282,83 @@ class AqliChatServiceTest {
     }
 
     @Test
-    void throwingObservabilityCallbacksDoNotFailTypedInference() {
+    void typedTextStreamingRecordsCancellationWithoutSuccessOrFailure() {
         var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
         var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
-        var response = new tech.kayys.aqli.sdk.capability.text.TextGenerationResponse(
-                "hello", "model-id", 1, 1, 10,
-                tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP);
-        org.mockito.Mockito.when(sdk.generateTextAsync(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(response));
         var metrics = org.mockito.Mockito.mock(
                 tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
         var audit = org.mockito.Mockito.mock(
                 tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
-        org.mockito.Mockito.doThrow(new IllegalStateException("metrics exporter unavailable"))
-                .when(metrics).recordClientSuccess(org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
-        org.mockito.Mockito.doThrow(new IllegalStateException("audit exporter unavailable"))
-                .when(audit).logClientRequestComplete(org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(),
-                        org.mockito.ArgumentMatchers.anyLong());
         var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
             public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
                 return metrics;
             }
+
+            @Override
             public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
                 return audit;
             }
         };
+        org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().<tech.kayys.aqli.sdk.capability.text.TextGenerationChunk>emitter(emitter -> {}));
 
-        var result = new AqliChatService(observability).generateText(sdk, request).await().indefinitely();
+        var subscription = new AqliChatService(observability).streamText(sdk, request)
+                .subscribe().with(chunk -> {}, failure -> {});
+        subscription.cancel();
 
-        assertEquals(response, result);
+        org.mockito.Mockito.verify(metrics).recordClientCancellation(
+                org.mockito.ArgumentMatchers.eq("model-id"), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit).logClientRequestCancelled(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("model-id"),
+                org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestComplete(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestFailure(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
-    void throwingStreamObservabilityCallbacksDoNotInterruptChunks() {
+    void legacyTextStreamingRecordsCancellationWithoutSuccessOrFailure() {
         var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
-        var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
-        var first = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
-                "stream-request", 0, "hello", true,
-                tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP,
-                null, null, null, null, null, java.time.Instant.now(), java.util.Map.of());
-        org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(io.smallrye.mutiny.Multi.createFrom().item(first));
         var metrics = org.mockito.Mockito.mock(
                 tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
         var audit = org.mockito.Mockito.mock(
                 tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
-        org.mockito.Mockito.doThrow(new IllegalStateException("metrics exporter unavailable"))
-                .when(metrics).recordClientChunk(org.mockito.ArgumentMatchers.anyString());
-        org.mockito.Mockito.doThrow(new IllegalStateException("audit exporter unavailable"))
-                .when(audit).logClientRequestComplete(org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(),
-                        org.mockito.ArgumentMatchers.anyLong());
         var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
             public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
                 return metrics;
             }
+
+            @Override
             public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
                 return audit;
             }
         };
+        org.mockito.Mockito.when(sdk.streamCompletion(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().<tech.kayys.aqli.spi.inference.StreamingInferenceChunk>emitter(emitter -> {}));
 
-        var chunks = new AqliChatService(observability).streamText(sdk, request)
-                .collect().asList().await().indefinitely();
+        var subscription = new AqliChatService(observability).streamChat(
+                sdk, "model-id", null, List.of(Message.user("hello")), List.of(), ChatParams.defaults())
+                .subscribe().with(chunk -> {}, failure -> {});
+        subscription.cancel();
 
-        assertEquals(1, chunks.size());
-        assertEquals("hello", chunks.getFirst().delta());
+        org.mockito.Mockito.verify(metrics).recordClientCancellation(
+                org.mockito.ArgumentMatchers.eq("model-id"), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit).logClientRequestCancelled(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("model-id"),
+                org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestComplete(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestFailure(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 
 }

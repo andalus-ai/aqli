@@ -130,6 +130,8 @@ public final class AqliChatService {
         recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
         long startMs = System.currentTimeMillis();
         return Multi.createFrom().deferred(() -> {
+            obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+            long startMs = System.currentTimeMillis();
             java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
                     new java.util.concurrent.atomic.AtomicBoolean();
             java.util.concurrent.atomic.AtomicInteger outputTokens =
@@ -159,9 +161,14 @@ public final class AqliChatService {
                                 requestId, modelId, outputTokens.get(), duration));
                     })
                     .onFailure().invoke(error -> {
-                        recordMetrics(metrics -> metrics.recordClientFailure(modelId, error.getClass().getSimpleName()));
-                        recordAudit(audit -> audit.logClientRequestFailure(
-                                requestId, modelId, error.getClass().getSimpleName()));
+                        obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
+                        obs.getAuditLogger().logClientRequestFailure(
+                                requestId, modelId, error.getClass().getSimpleName());
+                    })
+                    .onCancellation().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        obs.getMetricsCollector().recordClientCancellation(modelId, duration);
+                        obs.getAuditLogger().logClientRequestCancelled(requestId, modelId, duration);
                     });
         });
     }
@@ -243,10 +250,9 @@ public final class AqliChatService {
             ChatParams p) {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
-        recordAudit(audit -> audit.logClientRequestStart(req.getRequestId(), modelId));
-        long startMs = System.currentTimeMillis();
-
         return Multi.createFrom().deferred(() -> {
+            obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
+            long startMs = System.currentTimeMillis();
             java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
                     new java.util.concurrent.atomic.AtomicBoolean();
             java.util.concurrent.atomic.AtomicInteger outputTokens =
@@ -272,9 +278,14 @@ public final class AqliChatService {
                                 req.getRequestId(), modelId, outputTokens.get(), duration));
                     })
                     .onFailure().invoke(err -> {
-                        recordMetrics(metrics -> metrics.recordClientFailure(modelId, err.getClass().getSimpleName()));
-                        recordAudit(audit -> audit.logClientRequestFailure(
-                                req.getRequestId(), modelId, err.getClass().getSimpleName()));
+                        obs.getMetricsCollector().recordClientFailure(modelId, err.getClass().getSimpleName());
+                        obs.getAuditLogger().logClientRequestFailure(
+                                req.getRequestId(), modelId, err.getClass().getSimpleName());
+                    })
+                    .onCancellation().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        obs.getMetricsCollector().recordClientCancellation(modelId, duration);
+                        obs.getAuditLogger().logClientRequestCancelled(req.getRequestId(), modelId, duration);
                     });
         });
     }

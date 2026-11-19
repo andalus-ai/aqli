@@ -19,7 +19,6 @@ import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import tech.kayys.aqli.server.SdkProvider;
-import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 
@@ -107,7 +106,6 @@ public class ResponsesResource {
 
     private Multi<String> responsesEventStream(
             TextGenerationRequest request, AgentTraceContext trace, AgentStreamOptions streamOptions) {
-        String requestId = request.requestId() != null ? request.requestId() : trace.requestId();
         StringBuilder outputText = new StringBuilder();
         Multi<String> body = Multi.createFrom().publisher(sdkProvider.getSdk().streamText(request))
                 .onItem().transformToMultiAndConcatenate(chunk -> {

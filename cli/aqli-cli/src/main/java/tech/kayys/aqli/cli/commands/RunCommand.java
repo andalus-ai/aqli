@@ -4,6 +4,7 @@ import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
+import tech.kayys.aqli.cli.commands.route.SafetensorEngineHintPolicy;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -2167,29 +2168,12 @@ public class RunCommand implements Runnable {
         return values == null || values.isEmpty();
     }
 
-    /**
-     * Maps the shared {@code --java} / {@code --llamacpp} / {@code --engine} switches onto the two
-     * safetensor routes: {@code direct} (pure-Java DirectInferenceEngine, no libtorch) or
-     * {@code gguf} (convert to GGUF via the existing forceGguf route, run on llama.cpp).
-     * Returns {@code null} for auto/benchmark/unknown so default routing applies.
-     */
-    static String safetensorBackendFor(String engineHint) {
-        if (engineHint == null) {
-            return null;
-        }
-        return switch (engineHint.trim().toLowerCase(Locale.ROOT)) {
-            case "java", "java-native", "native", "direct" -> "direct";
-            case "llamacpp", "llama.cpp", "llama-cpp", "gguf" -> "gguf";
-            default -> null;
-        };
-    }
-
     private boolean explicitJavaEngine() {
-        return "direct".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "direct".equals(SafetensorEngineHintPolicy.backendFor(requestedGgufEngine()));
     }
 
     private boolean explicitLlamaCppEngine() {
-        return "gguf".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(requestedGgufEngine()));
     }
 
     /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
