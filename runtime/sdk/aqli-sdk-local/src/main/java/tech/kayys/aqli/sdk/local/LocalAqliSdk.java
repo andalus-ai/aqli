@@ -83,7 +83,7 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
     public CompletionStage<TextGenerationResponse> generateTextAsync(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toInferenceRequest(request);
-        return createCompletionAsync(executionRequest).thenApply(LocalAqliSdk::toTextGenerationResponse);
+        return createCompletionAsync(executionRequest).thenApply(tech.kayys.aqli.sdk.core.TextGenerationResponseMapper::toResponse);
     }
 
     @Override
@@ -92,80 +92,7 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
                 .toStreamingInferenceRequest(request);
         return streamCompletion(executionRequest)
                 .filter(chunk -> chunk.modality() == ModalityType.TEXT)
-                .map(LocalAqliSdk::toTextGenerationChunk);
-    }
-
-    private static TextGenerationResponse toTextGenerationResponse(InferenceResponse response) {
-        return new TextGenerationResponse(
-                response.getContent(),
-                response.getModel(),
-                response.getInputTokens(),
-                response.getOutputTokens(),
-                response.getDurationMs(),
-                toTextFinishReason(response.getFinishReason()),
-                response.getToolCalls().stream()
-                        .map(call -> tech.kayys.aqli.spi.tool.ToolCall.builder()
-                                .id(java.util.UUID.randomUUID().toString())
-                                .name(call.name())
-                                .arguments(call.arguments())
-                                .build())
-                        .toList());
-    }
-
-    private static TextGenerationChunk toTextGenerationChunk(StreamingInferenceChunk chunk) {
-        TextGenerationChunk.ToolCallEvent toolCallEvent = null;
-        if (chunk.isToolCallStart()) {
-            toolCallEvent = TextGenerationChunk.ToolCallEvent.START;
-        } else if (chunk.isToolCallDelta()) {
-            toolCallEvent = TextGenerationChunk.ToolCallEvent.DELTA;
-        } else if (chunk.isToolCallEnd()) {
-            toolCallEvent = TextGenerationChunk.ToolCallEvent.END;
-        }
-
-        StreamingInferenceChunk.ChunkUsage chunkUsage = chunk.usage();
-        TextGenerationChunk.Usage usage = chunkUsage == null ? null
-                : new TextGenerationChunk.Usage(
-                        chunkUsage.inputTokens(), chunkUsage.outputTokens(), chunkUsage.latencyMs());
-
-        return new TextGenerationChunk(
-                chunk.requestId(),
-                chunk.index(),
-                chunk.delta(),
-                chunk.finished(),
-                chunk.finished() ? toTextFinishReason(chunk.finishReason()) : null,
-                toolCallEvent,
-                chunk.toolCallId(),
-                chunk.toolName(),
-                chunk.toolInputDelta(),
-                usage,
-                chunk.emittedAt(),
-                chunk.metadata());
-    }
-
-    private static TextGenerationResponse.FinishReason toTextFinishReason(
-            InferenceResponse.FinishReason finishReason) {
-        if (finishReason == null) {
-            return TextGenerationResponse.FinishReason.STOP;
-        }
-        return switch (finishReason) {
-            case STOP -> TextGenerationResponse.FinishReason.STOP;
-            case LENGTH -> TextGenerationResponse.FinishReason.LENGTH;
-            case TOOL_CALLS -> TextGenerationResponse.FinishReason.TOOL_CALLS;
-            case ERROR -> TextGenerationResponse.FinishReason.ERROR;
-        };
-    }
-
-    private static TextGenerationResponse.FinishReason toTextFinishReason(String finishReason) {
-        if (finishReason == null || finishReason.isBlank()) {
-            return TextGenerationResponse.FinishReason.STOP;
-        }
-        return switch (finishReason.toLowerCase(java.util.Locale.ROOT)) {
-            case "length" -> TextGenerationResponse.FinishReason.LENGTH;
-            case "tool_calls" -> TextGenerationResponse.FinishReason.TOOL_CALLS;
-            case "content_filter" -> TextGenerationResponse.FinishReason.CONTENT_FILTER;
-            case "error" -> TextGenerationResponse.FinishReason.ERROR;
-            default -> TextGenerationResponse.FinishReason.STOP;
-        };
+                .map(tech.kayys.aqli.sdk.core.TextGenerationResponseMapper::toChunk);
     }
 
     @Override
