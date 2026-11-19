@@ -173,6 +173,8 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 
 ## Documentation
 
+- [Triad Ecosystem Vision](docs/architecture/TRIAD_ECOSYSTEM_VISION.md) — the AQLI + Aljabr + Tafkir Java AI/ML ecosystem strategy.
+
 ### Getting started and API
 
 - [Quickstart](docs/QUICKSTART.md)
@@ -206,3 +208,15 @@ Before submitting changes:
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## The Java AI/ML ecosystem: AQLI + Aljabr + Tafkir
+
+AQLI is one part of a broader Java-first AI/ML ecosystem designed to cover the development-to-production workflow commonly assembled from Python tools such as PyTorch, Hugging Face Transformers, scikit-learn, training toolkits, and inference servers. The goal is a coherent, interoperable Java alternative—not a claim that every feature in those projects is already implemented.
+
+- **Aljabr** is the independent ML/compute framework: tensors, operators, neural-network and model execution foundations, formats, tokenizers, backends, and native interoperability.
+- **Tafkir** provides training, fine-tuning, adaptation, and evaluation workflows built on Aljabr.
+- **AQLI** provides inference, model lifecycle, deployment, scheduling, SDK/CLI/APIs, and production serving on Aljabr.
+
+The same ecosystem should be usable as embedded Java libraries, SDKs, CLI tools, JBang or other scripts, JShell/Jupyter workflows, and production AQLI runtimes. Users should be able to develop or train with Aljabr/Tafkir, export portable artifacts, and deploy them through AQLI without making Tafkir a runtime dependency.
+
+See the [Triad Ecosystem Vision](docs/architecture/TRIAD_ECOSYSTEM_VISION.md) for product roles, dependency rules, capability coverage, developer experience, and acceptance criteria. The vision is a roadmap: consult module documentation and capability matrices for what is actually implemented and supported today.

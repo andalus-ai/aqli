@@ -220,3 +220,37 @@ Recommended initial ADRs: (1) Aljabr/AQLI/Tafkir ownership; (2) FFM/native ABI o
 ## 12. Status honesty
 
 This is a target architecture, not a claim of complete migration. A phase is complete only when source inspection, focused tests, repository CI and published-artifact dependency resolution support the claim. Keep open issues visible, especially native binding CI, Safetensors compilation, and any optional integration that still leaks into the default dependency graph.
+
+
+## 13. The Java AI/ML ecosystem: AQLI + Aljabr + Tafkir
+
+The three projects form an interoperable Java-first AI/ML ecosystem intended to cover the workflow commonly assembled from Python frameworks and libraries such as PyTorch, Transformers, scikit-learn, training toolkits, and inference servers. This is a strategic capability-coverage target, not a statement of complete feature parity.
+
+- **Aljabr** is the independent general-purpose ML/compute framework and reusable model foundation.
+- **Tafkir** owns training, fine-tuning, adaptation, and evaluation workflows built on Aljabr.
+- **AQLI** owns inference, deployment, model lifecycle, scheduling, SDK/CLI/API entry points, and production serving on Aljabr.
+
+The triad must support different consumption modes over the same public APIs and portable artifacts: embedded Java libraries, SDKs, CLI, JBang/scripts, JShell/Jupyter workflows, and AQLI production runtime/service. The entry point must not become the owner of the capability: notebooks, scripts, CLI, REST, and gRPC are adapters over the relevant project APIs and shared behavior.
+
+The intended workflow is:
+
+```text
+Research / application development
+       |                 |
+       v                 v
+     Aljabr          Tafkir
+  ML framework  <--- training/adaptation
+       |                 |
+       +------ portable model artifacts
+                      |
+                      v
+                 Aljabr model APIs
+                      |
+                      v
+                AQLI runtime
+       embedded / CLI / REST / gRPC / production
+```
+
+Dependency constraints remain strict: Aljabr must not depend on AQLI or Tafkir; Tafkir builds on Aljabr and must not depend on AQLI internals; AQLI's ordinary inference path must not require Tafkir. Aljabr owns framework-generic computation, Tafkir owns training workflow semantics, and AQLI owns serving/production policy.
+
+See [Triad Ecosystem Vision](TRIAD_ECOSYSTEM_VISION.md) for the capability map, Python ecosystem comparison, supported consumption modes, DX expectations, and acceptance criteria. Claims of PyTorch, Transformers, or scikit-learn parity require explicit feature-level evidence and must distinguish implemented, partial, experimental, planned, and unsupported capabilities.
