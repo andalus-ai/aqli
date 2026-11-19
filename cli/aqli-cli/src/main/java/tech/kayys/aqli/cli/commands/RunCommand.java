@@ -5,6 +5,7 @@ import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValida
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
 import tech.kayys.aqli.cli.commands.route.SafetensorEngineHintPolicy;
+import tech.kayys.aqli.cli.commands.route.GgufCliEngineOptionResolver;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -1014,7 +1015,7 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            String ggufEngineHint = requestedGgufEngine();
+            String ggufEngineHint = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
@@ -2076,7 +2077,7 @@ public class RunCommand implements Runnable {
         args.add("--top-p");
         args.add(Double.toString(textRunOptions.topP()));
 
-        String engine = requestedGgufEngine();
+        String engine = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
         if (engine != null && !engine.isBlank()) {
             args.add("--engine");
             args.add(engine);
@@ -2169,11 +2170,11 @@ public class RunCommand implements Runnable {
     }
 
     private boolean explicitJavaEngine() {
-        return "direct".equals(SafetensorEngineHintPolicy.backendFor(requestedGgufEngine()));
+        return "direct".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
     }
 
     private boolean explicitLlamaCppEngine() {
-        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(requestedGgufEngine()));
+        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
     }
 
     /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
@@ -2307,18 +2308,6 @@ public class RunCommand implements Runnable {
         return false;
     }
 
-    private String requestedGgufEngine() {
-        if (benchmarkGguf) {
-            return "benchmark";
-        }
-        if (javaNativeGguf) {
-            return "java";
-        }
-        if (llamaCppGguf) {
-            return "llamacpp";
-        }
-        return ggufEngine == null ? null : ggufEngine.trim();
-    }
 
     private String requestedGgufBackend() {
         if (ggufBackend != null && !ggufBackend.isBlank()) {
