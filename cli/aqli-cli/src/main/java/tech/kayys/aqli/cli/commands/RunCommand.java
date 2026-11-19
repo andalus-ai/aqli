@@ -38,7 +38,6 @@ import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
