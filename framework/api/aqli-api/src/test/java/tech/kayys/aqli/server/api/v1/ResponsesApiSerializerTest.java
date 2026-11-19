@@ -70,7 +70,7 @@ class ResponsesApiSerializerTest {
                 "call-1", "lookup", null, null, Instant.now(), Map.of());
         TextGenerationChunk delta = new TextGenerationChunk(
                 "req-tool", 1, "", false, null, TextGenerationChunk.ToolCallEvent.DELTA,
-                "call-1", null, "{\\"q\\":1}", null, Instant.now(), Map.of());
+                "call-1", null, "{query:1}", null, Instant.now(), Map.of());
         TextGenerationChunk end = new TextGenerationChunk(
                 "req-tool", 2, "", false, null, TextGenerationChunk.ToolCallEvent.END,
                 "call-1", null, null, null, Instant.now(), Map.of());
@@ -82,7 +82,7 @@ class ResponsesApiSerializerTest {
         assertEquals("response.output_item.added", startEvent.path("type").asText());
         assertEquals("function_call", startEvent.path("item").path("type").asText());
         assertEquals("response.function_call_arguments.delta", deltaEvent.path("type").asText());
-        assertEquals("{\\"q\\":1}", deltaEvent.path("delta").asText());
+        assertEquals("{query:1}", deltaEvent.path("delta").asText());
         assertEquals("response.function_call_arguments.done", endEvent.path("type").asText());
         assertFalse(startEvent.has("trace"));
     }
