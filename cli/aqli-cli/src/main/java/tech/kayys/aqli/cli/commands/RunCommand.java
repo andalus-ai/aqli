@@ -2169,11 +2169,11 @@ public class RunCommand implements Runnable {
     }
 
     private boolean explicitJavaEngine() {
-        return "direct".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "direct".equals(SafetensorEngineHintPolicy.backendFor(requestedGgufEngine()));
     }
 
     private boolean explicitLlamaCppEngine() {
-        return "gguf".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(requestedGgufEngine()));
     }
 
     /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
