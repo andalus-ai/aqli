@@ -128,12 +128,16 @@ public final class AqliChatService {
         String modelId = effectiveRequest.model();
         obs.getAuditLogger().logClientRequestStart(requestId, modelId);
         long startMs = System.currentTimeMillis();
+        java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
+                new java.util.concurrent.atomic.AtomicBoolean();
 
         return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
                 .map(AqliChatService::toStreamingInferenceChunk)
                 .onItem().invoke(chunk -> {
                     obs.getMetricsCollector().recordClientChunk(modelId);
-                    if (chunk.delta() != null && !chunk.delta().isEmpty()) {
+                    boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
+                            || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
+                    if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
                         obs.getMetricsCollector().recordClientTtft(
                                 modelId, System.currentTimeMillis() - startMs);
                     }
