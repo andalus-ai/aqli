@@ -200,7 +200,8 @@ class AqliChatServiceTest {
         var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
             @Override
             public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
-                return tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.noop();
+                return org.mockito.Mockito.mock(
+                        tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
             }
 
             @Override
