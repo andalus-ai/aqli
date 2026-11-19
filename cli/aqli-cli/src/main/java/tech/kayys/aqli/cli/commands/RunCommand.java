@@ -3,6 +3,7 @@ import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
+import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -2020,8 +2021,8 @@ public class RunCommand implements Runnable {
                 routeReportJson,
                 prompt,
                 providerId,
-                isGgufProviderAlias(providerId),
-                isGgufPluginAlias(pluginId),
+                GgufRouteAliasPolicy.isProviderAlias(providerId),
+                GgufRouteAliasPolicy.isPluginAlias(pluginId),
                 hasExplicitGgufEngine(),
                 requestsSafetensorModel(),
                 explicitLlamaCppEngine(),
@@ -2346,32 +2347,6 @@ public class RunCommand implements Runnable {
             return parentCommand.platform().trim();
         }
         return null;
-    }
-
-    private boolean isGgufProviderAlias(String provider) {
-        if (provider == null || provider.isBlank()) {
-            return false;
-        }
-        String normalized = provider.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("gguf")
-                || normalized.equals("llamacpp")
-                || normalized.equals("llama.cpp")
-                || normalized.equals("llama-cpp")
-                || normalized.equals("java")
-                || normalized.equals("java-native")
-                || normalized.equals("jvm");
-    }
-
-    private boolean isGgufPluginAlias(String plugin) {
-        if (plugin == null || plugin.isBlank()) {
-            return false;
-        }
-        String normalized = plugin.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("gguf")
-                || normalized.equals("gguf-runner")
-                || normalized.equals("llamacpp")
-                || normalized.equals("llama.cpp")
-                || normalized.equals("llama-cpp");
     }
 
     private boolean isGgufFormat(String value) {
