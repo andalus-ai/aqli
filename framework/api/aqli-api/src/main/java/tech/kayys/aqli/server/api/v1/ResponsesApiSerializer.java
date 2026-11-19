@@ -65,22 +65,24 @@ final class ResponsesApiSerializer {
         String responseId = "resp_" + requestId;
         String messageId = "msg_" + requestId;
         List<String> events = new ArrayList<>();
-        long sequence = chunk.sequence() + 1;
+        long sequence = chunk.sequence();
         if (!chunk.delta().isEmpty()) {
             Map<String, Object> delta = new LinkedHashMap<>();
             delta.put("type", "response.output_text.delta");
-            delta.put("sequence_number", sequence);
+            long deltaSequence = ++sequence;
+            delta.put("sequence_number", deltaSequence);
             delta.put("response_id", responseId);
             delta.put("item_id", messageId);
             delta.put("output_index", 0);
             delta.put("content_index", 0);
             delta.put("delta", chunk.delta());
-            metadata(delta, trace, options, sequence, false, null);
+            metadata(delta, trace, options, deltaSequence, false, null);
             events.add(json(delta));
         }
         if (chunk.toolCallEvent() != null) {
             Map<String, Object> toolEvent = new LinkedHashMap<>();
-            toolEvent.put("sequence_number", ++sequence);
+            long toolSequence = ++sequence;
+            toolEvent.put("sequence_number", toolSequence);
             toolEvent.put("response_id", responseId);
             toolEvent.put("item_id", chunk.toolCallId());
             toolEvent.put("output_index", 1);
@@ -102,8 +104,21 @@ final class ResponsesApiSerializer {
                     toolEvent.put("call_id", chunk.toolCallId());
                 }
             }
-            metadata(toolEvent, trace, options, sequence, false, null);
+            metadata(toolEvent, trace, options, toolSequence, false, null);
             events.add(json(toolEvent));
+            if (chunk.toolCallEvent() == TextGenerationChunk.ToolCallEvent.END) {
+                Map<String, Object> itemDone = new LinkedHashMap<>();
+                long itemDoneSequence = ++sequence;
+                itemDone.put("type", "response.output_item.done");
+                itemDone.put("sequence_number", itemDoneSequence);
+                itemDone.put("response_id", responseId);
+                itemDone.put("output_index", 1);
+                itemDone.put("item", Map.of(
+                        "id", chunk.toolCallId(), "type", "function_call",
+                        "call_id", chunk.toolCallId(), "status", "completed"));
+                metadata(itemDone, trace, options, itemDoneSequence, false, null);
+                events.add(json(itemDone));
+            }
         }
         if (chunk.terminal()) {
             Map<String, Object> done = new LinkedHashMap<>();
