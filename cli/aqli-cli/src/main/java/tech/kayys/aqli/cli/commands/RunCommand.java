@@ -1964,36 +1964,6 @@ public class RunCommand implements Runnable {
         return null;
     }
 
-    private String detectNativeGgufCompatibilityIssue(String providerId, String modelId, String localPath) {
-        if (!"native".equalsIgnoreCase(providerId) || !isGgufModelPath(localPath)) {
-            return null;
-        }
-
-        String fingerprint = ((modelId == null ? "" : modelId) + " "
-                + (localPath == null ? "" : Path.of(localPath).getFileName())).toLowerCase(java.util.Locale.ROOT);
-        if (!fingerprint.contains("gemma4") && !fingerprint.contains("gemma-4")) {
-            return null;
-        }
-
-        return "the local native GGUF runtime in this build does not reliably support Gemma 4 text checkpoints like "
-                + Path.of(localPath).getFileName()
-                + ". It can tokenize the prompt but still ignore Gemma 4 attention/KV/RoPE semantics and produce incorrect output. "
-                + "Use a newer Gemma 4-capable runtime instead of the local GGUF/native fallback.";
-    }
-
-    private boolean isGgufModelPath(String localPath) {
-        if (localPath == null || localPath.isBlank()) {
-            return false;
-        }
-        try {
-            Path path = Path.of(localPath);
-            return Files.isRegularFile(path)
-                    && path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".gguf");
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
     private String effectiveQuantizationStrategy(String raw) {
         String normalized = raw == null ? "" : raw.trim().toLowerCase();
         return switch (normalized) {
