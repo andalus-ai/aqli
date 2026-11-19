@@ -20,6 +20,7 @@ import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.core.AqliSdk;
+import tech.kayys.aqli.sdk.core.TextGenerationResponseMapper;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aqli.sdk.exception.SdkException;
 import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
@@ -76,14 +77,14 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
     public TextGenerationResponse generateText(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toInferenceRequest(request);
-        return toTextGenerationResponse(createCompletion(executionRequest));
+        return TextGenerationResponseMapper.toResponse(createCompletion(executionRequest));
     }
 
     @Override
     public CompletionStage<TextGenerationResponse> generateTextAsync(TextGenerationRequest request) {
         InferenceRequest executionRequest = tech.kayys.aqli.sdk.core.TextGenerationRequestMapper
                 .toInferenceRequest(request);
-        return createCompletionAsync(executionRequest).thenApply(tech.kayys.aqli.sdk.core.TextGenerationResponseMapper::toResponse);
+        return createCompletionAsync(executionRequest).thenApply(TextGenerationResponseMapper::toResponse);
     }
 
     @Override
@@ -92,7 +93,7 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
                 .toStreamingInferenceRequest(request);
         return streamCompletion(executionRequest)
                 .filter(chunk -> chunk.modality() == ModalityType.TEXT)
-                .map(tech.kayys.aqli.sdk.core.TextGenerationResponseMapper::toChunk);
+                .map(TextGenerationResponseMapper::toChunk);
     }
 
     @Override
