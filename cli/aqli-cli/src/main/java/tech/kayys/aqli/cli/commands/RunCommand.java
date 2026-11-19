@@ -755,7 +755,7 @@ public class RunCommand implements Runnable {
                             modelId,
                             finalLocalPath,
                             SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir,
-                            this::isSafetensorWeightFile,
+                            SafetensorCompatibilityPreflightValidator::isSafetensorWeightFile,
                             System.out::println,
                             System.err::println);
             if (!providerLocalPathResolution.ok()) {
@@ -1625,7 +1625,7 @@ public class RunCommand implements Runnable {
 
     private String routeExecutionProviderId(String provider, String localPath) {
         return RouteExecutionProviderResolver.resolve(
-                provider, localPath, SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir, this::isSafetensorWeightFile);
+                provider, localPath, SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir, SafetensorCompatibilityPreflightValidator::isSafetensorWeightFile);
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
@@ -2460,22 +2460,6 @@ public class RunCommand implements Runnable {
                     .anyMatch(id -> id.equals("gguf")
                             || id.equals("gguf-runner")
                             || id.contains("gguf"));
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean isSafetensorWeightFile(String localPath) {
-        if (localPath == null || localPath.isBlank()) {
-            return false;
-        }
-        try {
-            Path path = Path.of(localPath);
-            if (!Files.isRegularFile(path)) {
-                return false;
-            }
-            String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-            return name.endsWith(".safetensors") || name.endsWith(".safetensor");
         } catch (Exception ignored) {
             return false;
         }

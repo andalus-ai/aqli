@@ -26,6 +26,22 @@ class SafetensorCompatibilityPreflightValidatorTest {
         assertFalse(SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(" "));
     }
 
+
+    @Test
+    void identifiesIndividualSafetensorWeightFiles() throws Exception {
+        Path weights = Files.createFile(tempDir.resolve("model.safetensors"));
+        Path singularWeights = Files.createFile(tempDir.resolve("model.safetensor"));
+        Path unrelated = Files.createFile(tempDir.resolve("model.bin"));
+        Path directory = Files.createDirectory(tempDir.resolve("weights-dir"));
+
+        assertTrue(SafetensorCompatibilityPreflightValidator.isSafetensorWeightFile(weights.toString()));
+        assertTrue(SafetensorCompatibilityPreflightValidator.isSafetensorWeightFile(singularWeights.toString()));
+        assertFalse(SafetensorCompatibilityPreflightValidator.isSafetensorWeightFile(unrelated.toString()));
+        assertFalse(SafetensorCompatibilityPreflightValidator.isSafetensorWeightFile(directory.toString()));
+        assertFalse(SafetensorCompatibilityPreflightValidator.isSafetensorWeightFile(null));
+        assertFalse(SafetensorCompatibilityPreflightValidator.isSafetensorWeightFile(" "));
+    }
+
     @Test
     void reportsGemma4UnifiedWrapperWithoutTextConfig() throws Exception {
         Path checkpoint = checkpoint(
