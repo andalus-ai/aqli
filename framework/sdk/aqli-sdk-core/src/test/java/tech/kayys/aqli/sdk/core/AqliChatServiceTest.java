@@ -191,4 +191,42 @@ class AqliChatServiceTest {
                         org.mockito.ArgumentMatchers.anyLong());
         org.mockito.Mockito.verify(metrics, org.mockito.Mockito.times(3)).recordClientChunk("model-id");
     }
+    @Test
+    void typedTextStreamingAuditsTerminalOutputUsagePerSubscription() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
+        var audit = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
+        var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
+                return tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.noop();
+            }
+
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
+                return audit;
+            }
+        };
+        var terminal = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
+                "stream-request", 1, "hello", true,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP,
+                null, null, null, null,
+                new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.Usage(5, 2, 18),
+                java.time.Instant.now(), java.util.Map.of());
+        org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().item(terminal));
+
+        var stream = new AqliChatService(observability).streamText(sdk, request);
+        stream.collect().asList().await().indefinitely();
+        stream.collect().asList().await().indefinitely();
+
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.times(2))
+                .logClientRequestComplete(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq("model-id"),
+                        org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.anyLong());
+    }
+
 }
