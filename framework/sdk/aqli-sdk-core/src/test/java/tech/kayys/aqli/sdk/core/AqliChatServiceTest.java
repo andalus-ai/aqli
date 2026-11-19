@@ -281,4 +281,84 @@ class AqliChatServiceTest {
                         org.mockito.ArgumentMatchers.anyLong());
     }
 
+    @Test
+    void typedTextStreamingRecordsCancellationWithoutSuccessOrFailure() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
+        var metrics = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
+        var audit = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
+        var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
+                return metrics;
+            }
+
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
+                return audit;
+            }
+        };
+        org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().<tech.kayys.aqli.sdk.capability.text.TextGenerationChunk>emitter(emitter -> {}));
+
+        var subscription = new AqliChatService(observability).streamText(sdk, request)
+                .subscribe().with(chunk -> {}, failure -> {});
+        subscription.cancel();
+
+        org.mockito.Mockito.verify(metrics).recordClientCancellation(
+                org.mockito.ArgumentMatchers.eq("model-id"), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit).logClientRequestCancelled(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("model-id"),
+                org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestComplete(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestFailure(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void legacyTextStreamingRecordsCancellationWithoutSuccessOrFailure() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var metrics = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
+        var audit = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
+        var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
+                return metrics;
+            }
+
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
+                return audit;
+            }
+        };
+        org.mockito.Mockito.when(sdk.streamCompletion(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().<tech.kayys.aqli.spi.inference.StreamingInferenceChunk>emitter(emitter -> {}));
+
+        var subscription = new AqliChatService(observability).streamChat(
+                sdk, "model-id", null, List.of(Message.user("hello")), List.of(), ChatParams.defaults())
+                .subscribe().with(chunk -> {}, failure -> {});
+        subscription.cancel();
+
+        org.mockito.Mockito.verify(metrics).recordClientCancellation(
+                org.mockito.ArgumentMatchers.eq("model-id"), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit).logClientRequestCancelled(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("model-id"),
+                org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestComplete(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.never()).logClientRequestFailure(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
 }
