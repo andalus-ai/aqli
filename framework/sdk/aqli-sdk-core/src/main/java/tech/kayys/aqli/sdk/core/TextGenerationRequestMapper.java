@@ -34,7 +34,7 @@ public final class TextGenerationRequestMapper {
                 .model(request.model())
                 .messages(toSpiMessages(request))
                 .streaming(streaming)
-                .toolChoice(request.toolChoice())
+                .toolChoice(toExecutionToolChoice(request.toolChoice()))
                 .metadata(request.metadata());
         if (request.apiKey() != null && !request.apiKey().isBlank()) {
             builder.apiKey(request.apiKey());
@@ -75,6 +75,25 @@ public final class TextGenerationRequestMapper {
             builder.parameter("response_format", parameters.responseFormat());
         }
         return builder.build();
+    }
+
+    /**
+     * Converts the SDK-owned tool-choice contract to the execution SPI's
+     * existing interoperable representation. Legacy values remain untouched
+     * until the execution SPI can replace its Object contract compatibly.
+     */
+    private static Object toExecutionToolChoice(Object toolChoice) {
+        if (!(toolChoice instanceof tech.kayys.aqli.sdk.capability.text.TextGenerationToolChoice choice)) {
+            return toolChoice;
+        }
+        return switch (choice.mode()) {
+            case AUTO -> "auto";
+            case NONE -> "none";
+            case REQUIRED -> "required";
+            case FUNCTION -> java.util.Map.of(
+                    "type", "function",
+                    "function", java.util.Map.of("name", choice.functionName()));
+        };
     }
 
     private static java.util.List<Message> toSpiMessages(TextGenerationRequest request) {
