@@ -230,4 +230,55 @@ class AqliChatServiceTest {
                         org.mockito.ArgumentMatchers.anyLong());
     }
 
+    @Test
+    void legacyTextStreamingRecordsFirstOutputAndTerminalUsagePerSubscription() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var metrics = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
+        var audit = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
+        var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
+                return metrics;
+            }
+
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
+                return audit;
+            }
+        };
+        var empty = new tech.kayys.aqli.spi.inference.StreamingInferenceChunk(
+                "legacy-request", 0, tech.kayys.aljabr.spi.model.ModalityType.TEXT,
+                "", null, false, null, null, java.time.Instant.now(), java.util.Map.of(),
+                null, null, null);
+        var firstOutput = new tech.kayys.aqli.spi.inference.StreamingInferenceChunk(
+                "legacy-request", 1, tech.kayys.aljabr.spi.model.ModalityType.TEXT,
+                "a", null, false, null, null, java.time.Instant.now(), java.util.Map.of(),
+                null, null, null);
+        var terminal = new tech.kayys.aqli.spi.inference.StreamingInferenceChunk(
+                "legacy-request", 2, tech.kayys.aljabr.spi.model.ModalityType.TEXT,
+                "b", null, true, "stop",
+                new tech.kayys.aqli.spi.inference.StreamingInferenceChunk.ChunkUsage(5, 2, 18),
+                java.time.Instant.now(), java.util.Map.of(), null, null, null);
+        org.mockito.Mockito.when(sdk.streamCompletion(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().items(empty, firstOutput, terminal));
+
+        var stream = new AqliChatService(observability).streamChat(
+                sdk, "model-id", null, List.of(Message.user("hello")), List.of(), ChatParams.defaults());
+        stream.collect().asList().await().indefinitely();
+        stream.collect().asList().await().indefinitely();
+
+        org.mockito.Mockito.verify(metrics, org.mockito.Mockito.times(2))
+                .recordClientTtft(org.mockito.ArgumentMatchers.eq("model-id"),
+                        org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(metrics, org.mockito.Mockito.times(6)).recordClientChunk("model-id");
+        org.mockito.Mockito.verify(audit, org.mockito.Mockito.times(2))
+                .logClientRequestComplete(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.eq("model-id"),
+                        org.mockito.ArgumentMatchers.eq(2),
+                        org.mockito.ArgumentMatchers.anyLong());
+    }
+
 }
