@@ -104,6 +104,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -152,6 +153,7 @@ public class RunCommand implements Runnable {
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
+    private VisionInputRunOptions visionInputOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -317,21 +319,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
     String imageMetadataRefreshPath;
 
-    @Option(names = { "--image", "--input-image", "--vision-input" }, description = "Input image path for vision/OCR models")
-    String inputImagePath;
-
-    @Option(names = { "--images", "--input-images" }, split = ",", description = "Comma-separated input image paths for vision/OCR models")
-    List<String> inputImagePaths;
-
-    @Option(names = { "--ocr" }, description = "Use the default OCR task prompt when --prompt is omitted")
-    boolean ocrMode;
-
-    @Option(names = { "--ocr-image-tokens", "--onnx-image-tokens" }, description = "Limit image embeddings used by PaddleOCR-VL ONNX generation (default: 0 = all)")
-    Integer ocrImageTokens;
-
-    @Option(names = { "--ocr-raw", "--onnx-ocr-raw" }, description = "Print raw PaddleOCR-VL generated token text without location postprocessing")
-    boolean ocrRawOutput;
-
     @Option(names = { "--ocr-json", "--onnx-ocr-json" }, description = "Print PaddleOCR-VL OCR result as structured JSON")
     boolean ocrJsonOutput;
 
@@ -460,6 +447,13 @@ public class RunCommand implements Runnable {
                 ImageGenerationRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
+
+        visionInputOptions = runCapabilityRegistry.snapshot(
+                "vision-input",
+                commandSpec.commandLine().getParseResult(),
+                VisionInputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -799,7 +793,7 @@ public class RunCommand implements Runnable {
                                 routeReportRepositoryResolutionSkipped,
                                 routeReportRequireLocal,
                                 !normalizedInputImages.isEmpty(),
-                                ocrMode,
+                                visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
                 printJsonPayload(routeReportResult.payload());
@@ -861,7 +855,7 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            if ((ocrMode || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
+            if ((visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
@@ -869,7 +863,7 @@ public class RunCommand implements Runnable {
                             || ocrJsonOutput
                             || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
                             || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
-                            && (ocrMode || !normalizedInputImages.isEmpty());
+                            && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
             boolean effectiveStream = stream && !structuredOcrOutput;
 
             boolean promptlessExtensionRun = allowsPromptlessExtensionRun(modelId, finalLocalPath);
@@ -935,7 +929,7 @@ public class RunCommand implements Runnable {
                             modelId,
                             finalLocalPath,
                             !normalizedInputImages.isEmpty(),
-                            ocrMode);
+                            visionInputOptions.ocrMode());
             if (!gemma4UnifiedMultimodalRouteValidation.allowed()) {
                 if (!enableJsonSse) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
@@ -1121,9 +1115,9 @@ public class RunCommand implements Runnable {
                                     imageGenerationOptions.width(),
                                     imageGenerationOptions.height(),
                                     normalizedInputImages,
-                                    ocrMode,
-                                    ocrImageTokens,
-                                    ocrRawOutput,
+                                    visionInputOptions.ocrMode(),
+                                    visionInputOptions.ocrImageTokens(),
+                                    visionInputOptions.ocrRawOutput(),
                                     effectiveOnnxVariant,
                                     raw,
                                     debugPrompt),
@@ -1640,9 +1634,9 @@ public class RunCommand implements Runnable {
 
     private List<String> normalizedInputImagePaths() {
         List<String> images = new ArrayList<>();
-        addInputImage(images, inputImagePath);
-        if (inputImagePaths != null) {
-            for (String image : inputImagePaths) {
+        addInputImage(images, visionInputOptions.inputImagePath());
+        if (visionInputOptions.inputImagePaths() != null) {
+            for (String image : visionInputOptions.inputImagePaths()) {
                 addInputImage(images, image);
             }
         }
@@ -2130,15 +2124,15 @@ public class RunCommand implements Runnable {
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
-                && isBlank(inputImagePath)
+                && isBlank(visionInputOptions.inputImagePath())
                 && isEmpty(toolFiles)
                 && isEmpty(mcpTools)
                 && isEmpty(ragContexts)
                 && isEmpty(ragFiles)
-                && isEmpty(inputImagePaths)
+                && isEmpty(visionInputOptions.inputImagePaths())
                 && !jsonMode
                 && !enableJsonSse
-                && !ocrMode
+                && !visionInputOptions.ocrMode()
                 && !ocrJsonOutput
                 && isBlank(ocrJsonOutputPath)
                 && isBlank(ocrOverlayOutputPath);
