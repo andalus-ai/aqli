@@ -3,6 +3,9 @@ import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
+import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
+import tech.kayys.aqli.cli.commands.route.SafetensorEngineHintPolicy;
+import tech.kayys.aqli.cli.commands.route.GgufCliEngineOptionResolver;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -100,6 +103,7 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -148,6 +152,7 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private ImageGenerationRunOptions imageGenerationOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -373,19 +378,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
     boolean ttsCachePruneApply;
 
-    @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
-    Integer steps;
-
-    @Option(names = { "--guidance-scale", "--cfg" }, description = "Classifier-free guidance scale (default: 7.5)")
-    Float guidanceScale;
-
-    @Option(names = { "--width" }, description = "Output image width in pixels (default: 512, must be multiple of 64)")
-    Integer width;
-
-    @Option(names = {
-            "--height" }, description = "Output image height in pixels (default: 512, must be multiple of 64)")
-    Integer height;
-
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
@@ -462,6 +454,13 @@ public class RunCommand implements Runnable {
                 AudioRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+
+        imageGenerationOptions = runCapabilityRegistry.snapshot(
+                "image-generation",
+                commandSpec.commandLine().getParseResult(),
+                ImageGenerationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -670,8 +669,8 @@ public class RunCommand implements Runnable {
                                         quietRouteResolutionOutput(),
                                         jsonMode,
                                         ocrJsonOutput),
-                                this::inferProviderFromIndex,
-                                this::inferFormatFromIndex);
+                                LocalModelIndexMetadataInference::providerFor,
+                                LocalModelIndexMetadataInference::formatFor);
                 if (indexedModel.disabled()) {
                     indexedModel.messages().forEach(System.err::println);
                     return;
@@ -703,8 +702,8 @@ public class RunCommand implements Runnable {
                                     sdk,
                                     reference -> autoPullHfRepositoryForRunIfNeeded(
                                             reference.modelId(), reference.preferredFormat()),
-                                    this::inferProviderFromIndex,
-                                    this::inferFormatFromIndex,
+                                    LocalModelIndexMetadataInference::providerFor,
+                                    LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
@@ -1012,7 +1011,7 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            String ggufEngineHint = requestedGgufEngine();
+            String ggufEngineHint = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
@@ -1027,10 +1026,12 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            imageGenerationOptions.guidanceScale() == null
+                                    ? null
+                                    : imageGenerationOptions.guidanceScale().doubleValue(),
                             outputPath,
-                            width,
-                            height));
+                            imageGenerationOptions.width(),
+                            imageGenerationOptions.height()));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1114,12 +1115,12 @@ public class RunCommand implements Runnable {
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
                                     seed,
-                                    steps,
+                                    imageGenerationOptions.steps(),
                                     format,
-                                    guidanceScale,
+                                    imageGenerationOptions.guidanceScale(),
                                     outputPath,
-                                    width,
-                                    height,
+                                    imageGenerationOptions.width(),
+                                    imageGenerationOptions.height(),
                                     normalizedInputImages,
                                     ocrMode,
                                     ocrImageTokens,
@@ -2020,8 +2021,8 @@ public class RunCommand implements Runnable {
                 routeReportJson,
                 prompt,
                 providerId,
-                isGgufProviderAlias(providerId),
-                isGgufPluginAlias(pluginId),
+                GgufRouteAliasPolicy.isProviderAlias(providerId),
+                GgufRouteAliasPolicy.isPluginAlias(pluginId),
                 hasExplicitGgufEngine(),
                 requestsSafetensorModel(),
                 explicitLlamaCppEngine(),
@@ -2074,7 +2075,7 @@ public class RunCommand implements Runnable {
         args.add("--top-p");
         args.add(Double.toString(textRunOptions.topP()));
 
-        String engine = requestedGgufEngine();
+        String engine = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
         if (engine != null && !engine.isBlank()) {
             args.add("--engine");
             args.add(engine);
@@ -2166,29 +2167,12 @@ public class RunCommand implements Runnable {
         return values == null || values.isEmpty();
     }
 
-    /**
-     * Maps the shared {@code --java} / {@code --llamacpp} / {@code --engine} switches onto the two
-     * safetensor routes: {@code direct} (pure-Java DirectInferenceEngine, no libtorch) or
-     * {@code gguf} (convert to GGUF via the existing forceGguf route, run on llama.cpp).
-     * Returns {@code null} for auto/benchmark/unknown so default routing applies.
-     */
-    static String safetensorBackendFor(String engineHint) {
-        if (engineHint == null) {
-            return null;
-        }
-        return switch (engineHint.trim().toLowerCase(Locale.ROOT)) {
-            case "java", "java-native", "native", "direct" -> "direct";
-            case "llamacpp", "llama.cpp", "llama-cpp", "gguf" -> "gguf";
-            default -> null;
-        };
-    }
-
     private boolean explicitJavaEngine() {
-        return "direct".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "direct".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
     }
 
     private boolean explicitLlamaCppEngine() {
-        return "gguf".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
     }
 
     /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
@@ -2322,18 +2306,6 @@ public class RunCommand implements Runnable {
         return false;
     }
 
-    private String requestedGgufEngine() {
-        if (benchmarkGguf) {
-            return "benchmark";
-        }
-        if (javaNativeGguf) {
-            return "java";
-        }
-        if (llamaCppGguf) {
-            return "llamacpp";
-        }
-        return ggufEngine == null ? null : ggufEngine.trim();
-    }
 
     private String requestedGgufBackend() {
         if (ggufBackend != null && !ggufBackend.isBlank()) {
@@ -2348,32 +2320,6 @@ public class RunCommand implements Runnable {
         return null;
     }
 
-    private boolean isGgufProviderAlias(String provider) {
-        if (provider == null || provider.isBlank()) {
-            return false;
-        }
-        String normalized = provider.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("gguf")
-                || normalized.equals("llamacpp")
-                || normalized.equals("llama.cpp")
-                || normalized.equals("llama-cpp")
-                || normalized.equals("java")
-                || normalized.equals("java-native")
-                || normalized.equals("jvm");
-    }
-
-    private boolean isGgufPluginAlias(String plugin) {
-        if (plugin == null || plugin.isBlank()) {
-            return false;
-        }
-        String normalized = plugin.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("gguf")
-                || normalized.equals("gguf-runner")
-                || normalized.equals("llamacpp")
-                || normalized.equals("llama.cpp")
-                || normalized.equals("llama-cpp");
-    }
-
     private boolean isGgufFormat(String value) {
         return ModelFormatResolver.isGgufFormat(value);
     }
@@ -2384,24 +2330,6 @@ public class RunCommand implements Runnable {
 
     private String normalizeRequestedProvider(String rawProviderId) {
         return ModelFormatResolver.normalizeProvider(rawProviderId);
-    }
-
-    private String inferProviderFromIndex(LocalModelIndex.Entry entry) {
-        if (entry == null || entry.format == null) {
-            return null;
-        }
-        return providerForFormat(entry.format);
-    }
-
-    private String inferFormatFromIndex(LocalModelIndex.Entry entry) {
-        if (entry == null || entry.format == null || entry.format.isBlank()) {
-            return null;
-        }
-        return ModelFormatResolver.canonicalFormat(entry.format);
-    }
-
-    private String providerForFormat(String format) {
-        return ModelFormatResolver.providerForFormat(format);
     }
 
 
@@ -2838,10 +2766,10 @@ public class RunCommand implements Runnable {
                 runner,
                 prompt,
                 imageReplaySeed(metadata),
-                steps,
-                guidanceScale,
-                width,
-                height,
+                imageGenerationOptions.steps(),
+                imageGenerationOptions.guidanceScale(),
+                imageGenerationOptions.width(),
+                imageGenerationOptions.height(),
                 metadata
         ));
     }

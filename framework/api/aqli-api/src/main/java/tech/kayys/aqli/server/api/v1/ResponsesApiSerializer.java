@@ -2,7 +2,6 @@ package tech.kayys.aqli.server.api.v1;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.spi.tool.ToolCall;
@@ -25,9 +24,7 @@ final class ResponsesApiSerializer {
         String content = result.content() == null ? "" : result.content();
         List<Map<String, Object>> output = new ArrayList<>();
         output.add(messageItem(requestId, content));
-        for (ToolCall call : result.toolCalls()) {
-            output.add(functionCallItem(call));
-        }
+        for (ToolCall call : result.toolCalls()) output.add(functionCallItem(call));
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", "resp_" + requestId);
         payload.put("object", "response");
@@ -166,17 +163,22 @@ final class ResponsesApiSerializer {
                         "type", "output_text", "text", content, "annotations", List.of())));
     }
 
-    private static Map<String, Object> functionCallItem(ToolCall call) {
-        return Map.of(
-                "id", call.getId(),
-                "type", "function_call",
-                "status", "completed",
-                "call_id", call.getId(),
-                "name", call.getFunction().getName(),
-                "arguments", json(call.getArguments()));
+    static Map<String, Object> functionCallItem(ToolCall call) {
+        return functionCallItem(call.getId(), call.getId(), call.getFunction().getName(),
+                json(call.getArguments()));
     }
 
-    private static void metadata(
+    static Map<String, Object> functionCallItem(String itemId, String callId, String name, String arguments) {
+        return Map.of(
+                "id", itemId,
+                "type", "function_call",
+                "status", "completed",
+                "call_id", callId,
+                "name", name,
+                "arguments", arguments);
+    }
+
+    static void metadata(
             Map<String, Object> target, AgentTraceContext trace, AgentStreamOptions options,
             long sequence, boolean terminal, Object finishReason) {
         if (options.includeTrace()) target.put("trace", trace.asMap());
@@ -189,7 +191,7 @@ final class ResponsesApiSerializer {
         }
     }
 
-    private static String json(Object value) {
+    static String json(Object value) {
         try {
             return MAPPER.writeValueAsString(value);
         } catch (JsonProcessingException e) {

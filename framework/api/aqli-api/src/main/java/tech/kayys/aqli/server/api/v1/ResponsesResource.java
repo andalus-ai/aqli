@@ -22,7 +22,6 @@ import tech.kayys.aqli.server.SdkProvider;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 
-
 /**
  * Serves AQLI's Responses API endpoint.
  *
@@ -33,7 +32,6 @@ import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 @Path("/v1/responses")
 @Tag(name = "Responses API", description = "AQLI Responses endpoint with OpenAI Responses API compatibility")
 public class ResponsesResource {
-
     @Inject
     SdkProvider sdkProvider;
 
@@ -109,9 +107,7 @@ public class ResponsesResource {
         StringBuilder outputText = new StringBuilder();
         Multi<String> body = Multi.createFrom().publisher(sdkProvider.getSdk().streamText(request))
                 .onItem().transformToMultiAndConcatenate(chunk -> {
-                    if (!chunk.delta().isEmpty()) outputText.append(chunk.delta());
-                    java.util.List<String> events = ResponsesApiSerializer.chunk(
-                            chunk, request.model(), outputText.toString(), trace, streamOptions);
+                    java.util.List<String> events = accumulator.accept(chunk);
                     return Multi.createFrom().items(events.toArray(String[]::new));
                 })
                 .onFailure().recoverWithMulti(error -> Multi.createFrom().items(
@@ -122,5 +118,4 @@ public class ResponsesResource {
                 body,
                 Multi.createFrom().item("[DONE]"));
     }
-
 }

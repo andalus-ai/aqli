@@ -19,6 +19,7 @@ import tech.kayys.aqli.spi.tool.ToolDefinition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Shared chat service facade that abstracts away the construction of
@@ -95,19 +96,19 @@ public final class AqliChatService {
         String requestId = resolveRequestId(request);
         TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
         String modelId = effectiveRequest.model();
-        obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+        recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
         long startMs = System.currentTimeMillis();
 
         return Uni.createFrom().completionStage(() -> sdk.generateTextAsync(effectiveRequest))
                 .onItem().invoke(response -> {
                     long duration = System.currentTimeMillis() - startMs;
-                    obs.getMetricsCollector().recordClientSuccess(modelId, duration, response.totalTokens());
-                    obs.getAuditLogger().logClientRequestComplete(requestId, modelId, response.totalTokens(), duration);
+                    recordMetrics(metrics -> metrics.recordClientSuccess(modelId, duration, response.totalTokens()));
+                    recordAudit(audit -> audit.logClientRequestComplete(requestId, modelId, response.totalTokens(), duration));
                 })
                 .onFailure().invoke(error -> {
-                    obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
-                    obs.getAuditLogger().logClientRequestFailure(
-                            requestId, modelId, error.getClass().getSimpleName());
+                    recordMetrics(metrics -> metrics.recordClientFailure(modelId, error.getClass().getSimpleName()));
+                    recordAudit(audit -> audit.logClientRequestFailure(
+                            requestId, modelId, error.getClass().getSimpleName()));
                 });
     }
 
@@ -126,31 +127,70 @@ public final class AqliChatService {
         String requestId = resolveRequestId(request);
         TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
         String modelId = effectiveRequest.model();
-        obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+        recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
         long startMs = System.currentTimeMillis();
-        java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
-                new java.util.concurrent.atomic.AtomicBoolean();
+        return Multi.createFrom().deferred(() -> {
+            obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+            long startMs = System.currentTimeMillis();
+            java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
+                    new java.util.concurrent.atomic.AtomicBoolean();
+            java.util.concurrent.atomic.AtomicInteger outputTokens =
+                    new java.util.concurrent.atomic.AtomicInteger();
 
-        return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
-                .map(AqliChatService::toStreamingInferenceChunk)
-                .onItem().invoke(chunk -> {
-                    obs.getMetricsCollector().recordClientChunk(modelId);
-                    boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
-                            || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
-                    if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
-                        obs.getMetricsCollector().recordClientTtft(
-                                modelId, System.currentTimeMillis() - startMs);
-                    }
-                })
-                .onCompletion().invoke(() -> {
-                    long duration = System.currentTimeMillis() - startMs;
-                    obs.getAuditLogger().logClientRequestComplete(requestId, modelId, 0, duration);
-                })
-                .onFailure().invoke(error -> {
-                    obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
-                    obs.getAuditLogger().logClientRequestFailure(
-                            requestId, modelId, error.getClass().getSimpleName());
-                });
+            return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
+                    .onItem().invoke(sourceChunk -> {
+                        TextGenerationChunk.Usage usage = sourceChunk.usage();
+                        if (usage != null) {
+                            // Usage is a snapshot; replace rather than accumulate across chunks.
+                            outputTokens.set(usage.outputTokens());
+                        }
+                    })
+                    .map(AqliChatService::toStreamingInferenceChunk)
+                    .onItem().invoke(chunk -> {
+                        recordMetrics(metrics -> metrics.recordClientChunk(modelId));
+                        boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
+                                || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
+                        if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
+                            recordMetrics(metrics -> metrics.recordClientTtft(
+                                    modelId, System.currentTimeMillis() - startMs));
+                        }
+                    })
+                    .onCompletion().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        recordAudit(audit -> audit.logClientRequestComplete(
+                                requestId, modelId, outputTokens.get(), duration));
+                    })
+                    .onFailure().invoke(error -> {
+                        obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
+                        obs.getAuditLogger().logClientRequestFailure(
+                                requestId, modelId, error.getClass().getSimpleName());
+                    })
+                    .onCancellation().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        obs.getMetricsCollector().recordClientCancellation(modelId, duration);
+                        obs.getAuditLogger().logClientRequestCancelled(requestId, modelId, duration);
+                    });
+        });
+    }
+
+    /**
+     * Observability is an optional side channel: a faulty exporter must never
+     * fail an inference request, interrupt a stream, or mask its original error.
+     */
+    private void recordMetrics(Consumer<tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector> action) {
+        try {
+            action.accept(obs.getMetricsCollector());
+        } catch (RuntimeException ignored) {
+            // Deliberately isolate instrumentation failures from inference execution.
+        }
+    }
+
+    private void recordAudit(Consumer<tech.kayys.aqli.sdk.core.observability.SdkAuditLogger> action) {
+        try {
+            action.accept(obs.getAuditLogger());
+        } catch (RuntimeException ignored) {
+            // Deliberately isolate instrumentation failures from inference execution.
+        }
     }
 
     private static StreamingInferenceChunk toStreamingInferenceChunk(TextGenerationChunk chunk) {
@@ -210,25 +250,44 @@ public final class AqliChatService {
             ChatParams p) {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
-        obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
-        long startMs = System.currentTimeMillis();
+        return Multi.createFrom().deferred(() -> {
+            obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
+            long startMs = System.currentTimeMillis();
+            java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
+                    new java.util.concurrent.atomic.AtomicBoolean();
+            java.util.concurrent.atomic.AtomicInteger outputTokens =
+                    new java.util.concurrent.atomic.AtomicInteger();
 
-        return sdk.streamCompletion(req)
-                .onItem().invoke(chunk -> {
-                    obs.getMetricsCollector().recordClientChunk(modelId);
-                    // Approximation of TTFT for stream
-                    if (chunk.delta() != null && !chunk.delta().isEmpty()) {
-                        obs.getMetricsCollector().recordClientTtft(modelId, System.currentTimeMillis() - startMs);
-                    }
-                })
-                .onCompletion().invoke(() -> {
-                    long duration = System.currentTimeMillis() - startMs;
-                    obs.getAuditLogger().logClientRequestComplete(req.getRequestId(), modelId, 0, duration);
-                })
-                .onFailure().invoke(err -> {
-                    obs.getMetricsCollector().recordClientFailure(modelId, err.getClass().getSimpleName());
-                    obs.getAuditLogger().logClientRequestFailure(req.getRequestId(), modelId, err.getClass().getSimpleName());
-                });
+            return sdk.streamCompletion(req)
+                    .onItem().invoke(chunk -> {
+                        recordMetrics(metrics -> metrics.recordClientChunk(modelId));
+                        boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
+                                || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
+                        if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
+                            recordMetrics(metrics -> metrics.recordClientTtft(
+                                    modelId, System.currentTimeMillis() - startMs));
+                        }
+                        if (chunk.usage() != null) {
+                            // Usage is a snapshot; replace rather than accumulate across chunks.
+                            outputTokens.set(Math.toIntExact(chunk.usage().outputTokens()));
+                        }
+                    })
+                    .onCompletion().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        recordAudit(audit -> audit.logClientRequestComplete(
+                                req.getRequestId(), modelId, outputTokens.get(), duration));
+                    })
+                    .onFailure().invoke(err -> {
+                        obs.getMetricsCollector().recordClientFailure(modelId, err.getClass().getSimpleName());
+                        obs.getAuditLogger().logClientRequestFailure(
+                                req.getRequestId(), modelId, err.getClass().getSimpleName());
+                    })
+                    .onCancellation().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        obs.getMetricsCollector().recordClientCancellation(modelId, duration);
+                        obs.getAuditLogger().logClientRequestCancelled(req.getRequestId(), modelId, duration);
+                    });
+        });
     }
 
     public Uni<InferenceResponse> chat(
@@ -240,18 +299,18 @@ public final class AqliChatService {
             ChatParams p) {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, false);
-        obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
+        recordAudit(audit -> audit.logClientRequestStart(req.getRequestId(), modelId));
         long startMs = System.currentTimeMillis();
 
         return Uni.createFrom().completionStage(() -> sdk.createCompletionAsync(req))
                 .onItem().invoke(resp -> {
                     long duration = System.currentTimeMillis() - startMs;
-                    obs.getMetricsCollector().recordClientSuccess(modelId, duration, resp.getTokensUsed());
-                    obs.getAuditLogger().logClientRequestComplete(req.getRequestId(), modelId, resp.getTokensUsed(), duration);
+                    recordMetrics(metrics -> metrics.recordClientSuccess(modelId, duration, resp.getTokensUsed()));
+                    recordAudit(audit -> audit.logClientRequestComplete(req.getRequestId(), modelId, resp.getTokensUsed(), duration));
                 })
                 .onFailure().invoke(err -> {
-                    obs.getMetricsCollector().recordClientFailure(modelId, err.getClass().getSimpleName());
-                    obs.getAuditLogger().logClientRequestFailure(req.getRequestId(), modelId, err.getClass().getSimpleName());
+                    recordMetrics(metrics -> metrics.recordClientFailure(modelId, err.getClass().getSimpleName()));
+                    recordAudit(audit -> audit.logClientRequestFailure(req.getRequestId(), modelId, err.getClass().getSimpleName()));
                 });
     }
 
