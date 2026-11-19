@@ -102,8 +102,8 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
-import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -1025,7 +1025,9 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            imageGenerationOptions.guidanceScale() == null ? null : imageGenerationOptions.guidanceScale().doubleValue(),
+                            imageGenerationOptions.guidanceScale() == null
+                                    ? null
+                                    : imageGenerationOptions.guidanceScale().doubleValue(),
                             outputPath,
                             imageGenerationOptions.width(),
                             imageGenerationOptions.height()));
