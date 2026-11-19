@@ -89,7 +89,7 @@ public final class SafetensorCompatibilityPreflightValidator {
     }
 
     /**
-     * Identifies a local checkpoint directory with a config and Safetensors weights.
+     * Identifies a local Safetensors checkpoint directory with a config and weights.
      */
     public static boolean isSafetensorCheckpointDir(String localPath) {
         if (localPath == null || localPath.isBlank()) {
@@ -103,6 +103,25 @@ public final class SafetensorCompatibilityPreflightValidator {
             return Files.exists(path.resolve("model.safetensors"))
                     || Files.exists(path.resolve("model.safetensor"))
                     || Files.exists(path.resolve("model.safetensors.index.json"));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Identifies an individual Safetensors weight file.
+     */
+    public static boolean isSafetensorWeightFile(String localPath) {
+        if (localPath == null || localPath.isBlank()) {
+            return false;
+        }
+        try {
+            Path path = Path.of(localPath);
+            if (!Files.isRegularFile(path)) {
+                return false;
+            }
+            String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+            return name.endsWith(".safetensors") || name.endsWith(".safetensor");
         } catch (Exception ignored) {
             return false;
         }
