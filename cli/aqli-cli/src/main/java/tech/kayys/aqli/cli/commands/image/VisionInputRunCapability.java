@@ -53,7 +53,7 @@ public final class VisionInputRunCapability
     @Override
     public VisionInputRunOptions snapshot(ParseResult parseResult) {
         Objects.requireNonNull(parseResult, "parseResult");
-        List<String> images = parseResult.matchedOptionValue("--images", List.of());
+        List<String> images = parseResult.matchedOptionValue("--images", List.<String>of());
         return new VisionInputRunOptions(
                 parseResult.matchedOptionValue("--image", (String) null),
                 images,
