@@ -697,8 +697,7 @@ public class RunCommand implements Runnable {
                     && (modelPath == null || modelPath.isEmpty())) {
                 if (!shouldAllowRepositoryResolutionDuringRouteReport()) {
                     routeReportRepositoryResolutionSkipped = true;
-                } else {
-                    String preparationProviderId = providerId;                    RunModelPreparationResolver.Result preparation =
+                } else {                    String preparationProviderId = providerId;                    RunModelPreparationResolver.Result preparation =
                             RunModelPreparationResolver.resolve(
                                     new RunModelPreparationResolver.Options(
                                             modelId, requestedModelRef, format, providerId, pluginId,
@@ -1397,8 +1396,7 @@ public class RunCommand implements Runnable {
                 return true;
             }
         }
-        System.err.println("Error: unexpected positional argument"
-                + (positionalArgs.size() == 1 ? "" : "s")
+        System.err.println("Error: unexpected positional argument"                + (positionalArgs.size() == 1 ? "" : "s")
                 + ": " + String.join(" ", positionalArgs));
         if (audioRunOptions.voice() != null && audioRunOptions.voice().contains("--output")) {
             System.err.println("Hint: add a space before --output, for example:");
@@ -2097,8 +2095,7 @@ public class RunCommand implements Runnable {
         return args.toArray(String[]::new);
     }
     private boolean tryStandaloneGgufRun() {
-        return tryStandaloneGgufRun(false);
-    }
+        return tryStandaloneGgufRun(false);    }
 
     private boolean tryStandaloneGgufRun(boolean suppressBanner) {
         if (!shouldUseStandaloneGgufRun()) {
@@ -2749,18 +2746,6 @@ public class RunCommand implements Runnable {
     }
 
 
-    private static Double audioDurationSeconds(Map<String, Object> metadata) {
-        Double duration = metadataDouble(metadata, "audio_duration_seconds");
-        if (duration != null && duration > 0.0) {
-            return duration;
-        }
-        Double samples = metadataDouble(metadata, "audio_samples");
-        Double sampleRate = metadataDouble(metadata, "audio_sample_rate");
-        if (samples != null && sampleRate != null && samples > 0.0 && sampleRate > 0.0) {
-            return samples / sampleRate;
-        }
-        return null;
-    }
 
     private void saveAudio(String base64) {
         saveAudio(base64, "flac");
@@ -2798,7 +2783,6 @@ public class RunCommand implements Runnable {
             saveBuffer(bos, defaultExt, label, metadata);
         } catch (Exception ignored) {}
     }
-
     private Path replaceExtension(Path path, String newExt) {
         return CliPathUtils.replaceExtension(path, newExt);
     }
