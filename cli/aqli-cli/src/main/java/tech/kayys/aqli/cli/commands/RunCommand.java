@@ -670,8 +670,8 @@ public class RunCommand implements Runnable {
                                         quietRouteResolutionOutput(),
                                         jsonMode,
                                         ocrJsonOutput),
-                                this::inferProviderFromIndex,
-                                this::inferFormatFromIndex);
+                                LocalModelIndexMetadataInference::providerFor,
+                                LocalModelIndexMetadataInference::formatFor);
                 if (indexedModel.disabled()) {
                     indexedModel.messages().forEach(System.err::println);
                     return;
@@ -703,8 +703,8 @@ public class RunCommand implements Runnable {
                                     sdk,
                                     reference -> autoPullHfRepositoryForRunIfNeeded(
                                             reference.modelId(), reference.preferredFormat()),
-                                    this::inferProviderFromIndex,
-                                    this::inferFormatFromIndex,
+                                    LocalModelIndexMetadataInference::providerFor,
+                                    LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
@@ -2384,24 +2384,6 @@ public class RunCommand implements Runnable {
 
     private String normalizeRequestedProvider(String rawProviderId) {
         return ModelFormatResolver.normalizeProvider(rawProviderId);
-    }
-
-    private String inferProviderFromIndex(LocalModelIndex.Entry entry) {
-        if (entry == null || entry.format == null) {
-            return null;
-        }
-        return providerForFormat(entry.format);
-    }
-
-    private String inferFormatFromIndex(LocalModelIndex.Entry entry) {
-        if (entry == null || entry.format == null || entry.format.isBlank()) {
-            return null;
-        }
-        return ModelFormatResolver.canonicalFormat(entry.format);
-    }
-
-    private String providerForFormat(String format) {
-        return ModelFormatResolver.providerForFormat(format);
     }
 
 
