@@ -148,4 +148,47 @@ class AqliChatServiceTest {
         assertEquals(false, captor.getValue().requestId() == null
                 || captor.getValue().requestId().isBlank());
     }
+
+    @Test
+    void typedTextStreamingRecordsTimeToFirstTokenOnlyOnce() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var request = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
+        var metrics = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
+        var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
+                return metrics;
+            }
+
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
+                return tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider.noop()
+                        .getAuditLogger();
+            }
+        };
+        var serviceWithMetrics = new AqliChatService(observability);
+        var empty = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
+                "stream-request", 0, "", false, null,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.NONE,
+                null, null, null, null, java.time.Instant.now(), java.util.Map.of());
+        var firstToken = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
+                "stream-request", 1, "a", false, null,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.NONE,
+                null, null, null, null, java.time.Instant.now(), java.util.Map.of());
+        var secondToken = new tech.kayys.aqli.sdk.capability.text.TextGenerationChunk(
+                "stream-request", 2, "b", true,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationChunk.ToolCallEvent.NONE,
+                null, null, null, null, java.time.Instant.now(), java.util.Map.of());
+        org.mockito.Mockito.when(sdk.streamText(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.smallrye.mutiny.Multi.createFrom().items(empty, firstToken, secondToken));
+
+        serviceWithMetrics.streamText(sdk, request).collect().asList().await().indefinitely();
+
+        org.mockito.Mockito.verify(metrics, org.mockito.Mockito.times(1))
+                .recordClientTtft(org.mockito.ArgumentMatchers.eq("model-id"),
+                        org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.verify(metrics, org.mockito.Mockito.times(3)).recordClientChunk("model-id");
+    }
 }
