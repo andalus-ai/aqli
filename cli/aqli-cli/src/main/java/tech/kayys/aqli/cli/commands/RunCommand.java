@@ -1502,12 +1502,6 @@ public class RunCommand implements Runnable {
         modelId = value;
     }
 
-    private static String jsonText(JsonNode node, String field) {
-        if (node == null || field == null) {
-            return null;
-        }
-        return jsonNodeText(node.get(field));
-    }
 
     private static String jsonNodeText(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) {
@@ -1686,31 +1680,7 @@ public class RunCommand implements Runnable {
         return CliPathUtils.expandCliPath(value);
     }
 
-    private String formatDiagnosticList(List<String> values, int limit) {
-        if (values == null || values.isEmpty()) {
-            return "(none)";
-        }
-        int safeLimit = Math.max(1, limit);
-        if (values.size() <= safeLimit) {
-            return String.join(", ", values);
-        }
-        return String.join(", ", values.subList(0, safeLimit))
-                + ", ... +" + (values.size() - safeLimit) + " more";
-    }
 
-    private String formatBytes(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        double value = bytes;
-        String[] units = { "B", "KiB", "MiB", "GiB", "TiB" };
-        int unit = 0;
-        while (value >= 1024.0 && unit < units.length - 1) {
-            value /= 1024.0;
-            unit++;
-        }
-        return String.format(Locale.ROOT, "%.1f %s", value, units[unit]);
-    }
 
     private int printTtsDiagnostics(String modelId, String finalLocalPath) {
         return new MossTtsCliDiagnosticsHandler(this).printTtsDiagnostics(modelId, finalLocalPath);
@@ -1724,9 +1694,6 @@ public class RunCommand implements Runnable {
         return new MossTtsCliDiagnosticsHandler(this).pruneMossTtsOptimizedCache(modelId, finalLocalPath);
     }
 
-    private String nullToDash(String value) {
-        return value == null || value.isBlank() ? "-" : value;
-    }
 
     private boolean allowsPromptlessExtensionRun(String modelId, String finalLocalPath) {
         return looksLikeWebWorldReference(modelId) || looksLikeWebWorldReference(finalLocalPath);
@@ -1761,19 +1728,6 @@ public class RunCommand implements Runnable {
         return false;
     }
 
-    private String stripHfPrefix(String value) {
-        if (value == null) {
-            return "";
-        }
-        String trimmed = value.trim();
-        if (trimmed.startsWith("hf:")) {
-            return trimmed.substring("hf:".length()).trim();
-        }
-        if (trimmed.startsWith("huggingface:")) {
-            return trimmed.substring("huggingface:".length()).trim();
-        }
-        return trimmed;
-    }
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
@@ -1842,15 +1796,6 @@ public class RunCommand implements Runnable {
                         : LocalModelIndex.find(ref, format));
     }
 
-    private String truncateDisplay(String value, int width) {
-        if (value == null) {
-            return "";
-        }
-        if (value.length() <= width) {
-            return value;
-        }
-        return value.substring(0, Math.max(0, width - 3)) + "...";
-    }
 
     private String resolveTtsCodecReference(String ref) {
         return new MossTtsCliDiagnosticsHandler(this).resolveTtsCodecReference(ref);
@@ -2199,13 +2144,6 @@ public class RunCommand implements Runnable {
                 && isBlank(ocrOverlayOutputPath);
     }
 
-    private static boolean isLiteRtProviderAlias(String value) {
-        if (value == null) {
-            return false;
-        }
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("litert") || normalized.equals("litertlm");
-    }
 
     private static boolean looksLikeLiteRtLmPath(String localPath) {
         if (localPath == null || localPath.isBlank()) {
@@ -2882,61 +2820,8 @@ public class RunCommand implements Runnable {
         mediaOutputHandler().saveBuffer(buffer, defaultExt, label, metadata);
     }
 
-    private static String onnxOptimizedCacheDetail(Map<String, Object> metadata) {
-        Double sessionValue = metadataDouble(metadata, "onnx_optimized_model_cache_sessions");
-        if (sessionValue == null || sessionValue <= 0.0) {
-            return null;
-        }
-        long sessions = Math.round(sessionValue);
-        long hits = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_hits"));
-        long created = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_created"));
-        long rebuilt = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_rebuilt"));
-        long disabled = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_disabled"));
-        if (disabled >= sessions && "false".equalsIgnoreCase(metadataText(metadata, "onnx_optimized_model_cache_enabled"))) {
-            return "onnx cache disabled";
-        }
 
-        List<String> notes = new ArrayList<>();
-        if (created > 0L) {
-            notes.add(created + " built");
-        }
-        if (rebuilt > 0L) {
-            notes.add(rebuilt + " rebuilt");
-        }
-        if (disabled > 0L) {
-            notes.add(disabled + " disabled");
-        }
-        String detail = "onnx cache " + hits + "/" + sessions + " hit";
-        return notes.isEmpty() ? detail : detail + " (" + String.join(", ", notes) + ")";
-    }
 
-    private static String onnxSessionCacheDetail(Map<String, Object> metadata) {
-        String state = metadataText(metadata, "onnx_session_cache_state");
-        if (state == null || state.isBlank() || "disabled".equalsIgnoreCase(state)) {
-            return null;
-        }
-        if ("hit".equalsIgnoreCase(state)) {
-            return "onnx sessions hot";
-        }
-        if ("miss".equalsIgnoreCase(state)) {
-            return "onnx sessions warmed";
-        }
-        return null;
-    }
-
-    private static String onnxAssetCacheDetail(Map<String, Object> metadata) {
-        String state = metadataText(metadata, "onnx_asset_cache_state");
-        if (state == null || state.isBlank() || "disabled".equalsIgnoreCase(state)) {
-            return null;
-        }
-        if ("hit".equalsIgnoreCase(state)) {
-            return "onnx assets hot";
-        }
-        if ("miss".equalsIgnoreCase(state)) {
-            return "onnx assets warmed";
-        }
-        return null;
-    }
 
     private static double defaultedDouble(Map<String, Object> metadata, String key) {
         Double value = metadataDouble(metadata, key);
@@ -3022,17 +2907,6 @@ public class RunCommand implements Runnable {
         return seed == null ? null : seed.toString();
     }
 
-    private static void addStringArg(List<String> args, String flag, Object value) {
-        if (value == null) {
-            return;
-        }
-        String text = String.valueOf(value);
-        if (text.isBlank()) {
-            return;
-        }
-        args.add(flag);
-        args.add(text);
-    }
 
     private static Double audioDurationSeconds(Map<String, Object> metadata) {
         Double duration = metadataDouble(metadata, "audio_duration_seconds");
