@@ -104,9 +104,7 @@ public class ResponsesResource {
 
     private Multi<String> responsesEventStream(
             TextGenerationRequest request, AgentTraceContext trace, AgentStreamOptions streamOptions) {
-        ResponsesStreamAccumulator accumulator = new ResponsesStreamAccumulator(
-                request.requestId() != null ? request.requestId() : trace.requestId(),
-                request.model(), trace, streamOptions);
+        StringBuilder outputText = new StringBuilder();
         Multi<String> body = Multi.createFrom().publisher(sdkProvider.getSdk().streamText(request))
                 .onItem().transformToMultiAndConcatenate(chunk -> {
                     java.util.List<String> events = accumulator.accept(chunk);
