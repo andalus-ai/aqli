@@ -1,6 +1,11 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
+import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
+import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
+import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
+import tech.kayys.aqli.cli.commands.route.SafetensorEngineHintPolicy;
+import tech.kayys.aqli.cli.commands.route.GgufCliEngineOptionResolver;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -36,7 +41,6 @@ import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
 import tech.kayys.aqli.sdk.model.ModelResolver;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
-import tech.kayys.aljabr.spi.model.ModelConfig;
 import tech.kayys.aljabr.spi.model.ModelLoader;
 import tech.kayys.aqli.sdk.model.ModelResolution;
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
@@ -99,7 +103,9 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -147,6 +153,8 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private ImageGenerationRunOptions imageGenerationOptions;
+    private VisionInputRunOptions visionInputOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -312,21 +320,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
     String imageMetadataRefreshPath;
 
-    @Option(names = { "--image", "--input-image", "--vision-input" }, description = "Input image path for vision/OCR models")
-    String inputImagePath;
-
-    @Option(names = { "--images", "--input-images" }, split = ",", description = "Comma-separated input image paths for vision/OCR models")
-    List<String> inputImagePaths;
-
-    @Option(names = { "--ocr" }, description = "Use the default OCR task prompt when --prompt is omitted")
-    boolean ocrMode;
-
-    @Option(names = { "--ocr-image-tokens", "--onnx-image-tokens" }, description = "Limit image embeddings used by PaddleOCR-VL ONNX generation (default: 0 = all)")
-    Integer ocrImageTokens;
-
-    @Option(names = { "--ocr-raw", "--onnx-ocr-raw" }, description = "Print raw PaddleOCR-VL generated token text without location postprocessing")
-    boolean ocrRawOutput;
-
     @Option(names = { "--ocr-json", "--onnx-ocr-json" }, description = "Print PaddleOCR-VL OCR result as structured JSON")
     boolean ocrJsonOutput;
 
@@ -371,19 +364,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
     boolean ttsCachePruneApply;
-
-    @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
-    Integer steps;
-
-    @Option(names = { "--guidance-scale", "--cfg" }, description = "Classifier-free guidance scale (default: 7.5)")
-    Float guidanceScale;
-
-    @Option(names = { "--width" }, description = "Output image width in pixels (default: 512, must be multiple of 64)")
-    Integer width;
-
-    @Option(names = {
-            "--height" }, description = "Output image height in pixels (default: 512, must be multiple of 64)")
-    Integer height;
 
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
@@ -461,6 +441,20 @@ public class RunCommand implements Runnable {
                 AudioRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+
+        imageGenerationOptions = runCapabilityRegistry.snapshot(
+                "image-generation",
+                commandSpec.commandLine().getParseResult(),
+                ImageGenerationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
+
+        visionInputOptions = runCapabilityRegistry.snapshot(
+                "vision-input",
+                commandSpec.commandLine().getParseResult(),
+                VisionInputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -669,8 +663,8 @@ public class RunCommand implements Runnable {
                                         quietRouteResolutionOutput(),
                                         jsonMode,
                                         ocrJsonOutput),
-                                this::inferProviderFromIndex,
-                                this::inferFormatFromIndex);
+                                LocalModelIndexMetadataInference::providerFor,
+                                LocalModelIndexMetadataInference::formatFor);
                 if (indexedModel.disabled()) {
                     indexedModel.messages().forEach(System.err::println);
                     return;
@@ -700,6 +694,7 @@ public class RunCommand implements Runnable {
                                             ggufQuant, ggufOutType, forceGguf, providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelIds),
                                     sdk,
+<<<<<<< HEAD
                                     reference -> {
                                         try {
                                             return autoPullHfRepositoryForRunIfNeeded(
@@ -714,6 +709,13 @@ public class RunCommand implements Runnable {
                                     this::inferProviderFromIndex,
                                     this::inferFormatFromIndex,
                                     path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
+=======
+                                    reference -> autoPullHfRepositoryForRunIfNeeded(
+                                            reference.modelId(), reference.preferredFormat()),
+                                    LocalModelIndexMetadataInference::providerFor,
+                                    LocalModelIndexMetadataInference::formatFor,
+                                    path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
+>>>>>>> 90dd4df9b2f802a708281c6dd340025c534cac6a
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                                                     reference, selectedProvider, isMcpProvider()),
@@ -762,8 +764,8 @@ public class RunCommand implements Runnable {
                             providerId,
                             modelId,
                             finalLocalPath,
-                            this::isSafetensorCheckpointDir,
-                            this::isSafetensorWeightFile,
+                            SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir,
+                            SafetensorCompatibilityPreflightValidator::isSafetensorWeightFile,
                             System.out::println,
                             System.err::println);
             if (!providerLocalPathResolution.ok()) {
@@ -809,7 +811,7 @@ public class RunCommand implements Runnable {
                                 routeReportRepositoryResolutionSkipped,
                                 routeReportRequireLocal,
                                 !normalizedInputImages.isEmpty(),
-                                ocrMode,
+                                visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
                 printJsonPayload(routeReportResult.payload());
@@ -871,7 +873,7 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            if ((ocrMode || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
+            if ((visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
@@ -879,7 +881,7 @@ public class RunCommand implements Runnable {
                             || ocrJsonOutput
                             || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
                             || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
-                            && (ocrMode || !normalizedInputImages.isEmpty());
+                            && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
             boolean effectiveStream = stream && !structuredOcrOutput;
 
             boolean promptlessExtensionRun = allowsPromptlessExtensionRun(modelId, finalLocalPath);
@@ -928,7 +930,7 @@ public class RunCommand implements Runnable {
                     finalLocalPath);
             forcedExecutionRouteMetadata = effectiveRunnerRouteReport.toMetadata();
 
-            String litertPreflightFailure = detectUnsupportedLiteRtPreflight(executionProviderId, finalLocalPath);
+            String litertPreflightFailure = LiteRtRoutePreflightValidator.detectUnsupported(executionProviderId, finalLocalPath);
             if (litertPreflightFailure != null) {
                 if (!enableJsonSse) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
@@ -945,7 +947,7 @@ public class RunCommand implements Runnable {
                             modelId,
                             finalLocalPath,
                             !normalizedInputImages.isEmpty(),
-                            ocrMode);
+                            visionInputOptions.ocrMode());
             if (!gemma4UnifiedMultimodalRouteValidation.allowed()) {
                 if (!enableJsonSse) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
@@ -1020,7 +1022,7 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            String ggufEngineHint = requestedGgufEngine();
+            String ggufEngineHint = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
@@ -1035,10 +1037,12 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            imageGenerationOptions.guidanceScale() == null
+                                    ? null
+                                    : imageGenerationOptions.guidanceScale().doubleValue(),
                             outputPath,
-                            width,
-                            height));
+                            imageGenerationOptions.width(),
+                            imageGenerationOptions.height()));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1122,16 +1126,16 @@ public class RunCommand implements Runnable {
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
                                     seed,
-                                    steps,
+                                    imageGenerationOptions.steps(),
                                     format,
-                                    guidanceScale,
+                                    imageGenerationOptions.guidanceScale(),
                                     outputPath,
-                                    width,
-                                    height,
+                                    imageGenerationOptions.width(),
+                                    imageGenerationOptions.height(),
                                     normalizedInputImages,
-                                    ocrMode,
-                                    ocrImageTokens,
-                                    ocrRawOutput,
+                                    visionInputOptions.ocrMode(),
+                                    visionInputOptions.ocrImageTokens(),
+                                    visionInputOptions.ocrRawOutput(),
                                     effectiveOnnxVariant,
                                     raw,
                                     debugPrompt),
@@ -1510,12 +1514,6 @@ public class RunCommand implements Runnable {
         modelId = value;
     }
 
-    private static String jsonText(JsonNode node, String field) {
-        if (node == null || field == null) {
-            return null;
-        }
-        return jsonNodeText(node.get(field));
-    }
 
     private static String jsonNodeText(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) {
@@ -1639,7 +1637,7 @@ public class RunCommand implements Runnable {
 
     private String routeExecutionProviderId(String provider, String localPath) {
         return RouteExecutionProviderResolver.resolve(
-                provider, localPath, this::isSafetensorCheckpointDir, this::isSafetensorWeightFile);
+                provider, localPath, SafetensorCompatibilityPreflightValidator::isSafetensorCheckpointDir, SafetensorCompatibilityPreflightValidator::isSafetensorWeightFile);
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
@@ -1654,9 +1652,9 @@ public class RunCommand implements Runnable {
 
     private List<String> normalizedInputImagePaths() {
         List<String> images = new ArrayList<>();
-        addInputImage(images, inputImagePath);
-        if (inputImagePaths != null) {
-            for (String image : inputImagePaths) {
+        addInputImage(images, visionInputOptions.inputImagePath());
+        if (visionInputOptions.inputImagePaths() != null) {
+            for (String image : visionInputOptions.inputImagePaths()) {
                 addInputImage(images, image);
             }
         }
@@ -1694,31 +1692,7 @@ public class RunCommand implements Runnable {
         return CliPathUtils.expandCliPath(value);
     }
 
-    private String formatDiagnosticList(List<String> values, int limit) {
-        if (values == null || values.isEmpty()) {
-            return "(none)";
-        }
-        int safeLimit = Math.max(1, limit);
-        if (values.size() <= safeLimit) {
-            return String.join(", ", values);
-        }
-        return String.join(", ", values.subList(0, safeLimit))
-                + ", ... +" + (values.size() - safeLimit) + " more";
-    }
 
-    private String formatBytes(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        double value = bytes;
-        String[] units = { "B", "KiB", "MiB", "GiB", "TiB" };
-        int unit = 0;
-        while (value >= 1024.0 && unit < units.length - 1) {
-            value /= 1024.0;
-            unit++;
-        }
-        return String.format(Locale.ROOT, "%.1f %s", value, units[unit]);
-    }
 
     private int printTtsDiagnostics(String modelId, String finalLocalPath) {
         return new MossTtsCliDiagnosticsHandler(this).printTtsDiagnostics(modelId, finalLocalPath);
@@ -1732,9 +1706,6 @@ public class RunCommand implements Runnable {
         return new MossTtsCliDiagnosticsHandler(this).pruneMossTtsOptimizedCache(modelId, finalLocalPath);
     }
 
-    private String nullToDash(String value) {
-        return value == null || value.isBlank() ? "-" : value;
-    }
 
     private boolean allowsPromptlessExtensionRun(String modelId, String finalLocalPath) {
         return looksLikeWebWorldReference(modelId) || looksLikeWebWorldReference(finalLocalPath);
@@ -1769,19 +1740,6 @@ public class RunCommand implements Runnable {
         return false;
     }
 
-    private String stripHfPrefix(String value) {
-        if (value == null) {
-            return "";
-        }
-        String trimmed = value.trim();
-        if (trimmed.startsWith("hf:")) {
-            return trimmed.substring("hf:".length()).trim();
-        }
-        if (trimmed.startsWith("huggingface:")) {
-            return trimmed.substring("huggingface:".length()).trim();
-        }
-        return trimmed;
-    }
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
@@ -1850,15 +1808,6 @@ public class RunCommand implements Runnable {
                         : LocalModelIndex.find(ref, format));
     }
 
-    private String truncateDisplay(String value, int width) {
-        if (value == null) {
-            return "";
-        }
-        if (value.length() <= width) {
-            return value;
-        }
-        return value.substring(0, Math.max(0, width - 3)) + "...";
-    }
 
     private String resolveTtsCodecReference(String ref) {
         return new MossTtsCliDiagnosticsHandler(this).resolveTtsCodecReference(ref);
@@ -1916,7 +1865,7 @@ public class RunCommand implements Runnable {
         return DirectSafetensorRoutePolicy.shouldUseDirectRun(
                 currentProvider,
                 checkpointPath,
-                checkpointPath != null && isSafetensorCheckpointDir(checkpointPath.toString()),
+                checkpointPath != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(checkpointPath.toString()),
                 sessionId,
                 textRunOptions.grammar(),
                 prompt,
@@ -1970,209 +1919,6 @@ public class RunCommand implements Runnable {
         } catch (Exception ignored) {
         }
         return null;
-    }
-
-    private boolean isSafetensorCheckpointDir(String localPath) {
-        if (localPath == null || localPath.isBlank()) {
-            return false;
-        }
-        try {
-            Path path = Path.of(localPath);
-            if (!Files.isDirectory(path)) {
-                return false;
-            }
-            if (!Files.exists(path.resolve("config.json"))) {
-                return false;
-            }
-            return Files.exists(path.resolve("model.safetensors"))
-                    || Files.exists(path.resolve("model.safetensor"))
-                    || Files.exists(path.resolve("model.safetensors.index.json"));
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private String detectUnsupportedLiteRtPreflight(String provider, String localPath) {
-        if (!"litert".equalsIgnoreCase(provider) || localPath == null || localPath.isBlank()) {
-            return null;
-        }
-        if (Boolean.getBoolean("aqli.litert.enable_experimental_gemma4_task_runner")
-                || Boolean.getBoolean("aqli.litert.enable_experimental_raw_litertlm")) {
-            return null;
-        }
-        try {
-            Path path = Path.of(localPath);
-            if (!Files.exists(path) || !looksLikeGemma4LiteRtArtifact(path)) {
-                return null;
-            }
-            if (hasNativeGemmaLiteRtLm(path)) {
-                return null;
-            }
-            return "Gemma 4 LiteRT runner is disabled by default because the current Java/Metal paths are slow "
-                    + "and produce incorrect repeated-token output for this export. Set -D"
-                    + "aqli.litert.enable_experimental_gemma4_task_runner=true only for diagnostics.";
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private boolean looksLikeGemma4LiteRtArtifact(Path path) {
-        String lower = path.toString().toLowerCase(Locale.ROOT);
-        if (Files.isRegularFile(path)) {
-            if (!lower.contains("gemma-4") && !lower.contains("gemma4")) {
-                return false;
-            }
-            String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-            return isLiteRtModelFileName(name);
-        }
-        if (!Files.isDirectory(path)) {
-            return false;
-        }
-        try (var stream = Files.list(path)) {
-            return stream.anyMatch(candidate -> {
-                String name = candidate.getFileName().toString().toLowerCase(Locale.ROOT);
-                return (name.contains("gemma-4") || name.contains("gemma4"))
-                        && isLiteRtModelFileName(name);
-            });
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean hasNativeGemmaLiteRtLm(Path path) {
-        try {
-            if (Files.isRegularFile(path)) {
-                String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-                return name.endsWith(".litertlm")
-                        && (name.contains("gemma-4") || name.contains("gemma4"));
-            }
-            if (!Files.isDirectory(path)) {
-                return false;
-            }
-            try (var stream = Files.list(path)) {
-                return stream.anyMatch(candidate -> {
-                    String name = candidate.getFileName().toString().toLowerCase(Locale.ROOT);
-                    return Files.isRegularFile(candidate)
-                            && name.endsWith(".litertlm")
-                            && (name.contains("gemma-4") || name.contains("gemma4"))
-                            && !name.contains("qualcomm");
-                });
-            }
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean isLiteRtModelFileName(String name) {
-        return name.endsWith(".litertlm")
-                || name.endsWith(".task")
-                || name.endsWith(".tflite")
-                || name.endsWith(".tfl");
-    }
-
-    private String detectSafetensorCompatibilityIssue(String providerId, String localPath) {
-        if (!"safetensor".equalsIgnoreCase(providerId) || localPath == null || localPath.isBlank()) {
-            return null;
-        }
-        if (!isSafetensorCheckpointDir(localPath)) {
-            return null;
-        }
-
-        try {
-            Path configPath = Path.of(localPath).resolve("config.json");
-            ModelConfig parsed = ModelConfig.load(configPath, new ObjectMapper());
-            String modelType = parsed.modelType() == null ? "" : parsed.modelType().toLowerCase(Locale.ROOT);
-            String architecture = parsed.primaryArchitecture() == null
-                    ? ""
-                    : parsed.primaryArchitecture().toLowerCase(Locale.ROOT);
-            boolean gemma4UnifiedWrapper = isGemma4UnifiedWrapper(modelType, architecture);
-            boolean resolvedGemma4Text = modelType.startsWith("gemma4")
-                    && parsed.hiddenSize() > 0
-                    && parsed.numHiddenLayers() > 0
-                    && parsed.numAttentionHeads() > 0;
-            if (resolvedGemma4Text) {
-                return null;
-            }
-            if (gemma4UnifiedWrapper) {
-                return "this local safetensor runtime build recognizes Gemma 4 unified checkpoints like "
-                        + Path.of(localPath).getFileName()
-                        + ", but does not run their unified multimodal embedder path yet. "
-                        + "Use a runtime plugin with Gemma 4 unified support, or convert to a supported artifact.";
-            }
-        } catch (Exception ignored) {
-            // Fall back to raw config heuristics only when structured parsing cannot
-            // reconcile the checkpoint into a supported text model shape.
-        }
-
-        try {
-            Path configPath = Path.of(localPath).resolve("config.json");
-            String config = Files.readString(configPath);
-            boolean gemma4Conditional = config.contains("\"Gemma4ForConditionalGeneration\"")
-                    || config.contains("\"Gemma4ForMultimodalLM\"")
-                    || config.contains("\"Gemma4ForImageTextToText\"")
-                    || config.contains("\"model_type\": \"gemma4\"");
-            boolean gemma4Unified = config.contains("\"model_type\": \"gemma4_unified\"")
-                    || config.contains("\"Gemma4ForMultimodalLM\"")
-                    || config.contains("\"Gemma4ForImageTextToText\"");
-            boolean multimodalWrapper = config.contains("\"vision_config\"")
-                    || config.contains("\"audio_config\"");
-            boolean hasTextConfig = config.contains("\"text_config\"");
-
-            if (gemma4Unified && multimodalWrapper && hasTextConfig) {
-                return null;
-            }
-            if (gemma4Unified && multimodalWrapper) {
-                return "this local safetensor runtime build recognizes Gemma 4 unified checkpoints like "
-                        + Path.of(localPath).getFileName()
-                        + ", but does not run their unified multimodal embedder path yet. "
-                        + "Use a runtime plugin with Gemma 4 unified support, or convert to a supported artifact.";
-            }
-            if (gemma4Conditional && multimodalWrapper && !hasTextConfig) {
-                return "this local safetensor runtime build does not reliably support Gemma4 multimodal text checkpoints like "
-                        + Path.of(localPath).getFileName()
-                        + ". It may run but produce incorrect output. Use a newer safetensor engine build or convert the model to a supported runtime first.";
-            }
-        } catch (Exception ignored) {
-            return null;
-        }
-
-        return null;
-    }
-
-    private boolean isGemma4UnifiedWrapper(String modelType, String architecture) {
-        return modelType.equals("gemma4_unified")
-                || architecture.equals("gemma4formultimodallm")
-                || architecture.equals("gemma4forimagetexttotext");
-    }
-
-    private String detectNativeGgufCompatibilityIssue(String providerId, String modelId, String localPath) {
-        if (!"native".equalsIgnoreCase(providerId) || !isGgufModelPath(localPath)) {
-            return null;
-        }
-
-        String fingerprint = ((modelId == null ? "" : modelId) + " "
-                + (localPath == null ? "" : Path.of(localPath).getFileName())).toLowerCase(java.util.Locale.ROOT);
-        if (!fingerprint.contains("gemma4") && !fingerprint.contains("gemma-4")) {
-            return null;
-        }
-
-        return "the local native GGUF runtime in this build does not reliably support Gemma 4 text checkpoints like "
-                + Path.of(localPath).getFileName()
-                + ". It can tokenize the prompt but still ignore Gemma 4 attention/KV/RoPE semantics and produce incorrect output. "
-                + "Use a newer Gemma 4-capable runtime instead of the local GGUF/native fallback.";
-    }
-
-    private boolean isGgufModelPath(String localPath) {
-        if (localPath == null || localPath.isBlank()) {
-            return false;
-        }
-        try {
-            Path path = Path.of(localPath);
-            return Files.isRegularFile(path)
-                    && path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".gguf");
-        } catch (Exception ignored) {
-            return false;
-        }
     }
 
     private String effectiveQuantizationStrategy(String raw) {
@@ -2286,8 +2032,8 @@ public class RunCommand implements Runnable {
                 routeReportJson,
                 prompt,
                 providerId,
-                isGgufProviderAlias(providerId),
-                isGgufPluginAlias(pluginId),
+                GgufRouteAliasPolicy.isProviderAlias(providerId),
+                GgufRouteAliasPolicy.isPluginAlias(pluginId),
                 hasExplicitGgufEngine(),
                 requestsSafetensorModel(),
                 explicitLlamaCppEngine(),
@@ -2340,7 +2086,7 @@ public class RunCommand implements Runnable {
         args.add("--top-p");
         args.add(Double.toString(textRunOptions.topP()));
 
-        String engine = requestedGgufEngine();
+        String engine = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
         if (engine != null && !engine.isBlank()) {
             args.add("--engine");
             args.add(engine);
@@ -2396,27 +2142,20 @@ public class RunCommand implements Runnable {
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
-                && isBlank(inputImagePath)
+                && isBlank(visionInputOptions.inputImagePath())
                 && isEmpty(toolFiles)
                 && isEmpty(mcpTools)
                 && isEmpty(ragContexts)
                 && isEmpty(ragFiles)
-                && isEmpty(inputImagePaths)
+                && isEmpty(visionInputOptions.inputImagePaths())
                 && !jsonMode
                 && !enableJsonSse
-                && !ocrMode
+                && !visionInputOptions.ocrMode()
                 && !ocrJsonOutput
                 && isBlank(ocrJsonOutputPath)
                 && isBlank(ocrOverlayOutputPath);
     }
 
-    private static boolean isLiteRtProviderAlias(String value) {
-        if (value == null) {
-            return false;
-        }
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("litert") || normalized.equals("litertlm");
-    }
 
     private static boolean looksLikeLiteRtLmPath(String localPath) {
         if (localPath == null || localPath.isBlank()) {
@@ -2439,29 +2178,12 @@ public class RunCommand implements Runnable {
         return values == null || values.isEmpty();
     }
 
-    /**
-     * Maps the shared {@code --java} / {@code --llamacpp} / {@code --engine} switches onto the two
-     * safetensor routes: {@code direct} (pure-Java DirectInferenceEngine, no libtorch) or
-     * {@code gguf} (convert to GGUF via the existing forceGguf route, run on llama.cpp).
-     * Returns {@code null} for auto/benchmark/unknown so default routing applies.
-     */
-    static String safetensorBackendFor(String engineHint) {
-        if (engineHint == null) {
-            return null;
-        }
-        return switch (engineHint.trim().toLowerCase(Locale.ROOT)) {
-            case "java", "java-native", "native", "direct" -> "direct";
-            case "llamacpp", "llama.cpp", "llama-cpp", "gguf" -> "gguf";
-            default -> null;
-        };
-    }
-
     private boolean explicitJavaEngine() {
-        return "direct".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "direct".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
     }
 
     private boolean explicitLlamaCppEngine() {
-        return "gguf".equals(safetensorBackendFor(requestedGgufEngine()));
+        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
     }
 
     /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
@@ -2538,7 +2260,7 @@ public class RunCommand implements Runnable {
     private Path localSafetensorCheckpointForConversion() {
         for (String ref : new String[] { modelDir, modelFile, modelPath, modelId }) {
             Path p = resolveSafetensorCheckpointPath(ref);
-            if (p != null && isSafetensorCheckpointDir(p.toString())) {
+            if (p != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(p.toString())) {
                 return p;
             }
         }
@@ -2547,7 +2269,7 @@ public class RunCommand implements Runnable {
                 Optional<LocalModelIndex.Entry> indexed = findSafetensorIndexEntry(modelId);
                 if (indexed.isPresent() && LocalModelIndex.find(modelId, "gguf").isEmpty()) {
                     Path p = resolveSafetensorCheckpointPath(indexed.get().path);
-                    if (p != null && isSafetensorCheckpointDir(p.toString())) {
+                    if (p != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(p.toString())) {
                         return p;
                     }
                 }
@@ -2560,7 +2282,7 @@ public class RunCommand implements Runnable {
 
     private boolean isSafetensorModelPath(String localPath) {
         Path p = resolveSafetensorCheckpointPath(localPath);
-        return p != null && isSafetensorCheckpointDir(p.toString());
+        return p != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(p.toString());
     }
 
     /**
@@ -2580,7 +2302,7 @@ public class RunCommand implements Runnable {
             if (ref == null || ref.isBlank()) {
                 continue;
             }
-            if (ref.toLowerCase(Locale.ROOT).endsWith(".safetensors") || isSafetensorCheckpointDir(ref)) {
+            if (ref.toLowerCase(Locale.ROOT).endsWith(".safetensors") || SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(ref)) {
                 return true;
             }
         }
@@ -2595,18 +2317,6 @@ public class RunCommand implements Runnable {
         return false;
     }
 
-    private String requestedGgufEngine() {
-        if (benchmarkGguf) {
-            return "benchmark";
-        }
-        if (javaNativeGguf) {
-            return "java";
-        }
-        if (llamaCppGguf) {
-            return "llamacpp";
-        }
-        return ggufEngine == null ? null : ggufEngine.trim();
-    }
 
     private String requestedGgufBackend() {
         if (ggufBackend != null && !ggufBackend.isBlank()) {
@@ -2621,32 +2331,6 @@ public class RunCommand implements Runnable {
         return null;
     }
 
-    private boolean isGgufProviderAlias(String provider) {
-        if (provider == null || provider.isBlank()) {
-            return false;
-        }
-        String normalized = provider.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("gguf")
-                || normalized.equals("llamacpp")
-                || normalized.equals("llama.cpp")
-                || normalized.equals("llama-cpp")
-                || normalized.equals("java")
-                || normalized.equals("java-native")
-                || normalized.equals("jvm");
-    }
-
-    private boolean isGgufPluginAlias(String plugin) {
-        if (plugin == null || plugin.isBlank()) {
-            return false;
-        }
-        String normalized = plugin.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("gguf")
-                || normalized.equals("gguf-runner")
-                || normalized.equals("llamacpp")
-                || normalized.equals("llama.cpp")
-                || normalized.equals("llama-cpp");
-    }
-
     private boolean isGgufFormat(String value) {
         return ModelFormatResolver.isGgufFormat(value);
     }
@@ -2657,24 +2341,6 @@ public class RunCommand implements Runnable {
 
     private String normalizeRequestedProvider(String rawProviderId) {
         return ModelFormatResolver.normalizeProvider(rawProviderId);
-    }
-
-    private String inferProviderFromIndex(LocalModelIndex.Entry entry) {
-        if (entry == null || entry.format == null) {
-            return null;
-        }
-        return providerForFormat(entry.format);
-    }
-
-    private String inferFormatFromIndex(LocalModelIndex.Entry entry) {
-        if (entry == null || entry.format == null || entry.format.isBlank()) {
-            return null;
-        }
-        return ModelFormatResolver.canonicalFormat(entry.format);
-    }
-
-    private String providerForFormat(String format) {
-        return ModelFormatResolver.providerForFormat(format);
     }
 
 
@@ -2733,22 +2399,6 @@ public class RunCommand implements Runnable {
                     .anyMatch(id -> id.equals("gguf")
                             || id.equals("gguf-runner")
                             || id.contains("gguf"));
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean isSafetensorWeightFile(String localPath) {
-        if (localPath == null || localPath.isBlank()) {
-            return false;
-        }
-        try {
-            Path path = Path.of(localPath);
-            if (!Files.isRegularFile(path)) {
-                return false;
-            }
-            String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-            return name.endsWith(".safetensors") || name.endsWith(".safetensor");
         } catch (Exception ignored) {
             return false;
         }
@@ -3093,61 +2743,8 @@ public class RunCommand implements Runnable {
         mediaOutputHandler().saveBuffer(buffer, defaultExt, label, metadata);
     }
 
-    private static String onnxOptimizedCacheDetail(Map<String, Object> metadata) {
-        Double sessionValue = metadataDouble(metadata, "onnx_optimized_model_cache_sessions");
-        if (sessionValue == null || sessionValue <= 0.0) {
-            return null;
-        }
-        long sessions = Math.round(sessionValue);
-        long hits = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_hits"));
-        long created = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_created"));
-        long rebuilt = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_rebuilt"));
-        long disabled = Math.round(defaultedDouble(metadata, "onnx_optimized_model_cache_disabled"));
-        if (disabled >= sessions && "false".equalsIgnoreCase(metadataText(metadata, "onnx_optimized_model_cache_enabled"))) {
-            return "onnx cache disabled";
-        }
 
-        List<String> notes = new ArrayList<>();
-        if (created > 0L) {
-            notes.add(created + " built");
-        }
-        if (rebuilt > 0L) {
-            notes.add(rebuilt + " rebuilt");
-        }
-        if (disabled > 0L) {
-            notes.add(disabled + " disabled");
-        }
-        String detail = "onnx cache " + hits + "/" + sessions + " hit";
-        return notes.isEmpty() ? detail : detail + " (" + String.join(", ", notes) + ")";
-    }
 
-    private static String onnxSessionCacheDetail(Map<String, Object> metadata) {
-        String state = metadataText(metadata, "onnx_session_cache_state");
-        if (state == null || state.isBlank() || "disabled".equalsIgnoreCase(state)) {
-            return null;
-        }
-        if ("hit".equalsIgnoreCase(state)) {
-            return "onnx sessions hot";
-        }
-        if ("miss".equalsIgnoreCase(state)) {
-            return "onnx sessions warmed";
-        }
-        return null;
-    }
-
-    private static String onnxAssetCacheDetail(Map<String, Object> metadata) {
-        String state = metadataText(metadata, "onnx_asset_cache_state");
-        if (state == null || state.isBlank() || "disabled".equalsIgnoreCase(state)) {
-            return null;
-        }
-        if ("hit".equalsIgnoreCase(state)) {
-            return "onnx assets hot";
-        }
-        if ("miss".equalsIgnoreCase(state)) {
-            return "onnx assets warmed";
-        }
-        return null;
-    }
 
     private static double defaultedDouble(Map<String, Object> metadata, String key) {
         Double value = metadataDouble(metadata, key);
@@ -3180,10 +2777,10 @@ public class RunCommand implements Runnable {
                 runner,
                 prompt,
                 imageReplaySeed(metadata),
-                steps,
-                guidanceScale,
-                width,
-                height,
+                imageGenerationOptions.steps(),
+                imageGenerationOptions.guidanceScale(),
+                imageGenerationOptions.width(),
+                imageGenerationOptions.height(),
                 metadata
         ));
     }
@@ -3233,17 +2830,6 @@ public class RunCommand implements Runnable {
         return seed == null ? null : seed.toString();
     }
 
-    private static void addStringArg(List<String> args, String flag, Object value) {
-        if (value == null) {
-            return;
-        }
-        String text = String.valueOf(value);
-        if (text.isBlank()) {
-            return;
-        }
-        args.add(flag);
-        args.add(text);
-    }
 
     private static Double audioDurationSeconds(Map<String, Object> metadata) {
         Double duration = metadataDouble(metadata, "audio_duration_seconds");

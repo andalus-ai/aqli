@@ -12,6 +12,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import tech.kayys.aqli.onnx.runner.tts.moss.MossTtsOnnxGraphResolver;
+
 class MossTtsOnnxCacheDiagnosticsTest {
     @TempDir
     Path tempDir;
