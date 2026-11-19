@@ -108,12 +108,13 @@ final class ResponsesApiSerializer {
         if (chunk.terminal()) {
             Map<String, Object> done = new LinkedHashMap<>();
             done.put("type", "response.output_text.done");
-            done.put("sequence_number", ++sequence);
+            long doneSequence = ++sequence;
+            done.put("sequence_number", doneSequence);
             done.put("item_id", messageId);
             done.put("output_index", 0);
             done.put("content_index", 0);
             done.put("text", outputText);
-            metadata(done, trace, options, sequence, true, chunk.finishReason());
+            metadata(done, trace, options, doneSequence, true, chunk.finishReason());
             events.add(json(done));
 
             Map<String, Object> response = new LinkedHashMap<>();
@@ -130,10 +131,11 @@ final class ResponsesApiSerializer {
                         "output_tokens", chunk.usage().outputTokens(),
                         "total_tokens", chunk.usage().inputTokens() + chunk.usage().outputTokens()));
             }
-            metadata(response, trace, options, sequence + 1, true, chunk.finishReason());
+            long completedSequence = sequence + 1;
+            metadata(response, trace, options, completedSequence, true, chunk.finishReason());
             events.add(json(Map.of(
                     "type", "response.completed",
-                    "sequence_number", sequence + 1,
+                    "sequence_number", completedSequence,
                     "response", response)));
         }
         return events;
