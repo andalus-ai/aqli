@@ -1,5 +1,6 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
+import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
@@ -998,7 +999,7 @@ public class RunCommand implements Runnable {
                     finalLocalPath);
             forcedExecutionRouteMetadata = effectiveRunnerRouteReport.toMetadata();
 
-            String litertPreflightFailure = detectUnsupportedLiteRtPreflight(executionProviderId, finalLocalPath);
+            String litertPreflightFailure = LiteRtRoutePreflightValidator.detectUnsupported(executionProviderId, finalLocalPath);
             if (litertPreflightFailure != null) {
                 if (!enableJsonSse) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
@@ -2038,84 +2039,6 @@ public class RunCommand implements Runnable {
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private String detectUnsupportedLiteRtPreflight(String provider, String localPath) {
-        if (!"litert".equalsIgnoreCase(provider) || localPath == null || localPath.isBlank()) {
-            return null;
-        }
-        if (Boolean.getBoolean("aqli.litert.enable_experimental_gemma4_task_runner")
-                || Boolean.getBoolean("aqli.litert.enable_experimental_raw_litertlm")) {
-            return null;
-        }
-        try {
-            Path path = Path.of(localPath);
-            if (!Files.exists(path) || !looksLikeGemma4LiteRtArtifact(path)) {
-                return null;
-            }
-            if (hasNativeGemmaLiteRtLm(path)) {
-                return null;
-            }
-            return "Gemma 4 LiteRT runner is disabled by default because the current Java/Metal paths are slow "
-                    + "and produce incorrect repeated-token output for this export. Set -D"
-                    + "aqli.litert.enable_experimental_gemma4_task_runner=true only for diagnostics.";
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private boolean looksLikeGemma4LiteRtArtifact(Path path) {
-        String lower = path.toString().toLowerCase(Locale.ROOT);
-        if (Files.isRegularFile(path)) {
-            if (!lower.contains("gemma-4") && !lower.contains("gemma4")) {
-                return false;
-            }
-            String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-            return isLiteRtModelFileName(name);
-        }
-        if (!Files.isDirectory(path)) {
-            return false;
-        }
-        try (var stream = Files.list(path)) {
-            return stream.anyMatch(candidate -> {
-                String name = candidate.getFileName().toString().toLowerCase(Locale.ROOT);
-                return (name.contains("gemma-4") || name.contains("gemma4"))
-                        && isLiteRtModelFileName(name);
-            });
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean hasNativeGemmaLiteRtLm(Path path) {
-        try {
-            if (Files.isRegularFile(path)) {
-                String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-                return name.endsWith(".litertlm")
-                        && (name.contains("gemma-4") || name.contains("gemma4"));
-            }
-            if (!Files.isDirectory(path)) {
-                return false;
-            }
-            try (var stream = Files.list(path)) {
-                return stream.anyMatch(candidate -> {
-                    String name = candidate.getFileName().toString().toLowerCase(Locale.ROOT);
-                    return Files.isRegularFile(candidate)
-                            && name.endsWith(".litertlm")
-                            && (name.contains("gemma-4") || name.contains("gemma4"))
-                            && !name.contains("qualcomm");
-                });
-            }
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean isLiteRtModelFileName(String name) {
-        return name.endsWith(".litertlm")
-                || name.endsWith(".task")
-                || name.endsWith(".tflite")
-                || name.endsWith(".tfl");
     }
 
     private String detectSafetensorCompatibilityIssue(String providerId, String localPath) {
