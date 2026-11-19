@@ -128,29 +128,41 @@ public final class AqliChatService {
         String modelId = effectiveRequest.model();
         obs.getAuditLogger().logClientRequestStart(requestId, modelId);
         long startMs = System.currentTimeMillis();
-        java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
-                new java.util.concurrent.atomic.AtomicBoolean();
+        return Multi.createFrom().deferred(() -> {
+            java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
+                    new java.util.concurrent.atomic.AtomicBoolean();
+            java.util.concurrent.atomic.AtomicInteger outputTokens =
+                    new java.util.concurrent.atomic.AtomicInteger();
 
-        return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
-                .map(AqliChatService::toStreamingInferenceChunk)
-                .onItem().invoke(chunk -> {
-                    obs.getMetricsCollector().recordClientChunk(modelId);
-                    boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
-                            || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
-                    if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
-                        obs.getMetricsCollector().recordClientTtft(
-                                modelId, System.currentTimeMillis() - startMs);
-                    }
-                })
-                .onCompletion().invoke(() -> {
-                    long duration = System.currentTimeMillis() - startMs;
-                    obs.getAuditLogger().logClientRequestComplete(requestId, modelId, 0, duration);
-                })
-                .onFailure().invoke(error -> {
-                    obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
-                    obs.getAuditLogger().logClientRequestFailure(
-                            requestId, modelId, error.getClass().getSimpleName());
-                });
+            return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
+                    .onItem().invoke(sourceChunk -> {
+                        TextGenerationChunk.Usage usage = sourceChunk.usage();
+                        if (usage != null) {
+                            // Usage is a snapshot; replace rather than accumulate across chunks.
+                            outputTokens.set(usage.outputTokens());
+                        }
+                    })
+                    .map(AqliChatService::toStreamingInferenceChunk)
+                    .onItem().invoke(chunk -> {
+                        obs.getMetricsCollector().recordClientChunk(modelId);
+                        boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
+                                || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
+                        if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
+                            obs.getMetricsCollector().recordClientTtft(
+                                    modelId, System.currentTimeMillis() - startMs);
+                        }
+                    })
+                    .onCompletion().invoke(() -> {
+                        long duration = System.currentTimeMillis() - startMs;
+                        obs.getAuditLogger().logClientRequestComplete(
+                                requestId, modelId, outputTokens.get(), duration);
+                    })
+                    .onFailure().invoke(error -> {
+                        obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
+                        obs.getAuditLogger().logClientRequestFailure(
+                                requestId, modelId, error.getClass().getSimpleName());
+                    });
+        });
     }
 
     private static StreamingInferenceChunk toStreamingInferenceChunk(TextGenerationChunk chunk) {
