@@ -29,7 +29,7 @@ class SafetensorCompatibilityPreflightValidatorTest {
     @Test
     void reportsGemma4UnifiedWrapperWithoutTextConfig() throws Exception {
         Path checkpoint = checkpoint(
-                "{\"model_type\": \"gemma4_unified\", \"vision_config\": {}}",
+                "not-json: \"model_type\": \"gemma4_unified\", \"vision_config\": {}",
                 "model.safetensors");
 
         String diagnostic = SafetensorCompatibilityPreflightValidator.detect("safetensor", checkpoint.toString());
@@ -41,7 +41,7 @@ class SafetensorCompatibilityPreflightValidatorTest {
     @Test
     void acceptsGemma4UnifiedWrapperWithTextConfig() throws Exception {
         Path checkpoint = checkpoint(
-                "{\"model_type\": \"gemma4_unified\", \"vision_config\": {}, \"text_config\": {}}",
+                "not-json: \"model_type\": \"gemma4_unified\", \"vision_config\": {}, \"text_config\": {}",
                 "model.safetensors");
 
         assertNull(SafetensorCompatibilityPreflightValidator.detect("safetensor", checkpoint.toString()));
@@ -50,7 +50,7 @@ class SafetensorCompatibilityPreflightValidatorTest {
     @Test
     void reportsGemma4ConditionalMultimodalWrapperWithoutTextConfig() throws Exception {
         Path checkpoint = checkpoint(
-                "{\"architectures\": [\"Gemma4ForConditionalGeneration\"], \"vision_config\": {}}",
+                "not-json: \"Gemma4ForConditionalGeneration\", \"vision_config\": {}",
                 "model.safetensors");
 
         String diagnostic = SafetensorCompatibilityPreflightValidator.detect("safetensor", checkpoint.toString());
