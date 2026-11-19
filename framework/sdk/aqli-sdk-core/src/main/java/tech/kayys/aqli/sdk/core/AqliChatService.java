@@ -92,12 +92,13 @@ public final class AqliChatService {
     public Uni<TextGenerationResponse> generateText(
             AqliRuntime sdk,
             TextGenerationRequest request) {
-        String requestId = UUID.randomUUID().toString();
-        String modelId = request.model();
+        String requestId = resolveRequestId(request);
+        TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
+        String modelId = effectiveRequest.model();
         obs.getAuditLogger().logClientRequestStart(requestId, modelId);
         long startMs = System.currentTimeMillis();
 
-        return Uni.createFrom().completionStage(() -> sdk.generateTextAsync(request))
+        return Uni.createFrom().completionStage(() -> sdk.generateTextAsync(effectiveRequest))
                 .onItem().invoke(response -> {
                     long duration = System.currentTimeMillis() - startMs;
                     obs.getMetricsCollector().recordClientSuccess(modelId, duration, response.totalTokens());
@@ -122,12 +123,13 @@ public final class AqliChatService {
     public Multi<StreamingInferenceChunk> streamText(
             AqliRuntime sdk,
             TextGenerationRequest request) {
-        String requestId = UUID.randomUUID().toString();
-        String modelId = request.model();
+        String requestId = resolveRequestId(request);
+        TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
+        String modelId = effectiveRequest.model();
         obs.getAuditLogger().logClientRequestStart(requestId, modelId);
         long startMs = System.currentTimeMillis();
 
-        return Multi.createFrom().publisher(sdk.streamText(request))
+        return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
                 .map(AqliChatService::toStreamingInferenceChunk)
                 .onItem().invoke(chunk -> {
                     obs.getMetricsCollector().recordClientChunk(modelId);
@@ -168,6 +170,31 @@ public final class AqliChatService {
                 chunk.toolCallId(),
                 chunk.toolName(),
                 chunk.toolInputDelta());
+    }
+
+    private static String resolveRequestId(TextGenerationRequest request) {
+        return request.requestId() == null || request.requestId().isBlank()
+                ? UUID.randomUUID().toString()
+                : request.requestId();
+    }
+
+    private static TextGenerationRequest withRequestId(TextGenerationRequest request, String requestId) {
+        if (requestId.equals(request.requestId())) {
+            return request;
+        }
+        return new TextGenerationRequest(
+                request.model(),
+                request.messages(),
+                request.parameters(),
+                request.tools(),
+                request.toolChoice(),
+                request.metadata(),
+                requestId,
+                request.userId(),
+                request.sessionId(),
+                request.traceId(),
+                request.apiKey(),
+                request.context());
     }
 
     public Multi<StreamingInferenceChunk> streamChat(
