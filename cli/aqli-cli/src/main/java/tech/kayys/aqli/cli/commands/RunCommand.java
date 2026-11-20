@@ -105,7 +105,9 @@ import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -153,6 +155,8 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private ImageGenerationRunOptions imageGenerationOptions;
+    private VisionInputRunOptions visionInputOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -318,21 +322,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
     String imageMetadataRefreshPath;
 
-    @Option(names = { "--image", "--input-image", "--vision-input" }, description = "Input image path for vision/OCR models")
-    String inputImagePath;
-
-    @Option(names = { "--images", "--input-images" }, split = ",", description = "Comma-separated input image paths for vision/OCR models")
-    List<String> inputImagePaths;
-
-    @Option(names = { "--ocr" }, description = "Use the default OCR task prompt when --prompt is omitted")
-    boolean ocrMode;
-
-    @Option(names = { "--ocr-image-tokens", "--onnx-image-tokens" }, description = "Limit image embeddings used by PaddleOCR-VL ONNX generation (default: 0 = all)")
-    Integer ocrImageTokens;
-
-    @Option(names = { "--ocr-raw", "--onnx-ocr-raw" }, description = "Print raw PaddleOCR-VL generated token text without location postprocessing")
-    boolean ocrRawOutput;
-
     @Option(names = { "--ocr-json", "--onnx-ocr-json" }, description = "Print PaddleOCR-VL OCR result as structured JSON")
     boolean ocrJsonOutput;
 
@@ -377,19 +366,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
     boolean ttsCachePruneApply;
-
-    @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
-    Integer steps;
-
-    @Option(names = { "--guidance-scale", "--cfg" }, description = "Classifier-free guidance scale (default: 7.5)")
-    Float guidanceScale;
-
-    @Option(names = { "--width" }, description = "Output image width in pixels (default: 512, must be multiple of 64)")
-    Integer width;
-
-    @Option(names = {
-            "--height" }, description = "Output image height in pixels (default: 512, must be multiple of 64)")
-    Integer height;
 
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
@@ -467,6 +443,20 @@ public class RunCommand implements Runnable {
                 AudioRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+
+        imageGenerationOptions = runCapabilityRegistry.snapshot(
+                "image-generation",
+                commandSpec.commandLine().getParseResult(),
+                ImageGenerationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
+
+        visionInputOptions = runCapabilityRegistry.snapshot(
+                "vision-input",
+                commandSpec.commandLine().getParseResult(),
+                VisionInputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -704,11 +694,28 @@ public class RunCommand implements Runnable {
                                             ggufQuant, ggufOutType, forceGguf, providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelIds),
                                     sdk,
+<<<<<<< HEAD
+                                    reference -> {
+                                        try {
+                                            return autoPullHfRepositoryForRunIfNeeded(
+                                                    reference.modelId(), reference.preferredFormat());
+                                        } catch (Exception e) {
+                                            if (e instanceof RuntimeException re) {
+                                                throw re;
+                                            }
+                                            throw new IllegalStateException("Failed to prepare repository: " + e.getMessage(), e);
+                                        }
+                                    },
+                                    this::inferProviderFromIndex,
+                                    this::inferFormatFromIndex,
+                                    path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
+=======
                                     reference -> autoPullHfRepositoryForRunIfNeeded(
                                             reference.modelId(), reference.preferredFormat()),
                                     LocalModelIndexMetadataInference::providerFor,
                                     LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
+>>>>>>> 90dd4df9b2f802a708281c6dd340025c534cac6a
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                                                     reference, selectedProvider, isMcpProvider()),
@@ -804,7 +811,7 @@ public class RunCommand implements Runnable {
                                 routeReportRepositoryResolutionSkipped,
                                 routeReportRequireLocal,
                                 !normalizedInputImages.isEmpty(),
-                                ocrMode,
+                                visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
                 printJsonPayload(routeReportResult.payload());
@@ -866,7 +873,7 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            if ((ocrMode || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
+            if ((visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
@@ -874,7 +881,7 @@ public class RunCommand implements Runnable {
                             || ocrJsonOutput
                             || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
                             || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
-                            && (ocrMode || !normalizedInputImages.isEmpty());
+                            && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
             boolean effectiveStream = stream && !structuredOcrOutput;
 
             boolean promptlessExtensionRun = allowsPromptlessExtensionRun(modelId, finalLocalPath);
@@ -940,7 +947,7 @@ public class RunCommand implements Runnable {
                             modelId,
                             finalLocalPath,
                             !normalizedInputImages.isEmpty(),
-                            ocrMode);
+                            visionInputOptions.ocrMode());
             if (!gemma4UnifiedMultimodalRouteValidation.allowed()) {
                 if (!enableJsonSse) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
@@ -1030,10 +1037,12 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            imageGenerationOptions.guidanceScale() == null
+                                    ? null
+                                    : imageGenerationOptions.guidanceScale().doubleValue(),
                             outputPath,
-                            width,
-                            height));
+                            imageGenerationOptions.width(),
+                            imageGenerationOptions.height()));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1117,16 +1126,16 @@ public class RunCommand implements Runnable {
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
                                     seed,
-                                    steps,
+                                    imageGenerationOptions.steps(),
                                     format,
-                                    guidanceScale,
+                                    imageGenerationOptions.guidanceScale(),
                                     outputPath,
-                                    width,
-                                    height,
+                                    imageGenerationOptions.width(),
+                                    imageGenerationOptions.height(),
                                     normalizedInputImages,
-                                    ocrMode,
-                                    ocrImageTokens,
-                                    ocrRawOutput,
+                                    visionInputOptions.ocrMode(),
+                                    visionInputOptions.ocrImageTokens(),
+                                    visionInputOptions.ocrRawOutput(),
                                     effectiveOnnxVariant,
                                     raw,
                                     debugPrompt),
@@ -1641,9 +1650,9 @@ public class RunCommand implements Runnable {
 
     private List<String> normalizedInputImagePaths() {
         List<String> images = new ArrayList<>();
-        addInputImage(images, inputImagePath);
-        if (inputImagePaths != null) {
-            for (String image : inputImagePaths) {
+        addInputImage(images, visionInputOptions.inputImagePath());
+        if (visionInputOptions.inputImagePaths() != null) {
+            for (String image : visionInputOptions.inputImagePaths()) {
                 addInputImage(images, image);
             }
         }
@@ -2129,15 +2138,15 @@ public class RunCommand implements Runnable {
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
                 && isBlank(embeddingModel)
-                && isBlank(inputImagePath)
+                && isBlank(visionInputOptions.inputImagePath())
                 && isEmpty(toolFiles)
                 && isEmpty(mcpTools)
                 && isEmpty(ragContexts)
                 && isEmpty(ragFiles)
-                && isEmpty(inputImagePaths)
+                && isEmpty(visionInputOptions.inputImagePaths())
                 && !jsonMode
                 && !enableJsonSse
-                && !ocrMode
+                && !visionInputOptions.ocrMode()
                 && !ocrJsonOutput
                 && isBlank(ocrJsonOutputPath)
                 && isBlank(ocrOverlayOutputPath);
@@ -2693,10 +2702,10 @@ public class RunCommand implements Runnable {
                 runner,
                 prompt,
                 imageReplaySeed(metadata),
-                steps,
-                guidanceScale,
-                width,
-                height,
+                imageGenerationOptions.steps(),
+                imageGenerationOptions.guidanceScale(),
+                imageGenerationOptions.width(),
+                imageGenerationOptions.height(),
                 metadata
         ));
     }

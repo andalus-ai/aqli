@@ -70,10 +70,14 @@ final class ExplicitModelInputResolver {
             }
 
             if (options.importModel() || options.copyModel()) {
-                var imported = runtime.importModel(filePath, options.importModel());
-                filePath = Paths.get(imported.getLocalPath());
-                messages.add((options.importModel() ? "Imported" : "Copied")
-                        + " model to: " + filePath.toAbsolutePath());
+                try {
+                    var imported = runtime.importModel(filePath, options.importModel());
+                    filePath = Paths.get(imported.getLocalPath());
+                    messages.add((options.importModel() ? "Imported" : "Copied")
+                            + " model to: " + filePath.toAbsolutePath());
+                } catch (Exception e) {
+                    return failure(providerId, format, "Failed to import model: " + e.getMessage());
+                }
             }
 
             String modelId = filePath.toAbsolutePath().toString();
@@ -103,10 +107,14 @@ final class ExplicitModelInputResolver {
             }
 
             if (options.importModel() || options.copyModel()) {
-                var imported = runtime.importModel(dirPath, options.importModel());
-                dirPath = Paths.get(imported.getLocalPath());
-                messages.add((options.importModel() ? "Imported" : "Copied")
-                        + " model to: " + dirPath.toAbsolutePath());
+                try {
+                    var imported = runtime.importModel(dirPath, options.importModel());
+                    dirPath = Paths.get(imported.getLocalPath());
+                    messages.add((options.importModel() ? "Imported" : "Copied")
+                            + " model to: " + dirPath.toAbsolutePath());
+                } catch (Exception e) {
+                    return failure(providerId, format, "Failed to import model: " + e.getMessage());
+                }
             }
 
             String modelId = dirPath.toAbsolutePath().toString();

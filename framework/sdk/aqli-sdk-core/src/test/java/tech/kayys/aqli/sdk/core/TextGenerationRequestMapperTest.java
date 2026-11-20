@@ -8,6 +8,7 @@ import tech.kayys.aqli.sdk.capability.text.TextGenerationContextItem;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationMessage;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationToolCall;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationToolChoice;
 import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
 import tech.kayys.aqli.spi.tool.ToolDefinition;

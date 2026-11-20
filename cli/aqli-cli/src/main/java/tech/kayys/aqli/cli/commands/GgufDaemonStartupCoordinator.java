@@ -67,6 +67,18 @@ final class GgufDaemonStartupCoordinator {
             LongSupplier nanoTime,
             Sleeper sleeper,
             long readinessPollMillis,
+            Consumer<String> failureReporter) {
+        this(launcher, portProvider, startupTimeoutMillis, nanoTime, sleeper,
+                readinessPollMillis, java.util.Optional::empty, failureReporter);
+    }
+
+    GgufDaemonStartupCoordinator(
+            Launcher launcher,
+            Supplier<OptionalInt> portProvider,
+            LongSupplier startupTimeoutMillis,
+            LongSupplier nanoTime,
+            Sleeper sleeper,
+            long readinessPollMillis,
             Supplier<java.util.Optional<String>> startupFailure,
             Consumer<String> failureReporter) {
         this.launcher = launcher;

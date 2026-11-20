@@ -6,6 +6,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.conversation.RunConversationRequestAssembler;
+import tech.kayys.aqli.cli.commands.text.TextRunOptions;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.spi.inference.InferenceRequest;
