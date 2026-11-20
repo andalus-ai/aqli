@@ -128,48 +128,83 @@ public final class AqliChatService {
         TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
         String modelId = effectiveRequest.model();
         return Multi.createFrom().deferred(() -> {
-            recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
-            long startMs = System.currentTimeMillis();
-            java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
-                    new java.util.concurrent.atomic.AtomicBoolean();
-            java.util.concurrent.atomic.AtomicInteger outputTokens =
-                    new java.util.concurrent.atomic.AtomicInteger();
+            StreamingObservation observation = new StreamingObservation(requestId, modelId);
+            observation.start();
 
             return Multi.createFrom().publisher(sdk.streamText(effectiveRequest))
                     .onItem().invoke(sourceChunk -> {
                         TextGenerationChunk.Usage usage = sourceChunk.usage();
                         if (usage != null) {
                             // Usage is a snapshot; replace rather than accumulate across chunks.
-                            outputTokens.set((int) usage.outputTokens());
+                            observation.updateOutputTokens((int) usage.outputTokens());
                         }
                     })
                     .map(AqliChatService::toStreamingInferenceChunk)
-                    .onItem().invoke(chunk -> {
-                        recordMetrics(metrics -> metrics.recordClientChunk(modelId));
-                        boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
-                                || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
-                        if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
-                            recordMetrics(metrics -> metrics.recordClientTtft(
-                                    modelId, System.currentTimeMillis() - startMs));
-                        }
-                    })
-                    .onCompletion().invoke(() -> {
-                        long duration = System.currentTimeMillis() - startMs;
-                        recordAudit(audit -> audit.logClientRequestComplete(
-                                requestId, modelId, outputTokens.get(), duration));
-                    })
-                    .onFailure().invoke(error -> {
-                        recordMetrics(metrics -> metrics.recordClientFailure(
-                                modelId, error.getClass().getSimpleName()));
-                        recordAudit(audit -> audit.logClientRequestFailure(
-                                requestId, modelId, error.getClass().getSimpleName()));
-                    })
-                    .onCancellation().invoke(() -> {
-                        long duration = System.currentTimeMillis() - startMs;
-                        recordMetrics(metrics -> metrics.recordClientCancellation(modelId, duration));
-                        recordAudit(audit -> audit.logClientRequestCancelled(requestId, modelId, duration));
-                    });
+                    .onItem().invoke(chunk -> observation.onChunk(
+                            hasOutput(chunk.delta(), chunk.toolInputDelta())))
+                    .onCompletion().invoke(observation::complete)
+                    .onFailure().invoke(observation::fail)
+                    .onCancellation().invoke(observation::cancel);
         });
+    }
+
+    /**
+     * Per-subscription lifecycle shared by typed and legacy text streams.
+     * Request contracts and chunk adaptation stay at their respective call sites.
+     */
+    private final class StreamingObservation {
+        private final String requestId;
+        private final String modelId;
+        private final long startMs = System.currentTimeMillis();
+        private final java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        private final java.util.concurrent.atomic.AtomicInteger outputTokens =
+                new java.util.concurrent.atomic.AtomicInteger();
+
+        private StreamingObservation(String requestId, String modelId) {
+            this.requestId = requestId;
+            this.modelId = modelId;
+        }
+
+        private void start() {
+            recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
+        }
+
+        private void updateOutputTokens(int value) {
+            outputTokens.set(value);
+        }
+
+        private void onChunk(boolean hasOutput) {
+            recordMetrics(metrics -> metrics.recordClientChunk(modelId));
+            if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
+                recordMetrics(metrics -> metrics.recordClientTtft(
+                        modelId, System.currentTimeMillis() - startMs));
+            }
+        }
+
+        private void complete() {
+            long duration = System.currentTimeMillis() - startMs;
+            recordAudit(audit -> audit.logClientRequestComplete(
+                    requestId, modelId, outputTokens.get(), duration));
+        }
+
+        private void fail(Throwable error) {
+            recordMetrics(metrics -> metrics.recordClientFailure(
+                    modelId, error.getClass().getSimpleName()));
+            recordAudit(audit -> audit.logClientRequestFailure(
+                    requestId, modelId, error.getClass().getSimpleName()));
+        }
+
+        private void cancel() {
+            long duration = System.currentTimeMillis() - startMs;
+            recordMetrics(metrics -> metrics.recordClientCancellation(modelId, duration));
+            recordAudit(audit -> audit.logClientRequestCancelled(requestId, modelId, duration));
+        }
+    }
+
+    private static boolean hasOutput(String delta, String toolInputDelta) {
+        return (delta != null && !delta.isEmpty())
+                || (toolInputDelta != null && !toolInputDelta.isEmpty());
     }
 
     /**
@@ -250,44 +285,20 @@ public final class AqliChatService {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
         return Multi.createFrom().deferred(() -> {
-            recordAudit(audit -> audit.logClientRequestStart(req.getRequestId(), modelId));
-            long startMs = System.currentTimeMillis();
-            java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
-                    new java.util.concurrent.atomic.AtomicBoolean();
-            java.util.concurrent.atomic.AtomicInteger outputTokens =
-                    new java.util.concurrent.atomic.AtomicInteger();
+            StreamingObservation observation = new StreamingObservation(req.getRequestId(), modelId);
+            observation.start();
 
             return sdk.streamCompletion(req)
                     .onItem().invoke(chunk -> {
-                        recordMetrics(metrics -> metrics.recordClientChunk(modelId));
-                        boolean hasOutput = (chunk.delta() != null && !chunk.delta().isEmpty())
-                                || (chunk.toolInputDelta() != null && !chunk.toolInputDelta().isEmpty());
-                        if (hasOutput && firstOutputObserved.compareAndSet(false, true)) {
-                            recordMetrics(metrics -> metrics.recordClientTtft(
-                                    modelId, System.currentTimeMillis() - startMs));
-                        }
                         if (chunk.usage() != null) {
                             // Usage is a snapshot; replace rather than accumulate across chunks.
-                            outputTokens.set(Math.toIntExact(chunk.usage().outputTokens()));
+                            observation.updateOutputTokens(Math.toIntExact(chunk.usage().outputTokens()));
                         }
+                        observation.onChunk(hasOutput(chunk.delta(), chunk.toolInputDelta()));
                     })
-                    .onCompletion().invoke(() -> {
-                        long duration = System.currentTimeMillis() - startMs;
-                        recordAudit(audit -> audit.logClientRequestComplete(
-                                req.getRequestId(), modelId, outputTokens.get(), duration));
-                    })
-                    .onFailure().invoke(err -> {
-                        recordMetrics(metrics -> metrics.recordClientFailure(
-                                modelId, err.getClass().getSimpleName()));
-                        recordAudit(audit -> audit.logClientRequestFailure(
-                                req.getRequestId(), modelId, err.getClass().getSimpleName()));
-                    })
-                    .onCancellation().invoke(() -> {
-                        long duration = System.currentTimeMillis() - startMs;
-                        recordMetrics(metrics -> metrics.recordClientCancellation(modelId, duration));
-                        recordAudit(audit -> audit.logClientRequestCancelled(
-                                req.getRequestId(), modelId, duration));
-                    });
+                    .onCompletion().invoke(observation::complete)
+                    .onFailure().invoke(observation::fail)
+                    .onCancellation().invoke(observation::cancel);
         });
     }
 
