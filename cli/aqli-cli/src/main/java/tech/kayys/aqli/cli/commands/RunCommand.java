@@ -109,6 +109,7 @@ import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
+import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -160,6 +161,7 @@ public class RunCommand implements Runnable {
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
     private OcrOutputRunOptions ocrOutputOptions;
+    private TtsOperationsRunOptions ttsOperationsOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
@@ -335,18 +337,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--voices-json", "--tts-voices-json" }, description = "List MOSS TTS voice presets as JSON and exit")
     boolean listTtsVoicesJson;
 
-    @Option(names = { "--tts-diagnostics", "--tts-preflight" }, description = "Inspect local MOSS TTS model, codec, voices, and audio encoders without generating audio")
-    boolean ttsDiagnostics;
-
-    @Option(names = { "--tts-warmup", "--onnx-warmup" }, description = "Warm MOSS TTS ONNX assets and sessions without generating audio")
-    boolean ttsWarmup;
-
-    @Option(names = { "--tts-cache-prune", "--onnx-cache-prune" }, description = "Preview removal of stale MOSS TTS optimized graph cache files")
-    boolean ttsCachePrune;
-
-    @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
-    boolean ttsCachePruneApply;
-
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
@@ -444,6 +434,13 @@ public class RunCommand implements Runnable {
                 OcrOutputRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions"));
+
+        ttsOperationsOptions = runCapabilityRegistry.snapshot(
+                "tts-operations",
+                commandSpec.commandLine().getParseResult(),
+                TtsOperationsRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions"));
 
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
@@ -801,12 +798,12 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (ttsDiagnostics) {
+            if (ttsOperationsOptions.diagnostics()) {
                 requestProcessExit(printTtsDiagnostics(modelId, finalLocalPath));
                 return;
             }
 
-            if (ttsWarmup) {
+            if (ttsOperationsOptions.warmup()) {
                 if (!ensureMossTtsCodecAvailableIfNeeded(modelId, finalLocalPath)) {
                     requestProcessExit(1);
                     return;
@@ -815,7 +812,7 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (ttsCachePrune || ttsCachePruneApply) {
+            if (ttsOperationsOptions.cachePrune() || ttsOperationsOptions.cachePruneApply()) {
                 if (!ensureMossTtsCodecAvailableIfNeeded(modelId, finalLocalPath)) {
                     requestProcessExit(1);
                     return;
@@ -1503,6 +1500,10 @@ public class RunCommand implements Runnable {
 
     AudioRunOptions audioRunOptions() {
         return audioRunOptions;
+    }
+
+    TtsOperationsRunOptions ttsOperationsOptions() {
+        return ttsOperationsOptions;
     }
 
     private boolean validateTtsAudioCliOptions() {
