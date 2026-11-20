@@ -193,8 +193,8 @@ final class MossTtsCliDiagnosticsHandler {
             terms.addAll(MossTtsVoiceCatalog.filterTerms(command.audioRunOptions().voiceGender()));
         }
 
-        String selectorText = command.audioRunOptions().voiceSearch() != null && !command.audioRunOptions().voiceSearch().isBlank()
-                ? command.audioRunOptions().voiceSearch()
+        String selectorText = command.ttsVoiceDiscoveryOptions().voiceSearch() != null && !command.ttsVoiceDiscoveryOptions().voiceSearch().isBlank()
+                ? command.ttsVoiceDiscoveryOptions().voiceSearch()
                 : command.audioRunOptions().voice();
         for (String term : MossTtsVoiceCatalog.filterTerms(selectorText)) {
             String termLanguage = MossTtsVoiceCatalog.normalizeLanguageFilter(term);

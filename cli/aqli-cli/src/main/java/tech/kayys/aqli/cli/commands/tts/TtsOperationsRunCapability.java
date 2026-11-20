@@ -36,14 +36,6 @@ public final class TtsOperationsRunCapability
                 .type(boolean.class)
                 .description("Actually delete stale MOSS TTS optimized graph cache files")
                 .build());
-        commandSpec.addOption(OptionSpec.builder("--list-voices", "--voices", "--tts-voices")
-                .type(boolean.class)
-                .description("List TTS voice presets for the resolved model and exit")
-                .build());
-        commandSpec.addOption(OptionSpec.builder("--voices-json", "--tts-voices-json")
-                .type(boolean.class)
-                .description("List MOSS TTS voice presets as JSON and exit")
-                .build());
     }
 
     @Override
@@ -58,8 +50,6 @@ public final class TtsOperationsRunCapability
                 parseResult.matchedOptionValue("--tts-diagnostics", false),
                 parseResult.matchedOptionValue("--tts-warmup", false),
                 parseResult.matchedOptionValue("--tts-cache-prune", false),
-                parseResult.matchedOptionValue("--tts-cache-prune-apply", false),
-                parseResult.matchedOptionValue("--list-voices", false),
-                parseResult.matchedOptionValue("--voices-json", false));
+                parseResult.matchedOptionValue("--tts-cache-prune-apply", false));
     }
 }

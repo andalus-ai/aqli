@@ -111,6 +111,7 @@ import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapp
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
+import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -164,6 +165,7 @@ public class RunCommand implements Runnable {
     private VisionInputRunOptions visionInputOptions;
     private OcrOutputRunOptions ocrOutputOptions;
     private TtsOperationsRunOptions ttsOperationsOptions;
+    private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
@@ -401,6 +403,13 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions"));
 
+        ttsVoiceDiscoveryOptions = runCapabilityRegistry.snapshot(
+                "tts-voice-discovery",
+                commandSpec.commandLine().getParseResult(),
+                TtsVoiceDiscoveryRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions"));
+
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
                 commandSpec.commandLine().getParseResult(),
@@ -580,7 +589,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsOperationsOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportOptions.enabled());
+            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsVoiceDiscoveryOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportOptions.enabled());
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -766,7 +775,7 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (ttsOperationsOptions.listVoices() || ttsOperationsOptions.listVoicesJson()) {
+            if (ttsVoiceDiscoveryOptions.listVoices() || ttsVoiceDiscoveryOptions.listVoicesJson()) {
                 requestProcessExit(printTtsVoices(modelId, finalLocalPath));
                 return;
             }
@@ -1479,6 +1488,10 @@ public class RunCommand implements Runnable {
         return ttsOperationsOptions;
     }
 
+    TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions() {
+        return ttsVoiceDiscoveryOptions;
+    }
+
     private boolean validateTtsAudioCliOptions() {
         boolean ok = true;
         if (audioRunOptions.format() != null && !audioRunOptions.format().isBlank()) {
@@ -1573,7 +1586,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean ttsVoicesJsonOutput() {
-        return jsonMode || ttsOperationsOptions.listVoicesJson();
+        return jsonMode || ttsVoiceDiscoveryOptions.listVoicesJson();
     }
 
     private boolean quietRouteResolutionOutput() {

@@ -12,7 +12,6 @@ public record AudioRunOptions(
         String voice,
         String voiceLanguage,
         String voiceGender,
-        String voiceSearch,
         String codec,
         boolean disableAutoCodec,
         Integer maxFrames,
@@ -45,7 +44,6 @@ public record AudioRunOptions(
                 parseResult.matchedOptionValue("--voice", (String) null),
                 parseResult.matchedOptionValue("--voice-lang", (String) null),
                 parseResult.matchedOptionValue("--voice-gender", (String) null),
-                parseResult.matchedOptionValue("--voice-search", (String) null),
                 parseResult.matchedOptionValue("--tts-codec", (String) null),
                 parseResult.matchedOptionValue("--no-tts-auto-codec", false),
                 parseResult.matchedOptionValue("--tts-max-frames", (Integer) null),
@@ -74,7 +72,7 @@ public record AudioRunOptions(
     }
 
     public AudioRunOptions withVoice(String value) {
-        return new AudioRunOptions(value, voiceLanguage, voiceGender, voiceSearch, codec, disableAutoCodec,
+        return new AudioRunOptions(value, voiceLanguage, voiceGender, codec, disableAutoCodec,
                 maxFrames, maxSeconds, format, quality, bitrateKbps, channels, codecDecode, randomSeed,
                 disablePolish, disableNormalize, gainDb, peakDb, fadeMs, trimSilence, trimDbfs,
                 trimPaddingMs, streamChunkKb, streamProgressFrames, disableStreamProgress, streamPcm,
@@ -229,7 +227,7 @@ public record AudioRunOptions(
             Integer nextMaxFrames, Double nextMaxSeconds, Double nextGain, Double nextPeak, Double nextFade,
             Double nextTrimDbfs, Double nextTrimPadding, Integer nextFlacCompression,
             boolean nextDisablePolish, boolean nextDisableNormalize, boolean nextTrimSilence) {
-        return new AudioRunOptions(voice, voiceLanguage, voiceGender, voiceSearch, codec, disableAutoCodec,
+        return new AudioRunOptions(voice, voiceLanguage, voiceGender, codec, disableAutoCodec,
                 nextMaxFrames, nextMaxSeconds, nextFormat, nextQuality, nextBitrate, nextChannels, nextCodecDecode,
                 randomSeed, nextDisablePolish, nextDisableNormalize, nextGain, nextPeak, nextFade,
                 nextTrimSilence, nextTrimDbfs, nextTrimPadding, streamChunkKb, streamProgressFrames,
