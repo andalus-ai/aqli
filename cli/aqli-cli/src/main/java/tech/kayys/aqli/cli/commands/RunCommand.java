@@ -1714,6 +1714,10 @@ public class RunCommand implements Runnable {
     }
 
 
+    boolean isOffline() {
+        return modelRepositoryOptions != null && modelRepositoryOptions.offline();
+    }
+
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
         String repoId = ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
