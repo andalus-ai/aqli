@@ -331,12 +331,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
-    @Option(names = { "--list-voices", "--voices", "--tts-voices" }, description = "List TTS voice presets for the resolved model and exit")
-    boolean listTtsVoices;
-
-    @Option(names = { "--voices-json", "--tts-voices-json" }, description = "List MOSS TTS voice presets as JSON and exit")
-    boolean listTtsVoicesJson;
-
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
@@ -793,7 +787,7 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (listTtsVoices || listTtsVoicesJson) {
+            if (ttsOperationsOptions.listVoices() || ttsOperationsOptions.listVoicesJson()) {
                 requestProcessExit(printTtsVoices(modelId, finalLocalPath));
                 return;
             }
