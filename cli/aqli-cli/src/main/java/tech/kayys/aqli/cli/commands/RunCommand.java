@@ -109,6 +109,7 @@ import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
+import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -159,6 +160,7 @@ public class RunCommand implements Runnable {
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
     private OcrOutputRunOptions ocrOutputOptions;
+    private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -324,21 +326,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
     String imageMetadataRefreshPath;
 
-    @Option(names = { "--onnx-diagnostics", "--onnx-preflight" }, description = "Inspect a local ONNX model/repository and exit")
-    boolean onnxDiagnostics;
-
-    @Option(names = { "--onnx-vision-probe", "--ocr-vision-probe" }, description = "Run PaddleOCR-VL vision_encoder with --image and print output tensor shapes")
-    boolean onnxVisionProbe;
-
-    @Option(names = { "--onnx-pipeline-probe", "--ocr-pipeline-probe" }, description = "Run PaddleOCR-VL vision probe and inspect selected embedding/decoder graph IO")
-    boolean onnxPipelineProbe;
-
-    @Option(names = { "--onnx-probe-image-tokens", "--ocr-probe-image-tokens" }, description = "Image embeddings to feed into PaddleOCR decoder probe (default: 64, 0 = all)")
-    Integer onnxProbeImageTokens;
-
-    @Option(names = { "--onnx-probe-decode-tokens", "--ocr-probe-decode-tokens" }, description = "Greedy tokens to decode in the PaddleOCR pipeline probe (default: 8, 0 = prefill only)")
-    Integer onnxProbeDecodeTokens;
-
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
@@ -457,6 +444,13 @@ public class RunCommand implements Runnable {
                 OcrOutputRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions"));
+
+        onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
+                "onnx-diagnostics",
+                commandSpec.commandLine().getParseResult(),
+                OnnxDiagnosticsRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -847,25 +841,25 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (onnxDiagnostics) {
+            if (onnxDiagnosticsOptions.diagnostics()) {
                 int diagnosticsExitCode =
                         printOnnxDiagnostics(requestedModelRef != null ? requestedModelRef : modelId, finalLocalPath);
-                if (onnxVisionProbe || onnxPipelineProbe) {
+                if (onnxDiagnosticsOptions.visionProbe() || onnxDiagnosticsOptions.pipelineProbe()) {
                     diagnosticsExitCode = Math.max(diagnosticsExitCode,
                             printOnnxVisionProbe(
                                     requestedModelRef != null ? requestedModelRef : modelId,
                                     finalLocalPath,
-                                    onnxPipelineProbe));
+                                    onnxDiagnosticsOptions.pipelineProbe()));
                 }
                 requestProcessExit(diagnosticsExitCode);
                 return;
             }
 
-            if (onnxVisionProbe || onnxPipelineProbe) {
+            if (onnxDiagnosticsOptions.visionProbe() || onnxDiagnosticsOptions.pipelineProbe()) {
                 requestProcessExit(printOnnxVisionProbe(
                         requestedModelRef != null ? requestedModelRef : modelId,
                         finalLocalPath,
-                        onnxPipelineProbe));
+                        onnxDiagnosticsOptions.pipelineProbe()));
                 return;
             }
 
@@ -1639,12 +1633,12 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxProbeImageTokens, onnxProbeDecodeTokens)
+        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxDiagnostics(modelId, finalLocalPath);
     }
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxProbeImageTokens, onnxProbeDecodeTokens)
+        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxVisionProbe(modelId, finalLocalPath, normalizedInputImagePaths(), includePipelineGraphs);
     }
 
