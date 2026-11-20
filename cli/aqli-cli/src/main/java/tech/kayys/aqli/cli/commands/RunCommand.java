@@ -116,6 +116,7 @@ import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
 import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
 import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
+import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -176,6 +177,7 @@ public class RunCommand implements Runnable {
     private ConversationSessionRunOptions conversationSessionOptions;
     private SystemPromptRunOptions systemPromptOptions;
     private FallbackModelRunOptions fallbackModelOptions;
+    private ModelRepositoryRunOptions modelRepositoryOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
@@ -219,14 +221,6 @@ public class RunCommand implements Runnable {
             fallbackValue = "auto")
     String runner;
 
-    @Option(names = {
-            "--import" }, description = "Import (move) the model file/dir into the aqli model repository (~/.aqli/models/)")
-    boolean importModel;
-
-    @Option(names = {
-            "--copy" }, description = "Copy the model file/dir into the aqli model repository (~/.aqli/models/)")
-    boolean copyModel;
-
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
     boolean stream;
 
@@ -240,10 +234,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--no-cache" }, description = "Bypass response cache")
     boolean noCache;
 
-    @Option(names = { "--offline",
-            "--local" }, description = "Force using existing models without checking for updates/downloads")
-    boolean offline;
-
     @Option(names = {
             "--model-path" }, description = "Path to a custom model file (bypasses repository lookup, prefer --modelFile)")
     String modelPath;
@@ -254,9 +244,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--gguf-outtype" }, description = "GGUF converter outtype (e.g. f16, q8_0, f32)")
     String ggufOutType;
-
-    @Option(names = { "-b", "--branch" }, description = "HuggingFace branch/revision (e.g. main, fp16, onnx)")
-    String branch;
 
     @Option(names = { "--force" }, description = "Force re-download and replace existing files", defaultValue = "false")
     boolean force;
@@ -391,6 +378,13 @@ public class RunCommand implements Runnable {
                 FallbackModelRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions"));
+
+        modelRepositoryOptions = runCapabilityRegistry.snapshot(
+                "model-repository",
+                commandSpec.commandLine().getParseResult(),
+                ModelRepositoryRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
 
         systemPromptOptions = runCapabilityRegistry.snapshot(
                 "system-prompt",
@@ -622,8 +616,8 @@ public class RunCommand implements Runnable {
                                         modelFile,
                                         modelDir,
                                         modelPath,
-                                        importModel,
-                                        copyModel,
+                                        modelRepositoryOptions.importModel(),
+                                        modelRepositoryOptions.copyModel(),
                                         providerExplicit,
                                         providerId,
                                         format),
@@ -1732,12 +1726,13 @@ public class RunCommand implements Runnable {
             return existing.get();
         }
 
-        if (offline) {
+        if (modelRepositoryOptions.offline()) {
             System.err.println("Error: Model " + repoId
                     + " is not installed locally, and --offline/--local disables automatic downloads.");
             System.err.println("Run once online: aqli pull " + repoId);
             return null;
         }
+        String branch = modelRepositoryOptions.branch();
         String revision = branch == null || branch.isBlank() ? "main" : branch.trim();
         if (!ttsVoicesJsonOutput()) {
             System.out.println("Model not found locally; pulling hf:" + repoId
