@@ -117,6 +117,7 @@ import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
 import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
 import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
 import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
+import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -175,6 +176,7 @@ public class RunCommand implements Runnable {
     private RetrievalContextRunOptions retrievalContextOptions;
     private ToolInvocationRunOptions toolInvocationOptions;
     private ConversationSessionRunOptions conversationSessionOptions;
+    private SystemPromptRunOptions systemPromptOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
@@ -233,9 +235,6 @@ public class RunCommand implements Runnable {
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
-
-    @Option(names = { "--system" }, description = "System prompt")
-    String systemPrompt;
 
     @Option(names = { "--no-cache" }, description = "Bypass response cache")
     boolean noCache;
@@ -401,6 +400,13 @@ public class RunCommand implements Runnable {
                 RetrievalContextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+
+        systemPromptOptions = runCapabilityRegistry.snapshot(
+                "system-prompt",
+                commandSpec.commandLine().getParseResult(),
+                SystemPromptRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions"));
 
         conversationSessionOptions = runCapabilityRegistry.snapshot(
                 "conversation-session",
@@ -1054,7 +1060,7 @@ public class RunCommand implements Runnable {
             if (directSafetensorSdkRoute) {
                 DirectSafetensorRunProfile directProfile =
                         directSafetensorRunProfile(executionProviderId, finalLocalPath);
-                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile)) {
+                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPromptOptions.systemPrompt(), directProfile)) {
                     // Match the former direct runner: retain explicit prompts and Qwen's default,
                     // but do not inject the generic CLI default for other direct model families.
                     effectiveSystemPrompt = null;
@@ -1842,7 +1848,7 @@ public class RunCommand implements Runnable {
 
     private String effectiveRunSystemPrompt(String providerId, String localPath) {
         return DirectSafetensorRoutePolicy.effectiveSystemPrompt(
-                systemPrompt,
+                systemPromptOptions.systemPrompt(),
                 directSafetensorRunProfile(providerId, localPath));
     }
 
@@ -2103,7 +2109,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isSimpleStandaloneTextRun() {
-        return isBlank(systemPrompt)
+        return isBlank(systemPromptOptions.systemPrompt())
                 && isBlank(textRunOptions.grammar())
                 && isBlank(conversationSessionOptions.sessionId())
                 && isBlank(toolInvocationOptions.toolChoice())
