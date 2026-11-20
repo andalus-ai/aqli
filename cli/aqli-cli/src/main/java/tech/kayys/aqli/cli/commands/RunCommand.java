@@ -1633,12 +1633,14 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.imageTokens(), onnxDiagnosticsOptions.decodeTokens())
+        return new OnnxDiagnosticsCliHandler(
+                prompt, onnxVariant, onnxDiagnosticsOptions.imageTokens(), onnxDiagnosticsOptions.decodeTokens())
                 .printOnnxDiagnostics(modelId, finalLocalPath);
     }
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.imageTokens(), onnxDiagnosticsOptions.decodeTokens())
+        return new OnnxDiagnosticsCliHandler(
+                prompt, onnxVariant, onnxDiagnosticsOptions.imageTokens(), onnxDiagnosticsOptions.decodeTokens())
                 .printOnnxVisionProbe(modelId, finalLocalPath, normalizedInputImagePaths(), includePipelineGraphs);
     }
 
