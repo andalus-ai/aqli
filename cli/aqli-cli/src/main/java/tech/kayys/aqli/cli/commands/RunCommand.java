@@ -115,6 +115,7 @@ import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
 import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
 import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
+import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -171,6 +172,7 @@ public class RunCommand implements Runnable {
     private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
     private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
     private RetrievalContextRunOptions retrievalContextOptions;
+    private ToolInvocationRunOptions toolInvocationOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
@@ -232,15 +234,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--system" }, description = "System prompt")
     String systemPrompt;
-
-    @Option(names = { "--tool-file", "--tools-file" }, split = ",", description = "JSON tool definition file(s); accepts OpenAI-style tools arrays or Aqli ToolDefinition JSON")
-    List<String> toolFiles;
-
-    @Option(names = { "--tool-choice" }, description = "Tool choice policy such as auto, none, required, or a JSON object")
-    String toolChoice;
-
-    @Option(names = { "--mcp-tool", "--mcp-tools" }, split = ",", description = "MCP tool name(s) to expose, optionally as server/tool or server:tool")
-    List<String> mcpTools;
 
     @Option(names = { "--session-id" }, description = "Persistent conversation session id for KV/prefix reuse across repeated run calls")
     String sessionId;
@@ -409,6 +402,13 @@ public class RunCommand implements Runnable {
                 RetrievalContextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+
+        toolInvocationOptions = runCapabilityRegistry.snapshot(
+                "tool-invocation",
+                commandSpec.commandLine().getParseResult(),
+                ToolInvocationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions"));
 
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
@@ -932,8 +932,8 @@ public class RunCommand implements Runnable {
                     ? finalLocalPath
                     : modelId;
             List<tech.kayys.aqli.spi.tool.ToolDefinition> requestedTools =
-                    ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
-            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
+                    ToolRunRequestConfiguration.loadTools(toolInvocationOptions.toolFiles(), toolInvocationOptions.mcpTools());
+            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolInvocationOptions.toolChoice());
             RagRunRequestConfiguration.RagContext ragContext =
                     RagRunRequestConfiguration.load(retrievalContextOptions.contexts(), retrievalContextOptions.files(), retrievalContextOptions.maxChars(), prompt);
 
@@ -2100,11 +2100,11 @@ public class RunCommand implements Runnable {
         return isBlank(systemPrompt)
                 && isBlank(textRunOptions.grammar())
                 && isBlank(sessionId)
-                && isBlank(toolChoice)
+                && isBlank(toolInvocationOptions.toolChoice())
                 && isBlank(retrievalContextOptions.embeddingModel())
                 && isBlank(visionInputOptions.inputImagePath())
-                && isEmpty(toolFiles)
-                && isEmpty(mcpTools)
+                && isEmpty(toolInvocationOptions.toolFiles())
+                && isEmpty(toolInvocationOptions.mcpTools())
                 && isEmpty(retrievalContextOptions.contexts())
                 && isEmpty(retrievalContextOptions.files())
                 && isEmpty(visionInputOptions.inputImagePaths())
