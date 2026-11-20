@@ -18,7 +18,9 @@ class TtsOperationsRunCapabilityTest {
                 "--tts-preflight",
                 "--onnx-warmup",
                 "--onnx-cache-prune",
-                "--onnx-cache-prune-apply");
+                "--onnx-cache-prune-apply",
+                "--voices",
+                "--tts-voices-json");
 
         TtsOperationsRunOptions options =
                 new TtsOperationsRunCapability().snapshot(commandLine.getParseResult());
@@ -27,6 +29,8 @@ class TtsOperationsRunCapabilityTest {
         assertTrue(options.warmup());
         assertTrue(options.cachePrune());
         assertTrue(options.cachePruneApply());
+        assertTrue(options.listVoices());
+        assertTrue(options.listVoicesJson());
     }
 
     @Test
@@ -41,6 +45,8 @@ class TtsOperationsRunCapabilityTest {
         assertFalse(options.warmup());
         assertFalse(options.cachePrune());
         assertFalse(options.cachePruneApply());
+        assertFalse(options.listVoices());
+        assertFalse(options.listVoicesJson());
     }
 
     private static CommandLine commandLine() {
