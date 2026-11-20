@@ -177,6 +177,7 @@ public class RunCommand implements Runnable {
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
+    private tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions engineSelectionOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
@@ -300,21 +301,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
     public String pluginId;
-
-    @Option(names = { "--engine", "--gguf-engine" }, description = "GGUF engine mode: auto, java, llamacpp, benchmark")
-    String ggufEngine;
-
-    @Option(names = { "--backend" }, description = "GGUF backend to use for local standalone runner (metal or cpu)")
-    String ggufBackend;
-
-    @Option(names = { "--java-native", "--java" }, description = "Use the Java-native GGUF loader/probe path")
-    boolean javaNativeGguf;
-
-    @Option(names = { "--llamacpp", "--llama-cpp" }, description = "Use the llama.cpp GGUF engine")
-    boolean llamaCppGguf;
-
-    @Option(names = { "--benchmark", "--bench" }, description = "Compare Java-native GGUF probe with llama.cpp fallback")
-    boolean benchmarkGguf;
 
     @Option(names = { "--profile", "--onnx-profile" },
             description = "Request runner profile metadata and print detailed runtime performance breakdowns")
@@ -447,6 +433,13 @@ public class RunCommand implements Runnable {
                 RouteReportRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions"));
+
+        engineSelectionOptions = runCapabilityRegistry.snapshot(
+                "engine-selection",
+                commandSpec.commandLine().getParseResult(),
+                tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -995,7 +988,7 @@ public class RunCommand implements Runnable {
 
             boolean libtorchSafetensorCliBridge = "libtorch".equalsIgnoreCase(providerId)
                     && "safetensor".equalsIgnoreCase(executionProviderId);
-            String ggufEngineHint = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
+            String ggufEngineHint = GgufCliEngineOptionResolver.resolve(engineSelectionOptions.benchmark(), engineSelectionOptions.javaNative(), engineSelectionOptions.llamaCpp(), engineSelectionOptions.engine());
             RuntimeRoutingRunRequestConfiguration.apply(
                     requestBuilder,
                     new RuntimeRoutingRunRequestConfiguration.Options(
@@ -2065,12 +2058,12 @@ public class RunCommand implements Runnable {
         args.add("--top-p");
         args.add(Double.toString(textRunOptions.topP()));
 
-        String engine = GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine);
+        String engine = GgufCliEngineOptionResolver.resolve(engineSelectionOptions.benchmark(), engineSelectionOptions.javaNative(), engineSelectionOptions.llamaCpp(), engineSelectionOptions.engine());
         if (engine != null && !engine.isBlank()) {
             args.add("--engine");
             args.add(engine);
         }
-        String backend = GgufCliBackendOptionResolver.resolve(ggufBackend, parentCommand != null && parentCommand.isUseCpu(), parentCommand == null ? null : parentCommand.platform());
+        String backend = GgufCliBackendOptionResolver.resolve(engineSelectionOptions.backend(), parentCommand != null && parentCommand.isUseCpu(), parentCommand == null ? null : parentCommand.platform());
         if (backend != null && !backend.isBlank()) {
             args.add("--backend");
             args.add(backend);
@@ -2107,10 +2100,10 @@ public class RunCommand implements Runnable {
     }
 
     private boolean hasExplicitGgufEngine() {
-        return javaNativeGguf
-                || llamaCppGguf
-                || benchmarkGguf
-                || (ggufEngine != null && !ggufEngine.isBlank());
+        return engineSelectionOptions.javaNative()
+                || engineSelectionOptions.llamaCpp()
+                || engineSelectionOptions.benchmark()
+                || (engineSelectionOptions.engine() != null && !engineSelectionOptions.engine().isBlank());
     }
 
     private boolean isSimpleStandaloneTextRun() {
@@ -2156,11 +2149,11 @@ public class RunCommand implements Runnable {
     }
 
     private boolean explicitJavaEngine() {
-        return "direct".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
+        return "direct".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(engineSelectionOptions.benchmark(), engineSelectionOptions.javaNative(), engineSelectionOptions.llamaCpp(), engineSelectionOptions.engine())));
     }
 
     private boolean explicitLlamaCppEngine() {
-        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(benchmarkGguf, javaNativeGguf, llamaCppGguf, ggufEngine)));
+        return "gguf".equals(SafetensorEngineHintPolicy.backendFor(GgufCliEngineOptionResolver.resolve(engineSelectionOptions.benchmark(), engineSelectionOptions.javaNative(), engineSelectionOptions.llamaCpp(), engineSelectionOptions.engine())));
     }
 
     /** {@code --direct}, or {@code --java} on a safetensor checkpoint (same engine, same flag spirit as GGUF). */
