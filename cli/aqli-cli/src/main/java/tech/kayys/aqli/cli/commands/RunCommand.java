@@ -688,28 +688,11 @@ public class RunCommand implements Runnable {
                                             ggufQuant, ggufOutType, forceGguf, providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelIds),
                                     sdk,
-<<<<<<< HEAD
-                                    reference -> {
-                                        try {
-                                            return autoPullHfRepositoryForRunIfNeeded(
-                                                    reference.modelId(), reference.preferredFormat());
-                                        } catch (Exception e) {
-                                            if (e instanceof RuntimeException re) {
-                                                throw re;
-                                            }
-                                            throw new IllegalStateException("Failed to prepare repository: " + e.getMessage(), e);
-                                        }
-                                    },
-                                    this::inferProviderFromIndex,
-                                    this::inferFormatFromIndex,
-                                    path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
-=======
                                     reference -> autoPullHfRepositoryForRunIfNeeded(
                                             reference.modelId(), reference.preferredFormat()),
                                     LocalModelIndexMetadataInference::providerFor,
                                     LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
->>>>>>> 90dd4df9b2f802a708281c6dd340025c534cac6a
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                                                     reference, selectedProvider, isMcpProvider()),
