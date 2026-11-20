@@ -478,3 +478,103 @@ the gRPC cancellation callback. Cancelling the gRPC call cancels the SDK stream
 subscription. The transport still serializes only fields represented by the
 existing protobuf schema; expanding protobuf tool-call or richer metadata fields
 requires an explicit wire-compatibility decision.
+
+
+## Current implementation audit (2026-11-19)
+
+This section records the repository state observed on `main` during the next
+implementation planning pass. It supersedes assumptions that the CLI capability
+registry still needs to be introduced from scratch; the registry foundation and
+first contributors already exist.
+
+### Implemented foundations
+
+- `:cli:aqli-cli-spi` exists and defines `RunCapability`,
+  `RunCapabilityProvider`, `RunCapabilityOptions`, and
+  `RunCapabilityRegistry`.
+- `ServiceLoaderRunCapabilityRegistry` performs eager provider discovery,
+  validates nonblank and matching provider/capability IDs, rejects duplicate IDs,
+  and orders contributions deterministically.
+- Built-in text and audio CLI contributions exist as
+  `TextRunCapability` and `AudioRunCapability`, with ServiceLoader providers
+  and typed option snapshots.
+- `RunCommand` injects `RunCapabilityRegistry`; the CLI configuration layer
+  integrates registry-contributed options with Picocli.
+- The SDK API already contains a typed text capability:
+  `TextGenerationRequest`, `TextGenerationParameters`,
+  `TextGenerationOperations`, and associated message/response/chunk types.
+- SDK core contains `TextGenerationRequestMapper` and
+  `AqliChatService.createTextGenerationRequest`, as well as typed
+  `generateText` and `streamText` operations.
+- The CLI request assembly has been decomposed into
+  `RunInferenceRequestAssembler` and focused text, audio, image, routing,
+  runtime, tool, and RAG mapping components.
+
+### Remaining boundary gaps
+
+1. **CLI capability contribution stops before canonical request mapping.**
+   `RunCapability` currently registers options and validates parsed input.
+   `RunCapabilityOptions` supplies typed snapshots, but the SPI does not yet
+   define a capability-owned adapter that contributes a canonical SDK task
+   request. This is intentional until the SDK/application invocation boundary
+   is finalized; do not add a generic untyped parameter sink.
+
+2. **Text CLI mapping still targets the internal execution SPI.**
+   `TextRunRequestParameterMapper` applies `TextGenerationOptions` to an
+   `InferenceRequest.Builder` through SDK-core mapping helpers. The typed
+   `TextGenerationRequest` exists, but the `aqli run` assembly path has not
+   yet migrated to construct and execute that typed request end-to-end.
+
+3. **The CLI assembler still returns `InferenceRequest`.**
+   `RunInferenceRequestAssembler.assemble` composes CLI-owned configuration
+   into the internal SPI request. It remains a compatibility/execution bridge,
+   not the final canonical SDK request assembly boundary.
+
+4. **Cross-cutting invocation context is not yet unified.**
+   The text request currently carries request/user/session/trace identifiers,
+   metadata, API key, and a text-specific context field, while runtime and
+   transport paths also have request context, timeout, priority, cache,
+   cancellation, and streaming concerns. Do not add more duplicated fields
+   until a shared invocation-context contract is reconciled with existing
+   application/runtime contracts. In particular, credentials and process-local
+   native handles must not become portable request payload fields.
+
+5. **Legacy and typed SDK entry points coexist.**
+   `AqliClient.GenerationRequest` remains a small prompt-oriented client
+   convenience contract. `TextGenerationRequest` is the richer typed text
+   capability contract. Internal `InferenceRequest` remains the execution
+   SPI. They are not interchangeable; preserve deliberate compatibility
+   adapters rather than adding another generic generation request type.
+
+6. **Capability, CLI, and engine registries remain separate.**
+   The existing CLI registry must remain limited to Picocli contributions.
+   It must not become the SDK capability catalog or runtime engine catalog.
+   Application capability discovery/dispatch should only be introduced after
+   the canonical typed request and invocation semantics are established.
+
+### Next implementation gate
+
+The next code change should not create another registry or another request
+envelope. First, define and test the shared application invocation boundary
+that accepts the existing typed SDK text request and maps it once into the
+internal execution SPI. Reconcile the required cross-cutting context
+(request identity, session/trace metadata, deadlines, cancellation, streaming
+intent, and error semantics) against existing runtime contracts.
+
+Then migrate one path at a time:
+
+1. Add normalized-request tests for the typed SDK text request and its mapping
+   into execution SPI, including message/tool semantics and defaults.
+2. Adapt the CLI text capability to produce the typed SDK request through a
+   capability-owned adapter, while preserving current CLI aliases and behavior.
+3. Route CLI text execution through the same typed application operation used
+   by REST/gRPC/programmatic callers.
+4. Keep non-text runtime hints and model/backend selection outside the typed
+   text payload; retain them in the shared invocation/runtime context where
+   they belong.
+5. Add CLI/REST/gRPC conformance tests before migrating the next capability.
+
+Do not start a separate CLI Gradle module per modality. The existing
+`:cli:aqli-cli-spi` is the extension boundary; keep built-in capability
+implementations in capability-owned CLI packages until independent packaging
+or dependency isolation demonstrates a need for separate modules.

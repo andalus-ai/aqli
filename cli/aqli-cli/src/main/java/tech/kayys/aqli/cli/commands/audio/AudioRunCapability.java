@@ -24,8 +24,6 @@ public final class AudioRunCapability implements RunCapability, RunCapabilityOpt
                 "TTS voice language selector, such as en, jp, zh, english, japanese, or chinese"));
         add(commandSpec, string("--voice-gender", "--tts-voice-gender",
                 "TTS voice gender selector, such as male/female. With --voice-lang, non-gender values are treated as voice preset terms."));
-        add(commandSpec, string("--voice-search", "--tts-voice-search",
-                "Search/filter MOSS TTS voices when used with --list-voices"));
         add(commandSpec, string("--tts-codec", "--codec", "MOSS TTS companion audio tokenizer path or local model id"));
         add(commandSpec, flag("--no-tts-auto-codec", "--no-tts-auto-pull-codec",
                 "Disable automatic pull of the MOSS TTS companion audio tokenizer"));

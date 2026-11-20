@@ -131,7 +131,11 @@ public final class HuggingFaceRepository implements ModelRepository {
         manifest.setId(manifestName);
         manifest.setModelId(repoId);
         manifest.setRevision(revision);
-        manifest.setName(manifestName);
+        // Use repo name (e.g. "embeddinggemma-2" from "google/embeddinggemma-2")
+        // as the human-readable display name instead of the manifest hash.
+        String displayName = repoId.contains("/")
+                ? repoId.substring(repoId.lastIndexOf('/') + 1) : repoId;
+        manifest.setName(displayName);
         manifest.setFormat(manifestFormat);
         manifest.setPipeline(files.stream().anyMatch(name -> name.endsWith("model_index.json")));
         manifest.setSource("huggingface");

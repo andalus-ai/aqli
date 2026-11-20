@@ -1,2 +1,17 @@
 tech.kayys.aqli.cli.commands.text.TextRunCapabilityProvider
+tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunCapabilityProvider
+tech.kayys.aqli.cli.commands.tools.ToolInvocationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.audio.AudioRunCapabilityProvider
+tech.kayys.aqli.cli.commands.audio.AudioReplayRunCapabilityProvider
+tech.kayys.aqli.cli.commands.image.ImageGenerationRunCapabilityProvider
+tech.kayys.aqli.cli.commands.image.ImageMetadataRunCapabilityProvider
+tech.kayys.aqli.cli.commands.image.VisionInputRunCapabilityProvider
+tech.kayys.aqli.cli.commands.ocr.OcrOutputRunCapabilityProvider
+tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunCapabilityProvider
+tech.kayys.aqli.cli.commands.tts.TtsOperationsRunCapabilityProvider
+tech.kayys.aqli.cli.commands.media.MediaMetadataRunCapabilityProvider
+tech.kayys.aqli.cli.commands.route.RouteReportRunCapabilityProvider
+tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunCapabilityProvider
+tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunCapabilityProvider
+tech.kayys.aqli.cli.commands.session.ConversationSessionRunCapabilityProvider
+tech.kayys.aqli.cli.commands.conversation.SystemPromptRunCapabilityProvider

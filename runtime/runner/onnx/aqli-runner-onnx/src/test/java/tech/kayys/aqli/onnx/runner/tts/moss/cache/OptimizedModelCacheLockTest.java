@@ -30,8 +30,14 @@ class OptimizedModelCacheLockTest {
         AtomicInteger maximumActive = new AtomicInteger();
 
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> runLocked(cacheRoot, ready, start, active, maximumActive));
-            var second = executor.submit(() -> runLocked(cacheRoot, ready, start, active, maximumActive));
+            var first = executor.submit(() -> {
+                runLocked(cacheRoot, ready, start, active, maximumActive);
+                return null;
+            });
+            var second = executor.submit(() -> {
+                runLocked(cacheRoot, ready, start, active, maximumActive);
+                return null;
+            });
             assertTrue(ready.await(5, TimeUnit.SECONDS));
             start.countDown();
             first.get(5, TimeUnit.SECONDS);

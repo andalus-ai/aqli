@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
+import tech.kayys.aqli.cli.commands.route.RouteReportRunOptions;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
@@ -97,18 +98,31 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenan
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioRunOptions;
+import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
+import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
+import tech.kayys.aqli.cli.commands.image.ImageMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
+import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
+import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
+import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
+import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
+import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
+import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
+import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
+import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
+import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
+import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
-import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
 import tech.kayys.aqli.plugin.kernel.KernelPlatform;
 import tech.kayys.aqli.sdk.util.AqliHome;
@@ -149,6 +163,21 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private AudioReplayRunOptions audioReplayOptions;
+    private ImageGenerationRunOptions imageGenerationOptions;
+    private VisionInputRunOptions visionInputOptions;
+    private OcrOutputRunOptions ocrOutputOptions;
+    private TtsOperationsRunOptions ttsOperationsOptions;
+    private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
+    private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
+    private RetrievalContextRunOptions retrievalContextOptions;
+    private ToolInvocationRunOptions toolInvocationOptions;
+    private ConversationSessionRunOptions conversationSessionOptions;
+    private SystemPromptRunOptions systemPromptOptions;
+    private MediaMetadataRunOptions mediaMetadataOptions;
+    private ImageMetadataRunOptions imageMetadataOptions;
+    private RouteReportRunOptions routeReportOptions;
+    private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -205,33 +234,6 @@ public class RunCommand implements Runnable {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
 
-    @Option(names = { "--system" }, description = "System prompt")
-    String systemPrompt;
-
-    @Option(names = { "--tool-file", "--tools-file" }, split = ",", description = "JSON tool definition file(s); accepts OpenAI-style tools arrays or Aqli ToolDefinition JSON")
-    List<String> toolFiles;
-
-    @Option(names = { "--tool-choice" }, description = "Tool choice policy such as auto, none, required, or a JSON object")
-    String toolChoice;
-
-    @Option(names = { "--mcp-tool", "--mcp-tools" }, split = ",", description = "MCP tool name(s) to expose, optionally as server/tool or server:tool")
-    List<String> mcpTools;
-
-    @Option(names = { "--rag-context" }, split = "\\|", description = "Inline retrieval context block(s), separated with | when repeated in one argument")
-    List<String> ragContexts;
-
-    @Option(names = { "--rag-file", "--context-file" }, split = ",", description = "Text file(s) to inject as retrieval context")
-    List<String> ragFiles;
-
-    @Option(names = { "--rag-max-chars" }, description = "Maximum retrieval context characters to inject", defaultValue = "12000")
-    int ragMaxChars;
-
-    @Option(names = { "--embedding-model", "--embed-model" }, description = "Embedding model id/path to attach to embedding or RAG-aware providers")
-    String embeddingModel;
-
-    @Option(names = { "--session-id" }, description = "Persistent conversation session id for KV/prefix reuse across repeated run calls")
-    String sessionId;
-
     @Option(names = { "--no-cache" }, description = "Bypass response cache")
     boolean noCache;
 
@@ -287,105 +289,8 @@ public class RunCommand implements Runnable {
     @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     String outputPath;
 
-    @Option(names = { "--audio-metadata-output", "--tts-metadata-output" }, description = "Write audio generation metadata JSON to this path")
-    String audioMetadataOutputPath;
-
-    @Option(names = { "--audio-metadata-sidecar", "--tts-metadata-sidecar" }, description = "Write audio generation metadata JSON beside the output file")
-    boolean audioMetadataSidecar;
-
-    @Option(names = { "--audio-metadata-replay", "--tts-replay" }, description = "Replay a TTS/audio generation from a Aqli audio metadata JSON sidecar")
-    String audioMetadataReplayPath;
-
-    @Option(names = { "--audio-metadata-verify", "--tts-verify" }, description = "Verify an audio file against a Aqli audio metadata JSON sidecar")
-    String audioMetadataVerifyPath;
-
-    @Option(names = { "--audio-metadata-refresh", "--tts-refresh-metadata" }, description = "Refresh a Aqli audio metadata JSON sidecar with current audio size and SHA-256")
-    String audioMetadataRefreshPath;
-
-    @Option(names = { "--image-metadata-output" }, description = "Write image generation metadata JSON to this path")
-    String imageMetadataOutputPath;
-
-    @Option(names = { "--image-metadata-sidecar" }, description = "Write image generation metadata JSON beside the output file")
-    boolean imageMetadataSidecar;
-
-    @Option(names = { "--image-metadata-verify" }, description = "Verify an image file against a Aqli image metadata JSON sidecar")
-    String imageMetadataVerifyPath;
-
-    @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
-    String imageMetadataRefreshPath;
-
-    @Option(names = { "--image", "--input-image", "--vision-input" }, description = "Input image path for vision/OCR models")
-    String inputImagePath;
-
-    @Option(names = { "--images", "--input-images" }, split = ",", description = "Comma-separated input image paths for vision/OCR models")
-    List<String> inputImagePaths;
-
-    @Option(names = { "--ocr" }, description = "Use the default OCR task prompt when --prompt is omitted")
-    boolean ocrMode;
-
-    @Option(names = { "--ocr-image-tokens", "--onnx-image-tokens" }, description = "Limit image embeddings used by PaddleOCR-VL ONNX generation (default: 0 = all)")
-    Integer ocrImageTokens;
-
-    @Option(names = { "--ocr-raw", "--onnx-ocr-raw" }, description = "Print raw PaddleOCR-VL generated token text without location postprocessing")
-    boolean ocrRawOutput;
-
-    @Option(names = { "--ocr-json", "--onnx-ocr-json" }, description = "Print PaddleOCR-VL OCR result as structured JSON")
-    boolean ocrJsonOutput;
-
-    @Option(names = { "--ocr-json-output", "--ocr-metadata-output" }, description = "Write PaddleOCR-VL OCR result JSON to this path")
-    String ocrJsonOutputPath;
-
-    @Option(names = { "--ocr-overlay-output", "--ocr-boxes-output" }, description = "Write a PNG preview with PaddleOCR-VL OCR boxes drawn over the input image")
-    String ocrOverlayOutputPath;
-
-    @Option(names = { "--onnx-diagnostics", "--onnx-preflight" }, description = "Inspect a local ONNX model/repository and exit")
-    boolean onnxDiagnostics;
-
-    @Option(names = { "--onnx-vision-probe", "--ocr-vision-probe" }, description = "Run PaddleOCR-VL vision_encoder with --image and print output tensor shapes")
-    boolean onnxVisionProbe;
-
-    @Option(names = { "--onnx-pipeline-probe", "--ocr-pipeline-probe" }, description = "Run PaddleOCR-VL vision probe and inspect selected embedding/decoder graph IO")
-    boolean onnxPipelineProbe;
-
-    @Option(names = { "--onnx-probe-image-tokens", "--ocr-probe-image-tokens" }, description = "Image embeddings to feed into PaddleOCR decoder probe (default: 64, 0 = all)")
-    Integer onnxProbeImageTokens;
-
-    @Option(names = { "--onnx-probe-decode-tokens", "--ocr-probe-decode-tokens" }, description = "Greedy tokens to decode in the PaddleOCR pipeline probe (default: 8, 0 = prefill only)")
-    Integer onnxProbeDecodeTokens;
-
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
-
-    @Option(names = { "--list-voices", "--voices", "--tts-voices" }, description = "List TTS voice presets for the resolved model and exit")
-    boolean listTtsVoices;
-
-    @Option(names = { "--voices-json", "--tts-voices-json" }, description = "List MOSS TTS voice presets as JSON and exit")
-    boolean listTtsVoicesJson;
-
-    @Option(names = { "--tts-diagnostics", "--tts-preflight" }, description = "Inspect local MOSS TTS model, codec, voices, and audio encoders without generating audio")
-    boolean ttsDiagnostics;
-
-    @Option(names = { "--tts-warmup", "--onnx-warmup" }, description = "Warm MOSS TTS ONNX assets and sessions without generating audio")
-    boolean ttsWarmup;
-
-    @Option(names = { "--tts-cache-prune", "--onnx-cache-prune" }, description = "Preview removal of stale MOSS TTS optimized graph cache files")
-    boolean ttsCachePrune;
-
-    @Option(names = { "--tts-cache-prune-apply", "--onnx-cache-prune-apply" }, description = "Actually delete stale MOSS TTS optimized graph cache files")
-    boolean ttsCachePruneApply;
-
-    @Option(names = { "--steps" }, description = "Number of denoising steps (default: 20)")
-    Integer steps;
-
-    @Option(names = { "--guidance-scale", "--cfg" }, description = "Classifier-free guidance scale (default: 7.5)")
-    Float guidanceScale;
-
-    @Option(names = { "--width" }, description = "Output image width in pixels (default: 512, must be multiple of 64)")
-    Integer width;
-
-    @Option(names = {
-            "--height" }, description = "Output image height in pixels (default: 512, must be multiple of 64)")
-    Integer height;
 
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
@@ -395,20 +300,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
     public String pluginId;
-
-    @Option(names = {
-            ExternalPluginClasspath.OPTION_PLUGIN_CLASSPATH,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_CLASSPATH },
-            split = ",",
-            description = ExternalPluginClasspath.MODEL_FAMILY_OPTION_DESCRIPTION)
-    List<String> externalPluginClasspath = new ArrayList<>();
-
-    @Option(names = {
-            ExternalPluginClasspath.OPTION_PLUGIN_DIR,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_DIR },
-            split = ",",
-            description = ExternalPluginClasspath.PLUGIN_DIRECTORY_OPTION_DESCRIPTION)
-    List<String> externalPluginDirectories = new ArrayList<>();
 
     @Option(names = { "--engine", "--gguf-engine" }, description = "GGUF engine mode: auto, java, llamacpp, benchmark")
     String ggufEngine;
@@ -433,18 +324,6 @@ public class RunCommand implements Runnable {
             "--prefer-alternate-runtime" }, description = "Allow Gemma safetensor checkpoints to route to local LiteRT/GGUF companion artifacts")
     boolean preferAlternateRuntime;
 
-    @Option(names = { "--route-report-json", "--route-report", "--dry-run-route" },
-            description = "Resolve runner/provider/model routing, print JSON, and exit before inference")
-    boolean routeReportJson;
-
-    @Option(names = { "--route-report-allow-pull", "--dry-run-route-allow-pull" },
-            description = "Allow route-report mode to resolve/pull missing models through repository providers")
-    boolean routeReportAllowPull;
-
-    @Option(names = { "--route-report-require-local", "--dry-run-route-require-local" },
-            description = "Exit non-zero when route-report mode cannot resolve a local runnable model artifact")
-    boolean routeReportRequireLocal;
-
     @Parameters(arity = "0..*", hidden = true)
     List<String> positionalArgs = new ArrayList<>();
 
@@ -464,6 +343,111 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
 
+        audioReplayOptions = runCapabilityRegistry.snapshot(
+                "audio-replay",
+                commandSpec.commandLine().getParseResult(),
+                AudioReplayRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'audio-replay' run capability is not registered or does not provide AudioReplayRunOptions"));
+
+        imageGenerationOptions = runCapabilityRegistry.snapshot(
+                "image-generation",
+                commandSpec.commandLine().getParseResult(),
+                ImageGenerationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
+
+        visionInputOptions = runCapabilityRegistry.snapshot(
+                "vision-input",
+                commandSpec.commandLine().getParseResult(),
+                VisionInputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions"));
+
+        ocrOutputOptions = runCapabilityRegistry.snapshot(
+                "ocr-output",
+                commandSpec.commandLine().getParseResult(),
+                OcrOutputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions"));
+
+        ttsOperationsOptions = runCapabilityRegistry.snapshot(
+                "tts-operations",
+                commandSpec.commandLine().getParseResult(),
+                TtsOperationsRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions"));
+
+        ttsVoiceDiscoveryOptions = runCapabilityRegistry.snapshot(
+                "tts-voice-discovery",
+                commandSpec.commandLine().getParseResult(),
+                TtsVoiceDiscoveryRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions"));
+
+        externalPluginLoadingOptions = runCapabilityRegistry.snapshot(
+                "external-plugin-loading",
+                commandSpec.commandLine().getParseResult(),
+                ExternalPluginLoadingRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions"));
+
+        retrievalContextOptions = runCapabilityRegistry.snapshot(
+                "retrieval-context",
+                commandSpec.commandLine().getParseResult(),
+                RetrievalContextRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+
+        systemPromptOptions = runCapabilityRegistry.snapshot(
+                "system-prompt",
+                commandSpec.commandLine().getParseResult(),
+                SystemPromptRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions"));
+
+        conversationSessionOptions = runCapabilityRegistry.snapshot(
+                "conversation-session",
+                commandSpec.commandLine().getParseResult(),
+                ConversationSessionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions"));
+
+        toolInvocationOptions = runCapabilityRegistry.snapshot(
+                "tool-invocation",
+                commandSpec.commandLine().getParseResult(),
+                ToolInvocationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions"));
+
+        onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
+                "onnx-diagnostics",
+                commandSpec.commandLine().getParseResult(),
+                OnnxDiagnosticsRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions"));
+
+        mediaMetadataOptions = runCapabilityRegistry.snapshot(
+                "media-metadata",
+                commandSpec.commandLine().getParseResult(),
+                MediaMetadataRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions"));
+
+        imageMetadataOptions = runCapabilityRegistry.snapshot(
+                "image-metadata",
+                commandSpec.commandLine().getParseResult(),
+                ImageMetadataRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
+
+        routeReportOptions = runCapabilityRegistry.snapshot(
+                "route-report",
+                commandSpec.commandLine().getParseResult(),
+                RouteReportRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions"));
+
         if (onlyText) {
             noBanner = true;
             noInfo = true;
@@ -471,8 +455,8 @@ public class RunCommand implements Runnable {
         
         try (ExternalModelFamilyPluginScope ignored =
                 ExternalModelFamilyPluginScope.attach(
-                        externalPluginClasspath,
-                        externalPluginDirectories,
+                        externalPluginLoadingOptions.classpathEntries(),
+                        externalPluginLoadingOptions.pluginDirectoryEntries(),
                         RunCommand.class,
                         pluginChecker)) {
             if (parentCommand != null) {
@@ -483,19 +467,19 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            if (audioMetadataRefreshPath != null && !audioMetadataRefreshPath.isBlank()) {
+            if (mediaMetadataOptions.audioRefreshPath() != null && !mediaMetadataOptions.audioRefreshPath().isBlank()) {
                 requestProcessExit(refreshAudioMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (audioMetadataVerifyPath != null && !audioMetadataVerifyPath.isBlank()) {
+            if (mediaMetadataOptions.audioVerifyPath() != null && !mediaMetadataOptions.audioVerifyPath().isBlank()) {
                 requestProcessExit(verifyAudioMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (imageMetadataRefreshPath != null && !imageMetadataRefreshPath.isBlank()) {
+            if (imageMetadataOptions.imageRefreshPath() != null && !imageMetadataOptions.imageRefreshPath().isBlank()) {
                 requestProcessExit(refreshImageMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (imageMetadataVerifyPath != null && !imageMetadataVerifyPath.isBlank()) {
+            if (imageMetadataOptions.imageVerifyPath() != null && !imageMetadataOptions.imageVerifyPath().isBlank()) {
                 requestProcessExit(verifyImageMetadataSidecar() ? 0 : 1);
                 return;
             }
@@ -546,16 +530,16 @@ public class RunCommand implements Runnable {
                 }
             }
 
-            if (!routeReportJson && tryCachedGemma4MobileQatLiteRtRun(requestedProviderExplicit, requestedProviderId)) {
+            if (!routeReportOptions.enabled() && tryCachedGemma4MobileQatLiteRtRun(requestedProviderExplicit, requestedProviderId)) {
                 return;
             }
 
-            if (!routeReportJson && explicitLlamaCppEngine() && !prepareLlamaCppFromLocalSafetensor()) {
+            if (!routeReportOptions.enabled() && explicitLlamaCppEngine() && !prepareLlamaCppFromLocalSafetensor()) {
                 requestProcessExit(1);
                 return;
             }
 
-            if (!routeReportJson && tryStandaloneGgufRun()) {
+            if (!routeReportOptions.enabled() && tryStandaloneGgufRun()) {
                 return;
             }
 
@@ -574,11 +558,11 @@ public class RunCommand implements Runnable {
                 System.err.println("CRITICAL: Platform detection failed: " + t.getMessage());
                 return;
             }
-            if (!routeReportJson && CliMetalRuntime.isMetal(detectedPlatform)) {
+            if (!routeReportOptions.enabled() && CliMetalRuntime.isMetal(detectedPlatform)) {
                 ensureMetalRuntimeInitialized();
             }
 
-            if (!routeReportJson && parentCommand != null && parentCommand.verbose) {
+            if (!routeReportOptions.enabled() && parentCommand != null && parentCommand.verbose) {
                 System.out.println(ChatUIRenderer.CYAN + "Platform: " + detectedPlatform.getDisplayName() + ChatUIRenderer.RESET);
                 if (detectedPlatform.isCpu()) {
                     System.out.println(ChatUIRenderer.YELLOW + "⚠️  Running on CPU (GPU acceleration not available)" + ChatUIRenderer.RESET);
@@ -597,7 +581,7 @@ public class RunCommand implements Runnable {
             }
 
             boolean isMetalPlatform = CliMetalRuntime.isMetal(detectedPlatform);
-            if (!routeReportJson
+            if (!routeReportOptions.enabled()
                     && isMetalPlatform
                     && !isMetalNativeRuntimeActive()
                     && !allowCpuFallbackWhenMetalRequested()) {
@@ -622,7 +606,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || listTtsVoicesJson || ocrJsonOutput || routeReportJson);
+            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsVoiceDiscoveryOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportOptions.enabled());
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -670,7 +654,7 @@ public class RunCommand implements Runnable {
                                         providerExplicit,
                                         quietRouteResolutionOutput(),
                                         jsonMode,
-                                        ocrJsonOutput),
+                                        ocrOutputOptions.structuredJson()),
                                 LocalModelIndexMetadataInference::providerFor,
                                 LocalModelIndexMetadataInference::formatFor);
                 if (indexedModel.disabled()) {
@@ -786,7 +770,7 @@ public class RunCommand implements Runnable {
             }
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
-            if (routeReportJson) {
+            if (routeReportOptions.enabled()) {
                 RunRouteValidationCoordinator.RouteReportResult routeReportResult =
                         RunRouteValidationCoordinator.prepareRouteReport(
                                 runnerRouteReport,
@@ -796,11 +780,11 @@ public class RunCommand implements Runnable {
                                 routeExecutionProviderId(providerId, finalLocalPath),
                                 format,
                                 effectiveDirect(finalLocalPath),
-                                routeReportAllowPull,
+                                routeReportOptions.allowPull(),
                                 routeReportRepositoryResolutionSkipped,
-                                routeReportRequireLocal,
+                                routeReportOptions.requireLocal(),
                                 !normalizedInputImages.isEmpty(),
-                                ocrMode,
+                                visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
                 printJsonPayload(routeReportResult.payload());
@@ -808,17 +792,17 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (listTtsVoices || listTtsVoicesJson) {
+            if (ttsVoiceDiscoveryOptions.listVoices() || ttsVoiceDiscoveryOptions.listVoicesJson()) {
                 requestProcessExit(printTtsVoices(modelId, finalLocalPath));
                 return;
             }
 
-            if (ttsDiagnostics) {
+            if (ttsOperationsOptions.diagnostics()) {
                 requestProcessExit(printTtsDiagnostics(modelId, finalLocalPath));
                 return;
             }
 
-            if (ttsWarmup) {
+            if (ttsOperationsOptions.warmup()) {
                 if (!ensureMossTtsCodecAvailableIfNeeded(modelId, finalLocalPath)) {
                     requestProcessExit(1);
                     return;
@@ -827,7 +811,7 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (ttsCachePrune || ttsCachePruneApply) {
+            if (ttsOperationsOptions.cachePrune() || ttsOperationsOptions.cachePruneApply()) {
                 if (!ensureMossTtsCodecAvailableIfNeeded(modelId, finalLocalPath)) {
                     requestProcessExit(1);
                     return;
@@ -836,25 +820,25 @@ public class RunCommand implements Runnable {
                 return;
             }
 
-            if (onnxDiagnostics) {
+            if (onnxDiagnosticsOptions.diagnostics()) {
                 int diagnosticsExitCode =
                         printOnnxDiagnostics(requestedModelRef != null ? requestedModelRef : modelId, finalLocalPath);
-                if (onnxVisionProbe || onnxPipelineProbe) {
+                if (onnxDiagnosticsOptions.visionProbe() || onnxDiagnosticsOptions.pipelineProbe()) {
                     diagnosticsExitCode = Math.max(diagnosticsExitCode,
                             printOnnxVisionProbe(
                                     requestedModelRef != null ? requestedModelRef : modelId,
                                     finalLocalPath,
-                                    onnxPipelineProbe));
+                                    onnxDiagnosticsOptions.pipelineProbe()));
                 }
                 requestProcessExit(diagnosticsExitCode);
                 return;
             }
 
-            if (onnxVisionProbe || onnxPipelineProbe) {
+            if (onnxDiagnosticsOptions.visionProbe() || onnxDiagnosticsOptions.pipelineProbe()) {
                 requestProcessExit(printOnnxVisionProbe(
                         requestedModelRef != null ? requestedModelRef : modelId,
                         finalLocalPath,
-                        onnxPipelineProbe));
+                        onnxDiagnosticsOptions.pipelineProbe()));
                 return;
             }
 
@@ -862,15 +846,15 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            if ((ocrMode || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
+            if ((visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty()) && (prompt == null || prompt.isBlank())) {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
                     (jsonMode
-                            || ocrJsonOutput
-                            || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
-                            || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
-                            && (ocrMode || !normalizedInputImages.isEmpty());
+                            || ocrOutputOptions.structuredJson()
+                            || (ocrOutputOptions.jsonOutputPath() != null && !ocrOutputOptions.jsonOutputPath().isBlank())
+                            || (ocrOutputOptions.overlayOutputPath() != null && !ocrOutputOptions.overlayOutputPath().isBlank()))
+                            && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
             boolean effectiveStream = stream && !structuredOcrOutput;
 
             boolean promptlessExtensionRun = allowsPromptlessExtensionRun(modelId, finalLocalPath);
@@ -936,7 +920,7 @@ public class RunCommand implements Runnable {
                             modelId,
                             finalLocalPath,
                             !normalizedInputImages.isEmpty(),
-                            ocrMode);
+                            visionInputOptions.ocrMode());
             if (!gemma4UnifiedMultimodalRouteValidation.allowed()) {
                 if (!enableJsonSse) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
@@ -965,10 +949,10 @@ public class RunCommand implements Runnable {
                     ? finalLocalPath
                     : modelId;
             List<tech.kayys.aqli.spi.tool.ToolDefinition> requestedTools =
-                    ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
-            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
+                    ToolRunRequestConfiguration.loadTools(toolInvocationOptions.toolFiles(), toolInvocationOptions.mcpTools());
+            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolInvocationOptions.toolChoice());
             RagRunRequestConfiguration.RagContext ragContext =
-                    RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
+                    RagRunRequestConfiguration.load(retrievalContextOptions.contexts(), retrievalContextOptions.files(), retrievalContextOptions.maxChars(), prompt);
 
             InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
                     new RunInferenceRequestFactory.Options(
@@ -982,7 +966,7 @@ public class RunCommand implements Runnable {
                             textRunOptions.maxTokens(),
                             pluginId,
                             effectiveStream,
-                            sessionId,
+                            conversationSessionOptions.sessionId(),
                             textRunOptions.mirostat(),
                             textRunOptions.grammar(),
                             noCache));
@@ -1026,10 +1010,12 @@ public class RunCommand implements Runnable {
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
                             featurePipelineId,
-                            guidanceScale == null ? null : guidanceScale.doubleValue(),
+                            imageGenerationOptions.guidanceScale() == null
+                                    ? null
+                                    : imageGenerationOptions.guidanceScale().doubleValue(),
                             outputPath,
-                            width,
-                            height));
+                            imageGenerationOptions.width(),
+                            imageGenerationOptions.height()));
             String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
                     ? null
                     : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
@@ -1071,7 +1057,7 @@ public class RunCommand implements Runnable {
             RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
 
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
-            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
+            RagRunRequestConfiguration.apply(requestBuilder, ragContext, retrievalContextOptions.embeddingModel());
 
             boolean directSafetensorEligible = shouldUseDirectSafetensorRunPath(providerId, finalLocalPath);
             boolean directSafetensorSdkRoute = directSafetensorEligible && !effectiveStream;
@@ -1079,7 +1065,7 @@ public class RunCommand implements Runnable {
             if (directSafetensorSdkRoute) {
                 DirectSafetensorRunProfile directProfile =
                         directSafetensorRunProfile(executionProviderId, finalLocalPath);
-                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile)) {
+                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPromptOptions.systemPrompt(), directProfile)) {
                     // Match the former direct runner: retain explicit prompts and Qwen's default,
                     // but do not inject the generic CLI default for other direct model families.
                     effectiveSystemPrompt = null;
@@ -1113,16 +1099,16 @@ public class RunCommand implements Runnable {
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
                                     seed,
-                                    steps,
+                                    imageGenerationOptions.steps(),
                                     format,
-                                    guidanceScale,
+                                    imageGenerationOptions.guidanceScale(),
                                     outputPath,
-                                    width,
-                                    height,
+                                    imageGenerationOptions.width(),
+                                    imageGenerationOptions.height(),
                                     normalizedInputImages,
-                                    ocrMode,
-                                    ocrImageTokens,
-                                    ocrRawOutput,
+                                    visionInputOptions.ocrMode(),
+                                    visionInputOptions.ocrImageTokens(),
+                                    visionInputOptions.ocrRawOutput(),
                                     effectiveOnnxVariant,
                                     raw,
                                     debugPrompt),
@@ -1156,9 +1142,9 @@ public class RunCommand implements Runnable {
                             requestedTools,
                             requestedToolChoice,
                             ragContext,
-                            embeddingModel,
+                            retrievalContextOptions.embeddingModel(),
                             new RunInferenceRequestAssembler.ConversationOptions(
-                                    sessionId,
+                                    conversationSessionOptions.sessionId(),
                                     effectiveSystemPrompt,
                                     ragSystemPrompt,
                                     prompt),
@@ -1265,7 +1251,7 @@ public class RunCommand implements Runnable {
                                             tokenCount.get(),
                                             duration,
                                             audioOutput.hasOutput(),
-                                            RunCommand::isAudioMetadata);
+                                            AudioRunStatsRenderer::isAudioMetadata);
                                     if (enableJsonSse) {
                                         printOpenAiSseFinal(request.getRequestId(), request.getModel());
                                     } else {
@@ -1403,34 +1389,34 @@ public class RunCommand implements Runnable {
     }
 
     private boolean verifyAudioMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.verifyAudioMetadataSidecar(audioMetadataVerifyPath, outputPath);
+        return MediaMetadataSidecarCliHandler.verifyAudioMetadataSidecar(mediaMetadataOptions.audioVerifyPath(), outputPath);
     }
 
     private boolean refreshAudioMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.refreshAudioMetadataSidecar(audioMetadataRefreshPath, outputPath);
+        return MediaMetadataSidecarCliHandler.refreshAudioMetadataSidecar(mediaMetadataOptions.audioRefreshPath(), outputPath);
     }
 
     private boolean verifyImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(imageMetadataVerifyPath, outputPath);
+        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(imageMetadataOptions.imageVerifyPath(), outputPath);
     }
 
     private boolean refreshImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(imageMetadataRefreshPath, outputPath);
+        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(imageMetadataOptions.imageRefreshPath(), outputPath);
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
-        if (audioMetadataReplayPath == null || audioMetadataReplayPath.isBlank()) {
+        if (audioReplayOptions.replayPath() == null || audioReplayOptions.replayPath().isBlank()) {
             return true;
         }
         try {
-            Path sidecarPath = Path.of(audioMetadataReplayPath);
+            Path sidecarPath = Path.of(audioReplayOptions.replayPath());
             if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: audio metadata replay file not found: " + audioMetadataReplayPath);
+                System.err.println("Error: audio metadata replay file not found: " + audioReplayOptions.replayPath());
                 return false;
             }
             AudioMetadataReplayParser.Plan plan = new AudioMetadataReplayParser().parse(sidecarPath);
             if (plan == null) {
-                System.err.println("Error: invalid audio metadata replay file: " + audioMetadataReplayPath);
+                System.err.println("Error: invalid audio metadata replay file: " + audioReplayOptions.replayPath());
                 return false;
             }
             boolean outputExplicit = outputPath != null && !outputPath.isBlank();
@@ -1513,6 +1499,14 @@ public class RunCommand implements Runnable {
 
     AudioRunOptions audioRunOptions() {
         return audioRunOptions;
+    }
+
+    TtsOperationsRunOptions ttsOperationsOptions() {
+        return ttsOperationsOptions;
+    }
+
+    TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions() {
+        return ttsVoiceDiscoveryOptions;
     }
 
     private boolean validateTtsAudioCliOptions() {
@@ -1609,15 +1603,15 @@ public class RunCommand implements Runnable {
     }
 
     private boolean ttsVoicesJsonOutput() {
-        return jsonMode || listTtsVoicesJson;
+        return jsonMode || ttsVoiceDiscoveryOptions.listVoicesJson();
     }
 
     private boolean quietRouteResolutionOutput() {
-        return ttsVoicesJsonOutput() || routeReportJson || noBanner;
+        return ttsVoicesJsonOutput() || routeReportOptions.enabled() || noBanner;
     }
 
     boolean shouldAllowRepositoryResolutionDuringRouteReport() {
-        return !routeReportJson || routeReportAllowPull;
+        return !routeReportOptions.enabled() || routeReportOptions.allowPull();
     }
 
     private String routeExecutionProviderId(String provider, String localPath) {
@@ -1626,20 +1620,20 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxProbeImageTokens, onnxProbeDecodeTokens)
+        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxDiagnostics(modelId, finalLocalPath);
     }
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxProbeImageTokens, onnxProbeDecodeTokens)
+        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxVisionProbe(modelId, finalLocalPath, normalizedInputImagePaths(), includePipelineGraphs);
     }
 
     private List<String> normalizedInputImagePaths() {
         List<String> images = new ArrayList<>();
-        addInputImage(images, inputImagePath);
-        if (inputImagePaths != null) {
-            for (String image : inputImagePaths) {
+        addInputImage(images, visionInputOptions.inputImagePath());
+        if (visionInputOptions.inputImagePaths() != null) {
+            for (String image : visionInputOptions.inputImagePaths()) {
                 addInputImage(images, image);
             }
         }
@@ -1851,7 +1845,7 @@ public class RunCommand implements Runnable {
                 currentProvider,
                 checkpointPath,
                 checkpointPath != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(checkpointPath.toString()),
-                sessionId,
+                conversationSessionOptions.sessionId(),
                 textRunOptions.grammar(),
                 prompt,
                 directInferenceEngine() != null);
@@ -1859,7 +1853,7 @@ public class RunCommand implements Runnable {
 
     private String effectiveRunSystemPrompt(String providerId, String localPath) {
         return DirectSafetensorRoutePolicy.effectiveSystemPrompt(
-                systemPrompt,
+                systemPromptOptions.systemPrompt(),
                 directSafetensorRunProfile(providerId, localPath));
     }
 
@@ -1932,7 +1926,7 @@ public class RunCommand implements Runnable {
 
     boolean shouldUseStandaloneLiteRtRun(String localPath) {
         return StandaloneRunPolicy.shouldUseLiteRtStandalone(
-                routeReportJson,
+                routeReportOptions.enabled(),
                 Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true")),
                 prompt,
                 providerId,
@@ -2014,7 +2008,7 @@ public class RunCommand implements Runnable {
 
     boolean shouldUseStandaloneGgufRun() {
         return StandaloneRunPolicy.shouldUseGgufStandalone(
-                routeReportJson,
+                routeReportOptions.enabled(),
                 prompt,
                 providerId,
                 GgufRouteAliasPolicy.isProviderAlias(providerId),
@@ -2120,23 +2114,23 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isSimpleStandaloneTextRun() {
-        return isBlank(systemPrompt)
+        return isBlank(systemPromptOptions.systemPrompt())
                 && isBlank(textRunOptions.grammar())
-                && isBlank(sessionId)
-                && isBlank(toolChoice)
-                && isBlank(embeddingModel)
-                && isBlank(inputImagePath)
-                && isEmpty(toolFiles)
-                && isEmpty(mcpTools)
-                && isEmpty(ragContexts)
-                && isEmpty(ragFiles)
-                && isEmpty(inputImagePaths)
+                && isBlank(conversationSessionOptions.sessionId())
+                && isBlank(toolInvocationOptions.toolChoice())
+                && isBlank(retrievalContextOptions.embeddingModel())
+                && isBlank(visionInputOptions.inputImagePath())
+                && isEmpty(toolInvocationOptions.toolFiles())
+                && isEmpty(toolInvocationOptions.mcpTools())
+                && isEmpty(retrievalContextOptions.contexts())
+                && isEmpty(retrievalContextOptions.files())
+                && isEmpty(visionInputOptions.inputImagePaths())
                 && !jsonMode
                 && !enableJsonSse
-                && !ocrMode
-                && !ocrJsonOutput
-                && isBlank(ocrJsonOutputPath)
-                && isBlank(ocrOverlayOutputPath);
+                && !visionInputOptions.ocrMode()
+                && !ocrOutputOptions.structuredJson()
+                && isBlank(ocrOutputOptions.jsonOutputPath())
+                && isBlank(ocrOutputOptions.overlayOutputPath());
     }
 
 
@@ -2182,7 +2176,7 @@ public class RunCommand implements Runnable {
         if (prompt == null || prompt.isBlank()) {
             return "the direct engine currently needs --prompt";
         }
-        if (sessionId != null && !sessionId.isBlank()) {
+        if (conversationSessionOptions.sessionId() != null && !conversationSessionOptions.sessionId().isBlank()) {
             return "--session is not supported by the direct engine";
         }
         if (textRunOptions.grammar() != null && !textRunOptions.grammar().isBlank()) {
@@ -2382,12 +2376,12 @@ public class RunCommand implements Runnable {
             OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
             Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
             Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
+                    ocrPayload, ocrOutputOptions.overlayOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
             if (overlayPath != null) {
                 ocrPayload.put("overlay_path", overlayPath.toString());
             }
-            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
-            if (ocrJsonOutput || jsonMode) {
+            ocrOutputWriter.writeJson(ocrPayload, ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
+            if (ocrOutputOptions.structuredJson() || jsonMode) {
                 printJsonPayload(ocrPayload);
                 return;
             }
@@ -2422,7 +2416,7 @@ public class RunCommand implements Runnable {
             System.out.println(ChatUIRenderer.DIM + "Session: " + response.getSessionId() + ChatUIRenderer.RESET);
         }
 
-        boolean audioResponse = metadata.containsKey("audio") || isAudioMetadata(metadata);
+        boolean audioResponse = metadata.containsKey("audio") || AudioRunStatsRenderer.isAudioMetadata(metadata);
         if (metadata.containsKey("audio")) {
             saveAudio(metadata.get("audio").toString(), audioDefaultExtension(metadata), metadata);
         } else if (metadata.containsKey("image")) {
@@ -2446,7 +2440,7 @@ public class RunCommand implements Runnable {
                 outputTokens,
                 response.getDurationMs(),
                 audioResponse,
-                RunCommand::isAudioMetadata);
+                AudioRunStatsRenderer::isAudioMetadata);
                 
         RunResponseTelemetryRecorder.record(metadata, outputTokens, response.getDurationMs(), tps);
     }
@@ -2644,8 +2638,8 @@ public class RunCommand implements Runnable {
     private void maybeWriteAudioMetadataSidecar(Path audioPath, Map<String, Object> metadata) {
         MediaMetadataSidecarCliHandler.maybeWriteAudioMetadataSidecar(new MediaMetadataSidecarCliHandler.AudioSidecarRequest(
                 audioPath,
-                audioMetadataOutputPath,
-                audioMetadataSidecar,
+                mediaMetadataOptions.audioOutputPath(),
+                mediaMetadataOptions.audioSidecar(),
                 modelId,
                 providerId,
                 runner,
@@ -2660,17 +2654,17 @@ public class RunCommand implements Runnable {
     private void maybeWriteImageMetadataSidecar(Path imagePath, Map<String, Object> metadata) {
         MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(new MediaMetadataSidecarCliHandler.ImageSidecarRequest(
                 imagePath,
-                imageMetadataOutputPath,
-                imageMetadataSidecar,
+                imageMetadataOptions.imageOutputPath(),
+                imageMetadataOptions.imageSidecar(),
                 modelId,
                 providerId,
                 runner,
                 prompt,
                 imageReplaySeed(metadata),
-                steps,
-                guidanceScale,
-                width,
-                height,
+                imageGenerationOptions.steps(),
+                imageGenerationOptions.guidanceScale(),
+                imageGenerationOptions.width(),
+                imageGenerationOptions.height(),
                 metadata
         ));
     }
