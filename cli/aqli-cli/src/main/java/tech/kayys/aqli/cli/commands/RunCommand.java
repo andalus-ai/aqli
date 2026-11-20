@@ -2,6 +2,7 @@ package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
+import tech.kayys.aqli.cli.commands.route.RouteReportRunOptions;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
@@ -164,6 +165,7 @@ public class RunCommand implements Runnable {
     private OcrOutputRunOptions ocrOutputOptions;
     private TtsOperationsRunOptions ttsOperationsOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
+    private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
@@ -352,18 +354,6 @@ public class RunCommand implements Runnable {
             "--prefer-alternate-runtime" }, description = "Allow Gemma safetensor checkpoints to route to local LiteRT/GGUF companion artifacts")
     boolean preferAlternateRuntime;
 
-    @Option(names = { "--route-report-json", "--route-report", "--dry-run-route" },
-            description = "Resolve runner/provider/model routing, print JSON, and exit before inference")
-    boolean routeReportJson;
-
-    @Option(names = { "--route-report-allow-pull", "--dry-run-route-allow-pull" },
-            description = "Allow route-report mode to resolve/pull missing models through repository providers")
-    boolean routeReportAllowPull;
-
-    @Option(names = { "--route-report-require-local", "--dry-run-route-require-local" },
-            description = "Exit non-zero when route-report mode cannot resolve a local runnable model artifact")
-    boolean routeReportRequireLocal;
-
     @Parameters(arity = "0..*", hidden = true)
     List<String> positionalArgs = new ArrayList<>();
 
@@ -424,6 +414,13 @@ public class RunCommand implements Runnable {
                 MediaMetadataRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions"));
+
+        routeReportOptions = runCapabilityRegistry.snapshot(
+                "route-report",
+                commandSpec.commandLine().getParseResult(),
+                RouteReportRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -507,16 +504,16 @@ public class RunCommand implements Runnable {
                 }
             }
 
-            if (!routeReportJson && tryCachedGemma4MobileQatLiteRtRun(requestedProviderExplicit, requestedProviderId)) {
+            if (!routeReportOptions.enabled() && tryCachedGemma4MobileQatLiteRtRun(requestedProviderExplicit, requestedProviderId)) {
                 return;
             }
 
-            if (!routeReportJson && explicitLlamaCppEngine() && !prepareLlamaCppFromLocalSafetensor()) {
+            if (!routeReportOptions.enabled() && explicitLlamaCppEngine() && !prepareLlamaCppFromLocalSafetensor()) {
                 requestProcessExit(1);
                 return;
             }
 
-            if (!routeReportJson && tryStandaloneGgufRun()) {
+            if (!routeReportOptions.enabled() && tryStandaloneGgufRun()) {
                 return;
             }
 
@@ -535,11 +532,11 @@ public class RunCommand implements Runnable {
                 System.err.println("CRITICAL: Platform detection failed: " + t.getMessage());
                 return;
             }
-            if (!routeReportJson && CliMetalRuntime.isMetal(detectedPlatform)) {
+            if (!routeReportOptions.enabled() && CliMetalRuntime.isMetal(detectedPlatform)) {
                 ensureMetalRuntimeInitialized();
             }
 
-            if (!routeReportJson && parentCommand != null && parentCommand.verbose) {
+            if (!routeReportOptions.enabled() && parentCommand != null && parentCommand.verbose) {
                 System.out.println(ChatUIRenderer.CYAN + "Platform: " + detectedPlatform.getDisplayName() + ChatUIRenderer.RESET);
                 if (detectedPlatform.isCpu()) {
                     System.out.println(ChatUIRenderer.YELLOW + "⚠️  Running on CPU (GPU acceleration not available)" + ChatUIRenderer.RESET);
@@ -558,7 +555,7 @@ public class RunCommand implements Runnable {
             }
 
             boolean isMetalPlatform = CliMetalRuntime.isMetal(detectedPlatform);
-            if (!routeReportJson
+            if (!routeReportOptions.enabled()
                     && isMetalPlatform
                     && !isMetalNativeRuntimeActive()
                     && !allowCpuFallbackWhenMetalRequested()) {
@@ -583,7 +580,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsOperationsOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportJson);
+            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsOperationsOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportOptions.enabled());
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -747,7 +744,7 @@ public class RunCommand implements Runnable {
             }
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
-            if (routeReportJson) {
+            if (routeReportOptions.enabled()) {
                 RunRouteValidationCoordinator.RouteReportResult routeReportResult =
                         RunRouteValidationCoordinator.prepareRouteReport(
                                 runnerRouteReport,
@@ -757,9 +754,9 @@ public class RunCommand implements Runnable {
                                 routeExecutionProviderId(providerId, finalLocalPath),
                                 format,
                                 effectiveDirect(finalLocalPath),
-                                routeReportAllowPull,
+                                routeReportOptions.allowPull(),
                                 routeReportRepositoryResolutionSkipped,
-                                routeReportRequireLocal,
+                                routeReportOptions.requireLocal(),
                                 !normalizedInputImages.isEmpty(),
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
@@ -1580,11 +1577,11 @@ public class RunCommand implements Runnable {
     }
 
     private boolean quietRouteResolutionOutput() {
-        return ttsVoicesJsonOutput() || routeReportJson || noBanner;
+        return ttsVoicesJsonOutput() || routeReportOptions.enabled() || noBanner;
     }
 
     boolean shouldAllowRepositoryResolutionDuringRouteReport() {
-        return !routeReportJson || routeReportAllowPull;
+        return !routeReportOptions.enabled() || routeReportOptions.allowPull();
     }
 
     private String routeExecutionProviderId(String provider, String localPath) {
@@ -1899,7 +1896,7 @@ public class RunCommand implements Runnable {
 
     boolean shouldUseStandaloneLiteRtRun(String localPath) {
         return StandaloneRunPolicy.shouldUseLiteRtStandalone(
-                routeReportJson,
+                routeReportOptions.enabled(),
                 Boolean.parseBoolean(System.getProperty("aqli.cli.enable_standalone_litert_fast_path", "true")),
                 prompt,
                 providerId,
@@ -1981,7 +1978,7 @@ public class RunCommand implements Runnable {
 
     boolean shouldUseStandaloneGgufRun() {
         return StandaloneRunPolicy.shouldUseGgufStandalone(
-                routeReportJson,
+                routeReportOptions.enabled(),
                 prompt,
                 providerId,
                 GgufRouteAliasPolicy.isProviderAlias(providerId),
