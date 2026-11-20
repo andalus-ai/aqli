@@ -3,4 +3,4 @@ tech.kayys.aqli.cli.commands.audio.AudioRunCapabilityProvider
 tech.kayys.aqli.cli.commands.image.ImageGenerationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.image.VisionInputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.ocr.OcrOutputRunCapabilityProvider
-tech.kayys.aqli.cli.commands.onnx.OnnxDiagnosticsRunCapabilityProvider
+tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunCapabilityProvider

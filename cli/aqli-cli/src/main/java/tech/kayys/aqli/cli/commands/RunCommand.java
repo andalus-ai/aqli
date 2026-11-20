@@ -109,7 +109,7 @@ import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
-import tech.kayys.aqli.cli.commands.onnx.OnnxDiagnosticsRunOptions;
+import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -688,28 +688,11 @@ public class RunCommand implements Runnable {
                                             ggufQuant, ggufOutType, forceGguf, providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelIds),
                                     sdk,
-<<<<<<< HEAD
-                                    reference -> {
-                                        try {
-                                            return autoPullHfRepositoryForRunIfNeeded(
-                                                    reference.modelId(), reference.preferredFormat());
-                                        } catch (Exception e) {
-                                            if (e instanceof RuntimeException re) {
-                                                throw re;
-                                            }
-                                            throw new IllegalStateException("Failed to prepare repository: " + e.getMessage(), e);
-                                        }
-                                    },
-                                    this::inferProviderFromIndex,
-                                    this::inferFormatFromIndex,
-                                    path -> detectSafetensorCompatibilityIssue(preparationProviderId, path),
-=======
                                     reference -> autoPullHfRepositoryForRunIfNeeded(
                                             reference.modelId(), reference.preferredFormat()),
                                     LocalModelIndexMetadataInference::providerFor,
                                     LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
->>>>>>> 90dd4df9b2f802a708281c6dd340025c534cac6a
                                     (reference, selectedProvider) ->
                                             ModelSourceRoutingPolicy.requiresLocalHfRepositoryResolution(
                                                     reference, selectedProvider, isMcpProvider()),
@@ -1633,14 +1616,12 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        return new OnnxDiagnosticsCliHandler(
-                prompt, onnxVariant, onnxDiagnosticsOptions.imageTokens(), onnxDiagnosticsOptions.decodeTokens())
+        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxDiagnostics(modelId, finalLocalPath);
     }
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
-        return new OnnxDiagnosticsCliHandler(
-                prompt, onnxVariant, onnxDiagnosticsOptions.imageTokens(), onnxDiagnosticsOptions.decodeTokens())
+        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxVisionProbe(modelId, finalLocalPath, normalizedInputImagePaths(), includePipelineGraphs);
     }
 
