@@ -601,7 +601,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || listTtsVoicesJson || ocrOutputOptions.structuredJson() || routeReportJson);
+            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsOperationsOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportJson);
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -1594,7 +1594,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean ttsVoicesJsonOutput() {
-        return jsonMode || listTtsVoicesJson;
+        return jsonMode || ttsOperationsOptions.listVoicesJson();
     }
 
     private boolean quietRouteResolutionOutput() {
