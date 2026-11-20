@@ -108,6 +108,7 @@ import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
+import tech.kayys.aqli.cli.commands.image.ImageMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
@@ -170,6 +171,7 @@ public class RunCommand implements Runnable {
     private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
     private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
+    private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
@@ -427,6 +429,13 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions"));
 
+        imageMetadataOptions = runCapabilityRegistry.snapshot(
+                "image-metadata",
+                commandSpec.commandLine().getParseResult(),
+                ImageMetadataRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
+
         routeReportOptions = runCapabilityRegistry.snapshot(
                 "route-report",
                 commandSpec.commandLine().getParseResult(),
@@ -461,11 +470,11 @@ public class RunCommand implements Runnable {
                 requestProcessExit(verifyAudioMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (mediaMetadataOptions.imageRefreshPath() != null && !mediaMetadataOptions.imageRefreshPath().isBlank()) {
+            if (imageMetadataOptions.imageRefreshPath() != null && !imageMetadataOptions.imageRefreshPath().isBlank()) {
                 requestProcessExit(refreshImageMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (mediaMetadataOptions.imageVerifyPath() != null && !mediaMetadataOptions.imageVerifyPath().isBlank()) {
+            if (imageMetadataOptions.imageVerifyPath() != null && !imageMetadataOptions.imageVerifyPath().isBlank()) {
                 requestProcessExit(verifyImageMetadataSidecar() ? 0 : 1);
                 return;
             }
@@ -1383,11 +1392,11 @@ public class RunCommand implements Runnable {
     }
 
     private boolean verifyImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(mediaMetadataOptions.imageVerifyPath(), outputPath);
+        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(imageMetadataOptions.imageVerifyPath(), outputPath);
     }
 
     private boolean refreshImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(mediaMetadataOptions.imageRefreshPath(), outputPath);
+        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(imageMetadataOptions.imageRefreshPath(), outputPath);
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
@@ -2662,8 +2671,8 @@ public class RunCommand implements Runnable {
     private void maybeWriteImageMetadataSidecar(Path imagePath, Map<String, Object> metadata) {
         MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(new MediaMetadataSidecarCliHandler.ImageSidecarRequest(
                 imagePath,
-                mediaMetadataOptions.imageOutputPath(),
-                mediaMetadataOptions.imageSidecar(),
+                imageMetadataOptions.imageOutputPath(),
+                imageMetadataOptions.imageSidecar(),
                 modelId,
                 providerId,
                 runner,

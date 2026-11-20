@@ -28,14 +28,6 @@ public final class MediaMetadataRunCapability
                 "Verify an audio file against an Aqli audio metadata JSON sidecar"));
         commandSpec.addOption(string("--audio-metadata-refresh", "--tts-refresh-metadata",
                 "Refresh an Aqli audio metadata JSON sidecar with current audio size and SHA-256"));
-        commandSpec.addOption(string("--image-metadata-output",
-                "Write image generation metadata JSON to this path"));
-        commandSpec.addOption(flag("--image-metadata-sidecar",
-                "Write image generation metadata JSON beside the output file"));
-        commandSpec.addOption(string("--image-metadata-verify",
-                "Verify an image file against an Aqli image metadata JSON sidecar"));
-        commandSpec.addOption(string("--image-metadata-refresh",
-                "Refresh an Aqli image metadata JSON sidecar with current image size and SHA-256"));
     }
 
     @Override
@@ -50,11 +42,7 @@ public final class MediaMetadataRunCapability
                 parseResult.matchedOptionValue("--audio-metadata-output", (String) null),
                 parseResult.matchedOptionValue("--audio-metadata-sidecar", false),
                 parseResult.matchedOptionValue("--audio-metadata-verify", (String) null),
-                parseResult.matchedOptionValue("--audio-metadata-refresh", (String) null),
-                parseResult.matchedOptionValue("--image-metadata-output", (String) null),
-                parseResult.matchedOptionValue("--image-metadata-sidecar", false),
-                parseResult.matchedOptionValue("--image-metadata-verify", (String) null),
-                parseResult.matchedOptionValue("--image-metadata-refresh", (String) null));
+                parseResult.matchedOptionValue("--audio-metadata-refresh", (String) null));
     }
 
     private static OptionSpec string(String... namesAndDescription) {

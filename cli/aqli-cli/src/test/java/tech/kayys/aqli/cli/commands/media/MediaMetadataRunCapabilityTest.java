@@ -10,21 +10,17 @@ import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
-/** Verifies metadata option aliases and immutable snapshots. */
+/** Verifies audio metadata option aliases and immutable snapshots. */
 class MediaMetadataRunCapabilityTest {
 
     @Test
-    void snapshotsAudioAndImageMetadataOperations() {
+    void snapshotsAudioMetadataOperations() {
         CommandLine commandLine = commandLine();
         commandLine.parseArgs(
                 "--tts-metadata-output", "audio.json",
                 "--tts-metadata-sidecar",
                 "--tts-verify", "audio-verify.json",
-                "--tts-refresh-metadata", "audio-refresh.json",
-                "--image-metadata-output", "image.json",
-                "--image-metadata-sidecar",
-                "--image-metadata-verify", "image-verify.json",
-                "--image-metadata-refresh", "image-refresh.json");
+                "--tts-refresh-metadata", "audio-refresh.json");
 
         MediaMetadataRunOptions options =
                 new MediaMetadataRunCapability().snapshot(commandLine.getParseResult());
@@ -33,10 +29,6 @@ class MediaMetadataRunCapabilityTest {
         assertTrue(options.audioSidecar());
         assertEquals("audio-verify.json", options.audioVerifyPath());
         assertEquals("audio-refresh.json", options.audioRefreshPath());
-        assertEquals("image.json", options.imageOutputPath());
-        assertTrue(options.imageSidecar());
-        assertEquals("image-verify.json", options.imageVerifyPath());
-        assertEquals("image-refresh.json", options.imageRefreshPath());
     }
 
     @Test
@@ -51,10 +43,6 @@ class MediaMetadataRunCapabilityTest {
         assertFalse(options.audioSidecar());
         assertNull(options.audioVerifyPath());
         assertNull(options.audioRefreshPath());
-        assertNull(options.imageOutputPath());
-        assertFalse(options.imageSidecar());
-        assertNull(options.imageVerifyPath());
-        assertNull(options.imageRefreshPath());
     }
 
     private static CommandLine commandLine() {
