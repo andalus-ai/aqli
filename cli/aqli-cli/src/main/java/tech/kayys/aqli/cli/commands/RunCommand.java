@@ -118,6 +118,7 @@ import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
+import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -180,6 +181,7 @@ public class RunCommand implements Runnable {
     private FallbackModelRunOptions fallbackModelOptions;
     private ModelRepositoryRunOptions modelRepositoryOptions;
     private QuantizationRunOptions quantizationOptions;
+    private RuntimeProfileRunOptions runtimeProfileOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
@@ -287,8 +289,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
     public String pluginId;
 
-    @Option(names = { "--profile", "--onnx-profile" },
-            description = "Request runner profile metadata and print detailed runtime performance breakdowns")
     boolean runtimeProfile;
 
     @Option(names = {
@@ -300,6 +300,14 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        runtimeProfileOptions = runCapabilityRegistry.snapshot(
+                "runtime-profile",
+                commandSpec.commandLine().getParseResult(),
+                RuntimeProfileRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The runtime-profile run capability is not registered or does not provide RuntimeProfileRunOptions"));
+        runtimeProfile = runtimeProfileOptions.enabled();
+
         quantizationOptions = runCapabilityRegistry.snapshot(
                 "quantization",
                 commandSpec.commandLine().getParseResult(),
