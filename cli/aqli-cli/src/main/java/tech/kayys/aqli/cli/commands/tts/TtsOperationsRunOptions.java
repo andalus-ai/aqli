@@ -5,7 +5,5 @@ public record TtsOperationsRunOptions(
         boolean diagnostics,
         boolean warmup,
         boolean cachePrune,
-        boolean cachePruneApply,
-        boolean listVoices,
-        boolean listVoicesJson) {
+        boolean cachePruneApply) {
 }
