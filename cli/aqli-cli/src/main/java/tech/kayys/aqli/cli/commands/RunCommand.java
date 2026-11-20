@@ -117,6 +117,7 @@ import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
 import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
+import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -178,6 +179,7 @@ public class RunCommand implements Runnable {
     private SystemPromptRunOptions systemPromptOptions;
     private FallbackModelRunOptions fallbackModelOptions;
     private ModelRepositoryRunOptions modelRepositoryOptions;
+    private QuantizationRunOptions quantizationOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
@@ -264,10 +266,7 @@ public class RunCommand implements Runnable {
     boolean forceGguf;
 
 
-    @Option(names = { "--quantize" }, description = "Enable JIT quantization during inference (bnb, turbo, awq, gptq, autoround)")
     String quantizeStrategy;
-
-    @Option(names = { "--quantize-bits" }, description = "Bit width for JIT quantization (default: 4)", defaultValue = "4")
     int quantizeBits;
 
     // Stable Diffusion specific parameters
@@ -283,7 +282,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
-    @Option(names = { "--quantize-kv" }, description = "Enable KV cache quantization (none, int8, int4, turbo)", defaultValue = "none")
     String quantizeKv;
 
     @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
@@ -302,6 +300,16 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        quantizationOptions = runCapabilityRegistry.snapshot(
+                "quantization",
+                commandSpec.commandLine().getParseResult(),
+                QuantizationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The quantization run capability is not registered or does not provide QuantizationRunOptions"));
+        quantizeStrategy = quantizationOptions.strategy();
+        quantizeBits = quantizationOptions.bits();
+        quantizeKv = quantizationOptions.kvCacheMode();
+
         textRunOptions = runCapabilityRegistry.snapshot(
                 "text",
                 commandSpec.commandLine().getParseResult(),
