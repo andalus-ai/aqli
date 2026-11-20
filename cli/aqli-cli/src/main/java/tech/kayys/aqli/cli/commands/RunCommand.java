@@ -6,6 +6,7 @@ import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
 import tech.kayys.aqli.cli.commands.route.SafetensorEngineHintPolicy;
 import tech.kayys.aqli.cli.commands.route.GgufCliEngineOptionResolver;
+import tech.kayys.aqli.cli.commands.route.GgufCliBackendOptionResolver;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
@@ -2091,7 +2092,7 @@ public class RunCommand implements Runnable {
             args.add("--engine");
             args.add(engine);
         }
-        String backend = requestedGgufBackend();
+        String backend = GgufCliBackendOptionResolver.resolve(ggufBackend, parentCommand != null && parentCommand.isUseCpu(), parentCommand == null ? null : parentCommand.platform());
         if (backend != null && !backend.isBlank()) {
             args.add("--backend");
             args.add(backend);
@@ -2318,18 +2319,7 @@ public class RunCommand implements Runnable {
     }
 
 
-    private String requestedGgufBackend() {
-        if (ggufBackend != null && !ggufBackend.isBlank()) {
-            return ggufBackend.trim();
-        }
-        if (parentCommand != null && parentCommand.isUseCpu()) {
-            return "cpu";
-        }
-        if (parentCommand != null && parentCommand.platform() != null && !parentCommand.platform().isBlank()) {
-            return parentCommand.platform().trim();
-        }
-        return null;
-    }
+
 
     private boolean isGgufFormat(String value) {
         return ModelFormatResolver.isGgufFormat(value);
