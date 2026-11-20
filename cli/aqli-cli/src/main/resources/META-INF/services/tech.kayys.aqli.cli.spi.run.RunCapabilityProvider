@@ -5,3 +5,4 @@ tech.kayys.aqli.cli.commands.image.VisionInputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.ocr.OcrOutputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunCapabilityProvider
 tech.kayys.aqli.cli.commands.tts.TtsOperationsRunCapabilityProvider
+tech.kayys.aqli.cli.commands.media.MediaMetadataRunCapabilityProvider

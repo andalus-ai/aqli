@@ -110,6 +110,7 @@ import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapp
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
+import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -162,6 +163,7 @@ public class RunCommand implements Runnable {
     private VisionInputRunOptions visionInputOptions;
     private OcrOutputRunOptions ocrOutputOptions;
     private TtsOperationsRunOptions ttsOperationsOptions;
+    private MediaMetadataRunOptions mediaMetadataOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
@@ -301,33 +303,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     String outputPath;
 
-    @Option(names = { "--audio-metadata-output", "--tts-metadata-output" }, description = "Write audio generation metadata JSON to this path")
-    String audioMetadataOutputPath;
-
-    @Option(names = { "--audio-metadata-sidecar", "--tts-metadata-sidecar" }, description = "Write audio generation metadata JSON beside the output file")
-    boolean audioMetadataSidecar;
-
-    @Option(names = { "--audio-metadata-replay", "--tts-replay" }, description = "Replay a TTS/audio generation from a Aqli audio metadata JSON sidecar")
-    String audioMetadataReplayPath;
-
-    @Option(names = { "--audio-metadata-verify", "--tts-verify" }, description = "Verify an audio file against a Aqli audio metadata JSON sidecar")
-    String audioMetadataVerifyPath;
-
-    @Option(names = { "--audio-metadata-refresh", "--tts-refresh-metadata" }, description = "Refresh a Aqli audio metadata JSON sidecar with current audio size and SHA-256")
-    String audioMetadataRefreshPath;
-
-    @Option(names = { "--image-metadata-output" }, description = "Write image generation metadata JSON to this path")
-    String imageMetadataOutputPath;
-
-    @Option(names = { "--image-metadata-sidecar" }, description = "Write image generation metadata JSON beside the output file")
-    boolean imageMetadataSidecar;
-
-    @Option(names = { "--image-metadata-verify" }, description = "Verify an image file against a Aqli image metadata JSON sidecar")
-    String imageMetadataVerifyPath;
-
-    @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
-    String imageMetadataRefreshPath;
-
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
@@ -443,6 +418,13 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions"));
 
+        mediaMetadataOptions = runCapabilityRegistry.snapshot(
+                "media-metadata",
+                commandSpec.commandLine().getParseResult(),
+                MediaMetadataRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions"));
+
         if (onlyText) {
             noBanner = true;
             noInfo = true;
@@ -462,19 +444,19 @@ public class RunCommand implements Runnable {
                 requestProcessExit(1);
                 return;
             }
-            if (audioMetadataRefreshPath != null && !audioMetadataRefreshPath.isBlank()) {
+            if (mediaMetadataOptions.audioRefreshPath() != null && !mediaMetadataOptions.audioRefreshPath().isBlank()) {
                 requestProcessExit(refreshAudioMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (audioMetadataVerifyPath != null && !audioMetadataVerifyPath.isBlank()) {
+            if (mediaMetadataOptions.audioVerifyPath() != null && !mediaMetadataOptions.audioVerifyPath().isBlank()) {
                 requestProcessExit(verifyAudioMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (imageMetadataRefreshPath != null && !imageMetadataRefreshPath.isBlank()) {
+            if (mediaMetadataOptions.imageRefreshPath() != null && !mediaMetadataOptions.imageRefreshPath().isBlank()) {
                 requestProcessExit(refreshImageMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (imageMetadataVerifyPath != null && !imageMetadataVerifyPath.isBlank()) {
+            if (mediaMetadataOptions.imageVerifyPath() != null && !mediaMetadataOptions.imageVerifyPath().isBlank()) {
                 requestProcessExit(verifyImageMetadataSidecar() ? 0 : 1);
                 return;
             }
@@ -1384,34 +1366,34 @@ public class RunCommand implements Runnable {
     }
 
     private boolean verifyAudioMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.verifyAudioMetadataSidecar(audioMetadataVerifyPath, outputPath);
+        return MediaMetadataSidecarCliHandler.verifyAudioMetadataSidecar(mediaMetadataOptions.audioVerifyPath(), outputPath);
     }
 
     private boolean refreshAudioMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.refreshAudioMetadataSidecar(audioMetadataRefreshPath, outputPath);
+        return MediaMetadataSidecarCliHandler.refreshAudioMetadataSidecar(mediaMetadataOptions.audioRefreshPath(), outputPath);
     }
 
     private boolean verifyImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(imageMetadataVerifyPath, outputPath);
+        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(mediaMetadataOptions.imageVerifyPath(), outputPath);
     }
 
     private boolean refreshImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(imageMetadataRefreshPath, outputPath);
+        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(mediaMetadataOptions.imageRefreshPath(), outputPath);
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
-        if (audioMetadataReplayPath == null || audioMetadataReplayPath.isBlank()) {
+        if (mediaMetadataOptions.audioReplayPath() == null || mediaMetadataOptions.audioReplayPath().isBlank()) {
             return true;
         }
         try {
-            Path sidecarPath = Path.of(audioMetadataReplayPath);
+            Path sidecarPath = Path.of(mediaMetadataOptions.audioReplayPath());
             if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: audio metadata replay file not found: " + audioMetadataReplayPath);
+                System.err.println("Error: audio metadata replay file not found: " + mediaMetadataOptions.audioReplayPath());
                 return false;
             }
             AudioMetadataReplayParser.Plan plan = new AudioMetadataReplayParser().parse(sidecarPath);
             if (plan == null) {
-                System.err.println("Error: invalid audio metadata replay file: " + audioMetadataReplayPath);
+                System.err.println("Error: invalid audio metadata replay file: " + mediaMetadataOptions.audioReplayPath());
                 return false;
             }
             boolean outputExplicit = outputPath != null && !outputPath.isBlank();
@@ -2651,8 +2633,8 @@ public class RunCommand implements Runnable {
     private void maybeWriteAudioMetadataSidecar(Path audioPath, Map<String, Object> metadata) {
         MediaMetadataSidecarCliHandler.maybeWriteAudioMetadataSidecar(new MediaMetadataSidecarCliHandler.AudioSidecarRequest(
                 audioPath,
-                audioMetadataOutputPath,
-                audioMetadataSidecar,
+                mediaMetadataOptions.audioOutputPath(),
+                mediaMetadataOptions.audioSidecar(),
                 modelId,
                 providerId,
                 runner,
@@ -2667,8 +2649,8 @@ public class RunCommand implements Runnable {
     private void maybeWriteImageMetadataSidecar(Path imagePath, Map<String, Object> metadata) {
         MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(new MediaMetadataSidecarCliHandler.ImageSidecarRequest(
                 imagePath,
-                imageMetadataOutputPath,
-                imageMetadataSidecar,
+                mediaMetadataOptions.imageOutputPath(),
+                mediaMetadataOptions.imageSidecar(),
                 modelId,
                 providerId,
                 runner,
