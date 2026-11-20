@@ -12,10 +12,6 @@ import tech.kayys.aqli.cli.commands.route.GgufCliBackendOptionResolver;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator.AudioQualityPreset;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
-import tech.kayys.aqli.observability.ObservabilityManager;
-import tech.kayys.aqli.metrics.MetricsRegistry;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.common.AttributesBuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -2446,29 +2442,7 @@ public class RunCommand implements Runnable {
                 audioResponse,
                 AudioRunStatsRenderer::isAudioMetadata);
                 
-        try {
-            ObservabilityManager obs = ObservabilityManager.global();
-            if (obs != null) {
-                MetricsRegistry reg = obs.getMetricsRegistry();
-                String resolvedEngine = metadata.containsKey("engine") ? String.valueOf(metadata.get("engine")) : "standard";
-                if (metadata.containsKey("runner")) {
-                    resolvedEngine = String.valueOf(metadata.get("runner"));
-                }
-                AttributesBuilder attrs = Attributes.builder()
-                        .put("engine", resolvedEngine)
-                        .put("fast_path", false);
-
-                Attributes finalAttrs = attrs.build();
-                long durationMs = response.getDurationMs();
-                reg.record("aqli.llm.generation.duration", durationMs, finalAttrs);
-                reg.record("aqli.llm.generation.speed", tps, finalAttrs);
-                
-                double tokenLatency = outputTokens > 0 ? (double) durationMs / outputTokens : 0.0d;
-                reg.record("aqli.llm.generation.token_latency", tokenLatency, finalAttrs);
-            }
-        } catch (Exception e) {
-            // Ignore telemetry exceptions
-        }
+        RunResponseTelemetryRecorder.record(metadata, outputTokens, response.getDurationMs(), tps);
     }
 
     private void printJsonPayload(Map<String, Object> payload) {
