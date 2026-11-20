@@ -224,7 +224,10 @@ public class PullCommand implements Runnable {
         AqliManifest manifest = new AqliManifest();
         manifest.setId(manifestName);
         manifest.setModelId(repoId);
-        manifest.setName(manifestName);
+        // Use repo name as human-readable display name instead of the manifest hash.
+        String displayName = repoId.contains("/")
+                ? repoId.substring(repoId.lastIndexOf('/') + 1) : repoId;
+        manifest.setName(displayName);
         manifest.setFormat(format);
         manifest.setPipeline(files != null && files.stream().anyMatch(n -> n.endsWith("model_index.json")));
         manifest.setSource("huggingface");

@@ -157,18 +157,14 @@ public final class AljabrInferenceDtoAdapter {
             tech.kayys.aqli.spi.embedding.EmbeddingRequest value) {
         Objects.requireNonNull(value, "value");
         return new tech.kayys.aljabr.spi.embedding.EmbeddingRequest(
-                value.requestId(), value.model(), value.inputs(), value.parameters(),
-                tech.kayys.aljabr.spi.embedding.EmbeddingTask.valueOf(value.task().name()),
-                value.outputDimension());
+                value.requestId(), value.model(), value.inputs(), value.parameters());
     }
 
     public static tech.kayys.aqli.spi.embedding.EmbeddingRequest fromAljabr(
             tech.kayys.aljabr.spi.embedding.EmbeddingRequest value) {
         Objects.requireNonNull(value, "value");
         return new tech.kayys.aqli.spi.embedding.EmbeddingRequest(
-                value.requestId(), value.model(), value.inputs(), value.parameters(),
-                tech.kayys.aqli.spi.embedding.EmbeddingTask.valueOf(value.task().name()),
-                value.outputDimension());
+                value.requestId(), value.model(), value.inputs(), value.parameters());
     }
 
     public static tech.kayys.aljabr.spi.embedding.EmbeddingResponse toAljabr(

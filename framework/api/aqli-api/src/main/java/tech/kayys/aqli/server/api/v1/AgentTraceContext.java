@@ -52,6 +52,17 @@ final class AgentTraceContext {
         return new AgentTraceContext(requestId, traceId, sessionId, userId);
     }
 
+    AgentTraceContext withPayloadFallback(JsonNode payload) {
+        return new AgentTraceContext(
+                requestId,
+                traceId,
+                firstNonBlank(sessionId,
+                        text(payload, "session_id"),
+                        text(payload, "conversation"),
+                        text(payload, "previous_response_id")),
+                firstNonBlank(userId, text(payload, "user"), text(payload, "user_id")));
+    }
+
     static AgentTraceContext fromPayload(JsonNode payload) {
         return from(null, payload);
     }

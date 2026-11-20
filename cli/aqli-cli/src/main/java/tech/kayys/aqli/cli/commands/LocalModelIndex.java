@@ -157,6 +157,16 @@ final class LocalModelIndex {
             return out;
         }
         scanManifestEntries(root.resolve("manifests"), out, seenPaths);
+
+        // Secondary fallback: scan the legacy manifest directory (~/.aqli/manifests/)
+        // in case manifests were saved there by an older ManifestStore default.
+        Path legacyManifests = AqliHome.resolve().resolve("manifests");
+        if (Files.isDirectory(legacyManifests)
+                && !legacyManifests.toAbsolutePath().normalize()
+                        .equals(root.resolve("manifests").toAbsolutePath().normalize())) {
+            scanManifestEntries(legacyManifests, out, seenPaths);
+        }
+
         scanFlat(root.resolve("gguf"), "gguf", true, out, seenPaths);
         scanFlat(root.resolve("libtorchscript"), "libtorchscript", true, out, seenPaths);
         scanFlat(root.resolve("torchscript"), "torchscript", true, out, seenPaths);

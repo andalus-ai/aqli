@@ -36,7 +36,9 @@ final class AgenticApiMapper {
 
     static TextGenerationRequest toTextGenerationRequest(
             JsonNode root, String apiKey, AgentTraceContext traceContext) {
-        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        AgentTraceContext trace = traceContext != null
+                ? traceContext.withPayloadFallback(root)
+                : AgentTraceContext.fromPayload(root);
         List<TextGenerationMessage> messages = new ArrayList<>();
         for (JsonNode node : iterable(root.path("messages"))) {
             messages.add(toTextGenerationMessage(toMessage(node)));
@@ -102,7 +104,9 @@ final class AgenticApiMapper {
 
     static TextGenerationRequest toResponsesTextGenerationRequest(
             JsonNode root, String apiKey, AgentTraceContext traceContext) {
-        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        AgentTraceContext trace = traceContext != null
+                ? traceContext.withPayloadFallback(root)
+                : AgentTraceContext.fromPayload(root);
         InferenceRequest legacy = toResponsesInferenceRequest(root, apiKey, trace);
         List<TextGenerationMessage> messages = legacy.getMessages().stream()
                 .filter(message -> !(message.getRole() == Message.Role.SYSTEM
@@ -183,7 +187,9 @@ final class AgenticApiMapper {
     }
 
     static InferenceRequest toInferenceRequest(JsonNode root, String apiKey, AgentTraceContext traceContext) {
-        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        AgentTraceContext trace = traceContext != null
+                ? traceContext.withPayloadFallback(root)
+                : AgentTraceContext.fromPayload(root);
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .requestId(trace.requestId())
                 .model(requiredText(root, "model"));
@@ -232,7 +238,9 @@ final class AgenticApiMapper {
     }
 
     static InferenceRequest toResponsesInferenceRequest(JsonNode root, String apiKey, AgentTraceContext traceContext) {
-        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        AgentTraceContext trace = traceContext != null
+                ? traceContext.withPayloadFallback(root)
+                : AgentTraceContext.fromPayload(root);
         InferenceRequest.Builder builder = InferenceRequest.builder()
                 .requestId(trace.requestId())
                 .model(requiredText(root, "model"));
@@ -276,7 +284,9 @@ final class AgenticApiMapper {
     }
 
     static EmbeddingRequest toEmbeddingRequest(JsonNode root, AgentTraceContext traceContext) {
-        AgentTraceContext trace = traceContext != null ? traceContext : AgentTraceContext.fromPayload(root);
+        AgentTraceContext trace = traceContext != null
+                ? traceContext.withPayloadFallback(root)
+                : AgentTraceContext.fromPayload(root);
         Map<String, Object> parameters = new LinkedHashMap<>();
         copyIfPresent(parameters, root, "dimensions");
         copyIfPresent(parameters, root, "encoding_format");

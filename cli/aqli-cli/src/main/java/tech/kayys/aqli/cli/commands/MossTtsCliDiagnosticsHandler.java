@@ -137,7 +137,7 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     boolean ttsVoicesJsonOutput() {
-        return command.jsonMode || command.listTtsVoicesJson;
+        return command.jsonMode || command.ttsVoiceDiscoveryOptions().listVoicesJson();
     }
 
     private void printTtsVoicesJson(
@@ -193,8 +193,8 @@ final class MossTtsCliDiagnosticsHandler {
             terms.addAll(MossTtsVoiceCatalog.filterTerms(command.audioRunOptions().voiceGender()));
         }
 
-        String selectorText = command.audioRunOptions().voiceSearch() != null && !command.audioRunOptions().voiceSearch().isBlank()
-                ? command.audioRunOptions().voiceSearch()
+        String selectorText = command.ttsVoiceDiscoveryOptions().voiceSearch() != null && !command.ttsVoiceDiscoveryOptions().voiceSearch().isBlank()
+                ? command.ttsVoiceDiscoveryOptions().voiceSearch()
                 : command.audioRunOptions().voice();
         for (String term : MossTtsVoiceCatalog.filterTerms(selectorText)) {
             String termLanguage = MossTtsVoiceCatalog.normalizeLanguageFilter(term);
@@ -541,7 +541,7 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     int pruneMossTtsOptimizedCache(String modelId, String finalLocalPath) {
-        boolean dryRun = !command.ttsCachePruneApply;
+        boolean dryRun = !command.ttsOperationsOptions().cachePruneApply();
         Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (command.jsonMode) {

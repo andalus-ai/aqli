@@ -51,7 +51,7 @@ final class RagContextMapper {
         }
 
         JsonNode enabledNode = root.path("rag_enabled");
-        Boolean enabled = enabledNode.isBoolean() ? enabledNode.asBoolean()
+        Boolean enabled = enabledNode.isBoolean() ? Boolean.valueOf(enabledNode.asBoolean())
                 : contextNode != null ? Boolean.TRUE : null;
         String embeddingModel = text(root, "embedding_model");
         if (enabled == null && embeddingModel == null && typedItems.isEmpty() && sources.isEmpty()) {

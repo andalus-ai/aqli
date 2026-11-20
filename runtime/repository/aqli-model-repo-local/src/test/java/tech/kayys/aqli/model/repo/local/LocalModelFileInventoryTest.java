@@ -65,7 +65,7 @@ class LocalModelFileInventoryTest {
         Files.write(nested.resolve("second.bin"), new byte[] { 4, 5 });
 
         assertEquals(3L, LocalModelFileInventory.sizeBytes(temporaryDirectory.resolve("first.bin")));
-        assertEquals(5L, LocalModelFileInventory.sizeBytes(nested.resolve("second.bin")));
+        assertEquals(2L, LocalModelFileInventory.sizeBytes(nested.resolve("second.bin")));
         assertEquals(5L, LocalModelFileInventory.sizeBytes(temporaryDirectory));
     }
 

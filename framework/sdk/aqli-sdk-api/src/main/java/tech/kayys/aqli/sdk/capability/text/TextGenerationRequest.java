@@ -81,6 +81,27 @@ public record TextGenerationRequest(
         this(model, messages, parameters, List.of());
     }
 
+    /**
+     * Returns the typed tool-selection policy when this request uses the SDK contract.
+     *
+     * <p>The legacy {@link #toolChoice()} accessor remains available for
+     * source and wire compatibility while callers migrate.</p>
+     */
+    public java.util.Optional<TextGenerationToolChoice> typedToolChoice() {
+        return toolChoice instanceof TextGenerationToolChoice choice
+                ? java.util.Optional.of(choice)
+                : java.util.Optional.empty();
+    }
+
+    /**
+     * Returns a copy of this request using the SDK-owned typed tool-selection policy.
+     */
+    public TextGenerationRequest withToolChoice(TextGenerationToolChoice choice) {
+        return new TextGenerationRequest(
+                model, messages, parameters, tools, choice, metadata,
+                requestId, userId, sessionId, traceId, apiKey, context);
+    }
+
     public static TextGenerationRequest of(String model, String prompt) {
         if (prompt == null || prompt.isBlank()) {
             throw new IllegalArgumentException("prompt must not be blank");

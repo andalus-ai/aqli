@@ -28,7 +28,7 @@ class RunInferenceRequestAssemblerTest {
                                 true,
                                 "/models/model",
                                 "hf:org/model"),
-                        new TextRunRequestParameterMapper.Options(
+                        new tech.kayys.aqli.cli.commands.text.TextRunOptions(
                                 0.4, 0.8, 32, 1.05, true, 128, 2, "root ::= ok"),
                         new RunInferenceRequestAssembler.QuantizationOptions("awq", 4, "q8"),
                         true,
