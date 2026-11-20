@@ -24,8 +24,6 @@ public final class MediaMetadataRunCapability
                 "Write audio generation metadata JSON to this path"));
         commandSpec.addOption(flag("--audio-metadata-sidecar", "--tts-metadata-sidecar",
                 "Write audio generation metadata JSON beside the output file"));
-        commandSpec.addOption(string("--audio-metadata-replay", "--tts-replay",
-                "Replay a TTS/audio generation from an Aqli audio metadata JSON sidecar"));
         commandSpec.addOption(string("--audio-metadata-verify", "--tts-verify",
                 "Verify an audio file against an Aqli audio metadata JSON sidecar"));
         commandSpec.addOption(string("--audio-metadata-refresh", "--tts-refresh-metadata",
@@ -51,7 +49,6 @@ public final class MediaMetadataRunCapability
         return new MediaMetadataRunOptions(
                 parseResult.matchedOptionValue("--audio-metadata-output", (String) null),
                 parseResult.matchedOptionValue("--audio-metadata-sidecar", false),
-                parseResult.matchedOptionValue("--audio-metadata-replay", (String) null),
                 parseResult.matchedOptionValue("--audio-metadata-verify", (String) null),
                 parseResult.matchedOptionValue("--audio-metadata-refresh", (String) null),
                 parseResult.matchedOptionValue("--image-metadata-output", (String) null),
