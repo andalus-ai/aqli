@@ -15,3 +15,4 @@ tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunCapabilityProvider
 tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunCapabilityProvider
 tech.kayys.aqli.cli.commands.session.ConversationSessionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.conversation.SystemPromptRunCapabilityProvider
+tech.kayys.aqli.cli.commands.engine.EngineSelectionRunCapabilityProvider
