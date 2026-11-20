@@ -17,3 +17,4 @@ tech.kayys.aqli.cli.commands.session.ConversationSessionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.conversation.SystemPromptRunCapabilityProvider
 tech.kayys.aqli.cli.commands.engine.EngineSelectionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.FallbackModelRunCapabilityProvider
+tech.kayys.aqli.cli.commands.model.ModelRepositoryRunCapabilityProvider
