@@ -5,9 +5,5 @@ public record MediaMetadataRunOptions(
         String audioOutputPath,
         boolean audioSidecar,
         String audioVerifyPath,
-        String audioRefreshPath,
-        String imageOutputPath,
-        boolean imageSidecar,
-        String imageVerifyPath,
-        String imageRefreshPath) {
+        String audioRefreshPath) {
 }

@@ -108,11 +108,17 @@ import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
+import tech.kayys.aqli.cli.commands.image.ImageMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
+import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
+import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
+import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
+import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
+import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -121,7 +127,6 @@ import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
-import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
 import tech.kayys.aqli.plugin.kernel.KernelPlatform;
 import tech.kayys.aqli.sdk.util.AqliHome;
@@ -168,7 +173,13 @@ public class RunCommand implements Runnable {
     private OcrOutputRunOptions ocrOutputOptions;
     private TtsOperationsRunOptions ttsOperationsOptions;
     private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
+    private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
+    private RetrievalContextRunOptions retrievalContextOptions;
+    private ToolInvocationRunOptions toolInvocationOptions;
+    private ConversationSessionRunOptions conversationSessionOptions;
+    private SystemPromptRunOptions systemPromptOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
+    private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
@@ -226,33 +237,6 @@ public class RunCommand implements Runnable {
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
-
-    @Option(names = { "--system" }, description = "System prompt")
-    String systemPrompt;
-
-    @Option(names = { "--tool-file", "--tools-file" }, split = ",", description = "JSON tool definition file(s); accepts OpenAI-style tools arrays or Aqli ToolDefinition JSON")
-    List<String> toolFiles;
-
-    @Option(names = { "--tool-choice" }, description = "Tool choice policy such as auto, none, required, or a JSON object")
-    String toolChoice;
-
-    @Option(names = { "--mcp-tool", "--mcp-tools" }, split = ",", description = "MCP tool name(s) to expose, optionally as server/tool or server:tool")
-    List<String> mcpTools;
-
-    @Option(names = { "--rag-context" }, split = "\\|", description = "Inline retrieval context block(s), separated with | when repeated in one argument")
-    List<String> ragContexts;
-
-    @Option(names = { "--rag-file", "--context-file" }, split = ",", description = "Text file(s) to inject as retrieval context")
-    List<String> ragFiles;
-
-    @Option(names = { "--rag-max-chars" }, description = "Maximum retrieval context characters to inject", defaultValue = "12000")
-    int ragMaxChars;
-
-    @Option(names = { "--embedding-model", "--embed-model" }, description = "Embedding model id/path to attach to embedding or RAG-aware providers")
-    String embeddingModel;
-
-    @Option(names = { "--session-id" }, description = "Persistent conversation session id for KV/prefix reuse across repeated run calls")
-    String sessionId;
 
     @Option(names = { "--no-cache" }, description = "Bypass response cache")
     boolean noCache;
@@ -320,20 +304,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
     public String pluginId;
-
-    @Option(names = {
-            ExternalPluginClasspath.OPTION_PLUGIN_CLASSPATH,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_CLASSPATH },
-            split = ",",
-            description = ExternalPluginClasspath.MODEL_FAMILY_OPTION_DESCRIPTION)
-    List<String> externalPluginClasspath = new ArrayList<>();
-
-    @Option(names = {
-            ExternalPluginClasspath.OPTION_PLUGIN_DIR,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_DIR },
-            split = ",",
-            description = ExternalPluginClasspath.PLUGIN_DIRECTORY_OPTION_DESCRIPTION)
-    List<String> externalPluginDirectories = new ArrayList<>();
 
     @Option(names = { "--engine", "--gguf-engine" }, description = "GGUF engine mode: auto, java, llamacpp, benchmark")
     String ggufEngine;
@@ -419,6 +389,41 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions"));
 
+        externalPluginLoadingOptions = runCapabilityRegistry.snapshot(
+                "external-plugin-loading",
+                commandSpec.commandLine().getParseResult(),
+                ExternalPluginLoadingRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions"));
+
+        retrievalContextOptions = runCapabilityRegistry.snapshot(
+                "retrieval-context",
+                commandSpec.commandLine().getParseResult(),
+                RetrievalContextRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+
+        systemPromptOptions = runCapabilityRegistry.snapshot(
+                "system-prompt",
+                commandSpec.commandLine().getParseResult(),
+                SystemPromptRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions"));
+
+        conversationSessionOptions = runCapabilityRegistry.snapshot(
+                "conversation-session",
+                commandSpec.commandLine().getParseResult(),
+                ConversationSessionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions"));
+
+        toolInvocationOptions = runCapabilityRegistry.snapshot(
+                "tool-invocation",
+                commandSpec.commandLine().getParseResult(),
+                ToolInvocationRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions"));
+
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
                 commandSpec.commandLine().getParseResult(),
@@ -432,6 +437,13 @@ public class RunCommand implements Runnable {
                 MediaMetadataRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions"));
+
+        imageMetadataOptions = runCapabilityRegistry.snapshot(
+                "image-metadata",
+                commandSpec.commandLine().getParseResult(),
+                ImageMetadataRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
 
         routeReportOptions = runCapabilityRegistry.snapshot(
                 "route-report",
@@ -447,8 +459,8 @@ public class RunCommand implements Runnable {
         
         try (ExternalModelFamilyPluginScope ignored =
                 ExternalModelFamilyPluginScope.attach(
-                        externalPluginClasspath,
-                        externalPluginDirectories,
+                        externalPluginLoadingOptions.classpathEntries(),
+                        externalPluginLoadingOptions.pluginDirectoryEntries(),
                         RunCommand.class,
                         pluginChecker)) {
             if (parentCommand != null) {
@@ -467,11 +479,11 @@ public class RunCommand implements Runnable {
                 requestProcessExit(verifyAudioMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (mediaMetadataOptions.imageRefreshPath() != null && !mediaMetadataOptions.imageRefreshPath().isBlank()) {
+            if (imageMetadataOptions.imageRefreshPath() != null && !imageMetadataOptions.imageRefreshPath().isBlank()) {
                 requestProcessExit(refreshImageMetadataSidecar() ? 0 : 1);
                 return;
             }
-            if (mediaMetadataOptions.imageVerifyPath() != null && !mediaMetadataOptions.imageVerifyPath().isBlank()) {
+            if (imageMetadataOptions.imageVerifyPath() != null && !imageMetadataOptions.imageVerifyPath().isBlank()) {
                 requestProcessExit(verifyImageMetadataSidecar() ? 0 : 1);
                 return;
             }
@@ -941,10 +953,10 @@ public class RunCommand implements Runnable {
                     ? finalLocalPath
                     : modelId;
             List<tech.kayys.aqli.spi.tool.ToolDefinition> requestedTools =
-                    ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
-            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
+                    ToolRunRequestConfiguration.loadTools(toolInvocationOptions.toolFiles(), toolInvocationOptions.mcpTools());
+            Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolInvocationOptions.toolChoice());
             RagRunRequestConfiguration.RagContext ragContext =
-                    RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
+                    RagRunRequestConfiguration.load(retrievalContextOptions.contexts(), retrievalContextOptions.files(), retrievalContextOptions.maxChars(), prompt);
 
             InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
                     new RunInferenceRequestFactory.Options(
@@ -958,7 +970,7 @@ public class RunCommand implements Runnable {
                             textRunOptions.maxTokens(),
                             pluginId,
                             effectiveStream,
-                            sessionId,
+                            conversationSessionOptions.sessionId(),
                             textRunOptions.mirostat(),
                             textRunOptions.grammar(),
                             noCache));
@@ -1049,7 +1061,7 @@ public class RunCommand implements Runnable {
             RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
 
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
-            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
+            RagRunRequestConfiguration.apply(requestBuilder, ragContext, retrievalContextOptions.embeddingModel());
 
             boolean directSafetensorEligible = shouldUseDirectSafetensorRunPath(providerId, finalLocalPath);
             boolean directSafetensorSdkRoute = directSafetensorEligible && !effectiveStream;
@@ -1057,7 +1069,7 @@ public class RunCommand implements Runnable {
             if (directSafetensorSdkRoute) {
                 DirectSafetensorRunProfile directProfile =
                         directSafetensorRunProfile(executionProviderId, finalLocalPath);
-                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPrompt, directProfile)) {
+                if (!DirectSafetensorRoutePolicy.shouldForwardSystemPromptToDirectPath(systemPromptOptions.systemPrompt(), directProfile)) {
                     // Match the former direct runner: retain explicit prompts and Qwen's default,
                     // but do not inject the generic CLI default for other direct model families.
                     effectiveSystemPrompt = null;
@@ -1134,9 +1146,9 @@ public class RunCommand implements Runnable {
                             requestedTools,
                             requestedToolChoice,
                             ragContext,
-                            embeddingModel,
+                            retrievalContextOptions.embeddingModel(),
                             new RunInferenceRequestAssembler.ConversationOptions(
-                                    sessionId,
+                                    conversationSessionOptions.sessionId(),
                                     effectiveSystemPrompt,
                                     ragSystemPrompt,
                                     prompt),
@@ -1389,11 +1401,11 @@ public class RunCommand implements Runnable {
     }
 
     private boolean verifyImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(mediaMetadataOptions.imageVerifyPath(), outputPath);
+        return MediaMetadataSidecarCliHandler.verifyImageMetadataSidecar(imageMetadataOptions.imageVerifyPath(), outputPath);
     }
 
     private boolean refreshImageMetadataSidecar() {
-        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(mediaMetadataOptions.imageRefreshPath(), outputPath);
+        return MediaMetadataSidecarCliHandler.refreshImageMetadataSidecar(imageMetadataOptions.imageRefreshPath(), outputPath);
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
@@ -1837,7 +1849,7 @@ public class RunCommand implements Runnable {
                 currentProvider,
                 checkpointPath,
                 checkpointPath != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(checkpointPath.toString()),
-                sessionId,
+                conversationSessionOptions.sessionId(),
                 textRunOptions.grammar(),
                 prompt,
                 directInferenceEngine() != null);
@@ -1845,7 +1857,7 @@ public class RunCommand implements Runnable {
 
     private String effectiveRunSystemPrompt(String providerId, String localPath) {
         return DirectSafetensorRoutePolicy.effectiveSystemPrompt(
-                systemPrompt,
+                systemPromptOptions.systemPrompt(),
                 directSafetensorRunProfile(providerId, localPath));
     }
 
@@ -2106,16 +2118,16 @@ public class RunCommand implements Runnable {
     }
 
     private boolean isSimpleStandaloneTextRun() {
-        return isBlank(systemPrompt)
+        return isBlank(systemPromptOptions.systemPrompt())
                 && isBlank(textRunOptions.grammar())
-                && isBlank(sessionId)
-                && isBlank(toolChoice)
-                && isBlank(embeddingModel)
+                && isBlank(conversationSessionOptions.sessionId())
+                && isBlank(toolInvocationOptions.toolChoice())
+                && isBlank(retrievalContextOptions.embeddingModel())
                 && isBlank(visionInputOptions.inputImagePath())
-                && isEmpty(toolFiles)
-                && isEmpty(mcpTools)
-                && isEmpty(ragContexts)
-                && isEmpty(ragFiles)
+                && isEmpty(toolInvocationOptions.toolFiles())
+                && isEmpty(toolInvocationOptions.mcpTools())
+                && isEmpty(retrievalContextOptions.contexts())
+                && isEmpty(retrievalContextOptions.files())
                 && isEmpty(visionInputOptions.inputImagePaths())
                 && !jsonMode
                 && !enableJsonSse
@@ -2168,7 +2180,7 @@ public class RunCommand implements Runnable {
         if (prompt == null || prompt.isBlank()) {
             return "the direct engine currently needs --prompt";
         }
-        if (sessionId != null && !sessionId.isBlank()) {
+        if (conversationSessionOptions.sessionId() != null && !conversationSessionOptions.sessionId().isBlank()) {
             return "--session is not supported by the direct engine";
         }
         if (textRunOptions.grammar() != null && !textRunOptions.grammar().isBlank()) {
@@ -2668,8 +2680,8 @@ public class RunCommand implements Runnable {
     private void maybeWriteImageMetadataSidecar(Path imagePath, Map<String, Object> metadata) {
         MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(new MediaMetadataSidecarCliHandler.ImageSidecarRequest(
                 imagePath,
-                mediaMetadataOptions.imageOutputPath(),
-                mediaMetadataOptions.imageSidecar(),
+                imageMetadataOptions.imageOutputPath(),
+                imageMetadataOptions.imageSidecar(),
                 modelId,
                 providerId,
                 runner,
