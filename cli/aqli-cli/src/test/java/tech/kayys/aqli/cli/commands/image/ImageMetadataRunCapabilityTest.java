@@ -25,10 +25,10 @@ class ImageMetadataRunCapabilityTest {
         ImageMetadataRunOptions options =
                 new ImageMetadataRunCapability().snapshot(commandLine.getParseResult());
 
-        assertEquals("image.json", options.outputPath());
-        assertTrue(options.sidecar());
-        assertEquals("verify.json", options.verifyPath());
-        assertEquals("refresh.json", options.refreshPath());
+        assertEquals("image.json", options.imageOutputPath());
+        assertTrue(options.imageSidecar());
+        assertEquals("verify.json", options.imageVerifyPath());
+        assertEquals("refresh.json", options.imageRefreshPath());
     }
 
     @Test
@@ -39,10 +39,10 @@ class ImageMetadataRunCapabilityTest {
         ImageMetadataRunOptions options =
                 new ImageMetadataRunCapability().snapshot(commandLine.getParseResult());
 
-        assertNull(options.outputPath());
-        assertFalse(options.sidecar());
-        assertNull(options.verifyPath());
-        assertNull(options.refreshPath());
+        assertNull(options.imageOutputPath());
+        assertFalse(options.imageSidecar());
+        assertNull(options.imageVerifyPath());
+        assertNull(options.imageRefreshPath());
     }
 
     private static CommandLine commandLine() {
