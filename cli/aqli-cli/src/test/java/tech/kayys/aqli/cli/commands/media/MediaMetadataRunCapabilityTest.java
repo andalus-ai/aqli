@@ -10,11 +10,11 @@ import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
-/** Verifies metadata option aliases and immutable snapshots. */
+/** Verifies audio metadata option aliases and immutable snapshots. */
 class MediaMetadataRunCapabilityTest {
 
     @Test
-    void snapshotsAudioAndImageMetadataOperations() {
+    void snapshotsAudioMetadataOperations() {
         CommandLine commandLine = commandLine();
         commandLine.parseArgs(
                 "--tts-metadata-output", "audio.json",
