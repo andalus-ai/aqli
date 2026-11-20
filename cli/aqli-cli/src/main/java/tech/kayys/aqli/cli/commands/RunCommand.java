@@ -117,6 +117,7 @@ import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
 import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
+import tech.kayys.aqli.cli.commands.model.ModelConversionRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
@@ -179,6 +180,7 @@ public class RunCommand implements Runnable {
     private SystemPromptRunOptions systemPromptOptions;
     private FallbackModelRunOptions fallbackModelOptions;
     private ModelRepositoryRunOptions modelRepositoryOptions;
+    private ModelConversionRunOptions modelConversionOptions;
     private QuantizationRunOptions quantizationOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
@@ -240,11 +242,8 @@ public class RunCommand implements Runnable {
             "--model-path" }, description = "Path to a custom model file (bypasses repository lookup, prefer --modelFile)")
     String modelPath;
 
-    @Option(names = {
-            "--convert-mode" }, description = "Checkpoint conversion mode: auto or off", defaultValue = "auto")
     String convertMode;
 
-    @Option(names = { "--gguf-outtype" }, description = "GGUF converter outtype (e.g. f16, q8_0, f32)")
     String ggufOutType;
 
     @Option(names = { "--force" }, description = "Force re-download and replace existing files", defaultValue = "false")
@@ -259,7 +258,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--direct" }, description = "Force use of native Safetensor direct engine", defaultValue = "false")
     boolean direct;
 
-    @Option(names = { "--gguf-quant" }, description = "Specify quantization for GGUF conversion (e.g. Q4_K_M)")
     String ggufQuant;
 
     @Option(names = { "--gguf" }, description = "Force GGUF conversion and usage", defaultValue = "false")
@@ -393,6 +391,16 @@ public class RunCommand implements Runnable {
                 ModelRepositoryRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
+
+        modelConversionOptions = runCapabilityRegistry.snapshot(
+                "model-conversion",
+                commandSpec.commandLine().getParseResult(),
+                ModelConversionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'model-conversion' run capability is not registered or does not provide ModelConversionRunOptions"));
+        convertMode = modelConversionOptions.convertMode();
+        ggufOutType = modelConversionOptions.ggufOutType();
+        ggufQuant = modelConversionOptions.ggufQuant();
 
         systemPromptOptions = runCapabilityRegistry.snapshot(
                 "system-prompt",
