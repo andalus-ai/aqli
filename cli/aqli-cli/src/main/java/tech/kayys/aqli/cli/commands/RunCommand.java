@@ -160,7 +160,7 @@ public class RunCommand implements Runnable {
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
     private OcrOutputRunOptions ocrOutputOptions;
-    private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions.diagnostics()Options;
+    private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -445,7 +445,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions"));
 
-        onnxDiagnosticsOptions.diagnostics()Options = runCapabilityRegistry.snapshot(
+        onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
                 commandSpec.commandLine().getParseResult(),
                 OnnxDiagnosticsRunOptions.class)
