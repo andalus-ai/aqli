@@ -82,7 +82,7 @@ dependencies {
     implementation("tech.kayys.aljabr:aljabr-gguf-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-gguf-api:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-gguf-java:0.1.0-SNAPSHOT")
-    implementation("tech.kayys:suling:0.1.0")
+    implementation("tech.kayys:suling:0.1.1")
     implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.11.0")
     implementation(project(":runner:safetensor:aqli-safetensor-engine"))
     implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")

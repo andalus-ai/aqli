@@ -60,7 +60,7 @@ dependencies {
     implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
     implementation(project(":tokenizer:aqli-tokenizer-core"))
     implementation(project(":spi:aqli-spi"))
-    implementation("tech.kayys:suling:0.1.0")
+    implementation("tech.kayys:suling:0.1.1")
 
     implementation(project(":spi:aqli-spi-inference"))
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")

@@ -60,7 +60,7 @@ public final class LocalModelQuantizationMetadataReader {
 
     private static int integer(JsonNode object, String field) {
         JsonNode value = object.get(field);
-        return value != null && value.isNumber() && value.canConvertToInt()
+        return value != null && value.isIntegralNumber() && value.canConvertToInt()
                 ? value.intValue() : 0;
     }
 

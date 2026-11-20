@@ -25,6 +25,12 @@ public interface SdkMetricsCollector {
     void recordClientTpot(String model, long tpotMs);
     void recordClientChunk(String model);
 
+    /**
+     * Called when a streaming inference subscription is cancelled by its consumer.
+     * Cancellation is distinct from both successful completion and inference failure.
+     */
+    default void recordClientCancellation(String model, long durationMs) {}
+
     // ── Resource metrics — per-request ─────────────────────────────────────
 
     /**

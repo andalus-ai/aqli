@@ -14,7 +14,7 @@ if (aljabrDir != null) {
 
 // Suling is a runtime integration. Resolve its checked-out source in CI and sibling
 // development workspaces instead of looking for an unpublished Maven artifact.
-val sulingDir = listOf(file("suling"), file("../suling"))
+val sulingDir = listOf(file("suling"), file("../suling"), file("../../../Projects/Gollek-Ext/suling"))
     .firstOrNull { it.exists() && (it.resolve("build.gradle.kts").isFile || it.resolve("settings.gradle.kts").isFile) }
 if (sulingDir != null) {
     includeBuild(sulingDir) {
