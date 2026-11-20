@@ -1,7 +1,7 @@
 package tech.kayys.aqli.cli.commands.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
