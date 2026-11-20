@@ -541,7 +541,7 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     int pruneMossTtsOptimizedCache(String modelId, String finalLocalPath) {
-        boolean dryRun = !command.ttsCachePruneApply;
+        boolean dryRun = !command.ttsOperationsOptions().cachePruneApply();
         Optional<Path> ttsDir = MossTtsModelLayout.resolveDirectory(finalLocalPath, modelId);
         if (ttsDir.isEmpty()) {
             if (command.jsonMode) {
