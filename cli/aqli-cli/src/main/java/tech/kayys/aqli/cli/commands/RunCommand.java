@@ -664,7 +664,7 @@ public class RunCommand implements Runnable {
                                         providerExplicit,
                                         quietRouteResolutionOutput(),
                                         jsonMode,
-                                        ocrJsonOutput),
+                                        ocrOutputOptions.structuredJson()),
                                 LocalModelIndexMetadataInference::providerFor,
                                 LocalModelIndexMetadataInference::formatFor);
                 if (indexedModel.disabled()) {
@@ -878,9 +878,9 @@ public class RunCommand implements Runnable {
             }
             boolean structuredOcrOutput =
                     (jsonMode
-                            || ocrJsonOutput
-                            || (ocrOutputOptions.jsonOutputPath() != null && !ocrJsonOutputPath.isBlank())
-                            || (ocrOutputOptions.overlayOutputPath() != null && !ocrOverlayOutputPath.isBlank()))
+                            || ocrOutputOptions.structuredJson()
+                            || (ocrOutputOptions.jsonOutputPath() != null && !ocrOutputOptions.jsonOutputPath().isBlank())
+                            || (ocrOutputOptions.overlayOutputPath() != null && !ocrOutputOptions.overlayOutputPath().isBlank()))
                             && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
             boolean effectiveStream = stream && !structuredOcrOutput;
 
@@ -2147,9 +2147,9 @@ public class RunCommand implements Runnable {
                 && !jsonMode
                 && !enableJsonSse
                 && !visionInputOptions.ocrMode()
-                && !ocrJsonOutput
-                && isBlank(ocrJsonOutputPath)
-                && isBlank(ocrOverlayOutputPath);
+                && !ocrOutputOptions.structuredJson()
+                && isBlank(ocrOutputOptions.jsonOutputPath())
+                && isBlank(ocrOutputOptions.overlayOutputPath());
     }
 
 
@@ -2395,12 +2395,12 @@ public class RunCommand implements Runnable {
             OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
             Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
             Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
+                    ocrPayload, ocrOutputOptions.overlayOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
             if (overlayPath != null) {
                 ocrPayload.put("overlay_path", overlayPath.toString());
             }
-            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
-            if (ocrJsonOutput || jsonMode) {
+            ocrOutputWriter.writeJson(ocrPayload, ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
+            if (ocrOutputOptions.structuredJson() || jsonMode) {
                 printJsonPayload(ocrPayload);
                 return;
             }
