@@ -19,7 +19,6 @@ class MediaMetadataRunCapabilityTest {
         commandLine.parseArgs(
                 "--tts-metadata-output", "audio.json",
                 "--tts-metadata-sidecar",
-                "--tts-replay", "audio-replay.json",
                 "--tts-verify", "audio-verify.json",
                 "--tts-refresh-metadata", "audio-refresh.json",
                 "--image-metadata-output", "image.json",
@@ -32,7 +31,6 @@ class MediaMetadataRunCapabilityTest {
 
         assertEquals("audio.json", options.audioOutputPath());
         assertTrue(options.audioSidecar());
-        assertEquals("audio-replay.json", options.audioReplayPath());
         assertEquals("audio-verify.json", options.audioVerifyPath());
         assertEquals("audio-refresh.json", options.audioRefreshPath());
         assertEquals("image.json", options.imageOutputPath());
@@ -51,7 +49,6 @@ class MediaMetadataRunCapabilityTest {
 
         assertNull(options.audioOutputPath());
         assertFalse(options.audioSidecar());
-        assertNull(options.audioReplayPath());
         assertNull(options.audioVerifyPath());
         assertNull(options.audioRefreshPath());
         assertNull(options.imageOutputPath());

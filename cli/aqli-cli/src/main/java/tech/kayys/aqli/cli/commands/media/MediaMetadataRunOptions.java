@@ -4,7 +4,6 @@ package tech.kayys.aqli.cli.commands.media;
 public record MediaMetadataRunOptions(
         String audioOutputPath,
         boolean audioSidecar,
-        String audioReplayPath,
         String audioVerifyPath,
         String audioRefreshPath,
         String imageOutputPath,

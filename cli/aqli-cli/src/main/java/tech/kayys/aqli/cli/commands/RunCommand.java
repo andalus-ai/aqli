@@ -102,6 +102,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenan
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioRunOptions;
+import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
@@ -161,6 +162,7 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
     private OcrOutputRunOptions ocrOutputOptions;
@@ -374,6 +376,13 @@ public class RunCommand implements Runnable {
                 AudioRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+
+        audioReplayOptions = runCapabilityRegistry.snapshot(
+                "audio-replay",
+                commandSpec.commandLine().getParseResult(),
+                AudioReplayRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'audio-replay' run capability is not registered or does not provide AudioReplayRunOptions"));
 
         imageGenerationOptions = runCapabilityRegistry.snapshot(
                 "image-generation",
@@ -1388,18 +1397,18 @@ public class RunCommand implements Runnable {
     }
 
     private boolean loadAudioMetadataReplayIfRequested() {
-        if (mediaMetadataOptions.audioReplayPath() == null || mediaMetadataOptions.audioReplayPath().isBlank()) {
+        if (audioReplayOptions.replayPath() == null || audioReplayOptions.replayPath().isBlank()) {
             return true;
         }
         try {
-            Path sidecarPath = Path.of(mediaMetadataOptions.audioReplayPath());
+            Path sidecarPath = Path.of(audioReplayOptions.replayPath());
             if (!Files.isRegularFile(sidecarPath)) {
-                System.err.println("Error: audio metadata replay file not found: " + mediaMetadataOptions.audioReplayPath());
+                System.err.println("Error: audio metadata replay file not found: " + audioReplayOptions.replayPath());
                 return false;
             }
             AudioMetadataReplayParser.Plan plan = new AudioMetadataReplayParser().parse(sidecarPath);
             if (plan == null) {
-                System.err.println("Error: invalid audio metadata replay file: " + mediaMetadataOptions.audioReplayPath());
+                System.err.println("Error: invalid audio metadata replay file: " + audioReplayOptions.replayPath());
                 return false;
             }
             boolean outputExplicit = outputPath != null && !outputPath.isBlank();
