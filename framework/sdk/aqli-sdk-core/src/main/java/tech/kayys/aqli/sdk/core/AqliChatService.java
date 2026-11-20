@@ -127,10 +127,9 @@ public final class AqliChatService {
         String requestId = resolveRequestId(request);
         TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
         String modelId = effectiveRequest.model();
-        recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
-        long startMs = System.currentTimeMillis();
         return Multi.createFrom().deferred(() -> {
-            obs.getAuditLogger().logClientRequestStart(requestId, modelId);
+            recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
+            long startMs = System.currentTimeMillis();
             java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
                     new java.util.concurrent.atomic.AtomicBoolean();
             java.util.concurrent.atomic.AtomicInteger outputTokens =
@@ -160,14 +159,15 @@ public final class AqliChatService {
                                 requestId, modelId, outputTokens.get(), duration));
                     })
                     .onFailure().invoke(error -> {
-                        obs.getMetricsCollector().recordClientFailure(modelId, error.getClass().getSimpleName());
-                        obs.getAuditLogger().logClientRequestFailure(
-                                requestId, modelId, error.getClass().getSimpleName());
+                        recordMetrics(metrics -> metrics.recordClientFailure(
+                                modelId, error.getClass().getSimpleName()));
+                        recordAudit(audit -> audit.logClientRequestFailure(
+                                requestId, modelId, error.getClass().getSimpleName()));
                     })
                     .onCancellation().invoke(() -> {
                         long duration = System.currentTimeMillis() - startMs;
-                        obs.getMetricsCollector().recordClientCancellation(modelId, duration);
-                        obs.getAuditLogger().logClientRequestCancelled(requestId, modelId, duration);
+                        recordMetrics(metrics -> metrics.recordClientCancellation(modelId, duration));
+                        recordAudit(audit -> audit.logClientRequestCancelled(requestId, modelId, duration));
                     });
         });
     }
@@ -250,7 +250,7 @@ public final class AqliChatService {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, true);
         return Multi.createFrom().deferred(() -> {
-            obs.getAuditLogger().logClientRequestStart(req.getRequestId(), modelId);
+            recordAudit(audit -> audit.logClientRequestStart(req.getRequestId(), modelId));
             long startMs = System.currentTimeMillis();
             java.util.concurrent.atomic.AtomicBoolean firstOutputObserved =
                     new java.util.concurrent.atomic.AtomicBoolean();
@@ -277,14 +277,16 @@ public final class AqliChatService {
                                 req.getRequestId(), modelId, outputTokens.get(), duration));
                     })
                     .onFailure().invoke(err -> {
-                        obs.getMetricsCollector().recordClientFailure(modelId, err.getClass().getSimpleName());
-                        obs.getAuditLogger().logClientRequestFailure(
-                                req.getRequestId(), modelId, err.getClass().getSimpleName());
+                        recordMetrics(metrics -> metrics.recordClientFailure(
+                                modelId, err.getClass().getSimpleName()));
+                        recordAudit(audit -> audit.logClientRequestFailure(
+                                req.getRequestId(), modelId, err.getClass().getSimpleName()));
                     })
                     .onCancellation().invoke(() -> {
                         long duration = System.currentTimeMillis() - startMs;
-                        obs.getMetricsCollector().recordClientCancellation(modelId, duration);
-                        obs.getAuditLogger().logClientRequestCancelled(req.getRequestId(), modelId, duration);
+                        recordMetrics(metrics -> metrics.recordClientCancellation(modelId, duration));
+                        recordAudit(audit -> audit.logClientRequestCancelled(
+                                req.getRequestId(), modelId, duration));
                     });
         });
     }
