@@ -42,8 +42,7 @@ public final class MediaMetadataRunCapability
                 parseResult.matchedOptionValue("--audio-metadata-output", (String) null),
                 parseResult.matchedOptionValue("--audio-metadata-sidecar", false),
                 parseResult.matchedOptionValue("--audio-metadata-verify", (String) null),
-                parseResult.matchedOptionValue("--audio-metadata-refresh", (String) null),
-));
+                parseResult.matchedOptionValue("--audio-metadata-refresh", (String) null));
     }
 
     private static OptionSpec string(String... namesAndDescription) {
