@@ -113,6 +113,7 @@ import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
 import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
+import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -121,7 +122,6 @@ import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
 import tech.kayys.aqli.cli.util.ExternalModelFamilyPluginScope;
-import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.util.PluginAvailabilityChecker;
 import tech.kayys.aqli.plugin.kernel.KernelPlatform;
 import tech.kayys.aqli.sdk.util.AqliHome;
@@ -168,6 +168,7 @@ public class RunCommand implements Runnable {
     private OcrOutputRunOptions ocrOutputOptions;
     private TtsOperationsRunOptions ttsOperationsOptions;
     private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
+    private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
@@ -321,20 +322,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
     public String pluginId;
 
-    @Option(names = {
-            ExternalPluginClasspath.OPTION_PLUGIN_CLASSPATH,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_CLASSPATH },
-            split = ",",
-            description = ExternalPluginClasspath.MODEL_FAMILY_OPTION_DESCRIPTION)
-    List<String> externalPluginClasspath = new ArrayList<>();
-
-    @Option(names = {
-            ExternalPluginClasspath.OPTION_PLUGIN_DIR,
-            ExternalPluginClasspath.OPTION_EXTERNAL_PLUGIN_DIR },
-            split = ",",
-            description = ExternalPluginClasspath.PLUGIN_DIRECTORY_OPTION_DESCRIPTION)
-    List<String> externalPluginDirectories = new ArrayList<>();
-
     @Option(names = { "--engine", "--gguf-engine" }, description = "GGUF engine mode: auto, java, llamacpp, benchmark")
     String ggufEngine;
 
@@ -419,6 +406,13 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions"));
 
+        externalPluginLoadingOptions = runCapabilityRegistry.snapshot(
+                "external-plugin-loading",
+                commandSpec.commandLine().getParseResult(),
+                ExternalPluginLoadingRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions"));
+
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
                 commandSpec.commandLine().getParseResult(),
@@ -447,8 +441,8 @@ public class RunCommand implements Runnable {
         
         try (ExternalModelFamilyPluginScope ignored =
                 ExternalModelFamilyPluginScope.attach(
-                        externalPluginClasspath,
-                        externalPluginDirectories,
+                        externalPluginLoadingOptions.classpathEntries(),
+                        externalPluginLoadingOptions.pluginDirectoryEntries(),
                         RunCommand.class,
                         pluginChecker)) {
             if (parentCommand != null) {
