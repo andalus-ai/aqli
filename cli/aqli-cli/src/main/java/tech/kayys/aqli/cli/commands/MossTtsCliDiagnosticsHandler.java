@@ -275,7 +275,7 @@ final class MossTtsCliDiagnosticsHandler {
             System.out.println("Codec directory: missing");
             if (command.audioRunOptions().codec() != null && !command.audioRunOptions().codec().isBlank()) {
                 System.out.println("Explicit codec ref: " + command.audioRunOptions().codec());
-            } else if (command.offline) {
+            } else if (command.isOffline()) {
                 System.out.println("Auto pull: disabled by --offline/--local");
             } else if (command.audioRunOptions().disableAutoCodec()) {
                 System.out.println("Auto pull: disabled by --no-tts-auto-codec");
@@ -994,7 +994,7 @@ final class MossTtsCliDiagnosticsHandler {
         if (installedCodec.isPresent()) {
             return true;
         }
-        if (command.offline) {
+        if (command.isOffline()) {
             System.err.println("Error: MOSS TTS companion codec is not installed, and --offline/--local disables automatic downloads.");
             System.err.println("Run once online: aqli pull " + MossAudioTokenizerModelLayout.REPOSITORY_ID);
             return false;
