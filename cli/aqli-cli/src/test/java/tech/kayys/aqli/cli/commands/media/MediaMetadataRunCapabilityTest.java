@@ -20,8 +20,7 @@ class MediaMetadataRunCapabilityTest {
                 "--tts-metadata-output", "audio.json",
                 "--tts-metadata-sidecar",
                 "--tts-verify", "audio-verify.json",
-                "--tts-refresh-metadata", "audio-refresh.json",
-);
+                "--tts-refresh-metadata", "audio-refresh.json");
 
         MediaMetadataRunOptions options =
                 new MediaMetadataRunCapability().snapshot(commandLine.getParseResult());
