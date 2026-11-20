@@ -3,6 +3,7 @@ package tech.kayys.aqli.server.api.v1;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationChunk;
 import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 import tech.kayys.aqli.spi.tool.ToolCall;
 
@@ -153,7 +154,7 @@ final class ResponsesApiSerializer {
         return events;
     }
 
-    private static Map<String, Object> messageItem(String requestId, String content) {
+    static Map<String, Object> messageItem(String requestId, String content) {
         return Map.of(
                 "id", "msg_" + requestId,
                 "type", "message",
