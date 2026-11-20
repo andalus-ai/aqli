@@ -116,6 +116,7 @@ import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
 import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
 import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
 import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
+import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -173,6 +174,7 @@ public class RunCommand implements Runnable {
     private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
     private RetrievalContextRunOptions retrievalContextOptions;
     private ToolInvocationRunOptions toolInvocationOptions;
+    private ConversationSessionRunOptions conversationSessionOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
@@ -234,9 +236,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--system" }, description = "System prompt")
     String systemPrompt;
-
-    @Option(names = { "--session-id" }, description = "Persistent conversation session id for KV/prefix reuse across repeated run calls")
-    String sessionId;
 
     @Option(names = { "--no-cache" }, description = "Bypass response cache")
     boolean noCache;
@@ -402,6 +401,13 @@ public class RunCommand implements Runnable {
                 RetrievalContextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+
+        conversationSessionOptions = runCapabilityRegistry.snapshot(
+                "conversation-session",
+                commandSpec.commandLine().getParseResult(),
+                ConversationSessionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions"));
 
         toolInvocationOptions = runCapabilityRegistry.snapshot(
                 "tool-invocation",
@@ -949,7 +955,7 @@ public class RunCommand implements Runnable {
                             textRunOptions.maxTokens(),
                             pluginId,
                             effectiveStream,
-                            sessionId,
+                            conversationSessionOptions.sessionId(),
                             textRunOptions.mirostat(),
                             textRunOptions.grammar(),
                             noCache));
@@ -1127,7 +1133,7 @@ public class RunCommand implements Runnable {
                             ragContext,
                             retrievalContextOptions.embeddingModel(),
                             new RunInferenceRequestAssembler.ConversationOptions(
-                                    sessionId,
+                                    conversationSessionOptions.sessionId(),
                                     effectiveSystemPrompt,
                                     ragSystemPrompt,
                                     prompt),
@@ -1828,7 +1834,7 @@ public class RunCommand implements Runnable {
                 currentProvider,
                 checkpointPath,
                 checkpointPath != null && SafetensorCompatibilityPreflightValidator.isSafetensorCheckpointDir(checkpointPath.toString()),
-                sessionId,
+                conversationSessionOptions.sessionId(),
                 textRunOptions.grammar(),
                 prompt,
                 directInferenceEngine() != null);
@@ -2099,7 +2105,7 @@ public class RunCommand implements Runnable {
     private boolean isSimpleStandaloneTextRun() {
         return isBlank(systemPrompt)
                 && isBlank(textRunOptions.grammar())
-                && isBlank(sessionId)
+                && isBlank(conversationSessionOptions.sessionId())
                 && isBlank(toolInvocationOptions.toolChoice())
                 && isBlank(retrievalContextOptions.embeddingModel())
                 && isBlank(visionInputOptions.inputImagePath())
@@ -2159,7 +2165,7 @@ public class RunCommand implements Runnable {
         if (prompt == null || prompt.isBlank()) {
             return "the direct engine currently needs --prompt";
         }
-        if (sessionId != null && !sessionId.isBlank()) {
+        if (conversationSessionOptions.sessionId() != null && !conversationSessionOptions.sessionId().isBlank()) {
             return "--session is not supported by the direct engine";
         }
         if (textRunOptions.grammar() != null && !textRunOptions.grammar().isBlank()) {
