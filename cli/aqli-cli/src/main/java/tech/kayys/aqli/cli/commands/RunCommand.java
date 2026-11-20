@@ -1225,7 +1225,7 @@ public class RunCommand implements Runnable {
                                             tokenCount.get(),
                                             duration,
                                             audioOutput.hasOutput(),
-                                            RunCommand::isAudioMetadata);
+                                            AudioRunStatsRenderer::isAudioMetadata);
                                     if (enableJsonSse) {
                                         printOpenAiSseFinal(request.getRequestId(), request.getModel());
                                     } else {
@@ -2386,7 +2386,7 @@ public class RunCommand implements Runnable {
             System.out.println(ChatUIRenderer.DIM + "Session: " + response.getSessionId() + ChatUIRenderer.RESET);
         }
 
-        boolean audioResponse = metadata.containsKey("audio") || isAudioMetadata(metadata);
+        boolean audioResponse = metadata.containsKey("audio") || AudioRunStatsRenderer.isAudioMetadata(metadata);
         if (metadata.containsKey("audio")) {
             saveAudio(metadata.get("audio").toString(), audioDefaultExtension(metadata), metadata);
         } else if (metadata.containsKey("image")) {
@@ -2410,7 +2410,7 @@ public class RunCommand implements Runnable {
                 outputTokens,
                 response.getDurationMs(),
                 audioResponse,
-                RunCommand::isAudioMetadata);
+                AudioRunStatsRenderer::isAudioMetadata);
                 
         try {
             ObservabilityManager obs = ObservabilityManager.global();
