@@ -115,6 +115,7 @@ import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
 import tech.kayys.aqli.cli.commands.tools.ToolInvocationRunOptions;
 import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
 import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
+import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -174,6 +175,7 @@ public class RunCommand implements Runnable {
     private ToolInvocationRunOptions toolInvocationOptions;
     private ConversationSessionRunOptions conversationSessionOptions;
     private SystemPromptRunOptions systemPromptOptions;
+    private FallbackModelRunOptions fallbackModelOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
@@ -274,8 +276,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--gguf" }, description = "Force GGUF conversion and usage", defaultValue = "false")
     boolean forceGguf;
 
-    @Option(names = { "--fallback" }, split = ",", description = "Comma-separated fallback model IDs or short IDs to try only if the primary model is incompatible")
-    List<String> fallbackModelIds;
 
     @Option(names = { "--quantize" }, description = "Enable JIT quantization during inference (bnb, turbo, awq, gptq, autoround)")
     String quantizeStrategy;
@@ -384,6 +384,13 @@ public class RunCommand implements Runnable {
                 RetrievalContextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+
+        fallbackModelOptions = runCapabilityRegistry.snapshot(
+                "model-fallback",
+                commandSpec.commandLine().getParseResult(),
+                FallbackModelRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions"));
 
         systemPromptOptions = runCapabilityRegistry.snapshot(
                 "system-prompt",
@@ -675,7 +682,7 @@ public class RunCommand implements Runnable {
                                     new RunModelPreparationResolver.Options(
                                             modelId, requestedModelRef, format, providerId, pluginId,
                                             ggufQuant, ggufOutType, forceGguf, providerExplicit,
-                                            quietRouteResolutionOutput(), fallbackModelIds),
+                                            quietRouteResolutionOutput(), fallbackModelOptions.modelIds()),
                                     sdk,
                                     reference -> autoPullHfRepositoryForRunIfNeeded(
                                             reference.modelId(), reference.preferredFormat()),
