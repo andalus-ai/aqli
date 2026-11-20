@@ -108,6 +108,7 @@ import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.image.VisionInputRunOptions;
+import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -157,6 +158,7 @@ public class RunCommand implements Runnable {
     private AudioRunOptions audioRunOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
+    private OcrOutputRunOptions ocrOutputOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -322,15 +324,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--image-metadata-refresh" }, description = "Refresh a Aqli image metadata JSON sidecar with current image size and SHA-256")
     String imageMetadataRefreshPath;
 
-    @Option(names = { "--ocr-json", "--onnx-ocr-json" }, description = "Print PaddleOCR-VL OCR result as structured JSON")
-    boolean ocrJsonOutput;
-
-    @Option(names = { "--ocr-json-output", "--ocr-metadata-output" }, description = "Write PaddleOCR-VL OCR result JSON to this path")
-    String ocrJsonOutputPath;
-
-    @Option(names = { "--ocr-overlay-output", "--ocr-boxes-output" }, description = "Write a PNG preview with PaddleOCR-VL OCR boxes drawn over the input image")
-    String ocrOverlayOutputPath;
-
     @Option(names = { "--onnx-diagnostics", "--onnx-preflight" }, description = "Inspect a local ONNX model/repository and exit")
     boolean onnxDiagnostics;
 
@@ -457,6 +450,13 @@ public class RunCommand implements Runnable {
                 VisionInputRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions"));
+
+        ocrOutputOptions = runCapabilityRegistry.snapshot(
+                "ocr-output",
+                commandSpec.commandLine().getParseResult(),
+                OcrOutputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions"));
 
         if (onlyText) {
             noBanner = true;
@@ -616,7 +616,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || listTtsVoicesJson || ocrJsonOutput || routeReportJson);
+            uiRenderer.setJsonMode(enableJsonSse || jsonMode || listTtsVoicesJson || ocrOutputOptions.structuredJson() || routeReportJson);
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -664,7 +664,7 @@ public class RunCommand implements Runnable {
                                         providerExplicit,
                                         quietRouteResolutionOutput(),
                                         jsonMode,
-                                        ocrJsonOutput),
+                                        ocrOutputOptions.structuredJson()),
                                 LocalModelIndexMetadataInference::providerFor,
                                 LocalModelIndexMetadataInference::formatFor);
                 if (indexedModel.disabled()) {
@@ -878,9 +878,9 @@ public class RunCommand implements Runnable {
             }
             boolean structuredOcrOutput =
                     (jsonMode
-                            || ocrJsonOutput
-                            || (ocrJsonOutputPath != null && !ocrJsonOutputPath.isBlank())
-                            || (ocrOverlayOutputPath != null && !ocrOverlayOutputPath.isBlank()))
+                            || ocrOutputOptions.structuredJson()
+                            || (ocrOutputOptions.jsonOutputPath() != null && !ocrOutputOptions.jsonOutputPath().isBlank())
+                            || (ocrOutputOptions.overlayOutputPath() != null && !ocrOutputOptions.overlayOutputPath().isBlank()))
                             && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
             boolean effectiveStream = stream && !structuredOcrOutput;
 
@@ -2147,9 +2147,9 @@ public class RunCommand implements Runnable {
                 && !jsonMode
                 && !enableJsonSse
                 && !visionInputOptions.ocrMode()
-                && !ocrJsonOutput
-                && isBlank(ocrJsonOutputPath)
-                && isBlank(ocrOverlayOutputPath);
+                && !ocrOutputOptions.structuredJson()
+                && isBlank(ocrOutputOptions.jsonOutputPath())
+                && isBlank(ocrOutputOptions.overlayOutputPath());
     }
 
 
@@ -2395,12 +2395,12 @@ public class RunCommand implements Runnable {
             OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
             Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
             Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
+                    ocrPayload, ocrOutputOptions.overlayOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
             if (overlayPath != null) {
                 ocrPayload.put("overlay_path", overlayPath.toString());
             }
-            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
-            if (ocrJsonOutput || jsonMode) {
+            ocrOutputWriter.writeJson(ocrPayload, ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
+            if (ocrOutputOptions.structuredJson() || jsonMode) {
                 printJsonPayload(ocrPayload);
                 return;
             }
