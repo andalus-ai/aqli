@@ -114,6 +114,7 @@ import tech.kayys.aqli.cli.commands.ocr.OcrOutputRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsOperationsRunOptions;
 import tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunOptions;
 import tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunOptions;
+import tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -169,6 +170,7 @@ public class RunCommand implements Runnable {
     private TtsOperationsRunOptions ttsOperationsOptions;
     private TtsVoiceDiscoveryRunOptions ttsVoiceDiscoveryOptions;
     private ExternalPluginLoadingRunOptions externalPluginLoadingOptions;
+    private RetrievalContextRunOptions retrievalContextOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
@@ -239,18 +241,6 @@ public class RunCommand implements Runnable {
 
     @Option(names = { "--mcp-tool", "--mcp-tools" }, split = ",", description = "MCP tool name(s) to expose, optionally as server/tool or server:tool")
     List<String> mcpTools;
-
-    @Option(names = { "--rag-context" }, split = "\\|", description = "Inline retrieval context block(s), separated with | when repeated in one argument")
-    List<String> ragContexts;
-
-    @Option(names = { "--rag-file", "--context-file" }, split = ",", description = "Text file(s) to inject as retrieval context")
-    List<String> ragFiles;
-
-    @Option(names = { "--rag-max-chars" }, description = "Maximum retrieval context characters to inject", defaultValue = "12000")
-    int ragMaxChars;
-
-    @Option(names = { "--embedding-model", "--embed-model" }, description = "Embedding model id/path to attach to embedding or RAG-aware providers")
-    String embeddingModel;
 
     @Option(names = { "--session-id" }, description = "Persistent conversation session id for KV/prefix reuse across repeated run calls")
     String sessionId;
@@ -412,6 +402,13 @@ public class RunCommand implements Runnable {
                 ExternalPluginLoadingRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions"));
+
+        retrievalContextOptions = runCapabilityRegistry.snapshot(
+                "retrieval-context",
+                commandSpec.commandLine().getParseResult(),
+                RetrievalContextRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
 
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
@@ -938,7 +935,7 @@ public class RunCommand implements Runnable {
                     ToolRunRequestConfiguration.loadTools(toolFiles, mcpTools);
             Object requestedToolChoice = ToolRunRequestConfiguration.parseToolChoice(toolChoice);
             RagRunRequestConfiguration.RagContext ragContext =
-                    RagRunRequestConfiguration.load(ragContexts, ragFiles, ragMaxChars, prompt);
+                    RagRunRequestConfiguration.load(retrievalContextOptions.contexts(), retrievalContextOptions.files(), retrievalContextOptions.maxChars(), prompt);
 
             InferenceRequest.Builder requestBuilder = RunInferenceRequestFactory.createBase(
                     new RunInferenceRequestFactory.Options(
@@ -1043,7 +1040,7 @@ public class RunCommand implements Runnable {
             RuntimeOutputFormatRequestConfiguration.apply(requestBuilder, extension);
 
             ToolRunRequestConfiguration.apply(requestBuilder, requestedTools, requestedToolChoice);
-            RagRunRequestConfiguration.apply(requestBuilder, ragContext, embeddingModel);
+            RagRunRequestConfiguration.apply(requestBuilder, ragContext, retrievalContextOptions.embeddingModel());
 
             boolean directSafetensorEligible = shouldUseDirectSafetensorRunPath(providerId, finalLocalPath);
             boolean directSafetensorSdkRoute = directSafetensorEligible && !effectiveStream;
@@ -1128,7 +1125,7 @@ public class RunCommand implements Runnable {
                             requestedTools,
                             requestedToolChoice,
                             ragContext,
-                            embeddingModel,
+                            retrievalContextOptions.embeddingModel(),
                             new RunInferenceRequestAssembler.ConversationOptions(
                                     sessionId,
                                     effectiveSystemPrompt,
@@ -2104,12 +2101,12 @@ public class RunCommand implements Runnable {
                 && isBlank(textRunOptions.grammar())
                 && isBlank(sessionId)
                 && isBlank(toolChoice)
-                && isBlank(embeddingModel)
+                && isBlank(retrievalContextOptions.embeddingModel())
                 && isBlank(visionInputOptions.inputImagePath())
                 && isEmpty(toolFiles)
                 && isEmpty(mcpTools)
-                && isEmpty(ragContexts)
-                && isEmpty(ragFiles)
+                && isEmpty(retrievalContextOptions.contexts())
+                && isEmpty(retrievalContextOptions.files())
                 && isEmpty(visionInputOptions.inputImagePaths())
                 && !jsonMode
                 && !enableJsonSse
