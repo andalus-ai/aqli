@@ -137,7 +137,7 @@ final class MossTtsCliDiagnosticsHandler {
     }
 
     boolean ttsVoicesJsonOutput() {
-        return command.jsonMode || command.listTtsVoicesJson;
+        return command.jsonMode || command.ttsOperationsOptions().listVoicesJson();
     }
 
     private void printTtsVoicesJson(
