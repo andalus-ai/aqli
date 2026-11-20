@@ -1,4 +1,5 @@
 tech.kayys.aqli.cli.commands.text.TextRunCapabilityProvider
+tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunCapabilityProvider
 tech.kayys.aqli.cli.commands.audio.AudioRunCapabilityProvider
 tech.kayys.aqli.cli.commands.audio.AudioReplayRunCapabilityProvider
 tech.kayys.aqli.cli.commands.image.ImageGenerationRunCapabilityProvider
