@@ -2378,27 +2378,9 @@ public class RunCommand implements Runnable {
 
     private void printResponse(InferenceResponse response, long startTime) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
-        if (OcrOutputWriter.isPaddleOcrMetadata(metadata)) {
-            OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
-            Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
-            Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOverlayOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
-            if (overlayPath != null) {
-                ocrPayload.put("overlay_path", overlayPath.toString());
-            }
-            ocrOutputWriter.writeJson(ocrPayload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, System.out, System.err);
-            if (ocrJsonOutput || jsonMode) {
-                printJsonPayload(ocrPayload);
-                return;
-            }
-        }
-        if (jsonMode) {
-            Map<String, Object> jsonResult = new LinkedHashMap<>();
-            jsonResult.put("text", response.getContent());
-            jsonResult.put("tokenCount", response.getTokensUsed());
-            jsonResult.put("promptTokens", response.getInputTokens());
-            jsonResult.put("durationMs", response.getDurationMs());
-            printJsonPayload(jsonResult);
+        if (RunResponseContentRenderer.renderStructured(
+                response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
+                System.out, System.err)) {
             return;
         }
 
@@ -2406,21 +2388,7 @@ public class RunCommand implements Runnable {
         printQuantCacheInfo(metadata);
         printKvCacheQuantizationInfo(metadata);
         System.out.println();
-        if (debugPrompt) {
-            System.out.println("[Raw Output (From LLM Before Decode/Strip)]:");
-            System.out.println("--------------------------------------------------");
-            System.out.println(response.getContent());
-            System.out.println("--------------------------------------------------");
-            System.out.println("[Decoded/Sanitized Output]:");
-            System.out.println("--------------------------------------------------");
-            System.out.println(ChatUIRenderer.GREEN + GgufStandaloneRunner.stripThinkingChannels(response.getContent()) + ChatUIRenderer.RESET);
-            System.out.println("--------------------------------------------------");
-        } else {
-            System.out.println(ChatUIRenderer.GREEN + (raw ? response.getContent() : GgufStandaloneRunner.stripThinkingChannels(response.getContent())) + ChatUIRenderer.RESET);
-        }
-        if (response.getSessionId() != null && !response.getSessionId().isBlank()) {
-            System.out.println(ChatUIRenderer.DIM + "Session: " + response.getSessionId() + ChatUIRenderer.RESET);
-        }
+        RunResponseContentRenderer.renderText(response, raw, debugPrompt, System.out);
 
         boolean audioResponse = metadata.containsKey("audio") || isAudioMetadata(metadata);
         if (metadata.containsKey("audio")) {
@@ -2449,16 +2417,6 @@ public class RunCommand implements Runnable {
                 RunCommand::isAudioMetadata);
                 
         RunResponseTelemetryRecorder.record(metadata, outputTokens, response.getDurationMs(), tps);
-    }
-
-    private void printJsonPayload(Map<String, Object> payload) {
-        try {
-            System.out.println(new ObjectMapper()
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(payload));
-        } catch (Exception e) {
-            System.err.println("\nFailed to render JSON: " + e.getMessage());
-        }
     }
 
     private static Double ttftMillis(Map<String, Object> metadata) {
