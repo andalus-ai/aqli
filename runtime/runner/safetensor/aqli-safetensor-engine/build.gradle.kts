@@ -62,7 +62,6 @@ dependencies {
     implementation(project(":spi:aqli-spi-inference"))
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
-    implementation("tech.kayys.aljabr:aljabr-safetensor-api:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-core:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-spi:0.1.0-SNAPSHOT")
     implementation("tech.kayys.aljabr:aljabr-safetensor-loader:0.1.0-SNAPSHOT")
