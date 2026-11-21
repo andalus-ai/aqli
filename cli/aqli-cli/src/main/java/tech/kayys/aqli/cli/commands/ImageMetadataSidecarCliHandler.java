@@ -89,7 +89,7 @@ final class ImageMetadataSidecarCliHandler {
         }
     }
 
-    private static String outputExtension(Path imagePath, Map<String, Object> metadata) {
+    static String outputExtension(Path imagePath, Map<String, Object> metadata) {
         String ext = CliPathUtils.normalizeExtension(CliPathUtils.pathExtension(imagePath));
         if (!ext.isBlank()) {
             return ext;
