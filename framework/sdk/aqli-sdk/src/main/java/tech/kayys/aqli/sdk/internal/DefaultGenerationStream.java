@@ -7,55 +7,67 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
- * Default in-memory implementation of {@link GenerationStream}.
+ * In-memory bridge from an inference publisher to the listener-based SDK stream.
  *
- * <p>Used by {@link LocalAqliClient} to bridge Mutiny reactive streams to the
- * listener-based {@link GenerationStream} API. Callers register listeners via
- * {@link #onToken}, {@link #onComplete}, and {@link #onError}, then the engine
- * drives the stream by calling {@link #emitToken}, {@link #emitComplete}, and
- * {@link #emitError}.
- *
- * <p>All listener lists use {@link CopyOnWriteArrayList} to allow safe concurrent
- * registration and emission.
+ * <p>Cancellation is propagated to the upstream subscription when it is attached.
+ * Terminal completion and failure release the cancellation action without invoking it.
  */
 public class DefaultGenerationStream implements GenerationStream {
 
     private final List<Consumer<String>> tokenListeners = new CopyOnWriteArrayList<>();
     private final List<Runnable> completeListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<Throwable>> errorListeners = new CopyOnWriteArrayList<>();
-    private volatile boolean cancelled = false;
+    private final Object stateLock = new Object();
 
-    /**
-     * Delivers a generated token to all registered token listeners.
-     * No-op if the stream has been cancelled.
-     *
-     * @param token the next generated token
-     */
+    private boolean cancelled;
+    private boolean terminated;
+    private Runnable cancellationAction;
+
     public void emitToken(String token) {
-        if (!cancelled) {
-            tokenListeners.forEach(l -> l.accept(token));
+        synchronized (stateLock) {
+            if (cancelled || terminated) {
+                return;
+            }
+            tokenListeners.forEach(listener -> listener.accept(token));
         }
     }
 
-    /**
-     * Notifies all registered completion listeners that generation has finished.
-     * No-op if the stream has been cancelled.
-     */
     public void emitComplete() {
-        if (!cancelled) {
+        synchronized (stateLock) {
+            if (cancelled || terminated) {
+                return;
+            }
+            terminated = true;
+            cancellationAction = null;
             completeListeners.forEach(Runnable::run);
         }
     }
 
+    public void emitError(Throwable error) {
+        synchronized (stateLock) {
+            if (cancelled || terminated) {
+                return;
+            }
+            terminated = true;
+            cancellationAction = null;
+            errorListeners.forEach(listener -> listener.accept(error));
+        }
+    }
+
     /**
-     * Notifies all registered error listeners of a generation failure.
-     * No-op if the stream has been cancelled.
-     *
-     * @param t the error that occurred
+     * Attaches the upstream cancellation action. Safe when the upstream terminates
+     * synchronously or cancellation wins the race before attachment.
      */
-    public void emitError(Throwable t) {
-        if (!cancelled) {
-            errorListeners.forEach(l -> l.accept(t));
+    void attachCancellation(Runnable action) {
+        boolean cancelImmediately;
+        synchronized (stateLock) {
+            cancelImmediately = cancelled;
+            if (!cancelled && !terminated) {
+                cancellationAction = action;
+            }
+        }
+        if (cancelImmediately) {
+            action.run();
         }
     }
 
@@ -79,6 +91,17 @@ public class DefaultGenerationStream implements GenerationStream {
 
     @Override
     public void cancel() {
-        this.cancelled = true;
+        Runnable action;
+        synchronized (stateLock) {
+            if (cancelled || terminated) {
+                return;
+            }
+            cancelled = true;
+            action = cancellationAction;
+            cancellationAction = null;
+        }
+        if (action != null) {
+            action.run();
+        }
     }
 }
