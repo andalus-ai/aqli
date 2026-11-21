@@ -41,4 +41,4 @@ The canonical public client contract is `tech.kayys.aqli.sdk.api.AqliClient` in 
 
 The broad `AqliSdk` API still exposes some AQLI SPI DTOs. Prefer SDK-owned typed capability contracts for new application code. Do not add another parallel client interface or duplicate request/response model.
 
-See [SDK Contract Consolidation](../docs/architecture/SDK_CONTRACT_CONSOLIDATION.md) for canonical naming, migration stages and compatibility gates.
+See [SDK Contract Consolidation](../../docs/architecture/SDK_CONTRACT_CONSOLIDATION.md) for canonical naming, migration stages and compatibility gates.
