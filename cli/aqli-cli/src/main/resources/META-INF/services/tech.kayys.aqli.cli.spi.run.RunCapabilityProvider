@@ -10,7 +10,9 @@ tech.kayys.aqli.cli.commands.ocr.OcrOutputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunCapabilityProvider
 tech.kayys.aqli.cli.commands.tts.TtsOperationsRunCapabilityProvider
 tech.kayys.aqli.cli.commands.media.MediaMetadataRunCapabilityProvider
+tech.kayys.aqli.cli.commands.media.MediaOutputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.route.RouteReportRunCapabilityProvider
+tech.kayys.aqli.cli.commands.route.RunnerSelectionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.tts.TtsVoiceDiscoveryRunCapabilityProvider
 tech.kayys.aqli.cli.commands.plugin.ExternalPluginLoadingRunCapabilityProvider
 tech.kayys.aqli.cli.commands.session.ConversationSessionRunCapabilityProvider
@@ -22,3 +24,4 @@ tech.kayys.aqli.cli.commands.runtime.QuantizationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelConversionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelRoutingRunCapabilityProvider
+tech.kayys.aqli.cli.commands.generation.GenerationSeedRunCapabilityProvider

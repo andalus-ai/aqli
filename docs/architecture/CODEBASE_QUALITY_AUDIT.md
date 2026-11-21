@@ -4,7 +4,7 @@
 
 - Repository: `andalus-ai/aqli`
 - Branch: `main`
-- Audited commit: `86035c82619fd0d9cf0e0ddef79b6a9f87d5305f`
+- Audited commit: `dfa8b582bddf47d32d22803ede6f522725d28235`
 - Snapshot date: 2026-11-21
 - Method: recursive Git tree inventory, targeted source/build/documentation inspection, duplicate-name and similarity checks.
 - Validation: this was a static repository inspection. No Gradle build, test suite, runtime inference, or hardware benchmark was run as part of this snapshot.
@@ -15,14 +15,36 @@ This is an incremental audit ledger, not a claim that every file has been semant
 
 | Measure | Snapshot |
 |---|---:|
-| Git tree entries (files and directories) | 4,029 |
-| Java files | 2,141 |
-| Java main-source files | 1,654 |
-| Java test-source files | 483 |
+| Git tree entries (files and directories) | 4,025 |
+| Java files | 2,136 |
+| Java main-source files | 1,650 |
+| Java test-source files | 482 |
 | Java files outside conventional `src/` roots | 4 |
-| Repeated Java basenames | 46 groups |
+| Repeated Java basenames | 41 groups |
 
 Repeated basenames include legitimate types in different bounded contexts, package descriptors, and compatibility façades. They are review signals, not a deletion list.
+
+## Current-main status refresh
+
+This section supersedes the original snapshot's open/closed status where later merged changes are listed. The inventory above was recomputed from the current `main` tree at the audited commit.
+
+| Earlier finding | Current status on audited `main` | Evidence / remaining action |
+|---|---|---|
+| #2 duplicate ONNX CLI diagnostics capability | **Resolved** | PR #662 removed the unregistered duplicate; retain the registered diagnostics capability. |
+| #7 redundant Gradle declarations and duplicate repository entry | **Resolved** | PR #660 removed the redundant declarations. Keep future settings/build declarations single-sourced. |
+| #8 root README license metadata and relative links | **Resolved** | The README now reflects Apache-2.0 and the current tracked paths. |
+| #15 installer bootstrap recursion | **Resolved** | PR #661 corrected the bootstrap chain and repository defaults. |
+| #16 obsolete `ui/` build/install paths | **Resolved** | PR #661 aligned the local build/install paths with the current `cli/` and API layout. |
+| #20 invalid API Gradle project path | **Resolved** | The installer/build composition uses `:api:aqli-api`, not the former `:framework:api:aqli-api` logical path. |
+| #21 structured response rendering and async timeout defects | **Resolved** | PRs #664 and #665 fixed the compile-time renderer extraction and standard timeout failure semantics. |
+| #23 duplicate ONNX and Safetensors quota implementations | **Partially resolved** | PRs #662 and #663 removed the two verified duplicates. Other Safetensors same-name candidates remain under review. |
+| #17 stale module-selection manifest | **Open / guarded by pending PR** | The current selection file still contains project paths from an older Gradle graph. PR #667 adds a fail-fast validator before optional publication; it does not yet replace the stale selection. |
+| #3 and #4 Safetensors excluded sources/tests and near-duplicate candidates | **Open** | Requires source-set, consumer, CDI/service, and test migration analysis before removal. |
+| #24 SDK transport conformance | **Open** | Continue against the existing SDK consolidation plan; do not create another client abstraction. |
+
+The current tree scan found 2,136 Java files, 1,650 under main-source roots, 482 under test-source roots, and 41 repeated Java basename groups. Repeated basenames remain review signals, not automatic duplication defects. In particular, the three Safetensors `SlidingWindowAttention` classes and the generation/tooling `BeamSearchDecoder` pair require call-site and test tracing before consolidation.
+
+PR #667 is not part of the audited `main` snapshot until merged. Its validator protects the optional local publication path from stale module paths; the actual module-profile reconciliation remains a separate acceptance item.
 
 ## Confirmed findings
 
@@ -272,6 +294,7 @@ Two exact/near-exact duplicates have been isolated into small cleanup PRs:
 
 These changes are intentionally isolated so CI can prove the remaining code does not depend on the deleted copies.
 
+
 ### 24. SDK transport implementations do not yet conform to the canonical client contract
 
 The canonical `tech.kayys.aqli.sdk.api.AqliClient` now exists, but the current adapters expose materially different and sometimes misleading behavior:
@@ -289,3 +312,21 @@ The existing [SDK Contract Consolidation](SDK_CONTRACT_CONSOLIDATION.md) now rec
 The REST mapping is also structurally incompatible beyond the URL: the request body omits the builder-configured model, and the response is parsed as `GenerationResult` even though the current server returns either the native `InferenceResponse` shape or OpenAI `choices/usage` JSON. Correcting only the endpoint would not make the adapter functional.
 There is no `src/test` tree in the `framework/sdk/aqli-sdk` implementation module. Existing SDK API tests cover typed text contracts, while local SDK tests cover the separate `LocalAqliSdk`; no shared contract tests exercise the canonical REST/gRPC/embedded/CLI adapters or their provider factory. This is a material validation gap for the public SDK.
 The local client adapter is also misplaced: `EmbeddedAqliClient` lives in the facade module and `AqliClientFactory` locates Quarkus Arc by reflection to obtain `InferenceEngine`. The separate `runtime/sdk/aqli-sdk-local` currently implements the broad `AqliRuntime` aggregate, not the canonical `sdk.api.AqliClient` provider. The existing SDK consolidation document now records this boundary mismatch and the required move to explicit local-provider composition.
+
+
+### 25. Safetensors duplicate-name review: separate copied code from separate capabilities
+
+A source-level pass over the repeated Safetensors names confirms that the basename scan contains both genuine copy candidates and distinct implementations. The following distinctions are important before any removal:
+
+| Candidate | Verified source evidence | Safe disposition |
+|---|---|---|
+| `engine/generation/BeamSearchDecoder` vs `engine/tooling/BeamSearchDecoder` | Both are approximately 240 lines and implement the same beam expansion, log-softmax, top-K selection, length-normalized scoring, and decode-step flow. Differences are mainly package/import/type spelling. The repository tree contains no dedicated BeamSearchDecoder test. | Strong duplicate candidate. Make generation the canonical owner, but first establish all CDI, direct-import, reflective, and external consumers; then migrate callers and add behavior tests before deleting tooling copy. |
+| `engine/generation/attention/SlidingWindowAttention` vs `engine/tooling/SlidingWindowAttention` | Both build the same causal sliding-window mask and resolve model window settings. The generation implementation additionally exposes layer-index-aware window selection for mixed sliding/full-attention models; the tooling copy does not. | Prefer the generation attention implementation. Migrate callers only after checking whether tooling consumers rely on the older API; add tests for layer-specific behavior and boundary positions. |
+| `safetensor/mask/SlidingWindowAttention` | A third implementation uses a different mask sentinel (`-1e10f` rather than negative infinity) and lacks the generation implementation's layer-aware API and full-attention fallback behavior. The entire `safetensor/mask/**` main-source package is excluded by the module's Gradle source set. | Treat as excluded legacy source, not as an active competing implementation. Verify there are no generated/reflection consumers, then remove or migrate it in a dedicated change; do not merge its semantics into the active path blindly. |
+| `engine/lifecycle/GracefulShutdownHandler` vs `engine/warmup/GracefulShutdownHandler` | Both track in-flight requests, but the lifecycle version exposes `enterRequest/exitRequest`, while the warmup version exposes `tryAcquire/release` and includes a JAX-RS drain filter. The entire `engine/lifecycle/**` main-source package is excluded. | Not behaviorally interchangeable. Keep the compiled warmup implementation as the active shutdown boundary unless a migration explicitly replaces its HTTP-drain behavior. The excluded lifecycle copy should be removed only after consumer and compatibility checks. |
+| `engine/lifecycle/MemoryPressureMonitor` vs `engine/warmup/MemoryPressureMonitor` | The lifecycle copy samples JVM heap usage with a scheduled executor; the warmup copy is a Quarkus readiness health check with heap/off-heap pressure concepts and a virtual-thread monitor. The lifecycle package is excluded from main compilation. | Distinct designs, not a safe deduplication. Decide whether heap-only monitoring is still required; otherwise retire the excluded copy. Keep the readiness integration and lifecycle ownership explicit. |
+| `engine/session/ConversationSessionManager` vs `engine/tooling/ConversationSessionManager` | The session-package implementation has a lifecycle lock, explicit session deregistration, retained-session leases, and KV-release deferral. Its lifecycle test covers replacement, ownership isolation, leases, and capacity eviction. The tooling copy uses Arc fallback lookup and has a simpler close/eviction path without the same lease guarantees. | The session-package implementation is the stronger canonical candidate. Do not replace it with the tooling copy. Trace tooling-package consumers and migrate them to the session package only after preserving the lease and registry lifecycle contract. |
+
+The Gradle source-set declaration also excludes existing test files, not merely obsolete source paths: all `engine/forward/**` tests, several planning tests, five named FlashAttention tests, and `SafetensorProviderCompatibilityTest`. Those files remain in the repository but are not compiled by this module's normal test source set. This is a validation gap to resolve test-by-test; an exclusion is not evidence that the corresponding behavior is covered elsewhere.
+
+**Call-site limitation:** the connected repository's code-search endpoint returned no indexed matches for these identifiers in this snapshot. The source tree and full source files establish the duplication and semantic differences above, but do not establish that a class has no CDI, reflection, service-loading, downstream-module, or published-artifact consumers. No source deletion is proposed from this inspection alone. The next implementation increment should add explicit tests for the maintained generation/session owners, trace consumers through the actual build graph and runtime wiring, and then remove one proven duplicate at a time.
