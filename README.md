@@ -183,6 +183,7 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 ## Documentation
 
 - [Triad Ecosystem Vision](docs/architecture/TRIAD_ECOSYSTEM_VISION.md) — the AQLI + Aljabr + Tafkir Java AI/ML ecosystem strategy.
+- [Multimodal Embedding Integration](docs/architecture/MULTIMODAL_EMBEDDING_INTEGRATION.md) — current SPI gaps, Aljabr runner dependency, embedding-space metadata and rollout criteria.
 
 ### Getting started and API
 
