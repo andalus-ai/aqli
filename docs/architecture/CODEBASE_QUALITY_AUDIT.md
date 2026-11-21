@@ -242,3 +242,8 @@ The current `AqliCommand` top-level registration does not include `mcp`, `provid
 - `cli/aqli-cli/README.md` lists unregistered commands and old `bhangun/aqli` release/Homebrew URLs.
 
 **Disposition:** align each guide with the current CLI registration, Gradle project path, canonical SDK contracts, and API module. Avoid documenting examples or install channels that are not present in the repository.
+### 20. Local installer also used an invalid API Gradle project path
+
+The local runtime installer invoked `:framework:api:aqli-api:quarkusBuild`, but the actual logical Gradle project path declared by settings is `:api:aqli-api`. The source directory path and Gradle project path are different concepts; both must be derived from the settings mapping.
+
+The local installer and build wrapper have now been corrected in the focused installer follow-up to build the current CLI/API composition roots and use the current source/output directories. The separate `module-selection-current.env` list remains stale: 43 of its 63 declared project paths do not map to the active project graph. It is still consumed by the optional local Maven publication flow in `install-local-macos.sh`, so that opt-in compatibility path remains a follow-up item.
