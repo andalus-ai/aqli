@@ -39,6 +39,7 @@ final class AgenticApiMapper {
         AgentTraceContext trace = traceContext != null
                 ? traceContext.withPayloadFallback(root)
                 : AgentTraceContext.fromPayload(root);
+        String model = requiredText(root, "model");
         List<TextGenerationMessage> messages = new ArrayList<>();
         for (JsonNode node : iterable(root.path("messages"))) {
             messages.add(toTextGenerationMessage(toMessage(node)));
@@ -88,7 +89,7 @@ final class AgenticApiMapper {
         metadata.put("aqli_trace", trace.asMap());
         TextGenerationContext context = RagContextMapper.toTextGenerationContext(root);
         return new TextGenerationRequest(
-                requiredText(root, "model"),
+                model,
                 messages,
                 parameters,
                 tools,
