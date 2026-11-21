@@ -149,7 +149,8 @@ bash "$ROOT_DIR/scripts/install-local-runtime.sh" "$@"
 echo "${BOLD}${GREEN}:) Step 2/2:${RESET} optional compatibility publish to local artifact cache"
 if [[ "${PUBLISH_RUNTIME_LOCAL}" == "true" ]]; then
   if [[ ${#GRADLE_INSTALL_TASKS[@]} -gt 0 ]]; then
-    if ./gradlew "${GRADLE_JAVA_HOME_ARG[@]}" "${GRADLE_MAX_WORKERS_ARG[@]}" "${GRADLE_INSTALL_TASKS[@]}" \
+    if bash "$ROOT_DIR/scripts/validate-module-selection.sh" && \
+      ./gradlew "${GRADLE_JAVA_HOME_ARG[@]}" "${GRADLE_MAX_WORKERS_ARG[@]}" "${GRADLE_INSTALL_TASKS[@]}" \
       -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
       -Paqli.profile="${BUILD_PROFILE}" \
       -Paqli.model.formats="${FORMAT_TARGETS}" \
