@@ -244,3 +244,5 @@ Before completing a structural refactor, verify:
 6. Focused tests and affected compile/build checks were run; report anything not run.
 7. The change is the smallest reviewable step that improves maintainability without degrading user-visible behavior.
 
+Before cross-cutting cleanup, consult [the codebase quality audit](docs/architecture/CODEBASE_QUALITY_AUDIT.md) and the existing ownership/migration plans in `docs/architecture/`. Extend the owning plan instead of creating competing inventories or parallel migration roadmaps.
+
