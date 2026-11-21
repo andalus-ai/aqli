@@ -19,7 +19,6 @@ sourceSets {
         java {
             // Match the maintained Maven slice first; these legacy packages still
             // rely on older provider/runtime surfaces and migrate separately.
-            exclude("tech/kayys/aqli/safetensor/config/SafetensorProviderConfig.java")
             exclude("tech/kayys/aqli/safetensor/engine/lifecycle/**")
             exclude("tech/kayys/aqli/safetensor/mask/**")
         }
@@ -28,7 +27,6 @@ sourceSets {
         java {
             // Stale tests referencing removed/renamed APIs — need migration to InferenceRequest SPI.
             exclude("tech/kayys/aqli/safetensor/engine/EngineIntegrationTest.java")
-            exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceModelPathResolverTest.java")
             exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceRequestPlannerWiringTest.java")
             exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceRequestRuntimeConfigMapperTest.java")
             exclude("tech/kayys/aqli/safetensor/engine/planning/RequestQuantizationPlannerTest.java")
@@ -47,7 +45,6 @@ sourceSets {
 repositories {
     mavenLocal()
     mavenCentral()
-    mavenLocal()
 }
 
 dependencies {
