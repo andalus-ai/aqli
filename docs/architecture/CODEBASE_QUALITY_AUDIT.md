@@ -263,3 +263,11 @@ The command inventory found:
 - `ExtensionsCommand.java`: 2,858 lines and approximately 130 methods. It assembles module, plugin, unified-runtime, model-family, tokenizer, extension-availability, audio and route-benchmark reports in one command class.
 
 These should not be rewritten wholesale. The new [CLI Command Decomposition Plan](CLI_COMMAND_DECOMPOSITION_PLAN.md) defines staged extraction boundaries, compatibility gates and proportionality rules. Keep CLI-specific services in the CLI module until a second consumer justifies promoting a stable contract into a shared module.
+### 23. Duplicate implementations removed in focused follow-ups
+
+Two exact/near-exact duplicates have been isolated into small cleanup PRs:
+
+- The unregistered `cli.commands.onnx` diagnostics capability duplicated the maintained `cli.commands.diagnostics` implementation. The diagnostics provider was the one registered with `ServiceLoader`, and `RunCommand` consumed its options type. The duplicate package and its package-local test are removed in [PR #662](https://github.com/andalus-ai/aqli/pull/662).
+- `safetensor.engine.tooling.MultiTenantQuotaService` duplicated the routing package's service implementation. The tooling copy had no dedicated test and was not referenced by `ToolCallingEngine`; the duplicate is removed in [PR #663](https://github.com/andalus-ai/aqli/pull/663).
+
+These changes are intentionally isolated so CI can prove the remaining code does not depend on the deleted copies.
