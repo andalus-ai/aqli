@@ -118,6 +118,7 @@ import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelConversionRunOptions;
+import tech.kayys.aqli.cli.commands.model.ModelRoutingRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
@@ -182,6 +183,7 @@ public class RunCommand implements Runnable {
     private FallbackModelRunOptions fallbackModelOptions;
     private ModelRepositoryRunOptions modelRepositoryOptions;
     private ModelConversionRunOptions modelConversionOptions;
+    private ModelRoutingRunOptions modelRoutingOptions;
     private QuantizationRunOptions quantizationOptions;
     private RuntimeProfileRunOptions runtimeProfileOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
@@ -217,8 +219,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "-p", "--prompt" }, description = "Input prompt")
     public String prompt;
 
-    @Option(names = {
-            "--provider" }, description = "Provider: native, litert, llamacpp, safetensor, libtorch(experimental), gemini, openai, anthropic, cerebras. Omit for auto-detection.", arity = "0..1", fallbackValue = "")
     String providerId;
 
     @Option(names = { "--runner" },
@@ -251,7 +251,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--force" }, description = "Force re-download and replace existing files", defaultValue = "false")
     boolean force;
 
-    @Option(names = { "--format" }, description = "Preferred model format (e.g., safetensors, gguf, onnx)")
     String format;
 
     @Option(names = { "--pipeline", "--feature" }, description = "Explicit feature pipeline id for out-of-core model orchestration")
@@ -399,6 +398,15 @@ public class RunCommand implements Runnable {
                 ModelRepositoryRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
+
+        modelRoutingOptions = runCapabilityRegistry.snapshot(
+                "model-routing",
+                commandSpec.commandLine().getParseResult(),
+                ModelRoutingRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'model-routing' run capability is not registered or does not provide ModelRoutingRunOptions"));
+        providerId = modelRoutingOptions.providerId();
+        format = modelRoutingOptions.format();
 
         modelConversionOptions = runCapabilityRegistry.snapshot(
                 "model-conversion",
