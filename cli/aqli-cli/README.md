@@ -30,35 +30,48 @@
 
 ## Install
 
+The repository's local installer is being aligned with the current module layout. For a reproducible source build, use the Gradle wrapper:
+
 ```bash
-# macOS / Linux
-curl -fsSL https://github.com/bhangun/aqli/releases/latest/download/install.sh | bash
-
-# Homebrew
-brew tap bhangun/aqli && brew install aqli
-
-# Windows (native executable)
-Invoke-WebRequest -Uri "https://github.com/bhangun/aqli/releases/latest/download/aqli-windows-x64.exe" -OutFile "aqli.exe"
+git clone https://github.com/andalus-ai/aqli.git
+cd aqli
+./gradlew :cli:aqli-cli:quarkusBuild
 ```
 
----
+The CLI module is `cli/aqli-cli`; do not use the retired `ui/aqli-cli` path.
 
 ## Build from Source
 
 ```bash
-# JVM build (Gradle)
-./gradlew :cli:aqli-cli:quarkusBuild -x test
+# Build the JVM CLI distribution
+./gradlew :cli:aqli-cli:quarkusBuild
 
-# Native image (requires GraalVM 25)
-./gradlew :cli:aqli-cli:buildNative -x test
+# Build a native executable when GraalVM/native-image support is configured
+./gradlew :cli:aqli-cli:buildNative
 ```
 
-> **Note**: The GGUF runner uses Panama FFM to bridge llama.cpp.  
-> GraalVM native builds require `reachability-metadata.json` in `aqli-ext-runner-gguf`.
+Native-image availability and runner reachability metadata depend on the selected platform and enabled integrations.
 
----
+These are the registered top-level commands in the current `AqliCommand`:
 
-## Commands Overview
+| Command | Description |
+|---|---|
+| `run` | Single-request inference |
+| `chat` | Interactive conversation |
+| `pull` | Download a model |
+| `list`, `show`, `delete` | Discover and manage local models |
+| `model` | Model-management operations |
+| `prepare`, `prewarm` | Prepare and warm model runtimes |
+| `benchmark`, `route-benchmarks` | Benchmark inference and routing |
+| `embed`, `batch`, `multimodal` | Embedding, batch and multimodal inference |
+| `jobs`, `stats`, `logs`, `info` | Runtime operations and diagnostics |
+| `modules`, `extensions` | Inspect modules, extensions and features |
+| `safetensors`, `litert`, `onnx`, `quantize` | Format and runtime-specific operations |
+| `register`, `server`, `serve`, `stop` | Model registration and server lifecycle |
+
+Use `aqli --help` and `aqli <command> --help` as the source of truth for the installed version. `convert`, `mcp`, and `providers` are not currently registered top-level commands; MCP server configuration is provided through inherited CLI options.
+
+
 
 | Command | Description |
 |---------|-------------|
