@@ -251,7 +251,6 @@ public class RunCommand implements Runnable {
 
     String format;
 
-    @Option(names = { "--direct" }, description = "Force use of native Safetensor direct engine", defaultValue = "false")
     boolean direct;
 
     String ggufQuant;
@@ -505,6 +504,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        direct = engineSelectionOptions.directSafetensor();
         pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
