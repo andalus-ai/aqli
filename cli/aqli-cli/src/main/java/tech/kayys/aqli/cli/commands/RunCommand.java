@@ -281,8 +281,7 @@ public class RunCommand implements Runnable {
 
     String quantizeKv;
 
-    @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
-    public String pluginId;
+    String pluginId;
 
     boolean runtimeProfile;
 
@@ -487,6 +486,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
             noBanner = true;
@@ -827,7 +827,7 @@ public class RunCommand implements Runnable {
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
-                printJsonPayload(routeReportResult.payload());
+                RunResponseContentRenderer.renderJsonPayload(routeReportResult.payload(), System.out, System.err);
                 requestProcessExit(routeReportResult.exitCode());
                 return;
             }
@@ -2418,7 +2418,8 @@ public class RunCommand implements Runnable {
     private void printResponse(InferenceResponse response) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
         boolean structuredOutput = RunResponseContentRenderer.renderStructured(
-                response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
+                response, metadata, jsonMode,
+                ocrOutputOptions.structuredJson(), ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.overlayOutputPath(),
                 System.out, System.err);
 
         if (!structuredOutput) {
