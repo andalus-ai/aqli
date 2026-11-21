@@ -288,8 +288,6 @@ public class RunCommand implements Runnable {
 
     boolean runtimeProfile;
 
-    @Option(names = {
-            "--prefer-alternate-runtime" }, description = "Allow Gemma safetensor checkpoints to route to local LiteRT/GGUF companion artifacts")
     boolean preferAlternateRuntime;
 
     @Parameters(arity = "0..*", hidden = true)
@@ -473,6 +471,7 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
+        preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
 
         if (onlyText) {
             noBanner = true;
