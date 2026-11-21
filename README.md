@@ -2,7 +2,7 @@
 
 [![Java 25](https://img.shields.io/badge/Java-25-blue.svg)](https://openjdk.org/projects/jdk/25/)
 [![Gradle 9](https://img.shields.io/badge/Gradle-9.x-brightgreen.svg)](https://gradle.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE.md)
 
 AQLI is a Java-first inference runtime and serving product. It loads supported models, runs generation, manages inference requests and exposes CLI, SDK and service interfaces.
 
@@ -183,7 +183,7 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 - [Install Profiles](docs/install-profiles.md)
 - [Error Codes](docs/error-codes.md)
 - [Observability Guide](docs/OBSERVABILITY.md)
-- [CLI documentation](ui/aqli-cli/README.md)
+- [CLI documentation](cli/aqli-cli/README.md)
 
 ### Architecture and consolidation
 
@@ -192,6 +192,7 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 - [Module Ownership Matrix](docs/architecture/MODULE_OWNERSHIP_MATRIX.md) — canonical responsibility and migration checks.
 - [Consolidation Roadmap](docs/architecture/ALJABR_AQLI_CONSOLIDATION_ROADMAP.md) — phased work and acceptance gates.
 - [Ownership Audit](docs/architecture/ALJABR_AQLI_OWNERSHIP_AUDIT.md) — initial overlap inventory.
+- [Codebase Quality Audit](docs/architecture/CODEBASE_QUALITY_AUDIT.md) — verified structural findings and the incremental cleanup plan.
 
 Architecture documents describe the target state and migration rules. They are not proof that every consolidation task or model capability is complete.
 
@@ -207,7 +208,7 @@ Before submitting changes:
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE.md).
 
 ## The Java AI/ML ecosystem: AQLI + Aljabr + Tafkir
 
