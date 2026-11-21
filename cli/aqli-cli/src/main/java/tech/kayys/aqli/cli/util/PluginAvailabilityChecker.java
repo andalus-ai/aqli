@@ -18,6 +18,7 @@ import tech.kayys.aljabr.spi.model.ModelFamilyPlugin;
 import tech.kayys.aljabr.spi.model.ModelFamilyPluginRegistry;
 import tech.kayys.aqli.plugin.runner.RunnerPlugin;
 import tech.kayys.aqli.plugin.runner.RunnerPluginManager;
+import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -128,6 +129,17 @@ public class PluginAvailabilityChecker {
         }
     }
 
+    private final LocalInferenceEngineCatalog inferenceEngines;
+
+    public PluginAvailabilityChecker() {
+        this(null);
+    }
+
+    @Inject
+    public PluginAvailabilityChecker(LocalInferenceEngineCatalog inferenceEngines) {
+        this.inferenceEngines = inferenceEngines;
+    }
+
     @Inject
     Instance<RunnerPlugin> runnerPlugins;
 
@@ -138,24 +150,33 @@ public class PluginAvailabilityChecker {
      * Check if any LLM providers are registered.
      */
     public boolean hasProviders() {
-        try {
-            var providers = java.util.List.of();
-            return providers != null && !providers.isEmpty();
-        } catch (Exception e) {
-            LOG.debugf("Error checking providers: %s", e.getMessage());
-            return false;
-        }
+        return !getAvailableProviderIds().isEmpty();
     }
 
     /**
      * Check if a specific provider is available by ID.
      */
     public boolean hasProvider(String providerId) {
+        if (providerId == null || providerId.isBlank()) {
+            return false;
+        }
+        return getAvailableProviderIds().stream()
+                .anyMatch(available -> available.equalsIgnoreCase(providerId.trim()));
+    }
+
+    /**
+     * Get stable provider identifiers from the same catalog used by local
+     * inference request selection.
+     */
+    public List<String> getAvailableProviderIds() {
+        if (inferenceEngines == null) {
+            return List.of();
+        }
         try {
-            return false;
-        } catch (Exception e) {
-            LOG.debugf("Error checking provider %s: %s", providerId, e.getMessage());
-            return false;
+            return inferenceEngines.availableProviders();
+        } catch (RuntimeException e) {
+            LOG.debugf("Error listing inference providers: %s", e.getMessage());
+            return List.of();
         }
     }
 
@@ -908,11 +929,11 @@ public class PluginAvailabilityChecker {
         sb.append("Error: Provider '").append(providerId).append("' is not available.\n\n");
 
         try {
-            var available = java.util.List.of();
-            if (available != null && !available.isEmpty()) {
+            List<String> available = getAvailableProviderIds();
+            if (!available.isEmpty()) {
                 sb.append("Available providers:\n");
-                for (var p : available) {
-                    sb.append("  - ").append("").append("\n");
+                for (String provider : available) {
+                    sb.append("  - ").append(provider).append("\n");
                 }
             } else {
                 sb.append("No providers are currently available.\n");
