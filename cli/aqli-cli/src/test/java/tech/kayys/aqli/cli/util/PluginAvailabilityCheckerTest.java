@@ -7,6 +7,9 @@ import tech.kayys.aqli.plugin.core.ExtensionAvailabilityContractReport;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityContractViolation;
 import tech.kayys.aqli.plugin.core.ExtensionAvailabilityRegistry;
 import tech.kayys.aqli.plugin.runner.RunnerPluginManager;
+import tech.kayys.aqli.sdk.local.engine.LocalInferenceEngineCatalog;
+import tech.kayys.aqli.spi.inference.InferenceEngineDescriptor;
+import tech.kayys.aqli.spi.inference.LocalInferenceEngine;
 
 import tech.kayys.aljabr.spi.model.ModelArchitecture;
 import tech.kayys.aljabr.spi.model.ModelFamilyContractViolation;
@@ -37,6 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 class PluginAvailabilityCheckerTest {
     @Test
@@ -49,6 +55,35 @@ class PluginAvailabilityCheckerTest {
         PluginAvailabilityChecker checker = new PluginAvailabilityChecker();
 
         assertTrue(checker.hasRunnerPlugins());
+    }
+
+    @Test
+    void availabilityCheckerUsesTheRuntimeInferenceEngineCatalog() {
+        LocalInferenceEngine engine = mock(
+                LocalInferenceEngine.class,
+                withSettings().extraInterfaces(InferenceEngineDescriptor.class));
+        InferenceEngineDescriptor descriptor = (InferenceEngineDescriptor) engine;
+        when(descriptor.providerId()).thenReturn("llamacpp");
+
+        PluginAvailabilityChecker checker = new PluginAvailabilityChecker(
+                new LocalInferenceEngineCatalog(List.of(engine)));
+
+        assertTrue(checker.hasProviders());
+        assertTrue(checker.hasProvider("llamacpp"));
+        assertTrue(checker.hasProvider("LLAMACPP"));
+        assertFalse(checker.hasProvider("missing"));
+        assertTrue(checker.getProviderNotFoundError("missing").contains("  - llamacpp"));
+    }
+
+    @Test
+    void availabilityCheckerTreatsAnEmptyRuntimeCatalogAsUnavailable() {
+        PluginAvailabilityChecker checker = new PluginAvailabilityChecker(
+                new LocalInferenceEngineCatalog(List.of()));
+
+        assertFalse(checker.hasProviders());
+        assertFalse(checker.hasProvider("llamacpp"));
+        assertTrue(checker.getProviderNotFoundError("llamacpp")
+                .contains("No providers are currently available."));
     }
 
     @Test
