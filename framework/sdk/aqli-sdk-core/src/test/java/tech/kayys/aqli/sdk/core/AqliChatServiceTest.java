@@ -450,5 +450,63 @@ class AqliChatServiceTest {
         assertEquals("hello", result.getFirst().delta());
     }
 
+    @Test
+    void typedAndLegacyUnaryExecutionKeepObservabilityFailuresIsolated() {
+        var sdk = org.mockito.Mockito.mock(tech.kayys.aqli.sdk.runtime.AqliRuntime.class);
+        var metrics = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector.class);
+        var audit = org.mockito.Mockito.mock(
+                tech.kayys.aqli.sdk.core.observability.SdkAuditLogger.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("metrics unavailable"))
+                .when(metrics).recordClientSuccess(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyInt());
+        org.mockito.Mockito.doThrow(new IllegalStateException("audit unavailable"))
+                .when(audit).logClientRequestStart(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.doThrow(new IllegalStateException("audit unavailable"))
+                .when(audit).logClientRequestComplete(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyLong());
+        var observability = new tech.kayys.aqli.sdk.core.observability.SdkObservabilityProvider() {
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkMetricsCollector getMetricsCollector() {
+                return metrics;
+            }
+
+            @Override
+            public tech.kayys.aqli.sdk.core.observability.SdkAuditLogger getAuditLogger() {
+                return audit;
+            }
+        };
+        var typedRequest = tech.kayys.aqli.sdk.capability.text.TextGenerationRequest.of("model-id", "hello");
+        var typedResponse = new tech.kayys.aqli.sdk.capability.text.TextGenerationResponse(
+                "hello", "model-id", 1, 1, 10,
+                tech.kayys.aqli.sdk.capability.text.TextGenerationResponse.FinishReason.STOP);
+        org.mockito.Mockito.when(sdk.generateTextAsync(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(typedResponse));
+        var legacyResponse = tech.kayys.aqli.spi.inference.InferenceResponse.builder()
+                .requestId("legacy-request")
+                .content("hello")
+                .model("model-id")
+                .tokensUsed(2)
+                .build();
+        org.mockito.Mockito.when(sdk.createCompletionAsync(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(legacyResponse));
+
+        var serviceWithObservability = new AqliChatService(observability);
+        var typedResult = serviceWithObservability.generateText(sdk, typedRequest)
+                .await().indefinitely();
+        var legacyResult = serviceWithObservability.chat(
+                sdk, "model-id", null, List.of(Message.user("hello")), List.of(), ChatParams.defaults())
+                .await().indefinitely();
+
+        assertEquals(typedResponse, typedResult);
+        assertEquals(legacyResponse, legacyResult);
+    }
 
 }
