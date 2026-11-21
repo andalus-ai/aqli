@@ -40,6 +40,35 @@ final class MediaOutputCliHandler {
         this.imageSidecarWriter = imageSidecarWriter;
     }
 
+    void saveResponseMedia(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return;
+        }
+        String audio = metadata.get("audio") == null ? null : metadata.get("audio").toString();
+        if (audio != null) {
+            saveBase64Response(audio, audioDefaultExtension.apply(metadata), "Audio", metadata);
+            return;
+        }
+        String image = metadata.get("image") == null ? null : metadata.get("image").toString();
+        if (image != null) {
+            saveBase64Response(image, "png", "Image", metadata);
+        }
+    }
+
+    private void saveBase64Response(
+            String base64,
+            String defaultExtension,
+            String label,
+            Map<String, Object> metadata) {
+        try {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            buffer.write(java.util.Base64.getDecoder().decode(base64));
+            saveBuffer(buffer, defaultExtension, label, metadata);
+        } catch (Exception ignored) {
+            // Preserve the CLI's best-effort handling of malformed media payloads.
+        }
+    }
+
     void handleOutputs(
             ByteArrayOutputStream imageBuffer,
             StreamingAudioOutputSession audioOutput,
