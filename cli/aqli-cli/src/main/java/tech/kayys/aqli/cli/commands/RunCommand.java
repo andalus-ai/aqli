@@ -123,6 +123,7 @@ import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaOutputRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
+import tech.kayys.aqli.cli.commands.onnx.OnnxModelVariantRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
@@ -194,6 +195,7 @@ public class RunCommand implements Runnable {
     private RunnerSelectionRunOptions runnerSelectionOptions;
     private tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions engineSelectionOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
+    private OnnxModelVariantRunOptions onnxModelVariantOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -273,9 +275,6 @@ public class RunCommand implements Runnable {
     Long seed;
 
     String outputPath;
-
-    @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
-    String onnxVariant;
 
     String extension;
 
@@ -440,6 +439,13 @@ public class RunCommand implements Runnable {
                 ToolInvocationRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions"));
+
+        onnxModelVariantOptions = runCapabilityRegistry.snapshot(
+                "onnx-model-variant",
+                commandSpec.commandLine().getParseResult(),
+                OnnxModelVariantRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'onnx-model-variant' run capability is not registered or does not provide OnnxModelVariantRunOptions"));
 
         onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
                 "onnx-diagnostics",
@@ -1063,9 +1069,9 @@ public class RunCommand implements Runnable {
                             outputPath,
                             imageGenerationOptions.width(),
                             imageGenerationOptions.height()));
-            String effectiveOnnxVariant = onnxVariant == null || onnxVariant.isBlank()
+            String effectiveOnnxVariant = onnxModelVariantOptions.variant() == null || onnxModelVariantOptions.variant().isBlank()
                     ? null
-                    : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxVariant);
+                    : PaddleOcrVlOnnxPlanner.normalizeVariant(onnxModelVariantOptions.variant());
             String effectiveTtsVoice = effectiveTtsVoiceSelector();
             String effectiveTtsCodec = audioRunOptions.codec() == null || audioRunOptions.codec().isBlank()
                     ? null
@@ -1670,12 +1676,12 @@ public class RunCommand implements Runnable {
     }
 
     private int printOnnxDiagnostics(String modelId, String finalLocalPath) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
+        return new OnnxDiagnosticsCliHandler(prompt, onnxModelVariantOptions.variant(), onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxDiagnostics(modelId, finalLocalPath);
     }
 
     private int printOnnxVisionProbe(String modelId, String finalLocalPath, boolean includePipelineGraphs) {
-        return new OnnxDiagnosticsCliHandler(prompt, onnxVariant, onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
+        return new OnnxDiagnosticsCliHandler(prompt, onnxModelVariantOptions.variant(), onnxDiagnosticsOptions.probeImageTokens(), onnxDiagnosticsOptions.probeDecodeTokens())
                 .printOnnxVisionProbe(modelId, finalLocalPath, normalizedInputImagePaths(), includePipelineGraphs);
     }
 
