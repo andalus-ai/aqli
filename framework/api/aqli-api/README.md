@@ -126,8 +126,7 @@ The application can be packaged using:
 ./gradlew :api:aqli-api:build
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+It produces the `quarkus-run.jar` file in the Gradle `build/quarkus-app/` directory. It is not an _über-jar_; dependencies are copied into `build/quarkus-app/lib/`.
 
 The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
 
