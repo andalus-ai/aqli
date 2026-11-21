@@ -1700,7 +1700,7 @@ if [ "$NATIVE_MODE" = false ]; then
     echo -e "${GREEN}✓ Installed CLI runtime jar to ${AQLI_RUNTIME_JAR}${NC}"
 
     # Also install API server runtime
-    API_BUILD_DIR="${PROJECT_ROOT}/ui/aqli-api/build/quarkus-app"
+    API_BUILD_DIR="${PROJECT_ROOT}/framework/api/aqli-api/build/quarkus-app"
     if [ -d "$API_BUILD_DIR" ]; then
         mkdir -p "${RUNTIME_DIR}/api"
         rm -rf "${RUNTIME_DIR}/api"/*
