@@ -123,6 +123,7 @@ import tech.kayys.aqli.cli.commands.model.ModelRoutingRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
+import tech.kayys.aqli.cli.commands.media.MediaOutputRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -188,6 +189,7 @@ public class RunCommand implements Runnable {
     private QuantizationRunOptions quantizationOptions;
     private RuntimeProfileRunOptions runtimeProfileOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
+    private MediaOutputRunOptions mediaOutputOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private RunnerSelectionRunOptions runnerSelectionOptions;
@@ -270,13 +272,11 @@ public class RunCommand implements Runnable {
     @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
     Long seed;
 
-    @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     String outputPath;
 
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
-    @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
     String quantizeKv;
@@ -455,6 +455,15 @@ public class RunCommand implements Runnable {
                 ImageMetadataRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
+
+        mediaOutputOptions = runCapabilityRegistry.snapshot(
+                "media-output",
+                commandSpec.commandLine().getParseResult(),
+                MediaOutputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions"));
+        outputPath = mediaOutputOptions.outputPath();
+        extension = mediaOutputOptions.extension();
 
         routeReportOptions = runCapabilityRegistry.snapshot(
                 "route-report",
