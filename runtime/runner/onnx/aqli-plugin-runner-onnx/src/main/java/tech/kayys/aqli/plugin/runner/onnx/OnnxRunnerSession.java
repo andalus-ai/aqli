@@ -151,7 +151,11 @@ public class OnnxRunnerSession implements RunnerSession {
             return Multi.createFrom().failure(new IllegalStateException("Session is closed"));
         }
 
-        return Multi.createFrom().emitter(emitter -> executeStreamingInference(request, emitter));
+        return Multi.createFrom().emitter(emitter -> {
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+            emitter.onTermination(() -> cancelled.set(true));
+            executeStreamingInference(request, emitter, cancelled);
+        });
     }
 
     @Override
@@ -307,8 +311,12 @@ public class OnnxRunnerSession implements RunnerSession {
         }
     }
 
-    private void executeStreamingInference(InferenceRequest request, MultiEmitter<? super StreamingInferenceChunk> emitter) {
+    private void executeStreamingInference(
+            InferenceRequest request,
+            MultiEmitter<? super StreamingInferenceChunk> emitter,
+            AtomicBoolean cancelled) {
         long t0 = System.currentTimeMillis();
+        if (cancelled.get() || !active.get()) return;
         String prompt = getPrompt(request);
         long[] inputIds = tokenizer.encode(prompt, EncodeOptions.defaultOptions());
         int maxNewTokens = extractInt(request.getParameters(), "max_tokens", 128);
@@ -317,8 +325,7 @@ public class OnnxRunnerSession implements RunnerSession {
             List<Long> currentTokens = new ArrayList<>();
             for (long id : inputIds) currentTokens.add(id);
 
-            for (int step = 0; step < maxNewTokens; step++) {
-                if (!active.get()) break;
+            for (int step = 0; step < maxNewTokens && active.get() && !cancelled.get(); step++) {
 
                 long seqLen = currentTokens.size();
                 MemorySegment ids64 = arena.allocate(seqLen * 8L, 8);
@@ -347,6 +354,7 @@ public class OnnxRunnerSession implements RunnerSession {
                 String piece = tokenizer.decode(new long[]{nextTokenId}, DecodeOptions.defaultOptions());
                 currentTokens.add((long) nextTokenId);
 
+                if (cancelled.get()) break;
                 emitter.emit(new StreamingInferenceChunk(
                     request.getRequestId(),
                     step,
@@ -364,6 +372,9 @@ public class OnnxRunnerSession implements RunnerSession {
                 ));
             }
             
+            // Do not emit a terminal chunk after downstream cancellation.
+            if (cancelled.get()) return;
+
             // Final chunk
             emitter.emit(new StreamingInferenceChunk(
                 request.getRequestId(),
