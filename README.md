@@ -202,6 +202,7 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 - [Consolidation Roadmap](docs/architecture/ALJABR_AQLI_CONSOLIDATION_ROADMAP.md) — phased work and acceptance gates.
 - [Ownership Audit](docs/architecture/ALJABR_AQLI_OWNERSHIP_AUDIT.md) — initial overlap inventory.
 - [Codebase Quality Audit](docs/architecture/CODEBASE_QUALITY_AUDIT.md) — verified structural findings and the incremental cleanup plan.
+- [CLI Command Decomposition Plan](docs/architecture/CLI_COMMAND_DECOMPOSITION_PLAN.md) — staged extraction plan for the large feature and module commands.
 
 Architecture documents describe the target state and migration rules. They are not proof that every consolidation task or model capability is complete.
 
