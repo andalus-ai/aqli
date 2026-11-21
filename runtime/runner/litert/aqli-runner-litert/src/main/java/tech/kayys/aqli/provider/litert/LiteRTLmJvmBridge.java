@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Pattern;
 
 /**
@@ -207,6 +208,16 @@ final class LiteRTLmJvmBridge implements AutoCloseable {
     }
 
     void generate(InferenceRequest request, Consumer<String> tokenCallback) {
+        generate(request, tokenCallback, () -> false);
+    }
+
+    void generate(
+            InferenceRequest request,
+            Consumer<String> tokenCallback,
+            BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) {
+            return;
+        }
         if (!initialized || engine == null) {
             throw new IllegalStateException("official LiteRT-LM JVM bridge is not initialized");
         }
@@ -216,7 +227,8 @@ final class LiteRTLmJvmBridge implements AutoCloseable {
             streamGenerate(conversation,
                     extractPrompt(request),
                     Math.max(1, request.getMaxTokens()),
-                    tokenCallback);
+                    tokenCallback,
+                    cancelled);
         } catch (InvocationTargetException e) {
             throw new IllegalStateException("official LiteRT-LM JVM bridge failed: "
                     + rootMessage(e.getTargetException()), e.getTargetException());
@@ -305,10 +317,12 @@ final class LiteRTLmJvmBridge implements AutoCloseable {
         }
     }
 
-    private void streamGenerate(Object conversation,
-                                String prompt,
-                                int maxTokens,
-                                Consumer<String> tokenCallback)
+    private void streamGenerate(
+            Object conversation,
+            String prompt,
+            int maxTokens,
+            Consumer<String> tokenCallback,
+            BooleanSupplier cancelled)
             throws ReflectiveOperationException {
         Class<?> callbackClass = litertLmClass("MessageCallback");
         CountDownLatch done = new CountDownLatch(1);
@@ -325,6 +339,11 @@ final class LiteRTLmJvmBridge implements AutoCloseable {
                 new Class<?>[]{callbackClass},
                 (proxy, method, args) -> {
                     try {
+                        if (cancelled.getAsBoolean()) {
+                            cancelConversation(conversation);
+                            done.countDown();
+                            return null;
+                        }
                         switch (method.getName()) {
                             case "onMessage" -> {
                                 String chunk = args != null && args.length > 0 && args[0] != null
@@ -355,16 +374,28 @@ final class LiteRTLmJvmBridge implements AutoCloseable {
                     return null;
                 });
 
+        if (cancelled.getAsBoolean()) {
+            cancelConversation(conversation);
+            return;
+        }
+
         conversation.getClass()
                 .getMethod("sendMessageAsync", String.class, callbackClass, Map.class)
                 .invoke(conversation, promptForModel(prompt), callback, Map.of());
 
         try {
-            boolean finished = done.await(timeout().toMillis(), TimeUnit.MILLISECONDS);
-            if (!finished) {
-                cancelConversation(conversation);
-                throw new IllegalStateException("official LiteRT-LM JVM bridge timed out after "
-                        + timeout().toSeconds() + "s");
+            long deadline = System.nanoTime() + timeout().toNanos();
+            while (!done.await(50, TimeUnit.MILLISECONDS)) {
+                if (cancelled.getAsBoolean()) {
+                    cancelConversation(conversation);
+                    done.countDown();
+                    break;
+                }
+                if (System.nanoTime() >= deadline) {
+                    cancelConversation(conversation);
+                    throw new IllegalStateException("official LiteRT-LM JVM bridge timed out after "
+                            + timeout().toSeconds() + "s");
+                }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

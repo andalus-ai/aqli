@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 import static java.lang.foreign.ValueLayout.*;
 
@@ -393,17 +394,27 @@ public class LiteRTCpuRunner implements AutoCloseable {
     }
 
     public void stream(InferenceRequest request, Consumer<String> tokenConsumer) {
+        stream(request, tokenConsumer, () -> false);
+    }
+
+    public void stream(
+            InferenceRequest request,
+            Consumer<String> tokenConsumer,
+            BooleanSupplier cancelled) {
         if (!initialized) {
             throw new InferenceException(ErrorCode.RUNTIME_INVALID_STATE, "Runner not initialized");
         }
 
+        if (cancelled.getAsBoolean()) {
+            return;
+        }
         if (llmRunner != null) {
-            llmRunner.generate(request, tokenConsumer);
+            llmRunner.generate(request, tokenConsumer, cancelled);
             return;
         }
 
         InferenceResponse response = infer(request);
-        if (response.getContent() != null && !response.getContent().isEmpty()) {
+        if (!cancelled.getAsBoolean() && response.getContent() != null && !response.getContent().isEmpty()) {
             tokenConsumer.accept(response.getContent());
         }
     }

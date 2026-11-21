@@ -1,15 +1,13 @@
-#!/bin/bash
-# Aqli - Unified Installation Script
-# This script prepares the environment, ensures Java 25 is present, and installs the Aqli CLI.
-# Usage: curl -fsSL https://raw.githubusercontent.com/bhangun/aqli/main/install.sh | bash
+#!/usr/bin/env bash
+# AQLI bootstrap installer: prepares Java 25 and delegates to the source installer.
+# Usage: curl -fsSL https://raw.githubusercontent.com/andalus-ai/aqli/main/scripts/install.sh | bash
 
-set -e
+set -euo pipefail
 
 # --- Configuration ---
-AQLI_REPO="bhangun/aqli"
-AQLI_BRANCH="main" # Default branch
-INSTALL_DIR="${HOME}/.aqli"
-BIN_DIR="${HOME}/.local/bin"
+AQLI_REPO="${AQLI_REPO:-andalus-ai/aqli}"
+AQLI_BRANCH="${AQLI_BRANCH:-main}"
+export AQLI_REPO AQLI_BRANCH
 
 # --- Visuals ---
 RED='\033[0;31m'
@@ -69,8 +67,16 @@ if [ "$JAVA_OK" = false ]; then
             source "$SDKMAN_DIR/bin/sdkman-init.sh"
         fi
     else
-        echo -e "${RED}⏭️ Skipping Java installation. Aqli may not run correctly.${NC}"
+        echo -e "${RED}JDK 25 is required. Installation cancelled.${NC}"
+        exit 1
     fi
+fi
+
+JAVA_VERSION="$(java -version 2>&1 | head -n 1 || true)"
+if [[ "$JAVA_VERSION" != *'"25'* ]]; then
+    echo -e "${RED}JDK 25 is required, but the active Java runtime is: ${JAVA_VERSION:-not found}.${NC}"
+    echo -e "${YELLOW}Install JDK 25, then run this installer again.${NC}"
+    exit 1
 fi
 
 # --- 2. Aqli CLI Installation ---
@@ -91,35 +97,14 @@ else
     fi
 fi
 
-# --- 3. JBang Support ---
+# --- 3. Summary ---
 echo ""
-echo -e "${BLUE}📦 Checking jbang...${NC}"
-if ! command -v jbang >/dev/null 2>&1; then
-    if prompt_confirm "jbang is recommended for running Aqli examples. Install it now?"; then
-        echo -e "${BLUE}📦 Installing jbang...${NC}"
-        curl -fsSL https://sh.jbang.dev | bash -s - app setup
-        # Ensure jbang is in path for this session
-        export PATH="$PATH:$HOME/.jbang/bin"
-    else
-        echo -e "${YELLOW}⏭️ Skipping jbang installation.${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ jbang $(jbang --version 2>/dev/null | head -n 1) is already available.${NC}"
-fi
-
-# --- 4. Summary ---
+echo -e "${GREEN}AQLI installation workflow completed.${NC}"
 echo ""
-echo -e "${GREEN}✅ Aqli environment setup complete!${NC}"
+echo -e "${BLUE}Next steps:${NC}"
+echo -e "  ${YELLOW}aqli --version${NC}"
+echo -e "  ${YELLOW}aqli --help${NC}"
+echo -e "  ${YELLOW}aqli pull hf:Qwen/Qwen2.5-7B-Instruct-GGUF${NC}"
 echo ""
-echo -e "${BLUE}🚀 Next Steps:${NC}"
-echo ""
-echo -e "1. Try the CLI:"
-echo -e "   ${YELLOW}aqli --version${NC}"
-echo ""
-echo -e "2. Run a Hello World example (if jbang installed):"
-echo -e "   ${YELLOW}jbang https://raw.githubusercontent.com/${AQLI_REPO}/${AQLI_BRANCH}/examples/jbang/hello_aqli.java${NC}"
-echo ""
-echo -e "3. Open a ${YELLOW}NEW TERMINAL${NC} to ensure all paths (Java, Aqli, JBang) are updated."
-echo ""
-echo -e "📖 Documentation: https://github.com/${AQLI_REPO}"
+echo -e "Documentation: https://github.com/${AQLI_REPO}"
 echo ""
