@@ -58,7 +58,7 @@ public class LocalAqliClient implements AqliClient {
         Multi<StreamingInferenceChunk> multi = inferenceService.stream(spiRequest);
 
         DefaultGenerationStream stream = new DefaultGenerationStream();
-        multi.subscribe().with(
+        var subscription = multi.subscribe().with(
                 chunk -> {
                     if (chunk.delta() != null) {
                         stream.emitToken(chunk.delta());
@@ -66,6 +66,7 @@ public class LocalAqliClient implements AqliClient {
                 },
                 stream::emitError,
                 stream::emitComplete);
+        stream.attachCancellation(subscription::cancel);
         return stream;
     }
 
