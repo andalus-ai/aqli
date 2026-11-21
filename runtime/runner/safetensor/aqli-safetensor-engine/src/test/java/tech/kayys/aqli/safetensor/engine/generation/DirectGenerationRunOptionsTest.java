@@ -39,6 +39,17 @@ class DirectGenerationRunOptionsTest {
     }
 
     @Test
+    void benchCarriesCancellationSignal() {
+        AtomicBoolean cancelled = new AtomicBoolean(true);
+
+        DirectGenerationRunOptions options = DirectGenerationRunOptions.bench(cancelled::get, null);
+
+        assertFalse(options.collectTokenIds());
+        assertTrue(options.countCompletionTokens());
+        assertTrue(options.cancelled().getAsBoolean());
+    }
+
+    @Test
     void streamTraceCarriesCancelAndDeltaHooks() {
         AtomicBoolean cancelled = new AtomicBoolean(true);
         AtomicReference<String> delta = new AtomicReference<>();

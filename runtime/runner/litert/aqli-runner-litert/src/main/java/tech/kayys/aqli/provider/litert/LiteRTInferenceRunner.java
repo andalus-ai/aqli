@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -749,9 +750,11 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                     "generate",
                     String.class,
                     Path.class,
-                    generationConfigClass);
-            Uni<?> inference = (Uni<?>) generateMethod.invoke(
-                    directEngine, prompt, safetensorFallbackModelPath, generationConfig);
+                    generationConfigClass,
+                    BooleanSupplier.class);
+            Uni<?> inference = ((Uni<?>) generateMethod.invoke(
+                    directEngine, prompt, safetensorFallbackModelPath, generationConfig, cancelled))
+                    .runSubscriptionOn(ForkJoinPool.commonPool());
             AtomicReference<Object> responseRef = new AtomicReference<>();
             AtomicReference<Throwable> failureRef = new AtomicReference<>();
             CountDownLatch completed = new CountDownLatch(1);
