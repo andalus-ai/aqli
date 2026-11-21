@@ -144,6 +144,12 @@ Model IDs, quantizations, backend availability and runtime flags depend on the s
 The local SDK provider runs inside the AQLI Quarkus/CDI runtime with the local provider and selected runner modules on the classpath. A minimal typed text-generation pattern is:
 
 ```java
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
+
 AqliRuntime runtime = AqliSdkFactory.createLocalSdk(
     SdkConfig.builder().apiKey("community").build()
 );
@@ -151,6 +157,7 @@ AqliRuntime runtime = AqliSdkFactory.createLocalSdk(
 TextGenerationResponse response = runtime.generateText(
     TextGenerationRequest.of("your-model-id", "Hello from AQLI")
 );
+System.out.println(response.content());
 ```
 
 Check [API examples](docs/API_EXAMPLES.md) and the [API quick reference](docs/API_QUICK_REFERENCE.md) for complete imports, request construction, authentication, streaming and deployment examples.
