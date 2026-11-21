@@ -59,4 +59,11 @@ class AudioMetadataSidecarCliHandlerTest {
 
         assertFalse(Files.exists(implicitSidecar));
     }
+    @Test
+    void returnsFalseWhenVerificationOrRefreshSidecarDoesNotExist() {
+        Path missingSidecar = tempDir.resolve("missing-audio.json");
+
+        assertFalse(AudioMetadataSidecarCliHandler.verify(missingSidecar.toString(), null));
+        assertFalse(AudioMetadataSidecarCliHandler.refresh(missingSidecar.toString(), null));
+    }
 }
