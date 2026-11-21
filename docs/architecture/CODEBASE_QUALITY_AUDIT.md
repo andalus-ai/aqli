@@ -247,3 +247,11 @@ The current `AqliCommand` top-level registration does not include `mcp`, `provid
 The local runtime installer invoked `:framework:api:aqli-api:quarkusBuild`, but the actual logical Gradle project path declared by settings is `:api:aqli-api`. The source directory path and Gradle project path are different concepts; both must be derived from the settings mapping.
 
 The local installer and build wrapper have now been corrected in the focused installer follow-up to build the current CLI/API composition roots and use the current source/output directories. The separate `module-selection-current.env` list remains stale: 43 of its 63 declared project paths do not map to the active project graph. It is still consumed by the optional local Maven publication flow in `install-local-macos.sh`, so that opt-in compatibility path remains a follow-up item.
+### 21. CI exposed two pre-existing correctness defects during the audit
+
+The first focused build-config PR triggered the repository's current CI and exposed two unrelated baseline failures:
+
+- `RunCommand.printResponse` had an incomplete extraction to `RunResponseContentRenderer`: the structured-output call was opened as a block, its duplicate OCR/JSON implementation remained inline, and the method boundary was missing. This caused `RunCommand.java:2467` to fail compilation. The follow-up removes the duplicate rendering path, honors the renderer's boolean result, preserves media/telemetry handling, and removes the unused start-time parameter.
+- `LocalAqliSdk.createCompletionAsync` used Mutiny's default timeout failure, while the existing async SDK contract tests require `java.util.concurrent.TimeoutException` as the `CompletableFuture` failure cause. The follow-up maps the timeout operator to the JDK exception while retaining the timeout operator.
+
+These are correctness fixes, not regressions introduced by the Gradle declaration cleanup. The focused fixes are tracked in [PR #664](https://github.com/andalus-ai/aqli/pull/664) and [PR #665](https://github.com/andalus-ai/aqli/pull/665). CI must be rerun after those changes land before treating the baseline as green.
