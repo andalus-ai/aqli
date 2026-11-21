@@ -173,3 +173,11 @@ These span framework contracts, runtime implementations, SDK compatibility, and 
 - Cross-repository consumers and published Maven artifacts require separate inspection before public API or package removals.
 - Platform-specific execution, native resource behavior, and model correctness require focused builds/tests and, where relevant, hardware validation.
 
+### 14. Gradle's declared optional surface is broader than the checked-in build graph
+
+The audited tree contains 77 Gradle build files. The active settings file contains 84 non-commented `includeOptionalProject` declarations, but a number of registrations have no matching in-repository module directory. Some are intentionally external (the sibling Wayang integrations), while others point to absent AQLI paths such as `framework/spi/aqli-spi-model`, `runtime/backend/*`, and older GGUF converter/core modules.
+
+The tree also contains build files for projects that are not part of the active settings graph. The optimization section explicitly labels most optimization plugins experimental/unintegrated and includes only KV-cache by default; ONNX export/helper, pickle, TensorRT plugin, Quarkus extension, and YAFF stub projects also need an explicit active/experimental/legacy status.
+
+**Disposition:** publish a truthful module matrix with one status per project: default build, opt-in build, external composite integration, experimental/unintegrated, legacy/not included, or removed. Remove stale registrations for capabilities now owned by Aljabr (especially backend and model SPI paths) after confirming no supported workspace relies on them. Do not equate the presence of a `build.gradle.kts` file with inclusion, publication, or runtime support.
+
