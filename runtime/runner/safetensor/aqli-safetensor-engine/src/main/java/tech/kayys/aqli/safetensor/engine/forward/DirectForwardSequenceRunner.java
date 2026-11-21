@@ -19,10 +19,12 @@ final class DirectForwardSequenceRunner {
     static AccelTensor prefillTokenIds(
             DirectForwardSequenceContext context,
             DirectForwardPrefillRequest request) {
+        DirectForwardCancellation.checkpoint();
         try (DirectForwardInputPreparation.PreparedTokenPrefill prepared =
                      DirectForwardInputPreparation.prepareTokenPrefill(
                              inputPreparationContext(context),
                              tokenPrefillRequest(request))) {
+            DirectForwardCancellation.checkpoint();
             return prefillEmbeddings(context, request.withPreparedTokenPrefill(prepared));
         }
     }
@@ -30,6 +32,7 @@ final class DirectForwardSequenceRunner {
     static AccelTensor prefillEmbeddings(
             DirectForwardSequenceContext context,
             DirectForwardPrefillRequest request) {
+        DirectForwardCancellation.checkpoint();
         AccelTensor embeddings = request.embeddings();
         ModelConfig config = request.config();
         KVCacheManager.KVCacheSession kvCache = request.kvCache();
@@ -46,6 +49,7 @@ final class DirectForwardSequenceRunner {
         ws.ensureCapacity((long) seqLen * config.hiddenSize(), config.hiddenSize(), config.intermediateSize());
 
         if (!request.embeddingsAlreadyInWorkspace()) {
+            DirectForwardCancellation.checkpoint();
             MemorySegment.copy(embeddings.dataPtr(), 0, ws.getHiddenASeg(), 0,
                     (long) seqLen * config.hiddenSize() * Float.BYTES);
         }
@@ -69,6 +73,7 @@ final class DirectForwardSequenceRunner {
                 verboseTokens,
                 "Prefill Layer"));
 
+        DirectForwardCancellation.checkpoint();
         AccelTensor logits = DirectForwardOutputProjection.prefillLogits(new DirectForwardPrefillLogitsRequest(
                 outputProjectionContext(context, config, request.resolvedWeights(), ws),
                 finalHidden,
@@ -76,6 +81,7 @@ final class DirectForwardSequenceRunner {
                 embeddings,
                 seqLenInt,
                 verboseTokens));
+        DirectForwardCancellation.checkpoint();
         kvCache.advance(seqLenInt);
         return logits;
     }
@@ -83,6 +89,7 @@ final class DirectForwardSequenceRunner {
     static AccelTensor decodeToken(
             DirectForwardSequenceContext context,
             DirectForwardDecodeRequest request) {
+        DirectForwardCancellation.checkpoint();
         ModelConfig config = request.config();
         KVCacheManager.KVCacheSession kvCache = request.kvCache();
         ensureDirectFfnSupported(config);
@@ -91,6 +98,7 @@ final class DirectForwardSequenceRunner {
                      DirectForwardInputPreparation.prepareDecodeToken(
                              inputPreparationContext(context),
                              decodeTokenRequest(request))) {
+            DirectForwardCancellation.checkpoint();
             MemorySegment finalHidden = DirectForwardLayerLoop.run(new DirectForwardLayerLoop.Request(
                     context,
                     ws.getHiddenASeg(),
@@ -109,11 +117,13 @@ final class DirectForwardSequenceRunner {
                     false,
                     null));
 
+            DirectForwardCancellation.checkpoint();
             AccelTensor logits = DirectForwardOutputProjection.decodeLogits(new DirectForwardDecodeLogitsRequest(
                     outputProjectionContext(context, config, request.resolvedWeights(), ws),
                     finalHidden,
                     prepared.hiddenShape(),
                     request.reuseLogitsOutput()));
+            DirectForwardCancellation.checkpoint();
             kvCache.advance(1);
             return logits;
         }
