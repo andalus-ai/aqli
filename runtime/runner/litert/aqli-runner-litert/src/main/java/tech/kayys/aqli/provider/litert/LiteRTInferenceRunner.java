@@ -491,11 +491,14 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                 officialJvmLmBridge.generate(request, tokenCallback, cancelled);
                 return;
             } catch (Exception e) {
+                if (cancelled.getAsBoolean()) {
+                    return;
+                }
                 log.warn("Official LiteRT-LM JVM bridge failed: {}. Falling back to next LiteRT-LM path.",
                         e.getMessage());
                 closeOfficialJvmBridge();
                 if (litertLmRuntimeModelPath != null && tryInitializeOfficialJvmBridge(litertLmRuntimeModelPath)) {
-                    officialJvmLmBridge.generate(request, tokenCallback);
+                    officialJvmLmBridge.generate(request, tokenCallback, cancelled);
                     return;
                 }
             }
