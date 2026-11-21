@@ -2658,7 +2658,7 @@ public class RunCommand implements Runnable {
                         prompt,
                         effectiveTtsVoiceSelector(),
                         audioDefaultExtension(metadata),
-                        seed == null ? null : seed.toString(),
+                        generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString(),
                         audioRunOptions),
                 metadata
         ));
@@ -2673,7 +2673,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
+                MediaMetadataReplayArguments.imageSeed(metadata, generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),
