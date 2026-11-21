@@ -174,3 +174,73 @@ The strategic product direction is documented in `docs/architecture/TRIAD_ECOSYS
 - Capability coverage must be tracked honestly by owner, API/module, task, model/format/backend, maturity, tests, examples, and known limitations. Do not claim blanket parity with PyTorch, Hugging Face Transformers, or scikit-learn without a published feature matrix.
 - Keep framework-generic ML utilities in Aljabr only when they belong to its reusable framework scope; training workflow orchestration belongs in Tafkir; serving and production policy belongs in AQLI.
 - Keep public APIs, artifacts, examples, and documentation independently consumable through published dependencies; do not rely exclusively on sibling checkouts or composite builds.
+
+## 12. Proportional design, reuse, and maintainability
+
+Apply SOLID as practical design guidance, not as a requirement to create an interface, factory, manager, registry, or module for every class.
+
+### Responsibility and cohesion
+
+- Give each class one cohesive reason to change. A class may coordinate a use case, but it must not also own unrelated parsing, persistence, provider selection, transport formatting, and resource lifecycle.
+- Keep methods focused and name them after observable behavior. Extract a method or collaborator when it clarifies a real responsibility, makes a policy independently testable, or removes meaningful duplication.
+- Treat very large classes (roughly 500+ lines) and methods (roughly 80+ lines) as review signals, not automatic refactoring rules. First identify cohesive seams and callers; do not split code merely to satisfy a line count.
+- Avoid god classes, god packages, generic dumping grounds, and deeply nested implementation types that make ownership hard to discover.
+- Organize packages primarily around capability and domain responsibility. Use subpackages for meaningful internal boundaries; do not create a new package or Gradle module for every class.
+
+### SOLID, abstraction, and dependency direction
+
+- **SRP:** separate policies and lifecycle responsibilities that change for different reasons.
+- **OCP:** use an extension point when new providers, model families, transports, or policies are expected to vary independently; do not pre-build speculative plugin systems.
+- **LSP:** implementations of a contract must preserve its documented preconditions, postconditions, error semantics, cancellation, streaming, and resource ownership.
+- **ISP:** keep contracts small and capability-specific. Do not force implementations to depend on unrelated methods or modality-specific fields.
+- **DIP:** depend on stable, owner-defined contracts at genuine boundaries. Keep concrete providers and frameworks behind adapters.
+- Introduce an interface when it represents a meaningful boundary, multiple implementations, an external extension point, or a useful test seam. Do not add interfaces solely to mock a class or mirror its name.
+- Prefer constructor injection and explicit dependencies. Avoid service locators, global mutable state, hidden fallback behavior, and dependency cycles.
+- Keep abstractions proportional to demonstrated complexity. Prefer a small cohesive implementation over a generic framework with one implementation and no concrete extension requirement.
+
+### Reuse and duplication
+
+- Search for existing behavior, contracts, utilities, and provider integrations before implementing another version.
+- Keep one canonical implementation for behavior with the same semantics. Make adapters delegate or translate at the boundary instead of copying business rules.
+- Do not consolidate code merely because names or syntax look similar. Preserve separate implementations when their domain semantics, lifecycle, provider constraints, or performance requirements genuinely differ.
+- When duplicate or near-duplicate code is found, compare behavior, callers, tests, configuration, service registrations, reflection/CDI wiring, and compatibility requirements before choosing the canonical owner.
+- Avoid parallel request/response types that represent the same use case. If a compatibility type must remain, document its canonical replacement, consumers, deprecation state, and removal condition.
+- Prefer domain-specific names over `Common`, `Utils`, `Helper`, `Manager`, or ambiguous suffixes. Do not rename a type solely to avoid a same-name type in another bounded context.
+
+### Dead, excluded, experimental, and generated code
+
+- Do not assume that a tracked source file is compiled, packaged, registered, or used. Inspect Gradle source sets, project inclusion, dependency scopes, service files, CDI/reflection registration, resources, and runtime entry points.
+- Every source or test exclusion must have a concrete reason and an owner. Prefer fixing or migrating stale tests; if temporary exclusion is necessary, record the reason, tracking issue or migration task, and a review/removal condition.
+- Do not leave large uncompiled source trees or disabled tests as undocumented alternate implementations. Move genuine experiments to an explicitly named experimental area or remove them when their consumers and migration needs are resolved.
+- Before deleting code, search all source and test references, build scripts, service registrations, configuration, documentation, generated metadata, and reflective use. Confirm that no public or compatibility contract is being removed accidentally.
+- Keep generated sources, local experiments, benchmark scratch files, dependency dumps, patches, and migration artifacts out of production packages and the repository root unless they are intentionally maintained and documented.
+
+### Runtime correctness and API experience
+
+- Make ownership and closure of files, buffers, tensors, native arenas, sessions, threads, and executors explicit. Use structured cleanup and deterministic shutdown.
+- Preserve cancellation, deadlines, backpressure, stream ordering, completion/failure signaling, and cleanup semantics when extracting or reusing asynchronous code.
+- Do not swallow exceptions or catch `Throwable` for ordinary recovery. Preserve causes and classify errors at the boundary that can provide useful context.
+- Errors exposed to users should identify the failed operation, relevant model/provider/configuration context where safe, and a practical next action. Never expose secrets, tokens, or sensitive local paths unnecessarily.
+- Keep process exit, terminal rendering, and interactive behavior at the CLI boundary. Reusable services must not call `System.exit` or print directly to a terminal.
+- Keep defaults and validation consistent across equivalent CLI, SDK, REST, and gRPC requests by mapping them to the same application contract.
+
+### Tests and documentation
+
+- Add tests at the layer that owns the behavior. Cover contract semantics, failure paths, resource cleanup, concurrency, cancellation, and adapter mapping where relevant.
+- When consolidating implementations, add regression tests before deleting the old path. When changing a public contract, test compatibility and every supported adapter.
+- Keep examples executable and aligned with current published APIs and Gradle coordinates. Label proposed, experimental, optional, deprecated, and production-supported features accurately.
+- Update the owning module README and architecture/ownership documentation when a public capability, dependency boundary, module placement, or supported workflow changes. Keep the root README focused on the product entry point.
+- Distinguish current implementation from target architecture and migration intent. A roadmap or architecture rule is not evidence that a capability is already implemented.
+
+### Refactoring acceptance checklist
+
+Before completing a structural refactor, verify:
+
+1. The class and module have one clear owner and responsibility.
+2. Existing contracts and implementations were reused where semantics match.
+3. Dependency direction remains acyclic and adapters do not own reusable business logic.
+4. All callers, tests, resources, service registrations, reflection metadata, and docs use the canonical path.
+5. No unexplained source/test exclusions or stale copies were introduced.
+6. Focused tests and affected compile/build checks were run; report anything not run.
+7. The change is the smallest reviewable step that improves maintainability without degrading user-visible behavior.
+
