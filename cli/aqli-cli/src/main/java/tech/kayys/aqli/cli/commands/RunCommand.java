@@ -85,7 +85,6 @@ import java.util.function.Consumer;
 import java.util.UUID;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
-import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
@@ -2642,7 +2641,17 @@ public class RunCommand implements Runnable {
                 prompt,
                 effectiveTtsVoiceSelector(),
                 audioDefaultExtension(metadata),
-                audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata),
+                MediaMetadataReplayArguments.audio(
+                        audioPath.toAbsolutePath().normalize(),
+                        metadata,
+                        modelId,
+                        providerId,
+                        runner,
+                        prompt,
+                        effectiveTtsVoiceSelector(),
+                        audioDefaultExtension(metadata),
+                        seed == null ? null : seed.toString(),
+                        audioRunOptions),
                 metadata
         ));
     }
@@ -2656,7 +2665,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                imageReplaySeed(metadata),
+                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),
@@ -2664,52 +2673,6 @@ public class RunCommand implements Runnable {
                 metadata
         ));
     }
-
-    private String imageReplaySeed(Map<String, Object> metadata) {
-        for (String key : List.of("image_seed", "seed", "generation_seed")) {
-            String metadataSeed = metadataText(metadata, key);
-            if (metadataSeed != null && !metadataSeed.isBlank()) {
-                return metadataSeed;
-            }
-        }
-        return seed == null ? null : seed.toString();
-    }
-
-    private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
-        return AudioMetadataReplayCommandBuilder.build(new AudioMetadataReplayCommandBuilder.Request(
-                modelId,
-                providerId,
-                runner,
-                prompt,
-                effectiveTtsVoiceSelector(),
-                audioDefaultExtension(metadata),
-                replaySeed(metadata),
-                audioPath == null ? null : audioPath.toString(),
-                audioRunOptions.quality(),
-                audioRunOptions.bitrateKbps(),
-                audioRunOptions.channels(),
-                audioRunOptions.codecDecode(),
-                audioRunOptions.maxFrames(),
-                audioRunOptions.maxSeconds(),
-                audioRunOptions.gainDb(),
-                audioRunOptions.peakDb(),
-                audioRunOptions.fadeMs(),
-                audioRunOptions.trimDbfs(),
-                audioRunOptions.trimPaddingMs(),
-                audioRunOptions.flacCompression(),                audioRunOptions.disablePolish(),
-                audioRunOptions.disableNormalize(),
-                audioRunOptions.trimSilence()));
-    }
-
-    private String replaySeed(Map<String, Object> metadata) {
-        String metadataSeed = metadataText(metadata, "tts_seed");
-        if (metadataSeed != null && !metadataSeed.isBlank()) {
-            return metadataSeed;
-        }
-        return seed == null ? null : seed.toString();
-    }
-
-
 
     private void saveAudio(String base64) {
         saveAudio(base64, "flac");
