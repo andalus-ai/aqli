@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 import static java.lang.foreign.ValueLayout.*;
 
@@ -464,6 +465,16 @@ public class LiteRTInferenceRunner implements AutoCloseable {
     }
 
     public void generate(InferenceRequest request, Consumer<String> tokenCallback) {
+        generate(request, tokenCallback, () -> false);
+    }
+
+    public void generate(
+            InferenceRequest request,
+            Consumer<String> tokenCallback,
+            BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) {
+            return;
+        }
         failIfStrictLiteRtUnavailable();
         if (preferCompanionSafetensorFallback) {
             if (tryGenerateWithSafetensorProviderFallback(request, tokenCallback)) {
@@ -477,7 +488,7 @@ public class LiteRTInferenceRunner implements AutoCloseable {
         }
         if (officialJvmLmBridge != null) {
             try {
-                officialJvmLmBridge.generate(request, tokenCallback);
+                officialJvmLmBridge.generate(request, tokenCallback, cancelled);
                 return;
             } catch (Exception e) {
                 log.warn("Official LiteRT-LM JVM bridge failed: {}. Falling back to next LiteRT-LM path.",
