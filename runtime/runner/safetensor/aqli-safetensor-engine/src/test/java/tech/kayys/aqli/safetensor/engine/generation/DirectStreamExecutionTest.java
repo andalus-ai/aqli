@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -44,6 +46,39 @@ class DirectStreamExecutionTest {
         assertEquals(List.of(1, 2), items);
         assertEquals("direct-stream-test", workerName.get());
         assertTrue(cleanupCalled.get());
+    }
+
+    @Test
+    void cancellationInterruptsActiveWorkerAndRunsCleanup() throws Exception {
+        AtomicBoolean cleanupCalled = new AtomicBoolean(false);
+        AtomicBoolean interrupted = new AtomicBoolean(false);
+        CountDownLatch started = new CountDownLatch(1);
+
+        var subscription = DirectStreamExecution.<Integer>create(
+                runnable -> new Thread(runnable, "direct-stream-cancellable"),
+                LOG,
+                "stream failed",
+                () -> cleanupCalled.set(true),
+                emitter -> {
+                    started.countDown();
+                    try {
+                        new CountDownLatch(1).await();
+                    } catch (InterruptedException expected) {
+                        interrupted.set(true);
+                        Thread.currentThread().interrupt();
+                    }
+                })
+                .subscribe().with(item -> { });
+
+        assertTrue(started.await(2, TimeUnit.SECONDS));
+        subscription.cancel();
+
+        long deadline = System.nanoTime() + TIMEOUT.toNanos();
+        while (!cleanupCalled.get() && System.nanoTime() < deadline) {
+            Thread.onSpinWait();
+        }
+        assertTrue(interrupted.get(), "cancellation should interrupt the generation worker");
+        assertTrue(cleanupCalled.get(), "worker cleanup should run after cancellation");
     }
 
     @Test

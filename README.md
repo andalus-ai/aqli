@@ -2,7 +2,7 @@
 
 [![Java 25](https://img.shields.io/badge/Java-25-blue.svg)](https://openjdk.org/projects/jdk/25/)
 [![Gradle 9](https://img.shields.io/badge/Gradle-9.x-brightgreen.svg)](https://gradle.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE.md)
 
 AQLI is a Java-first inference runtime and serving product. It loads supported models, runs generation, manages inference requests and exposes CLI, SDK and service interfaces.
 
@@ -141,14 +141,23 @@ Model IDs, quantizations, backend availability and runtime flags depend on the s
 
 ## SDK example
 
-The exact artifact coordinates and method signatures are versioned with the published SDK. A minimal embedded usage pattern is:
+The local SDK provider runs inside the AQLI Quarkus/CDI runtime with the local provider and selected runner modules on the classpath. A minimal typed text-generation pattern is:
 
 ```java
-AqliSdk sdk = AqliSdkFactory.create(
-    AqliSdkConfig.local().build()
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
+
+AqliRuntime runtime = AqliSdkFactory.createLocalSdk(
+    SdkConfig.builder().apiKey("community").build()
 );
 
-InferenceResponse response = sdk.infer("qwen2.5-0.5b", request);
+TextGenerationResponse response = runtime.generateText(
+    TextGenerationRequest.of("your-model-id", "Hello from AQLI")
+);
+System.out.println(response.content());
 ```
 
 Check [API examples](docs/API_EXAMPLES.md) and the [API quick reference](docs/API_QUICK_REFERENCE.md) for complete imports, request construction, authentication, streaming and deployment examples.
@@ -162,18 +171,19 @@ See the [Observability Guide](docs/OBSERVABILITY.md). Avoid assuming a metric or
 ## Repository layout
 
 ```text
-framework/   Public contracts, SPI, SDKs, core abstractions and observability APIs
+framework/   Public contracts, SDK APIs, server API, core abstractions and observability APIs
 runtime/     Runtime lifecycle, model repositories, runner implementations and plugins
-ui/          CLI and user-facing applications
+cli/         CLI application
 scripts/     Build, installation, benchmark and development tooling
 docs/        User guides, API references and architecture documents
 ```
 
-The exact Gradle project graph is authoritative; use `./gradlew projects` when locating a module.
+The exact Gradle project graph is authoritative; use `./gradlew projects` when locating a module. The CLI project is `:cli:aqli-cli`; the API project is `:api:aqli-api`.
 
 ## Documentation
 
 - [Triad Ecosystem Vision](docs/architecture/TRIAD_ECOSYSTEM_VISION.md) — the AQLI + Aljabr + Tafkir Java AI/ML ecosystem strategy.
+- [Multimodal Embedding Integration](docs/architecture/MULTIMODAL_EMBEDDING_INTEGRATION.md) — current SPI gaps, Aljabr runner dependency, embedding-space metadata and rollout criteria.
 
 ### Getting started and API
 
@@ -183,7 +193,7 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 - [Install Profiles](docs/install-profiles.md)
 - [Error Codes](docs/error-codes.md)
 - [Observability Guide](docs/OBSERVABILITY.md)
-- [CLI documentation](ui/aqli-cli/README.md)
+- [CLI documentation](cli/aqli-cli/README.md)
 
 ### Architecture and consolidation
 
@@ -192,10 +202,28 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 - [Module Ownership Matrix](docs/architecture/MODULE_OWNERSHIP_MATRIX.md) — canonical responsibility and migration checks.
 - [Consolidation Roadmap](docs/architecture/ALJABR_AQLI_CONSOLIDATION_ROADMAP.md) — phased work and acceptance gates.
 - [Ownership Audit](docs/architecture/ALJABR_AQLI_OWNERSHIP_AUDIT.md) — initial overlap inventory.
+- [Codebase Quality Audit](docs/architecture/CODEBASE_QUALITY_AUDIT.md) — verified structural findings and the incremental cleanup plan.
+- [CLI Command Decomposition Plan](docs/architecture/CLI_COMMAND_DECOMPOSITION_PLAN.md) — staged extraction plan for the large feature and module commands.
+- [SDK Contract Consolidation](docs/architecture/SDK_CONTRACT_CONSOLIDATION.md) — canonical client API, transport ownership and adapter conformance.
 
 Architecture documents describe the target state and migration rules. They are not proof that every consolidation task or model capability is complete.
 
 ## Build and validation
+
+### Suling audio dependency
+
+The ONNX runner consumes `tech.kayys:suling:0.1.1`. Suling is currently a Maven project
+(`bhangun/suling`), not a Gradle build. Install it into Maven Local before compiling
+AQLI modules that use it:
+
+```bash
+git clone https://github.com/bhangun/suling.git
+mvn --batch-mode -f suling/pom.xml -DskipTests install
+./gradlew :runner:onnx:aqli-runner-onnx:compileJava
+```
+
+AQLI's CI checks out Suling and performs this Maven install before Gradle compilation.
+Do not use `./gradlew -p suling publishToMavenLocal` unless Suling adds a Gradle build.
 
 Before submitting changes:
 
@@ -207,7 +235,7 @@ Before submitting changes:
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE.md).
 
 ## The Java AI/ML ecosystem: AQLI + Aljabr + Tafkir
 

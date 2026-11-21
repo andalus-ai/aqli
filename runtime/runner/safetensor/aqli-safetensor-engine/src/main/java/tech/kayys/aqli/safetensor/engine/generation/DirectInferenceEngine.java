@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 import java.util.Map;
 import java.util.Collection;
+import java.util.function.BooleanSupplier;
 
 @ApplicationScoped
 public class DirectInferenceEngine implements SafetensorEngine {
@@ -191,7 +192,12 @@ public class DirectInferenceEngine implements SafetensorEngine {
     }
 
     public Uni<InferenceResponse> generate(String prompt, Path modelPath, GenerationConfig cfg) {
-        return components().syncApi().generate(prompt, modelPath, cfg);
+        return generate(prompt, modelPath, cfg, () -> false);
+    }
+
+    public Uni<InferenceResponse> generate(
+            String prompt, Path modelPath, GenerationConfig cfg, BooleanSupplier cancelled) {
+        return components().syncApi().generate(prompt, modelPath, cfg, cancelled);
     }
 
     public long[] encodePrompt(String prompt, Path modelPath) {

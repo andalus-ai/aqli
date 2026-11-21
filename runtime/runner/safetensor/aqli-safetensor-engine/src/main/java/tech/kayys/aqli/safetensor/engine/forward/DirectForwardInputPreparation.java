@@ -62,6 +62,7 @@ final class DirectForwardInputPreparation {
     static PreparedTokenPrefill prepareTokenPrefill(
             PreparationContext context,
             TokenPrefillRequest request) {
+        DirectForwardCancellation.checkpoint();
         ResolvedModelWeights resolvedWeights = request.resolvedWeights();
         AccelTensor embedTable = resolvedWeights.embedTokens();
         if (embedTable == null) {
@@ -80,13 +81,17 @@ final class DirectForwardInputPreparation {
         if (config.embeddingMultiplier() != null) {
             scale *= config.resolvedEmbeddingMultiplier();
         }
+        DirectForwardCancellation.checkpoint();
         embedTable.copyRowsToFloatSegment(request.inputIds(), ws.getHiddenASeg(), scale);
+        DirectForwardCancellation.checkpoint();
 
         AccelTensor hidden = AccelTensor.view(ws.getHiddenASeg(), hiddenShape);
         AccelTensor[] perLayerInputs = null;
         try {
+            DirectForwardCancellation.checkpoint();
             perLayerInputs = DirectForwardPerLayerInputs.build(
                     request.inputIds(), hidden, context.traits(), config, resolvedWeights, context.operators());
+            DirectForwardCancellation.checkpoint();
             return new PreparedTokenPrefill(hidden, perLayerInputs);
         } catch (RuntimeException | Error e) {
             DirectForwardPerLayerInputs.close(perLayerInputs);
@@ -98,6 +103,7 @@ final class DirectForwardInputPreparation {
     static PreparedDecodeToken prepareDecodeToken(
             PreparationContext context,
             DecodeTokenRequest request) {
+        DirectForwardCancellation.checkpoint();
         ResolvedModelWeights resolvedWeights = request.resolvedWeights();
         AccelTensor embedTable = resolvedWeights.embedTokens();
         if (embedTable == null) {
@@ -112,7 +118,9 @@ final class DirectForwardInputPreparation {
         if (config.embeddingMultiplier() != null) {
             scale *= config.resolvedEmbeddingMultiplier();
         }
+        DirectForwardCancellation.checkpoint();
         embedTable.copyRowToFloatSegment(request.tokenId(), ws.getHiddenASeg(), scale);
+        DirectForwardCancellation.checkpoint();
 
         AccelTensor hiddenView = null;
         AccelTensor[] perLayerInputs = null;

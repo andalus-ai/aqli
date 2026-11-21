@@ -8,6 +8,7 @@ import java.lang.foreign.ValueLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.Map;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
@@ -764,6 +765,11 @@ public class LiteRTGemmaMetalRunner implements AutoCloseable {
     }
 
     public void generate(String prompt, int maxNewTokens, Consumer<String> tokenCallback) {
+        generate(prompt, maxNewTokens, tokenCallback, () -> false);
+    }
+
+    public void generate(String prompt, int maxNewTokens, Consumer<String> tokenCallback, BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) return;
         if (!initialized) {
             throw new RuntimeException("Engine not initialized — call initialize() first");
         }
@@ -781,12 +787,14 @@ public class LiteRTGemmaMetalRunner implements AutoCloseable {
 
         try {
             for (int i = 0; i < promptLen - 1; i++) {
+                if (cancelled.getAsBoolean()) return;
                 try (Arena stepArena = Arena.ofConfined()) {
                     forwardHiddenState(inputIds[i], cacheLen, stepArena);
                     cacheLen++;
                 }
             }
 
+            if (cancelled.getAsBoolean()) return;
             try (Arena stepArena = Arena.ofConfined()) {
                 MemorySegment hiddenState = forwardHiddenState(inputIds[promptLen - 1], cacheLen, stepArena);
                 nextToken = argmaxLogitsFromEmbeddingHead(hiddenState, stepArena);
@@ -794,14 +802,15 @@ public class LiteRTGemmaMetalRunner implements AutoCloseable {
             }
 
             for (int i = 0; i < maxNewTokens; i++) {
-                if (tokenizer.isTerminalToken(nextToken))
+                if (cancelled.getAsBoolean() || tokenizer.isTerminalToken(nextToken))
                     break;
 
                 String tokenStr = tokenizer.decodeToken(nextToken);
                 if (!tokenStr.isEmpty()) {
-                    tokenCallback.accept(tokenStr);
+                    if (!cancelled.getAsBoolean()) tokenCallback.accept(tokenStr);
                 }
 
+                if (cancelled.getAsBoolean()) break;
                 try (Arena stepArena = Arena.ofConfined()) {
                     MemorySegment hiddenState = forwardHiddenState(nextToken, cacheLen, stepArena);
                     nextToken = argmaxLogitsFromEmbeddingHead(hiddenState, stepArena);
@@ -823,8 +832,10 @@ public class LiteRTGemmaMetalRunner implements AutoCloseable {
                     lmHeadChunkCache.size());
 
         } catch (Exception e) {
-            log.error("Generation failed at pos={}", cacheLen, e);
-            tokenCallback.accept("\n[Error: " + e.getMessage() + "]");
+            if (!cancelled.getAsBoolean()) {
+                log.error("Generation failed at pos={}", cacheLen, e);
+                tokenCallback.accept("\n[Error: " + e.getMessage() + "]");
+            }
         }
     }
 

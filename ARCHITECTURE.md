@@ -296,3 +296,16 @@ the annotated top-level command hierarchy.
 After parsing, a CDI observer receives the `CommandLine.ParseResult`, walks the
 selected command chain, and invokes registry validation only for the `run` command.
 Do not add provider discovery or modality-specific lifecycle logic to `RunCommand`.
+
+## Current implementation versus target architecture
+
+The architecture above describes both current ownership and the intended migration direction. They must not be conflated.
+
+- AQLI still contains AQLI-owned SPI and compatibility modules. The long-term goal of elevating engine-neutral contracts to Aljabr is incremental; do not delete or bulk-migrate current AQLI contracts until each contract has an Aljabr owner, a compatible published API, migrated consumers, and tests.
+- The `framework/` directory is a target organizational boundary, not proof that every existing source file inside it is already a pure contract. Audit implementation classes and dependencies module by module.
+- SDK API, SDK core, compatibility façades, and runtime providers have distinct roles. Use the SDK-first capability architecture and current module APIs to identify the canonical path; do not infer ownership from a repeated class name.
+- Gradle project inclusion and source-set configuration determine what is actually built. A directory, source file, README, or architecture diagram alone does not establish that a module is active or supported.
+- Treat proposed modules and migration tables as direction, not a mandate to create every listed module immediately. Prefer existing cohesive capability modules and introduce new boundaries only when independent ownership, dependency isolation, publication, or lifecycle warrants them.
+
+Before changing a boundary, inspect the current Gradle graph, actual source sets, published artifact coordinates, service registrations, and consuming applications. Record any remaining migration gap rather than presenting the target as already complete.
+

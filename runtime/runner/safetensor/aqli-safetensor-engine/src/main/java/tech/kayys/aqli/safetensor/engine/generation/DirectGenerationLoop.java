@@ -91,6 +91,9 @@ final class DirectGenerationLoop {
             if (checkStopStrings && endsWithStopString(decoder.currentText(), stopStrings)) {
                 break;
             }
+            if (isCancelled(cancelled)) {
+                break;
+            }
 
             recordSampleFrequency(sampling.frequencies(), next);
             if (step + 1 >= maxNewTokens) {

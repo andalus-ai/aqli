@@ -35,10 +35,15 @@ record DirectGenerationRunOptions(
     }
 
     static DirectGenerationRunOptions bench(BiConsumer<Integer, Integer> nextTokenObserver) {
-        if (nextTokenObserver == null) {
+        return bench(null, nextTokenObserver);
+    }
+
+    static DirectGenerationRunOptions bench(
+            BooleanSupplier cancelled, BiConsumer<Integer, Integer> nextTokenObserver) {
+        if (cancelled == null && nextTokenObserver == null) {
             return BENCH;
         }
-        return new DirectGenerationRunOptions(false, true, false, null, null, nextTokenObserver);
+        return new DirectGenerationRunOptions(false, true, false, cancelled, null, nextTokenObserver);
     }
 
     static DirectGenerationRunOptions streamTrace(BooleanSupplier cancelled, Consumer<String> deltaConsumer) {

@@ -30,7 +30,20 @@ final class DirectStreamExecution {
 
         return Multi.createFrom().emitter(emitter -> {
             ExecutorService executor = Executors.newSingleThreadExecutor(threadFactory);
-            executor.submit(() -> runWork(executor, emitter, log, failureMessage, cleanup, work));
+            emitter.onTermination(() -> {
+                if (emitter.isCancelled()) {
+                    executor.shutdownNow();
+                } else {
+                    executor.shutdown();
+                }
+            });
+            try {
+                executor.submit(() -> runWork(executor, emitter, log, failureMessage, cleanup, work));
+            } catch (java.util.concurrent.RejectedExecutionException rejected) {
+                if (!emitter.isCancelled()) {
+                    throw rejected;
+                }
+            }
         });
     }
 

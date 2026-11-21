@@ -14,6 +14,7 @@ import tech.kayys.aljabr.spi.tokenizer.Tokenizer;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 
 /**
  * Coordinates synchronous direct-generation flows after the request envelope
@@ -34,11 +35,22 @@ final class DirectGenerationFlows {
 
     InferenceResponse textResponse(DirectGenerationRequestContext request, String prompt,
             Path modelPath, GenerationConfig cfg) {
+        return textResponse(request, prompt, modelPath, cfg, () -> false);
+    }
+
+    InferenceResponse textResponse(DirectGenerationRequestContext request, String prompt,
+            Path modelPath, GenerationConfig cfg, BooleanSupplier cancelled) {
+        if (cancelled != null && cancelled.getAsBoolean()) {
+            throw new java.util.concurrent.CancellationException("Direct generation cancelled");
+        }
         DirectGenerationDebug debug = DirectGenerationDebug.text();
         DirectInferenceEngine.LoadedModel model =
                 modelResolver.require(modelPath, debug.enabled(), debug.prefix());
         DirectPromptPreparation preparedPrompt = DirectPromptPreparation.text(
                 model, prompt, request.profile(), debug.textPrompt(false));
+        if (cancelled != null && cancelled.getAsBoolean()) {
+            throw new java.util.concurrent.CancellationException("Direct generation cancelled");
+        }
         Tokenizer tokenizer = preparedPrompt.tokenizer();
         ModelConfig config = preparedPrompt.config();
         long[] inputIds = preparedPrompt.ids();
@@ -50,13 +62,16 @@ final class DirectGenerationFlows {
         DirectGenerationOutput output;
         try (KVCacheManager.KVCacheSession session = sessionAllocator.get()
                 .createAllocated(config, cfg, request.timings(), request.profile())) {
+            if (cancelled != null && cancelled.getAsBoolean()) {
+                throw new java.util.concurrent.CancellationException("Direct generation cancelled");
+            }
             debug.step(8, "prefill");
             DirectGenerationExecutor.Result run = generationExecutor.get().runPrefill(
                     new DirectGenerationExecutor.PrefillRequest(
                             model, cfg, session, inputIds, stops,
                             DirectGenerationStepSampler.SamplingMode.TOKENIZER_AWARE,
                             inputIds.length, request.startedNanos(), request.profile(), request.timings(),
-                            DirectGenerationRunOptions.bench(debug.chosenTokenObserver(tokenizer))));
+                            DirectGenerationRunOptions.bench(cancelled, debug.chosenTokenObserver(tokenizer))));
             debug.step(9, "prefill done");
             debug.chosenToken(tokenizer, run.prefill().token(), 0);
 

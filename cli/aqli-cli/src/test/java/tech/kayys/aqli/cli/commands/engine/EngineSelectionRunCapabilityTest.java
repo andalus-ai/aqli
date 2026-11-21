@@ -16,7 +16,7 @@ class EngineSelectionRunCapabilityTest {
     void snapshotsEngineSelectionOptionsAndAliases() {
         CommandLine commandLine = commandLine();
         commandLine.parseArgs("--gguf-engine", "java", "--backend", "metal",
-                "--java", "--llama-cpp", "--bench");
+                "--java", "--llama-cpp", "--bench", "--direct", "--prefer-alternate-runtime", "--plugin", "llamacpp");
 
         EngineSelectionRunOptions options =
                 new EngineSelectionRunCapability().snapshot(commandLine.getParseResult());
@@ -26,6 +26,9 @@ class EngineSelectionRunCapabilityTest {
         assertTrue(options.javaNative());
         assertTrue(options.llamaCpp());
         assertTrue(options.benchmark());
+        assertTrue(options.directSafetensor());
+        assertTrue(options.preferAlternateRuntime());
+        assertEquals("llamacpp", options.pluginId());
     }
 
     @Test
@@ -41,6 +44,9 @@ class EngineSelectionRunCapabilityTest {
         assertFalse(options.javaNative());
         assertFalse(options.llamaCpp());
         assertFalse(options.benchmark());
+        assertFalse(options.directSafetensor());
+        assertFalse(options.preferAlternateRuntime());
+        assertEquals(null, options.pluginId());
     }
 
     private static CommandLine commandLine() {
