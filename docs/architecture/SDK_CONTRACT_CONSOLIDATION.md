@@ -241,3 +241,8 @@ Additional REST mapping defects: the canonical `GenerationRequest` contains no m
 The `framework/sdk/aqli-sdk` implementation module currently has no `src/test` tree. The API module tests cover text-generation contracts/tool choice, and the local runtime SDK module tests `LocalAqliSdk`; neither provides contract coverage for `RestAqliClient`, `GrpcAqliClient`, `EmbeddedAqliClient`, `CliAqliClient`, the legacy `RemoteAqliClient`, the provider builder or the transport factory.
 
 The transport migration must add a shared adapter contract suite plus protocol-specific tests. A successful compile is not evidence that the wire contract, authentication, streaming, embeddings, capability flags, deadlines or resource ownership work.
+### In-process adapter placement and discovery
+
+The canonical `EmbeddedAqliClient` currently lives in `framework/sdk/aqli-sdk`. `AqliClientFactory.buildEmbedded` locates `io.quarkus.arc.Arc` by class-name reflection, obtains `InferenceEngine` from the CDI container, and constructs the adapter. This makes the facade implementation rely on a hidden Quarkus service locator and places local runtime composition in the wrong module.
+
+The separate `runtime/sdk/aqli-sdk-local` currently implements the `AqliRuntime` aggregate (`LocalAqliSdk`), not the canonical `sdk.api.AqliClient` provider. The migration should move the canonical in-process client provider/composition to the local SDK module and use explicit provider/DI wiring. Keep the API artifact free of Quarkus; do not replace one reflective service locator with another.
