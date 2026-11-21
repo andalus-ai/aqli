@@ -7,6 +7,7 @@ public record EngineSelectionRunOptions(
         boolean javaNative,
         boolean llamaCpp,
         boolean benchmark,
+        boolean directSafetensor,
         boolean preferAlternateRuntime,
         String pluginId) {
 }

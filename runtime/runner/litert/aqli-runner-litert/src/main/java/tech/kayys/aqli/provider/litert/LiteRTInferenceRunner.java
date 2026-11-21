@@ -1,6 +1,9 @@
 package tech.kayys.aqli.provider.litert;
 
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.subscription.Cancellable;
 
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -480,7 +483,13 @@ public class LiteRTInferenceRunner implements AutoCloseable {
             if (tryGenerateWithSafetensorProviderFallback(request, tokenCallback)) {
                 return;
             }
-            if (tryGenerateWithSafetensorDirectFallback(request, tokenCallback)) {
+            if (cancelled.getAsBoolean()) {
+                return;
+            }
+            if (tryGenerateWithSafetensorDirectFallback(request, tokenCallback, cancelled)) {
+                return;
+            }
+            if (cancelled.getAsBoolean()) {
                 return;
             }
             log.warn("Preferred companion safetensor fallback paths failed; falling back to Gemma Java runner.");
@@ -519,6 +528,9 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                 gemmaNativeRunner.generate(request, tokenCallback, cancelled);
                 return;
             } catch (Exception e) {
+                if (cancelled.getAsBoolean()) {
+                    return;
+                }
                 if (isStrictLiteRtOnlyMode(modelPath)) {
                     throw new IllegalStateException(unsupportedLiteRtRuntimeMessage(modelPath, e), e);
                 }
@@ -526,7 +538,13 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                 if (tryGenerateWithSafetensorProviderFallback(request, tokenCallback)) {
                     return;
                 }
-                if (tryGenerateWithSafetensorDirectFallback(request, tokenCallback)) {
+                if (cancelled.getAsBoolean()) {
+                    return;
+                }
+                if (tryGenerateWithSafetensorDirectFallback(request, tokenCallback, cancelled)) {
+                    return;
+                }
+                if (cancelled.getAsBoolean()) {
                     return;
                 }
                 log.warn("All safetensor fallback paths failed; falling back to Gemma Java runner.");
@@ -712,10 +730,12 @@ public class LiteRTInferenceRunner implements AutoCloseable {
 
     private boolean tryGenerateWithSafetensorDirectFallback(
             InferenceRequest request,
-            Consumer<String> tokenCallback) {
-        if (safetensorFallbackModelPath == null) {
+            Consumer<String> tokenCallback,
+            BooleanSupplier cancelled) {
+        if (safetensorFallbackModelPath == null || cancelled.getAsBoolean()) {
             return false;
         }
+        Cancellable subscription = null;
         try {
             Object directEngine = resolveArcBean("tech.kayys.aqli.safetensor.engine.generation.DirectInferenceEngine");
             if (directEngine == null) {
@@ -726,30 +746,75 @@ public class LiteRTInferenceRunner implements AutoCloseable {
             String prompt = buildSafetensorPrompt(request);
             Object generationConfig = buildSafetensorGenerationConfig(request);
             Class<?> generationConfigClass = generationConfig.getClass();
+            AtomicBoolean timedOut = new AtomicBoolean();
+            BooleanSupplier stopRequested = () -> cancelled.getAsBoolean() || timedOut.get();
+            long deadline = System.nanoTime() + Duration.ofMinutes(5).toNanos();
             Method generateMethod = directEngine.getClass().getMethod(
                     "generate",
                     String.class,
                     Path.class,
-                    generationConfigClass);
-            Object uni = generateMethod.invoke(directEngine, prompt, safetensorFallbackModelPath, generationConfig);
-            Object awaiter = uni.getClass().getMethod("await").invoke(uni);
-            Object response = awaiter.getClass()
-                    .getMethod("atMost", Duration.class)
-                    .invoke(awaiter, Duration.ofMinutes(5));
+                    generationConfigClass,
+                    BooleanSupplier.class);
+            Uni<?> inference = ((Uni<?>) generateMethod.invoke(
+                    directEngine, prompt, safetensorFallbackModelPath, generationConfig, stopRequested))
+                    .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+            AtomicReference<Object> responseRef = new AtomicReference<>();
+            AtomicReference<Throwable> failureRef = new AtomicReference<>();
+            CountDownLatch completed = new CountDownLatch(1);
+            subscription = inference.subscribe().with(
+                    response -> {
+                        responseRef.set(response);
+                        completed.countDown();
+                    },
+                    failure -> {
+                        failureRef.set(failure);
+                        completed.countDown();
+                    });
+
+            while (!completed.await(50, TimeUnit.MILLISECONDS)) {
+                if (cancelled.getAsBoolean()) {
+                    subscription.cancel();
+                    return true;
+                }
+                if (System.nanoTime() >= deadline) {
+                    timedOut.set(true);
+                    subscription.cancel();
+                    throw new java.util.concurrent.TimeoutException(
+                            "Companion safetensor inference exceeded five minutes");
+                }
+            }
+            if (cancelled.getAsBoolean()) {
+                return true;
+            }
+            Throwable failure = failureRef.get();
+            if (failure != null) {
+                throw new IllegalStateException("Companion safetensor inference failed", failure);
+            }
+            Object response = responseRef.get();
+            if (response == null) {
+                throw new IllegalStateException("Companion safetensor inference completed without a response");
+            }
             String content = (String) response.getClass().getMethod("getContent").invoke(response);
             String sanitized = sanitizeGemma4Text(content);
             if ((sanitized == null || sanitized.isBlank()) && content != null && !content.isBlank()) {
                 log.warn("Companion safetensor direct fallback returned control-only text: {}",
                         abbreviateForLog(content));
             }
-            if (sanitized != null && !sanitized.isEmpty()) {
+            if (sanitized != null && !sanitized.isEmpty() && !cancelled.getAsBoolean()) {
                 tokenCallback.accept(sanitized);
             }
             log.info("Generated response via companion safetensor direct fallback");
             return true;
         } catch (Exception e) {
+            if (cancelled.getAsBoolean()) {
+                return true;
+            }
             log.warn("Companion safetensor direct fallback failed: {}", rootCauseMessage(e));
             return false;
+        } finally {
+            if (cancelled.getAsBoolean() && subscription != null) {
+                subscription.cancel();
+            }
         }
     }
 

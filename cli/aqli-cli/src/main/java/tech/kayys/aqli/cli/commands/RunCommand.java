@@ -115,6 +115,7 @@ import tech.kayys.aqli.cli.commands.session.ConversationSessionRunOptions;
 import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
+import tech.kayys.aqli.cli.commands.model.ModelSourceRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelConversionRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRoutingRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
@@ -184,6 +185,7 @@ public class RunCommand implements Runnable {
     private SystemPromptRunOptions systemPromptOptions;
     private FallbackModelRunOptions fallbackModelOptions;
     private ModelRepositoryRunOptions modelRepositoryOptions;
+    private ModelSourceRunOptions modelSourceOptions;
     private ModelConversionRunOptions modelConversionOptions;
     private ModelRoutingRunOptions modelRoutingOptions;
     private QuantizationRunOptions quantizationOptions;
@@ -215,10 +217,8 @@ public class RunCommand implements Runnable {
     @Option(names = { "--debug-prompt" }, description = "Print raw formatted prompt before dispatch, and raw vs decoded output")
     public boolean debugPrompt;
 
-    @Option(names = { "--modelFile" }, description = "Path to a local model file (.gguf, .tflite, .task, .litertlm)")
     public String modelFile;
 
-    @Option(names = { "--modelDir" }, description = "Path to a local model directory (Safetensors)")
     public String modelDir;
 
     @Option(names = { "-p", "--prompt" }, description = "Input prompt")
@@ -241,8 +241,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--no-cache" }, description = "Bypass response cache")
     boolean noCache;
 
-    @Option(names = {
-            "--model-path" }, description = "Path to a custom model file (bypasses repository lookup, prefer --modelFile)")
     String modelPath;
 
     String convertMode;
@@ -251,7 +249,6 @@ public class RunCommand implements Runnable {
 
     String format;
 
-    @Option(names = { "--direct" }, description = "Force use of native Safetensor direct engine", defaultValue = "false")
     boolean direct;
 
     String ggufQuant;
@@ -393,6 +390,16 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions"));
 
+        modelSourceOptions = runCapabilityRegistry.snapshot(
+                "model-source",
+                commandSpec.commandLine().getParseResult(),
+                ModelSourceRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'model-source' run capability is not registered or does not provide ModelSourceRunOptions"));
+        modelFile = modelSourceOptions.modelFile();
+        modelDir = modelSourceOptions.modelDirectory();
+        modelPath = modelSourceOptions.modelPath();
+
         modelRepositoryOptions = runCapabilityRegistry.snapshot(
                 "model-repository",
                 commandSpec.commandLine().getParseResult(),
@@ -505,6 +512,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        direct = engineSelectionOptions.directSafetensor();
         pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
