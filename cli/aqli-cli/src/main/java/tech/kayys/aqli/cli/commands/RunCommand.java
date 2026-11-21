@@ -99,6 +99,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenan
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioRunOptions;
+import tech.kayys.aqli.cli.commands.generation.GenerationSeedRunOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
@@ -170,6 +171,7 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private GenerationSeedRunOptions generationSeedOptions;
     private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
@@ -266,10 +268,6 @@ public class RunCommand implements Runnable {
     String quantizeStrategy;
     int quantizeBits;
 
-    // Stable Diffusion specific parameters
-    @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
-    Long seed;
-
     @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     String outputPath;
 
@@ -317,6 +315,13 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        generationSeedOptions = runCapabilityRegistry.snapshot(
+                "generation-seed",
+                commandSpec.commandLine().getParseResult(),
+                GenerationSeedRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions"));
 
         audioRunOptions = runCapabilityRegistry.snapshot(
                 "audio",
@@ -1129,7 +1134,7 @@ public class RunCommand implements Runnable {
                                     executionProviderId,
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
-                                    seed,
+                                    generationSeedOptions.seed(),
                                     imageGenerationOptions.steps(),
                                     format,
                                     imageGenerationOptions.guidanceScale(),
@@ -2672,7 +2677,7 @@ public class RunCommand implements Runnable {
                 return metadataSeed;
             }
         }
-        return seed == null ? null : seed.toString();
+        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
     }
 
     private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
@@ -2706,7 +2711,7 @@ public class RunCommand implements Runnable {
         if (metadataSeed != null && !metadataSeed.isBlank()) {
             return metadataSeed;
         }
-        return seed == null ? null : seed.toString();
+        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
     }
 
 
