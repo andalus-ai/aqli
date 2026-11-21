@@ -4,7 +4,7 @@
 
 - Repository: `andalus-ai/aqli`
 - Branch: `main`
-- Audited commit: `86035c82619fd0d9cf0e0ddef79b6a9f87d5305f`
+- Audited commit: `dfa8b582bddf47d32d22803ede6f522725d28235`
 - Snapshot date: 2026-11-21
 - Method: recursive Git tree inventory, targeted source/build/documentation inspection, duplicate-name and similarity checks.
 - Validation: this was a static repository inspection. No Gradle build, test suite, runtime inference, or hardware benchmark was run as part of this snapshot.
@@ -15,14 +15,36 @@ This is an incremental audit ledger, not a claim that every file has been semant
 
 | Measure | Snapshot |
 |---|---:|
-| Git tree entries (files and directories) | 4,029 |
-| Java files | 2,141 |
-| Java main-source files | 1,654 |
-| Java test-source files | 483 |
+| Git tree entries (files and directories) | 4,025 |
+| Java files | 2,136 |
+| Java main-source files | 1,650 |
+| Java test-source files | 482 |
 | Java files outside conventional `src/` roots | 4 |
-| Repeated Java basenames | 46 groups |
+| Repeated Java basenames | 41 groups |
 
 Repeated basenames include legitimate types in different bounded contexts, package descriptors, and compatibility façades. They are review signals, not a deletion list.
+
+## Current-main status refresh
+
+This section supersedes the original snapshot's open/closed status where later merged changes are listed. The inventory above was recomputed from the current `main` tree at the audited commit.
+
+| Earlier finding | Current status on audited `main` | Evidence / remaining action |
+|---|---|---|
+| #2 duplicate ONNX CLI diagnostics capability | **Resolved** | PR #662 removed the unregistered duplicate; retain the registered diagnostics capability. |
+| #7 redundant Gradle declarations and duplicate repository entry | **Resolved** | PR #660 removed the redundant declarations. Keep future settings/build declarations single-sourced. |
+| #8 root README license metadata and relative links | **Resolved** | The README now reflects Apache-2.0 and the current tracked paths. |
+| #15 installer bootstrap recursion | **Resolved** | PR #661 corrected the bootstrap chain and repository defaults. |
+| #16 obsolete `ui/` build/install paths | **Resolved** | PR #661 aligned the local build/install paths with the current `cli/` and API layout. |
+| #20 invalid API Gradle project path | **Resolved** | The installer/build composition uses `:api:aqli-api`, not the former `:framework:api:aqli-api` logical path. |
+| #21 structured response rendering and async timeout defects | **Resolved** | PRs #664 and #665 fixed the compile-time renderer extraction and standard timeout failure semantics. |
+| #23 duplicate ONNX and Safetensors quota implementations | **Partially resolved** | PRs #662 and #663 removed the two verified duplicates. Other Safetensors same-name candidates remain under review. |
+| #17 stale module-selection manifest | **Open / guarded by pending PR** | The current selection file still contains project paths from an older Gradle graph. PR #667 adds a fail-fast validator before optional publication; it does not yet replace the stale selection. |
+| #3 and #4 Safetensors excluded sources/tests and near-duplicate candidates | **Open** | Requires source-set, consumer, CDI/service, and test migration analysis before removal. |
+| #24 SDK transport conformance | **Open** | Continue against the existing SDK consolidation plan; do not create another client abstraction. |
+
+The current tree scan found 2,136 Java files, 1,650 under main-source roots, 482 under test-source roots, and 41 repeated Java basename groups. Repeated basenames remain review signals, not automatic duplication defects. In particular, the three Safetensors `SlidingWindowAttention` classes and the generation/tooling `BeamSearchDecoder` pair require call-site and test tracing before consolidation.
+
+PR #667 is not part of the audited `main` snapshot until merged. Its validator protects the optional local publication path from stale module paths; the actual module-profile reconciliation remains a separate acceptance item.
 
 ## Confirmed findings
 
