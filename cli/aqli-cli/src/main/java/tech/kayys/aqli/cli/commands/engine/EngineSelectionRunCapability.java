@@ -20,6 +20,10 @@ public final class EngineSelectionRunCapability
     @Override
     public void registerOptions(CommandSpec commandSpec) {
         Objects.requireNonNull(commandSpec, "commandSpec");
+        commandSpec.addOption(OptionSpec.builder("--direct")
+                .type(boolean.class)
+                .description("Force use of the native Safetensor direct inference engine")
+                .build());
         commandSpec.addOption(OptionSpec.builder("--engine", "--gguf-engine")
                 .type(String.class)
                 .description("GGUF engine mode: auto, java, llamacpp, benchmark")
@@ -64,6 +68,7 @@ public final class EngineSelectionRunCapability
                 parseResult.matchedOptionValue("--java-native", false),
                 parseResult.matchedOptionValue("--llamacpp", false),
                 parseResult.matchedOptionValue("--benchmark", false),
+                parseResult.matchedOptionValue("--direct", false),
                 parseResult.matchedOptionValue("--prefer-alternate-runtime", false),
                 parseResult.matchedOptionValue("--plugin", null));
     }
