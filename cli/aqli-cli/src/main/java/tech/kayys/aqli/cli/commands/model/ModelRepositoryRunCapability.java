@@ -36,6 +36,10 @@ public final class ModelRepositoryRunCapability
                 .type(boolean.class)
                 .description("Copy the model file/dir into the aqli model repository (~/.aqli/models/)")
                 .build());
+        commandSpec.addOption(OptionSpec.builder("--force")
+                .type(boolean.class)
+                .description("Force re-download and replace existing model repository files")
+                .build());
     }
 
     @Override
@@ -50,6 +54,7 @@ public final class ModelRepositoryRunCapability
                 parseResult.hasMatchedOption("--offline") || parseResult.hasMatchedOption("--local"),
                 parseResult.matchedOptionValue("--branch", null),
                 parseResult.hasMatchedOption("--import"),
-                parseResult.hasMatchedOption("--copy"));
+                parseResult.hasMatchedOption("--copy"),
+                parseResult.hasMatchedOption("--force"));
     }
 }

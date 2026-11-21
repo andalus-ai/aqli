@@ -516,7 +516,7 @@ public class LiteRTInferenceRunner implements AutoCloseable {
         }
         if (gemmaNativeRunner != null) {
             try {
-                gemmaNativeRunner.generate(request, tokenCallback);
+                gemmaNativeRunner.generate(request, tokenCallback, cancelled);
                 return;
             } catch (Exception e) {
                 if (isStrictLiteRtOnlyMode(modelPath)) {
@@ -537,7 +537,8 @@ public class LiteRTInferenceRunner implements AutoCloseable {
             gemmaMetalRunner.generate(
                     extractPromptTextForGemmaRunner(request),
                     Math.max(1, request.getMaxTokens()),
-                    tokenCallback);
+                    tokenCallback,
+                    cancelled);
             return;
         }
 
