@@ -58,4 +58,11 @@ class ImageMetadataSidecarCliHandlerTest {
 
         assertFalse(Files.exists(implicitSidecar));
     }
+    @Test
+    void returnsFalseWhenVerificationOrRefreshSidecarDoesNotExist() {
+        Path missingSidecar = tempDir.resolve("missing-image.json");
+
+        assertFalse(ImageMetadataSidecarCliHandler.verify(missingSidecar.toString(), null));
+        assertFalse(ImageMetadataSidecarCliHandler.refresh(missingSidecar.toString(), null));
+    }
 }
