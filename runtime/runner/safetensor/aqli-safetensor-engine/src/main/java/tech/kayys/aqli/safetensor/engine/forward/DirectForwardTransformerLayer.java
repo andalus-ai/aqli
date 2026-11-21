@@ -35,6 +35,7 @@ final class DirectForwardTransformerLayer {
                         Map<Integer, SharedKvState> sharedKvStates,
                         ResolvedLayerWeights layerWeights,
                         ResolvedModelWeights resolvedWeights) {
+        DirectForwardCancellation.checkpoint();
         DirectForwardLayerStageContext stageContext = DirectForwardLayerStageContext.create(
                 context,
                 hiddenIn,
@@ -52,6 +53,7 @@ final class DirectForwardTransformerLayer {
             System.err.println("  -> AttentionStage");
         }
         DirectForwardAttentionStage.run(stageContext, context.attentionKernel(), kvCache, startPos, sharedKvStates);
+        DirectForwardCancellation.checkpoint();
         if (layerWeights.hasMamba()) {
             if (stageContext.verboseLayers()) {
                 System.err.println("  -> MambaStage");
@@ -72,16 +74,19 @@ final class DirectForwardTransformerLayer {
                         config.hiddenSize(),
                         stageContext.useNativeElementwiseAdd());
                 mambaOut.close();
+                DirectForwardCancellation.checkpoint();
             }
         }
         if (stageContext.verboseLayers()) {
             System.err.println("  -> FfnStage");
         }
         DirectForwardFfnStage.run(stageContext, context.moeForwardPass(), weights);
+        DirectForwardCancellation.checkpoint();
         if (stageContext.verboseLayers()) {
             System.err.println("  -> LayerTailStage");
         }
         DirectForwardLayerTailStage.run(stageContext, perLayerInput);
+        DirectForwardCancellation.checkpoint();
         if (Boolean.getBoolean("aqli.debug.mamba")) {
             AccelTensor dbgOut = AccelTensor.view(hiddenOut, new long[]{seqLen, config.hiddenSize()});
             float[] hData = dbgOut.toFloatArray();
