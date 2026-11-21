@@ -2415,11 +2415,7 @@ public class RunCommand implements Runnable {
         }
 
         boolean audioResponse = metadata.containsKey("audio") || AudioRunStatsRenderer.isAudioMetadata(metadata);
-        if (metadata.containsKey("audio")) {
-            saveAudio(metadata.get("audio").toString(), audioDefaultExtension(metadata), metadata);
-        } else if (metadata.containsKey("image")) {
-            saveImage(metadata.get("image").toString(), metadata);
-        }
+        mediaOutputHandler().saveResponseMedia(metadata);
 
         double seconds = Math.max(response.getDurationMs() / 1000.0, 0.001);
         double tps = response.getTokensUsed() / seconds;
@@ -2705,42 +2701,6 @@ public class RunCommand implements Runnable {
 
 
 
-    private void saveAudio(String base64) {
-        saveAudio(base64, "flac");
-    }
-
-    private void saveAudio(String base64, String defaultExt) {
-        saveAudio(base64, defaultExt, null);
-    }
-
-    private void saveAudio(String base64, String defaultExt, Map<String, Object> metadata) {
-        saveBufferFromBase64(base64, defaultExt, "Audio", metadata);
-    }
-
-    private void saveImage(String base64) {
-        saveImage(base64, null);
-    }
-
-    private void saveImage(String base64, Map<String, Object> metadata) {
-        saveBufferFromBase64(base64, "png", "Image", metadata);
-    }
-
-    private void saveBufferFromBase64(String base64, String defaultExt, String label) {
-        saveBufferFromBase64(base64, defaultExt, label, null);
-    }
-
-    private void saveBufferFromBase64(
-            String base64,
-            String defaultExt,
-            String label,
-            Map<String, Object> metadata) {
-        try {
-            byte[] decoded = java.util.Base64.getDecoder().decode(base64);
-            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            bos.write(decoded);
-            saveBuffer(bos, defaultExt, label, metadata);
-        } catch (Exception ignored) {}
-    }
     private Path replaceExtension(Path path, String newExt) {
         return CliPathUtils.replaceExtension(path, newExt);
     }
