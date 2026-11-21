@@ -289,8 +289,6 @@ public class RunCommand implements Runnable {
 
     boolean runtimeProfile;
 
-    @Option(names = {
-            "--prefer-alternate-runtime" }, description = "Allow Gemma safetensor checkpoints to route to local LiteRT/GGUF companion artifacts")
     boolean preferAlternateRuntime;
 
     @Parameters(arity = "0..*", hidden = true)
@@ -298,6 +296,8 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+
         runtimeProfileOptions = runCapabilityRegistry.snapshot(
                 "runtime-profile",
                 commandSpec.commandLine().getParseResult(),
