@@ -731,7 +731,7 @@ public class RunCommand implements Runnable {
                             RunModelPreparationResolver.resolve(
                                     new RunModelPreparationResolver.Options(
                                             modelId, requestedModelRef, format, providerId, pluginId,
-                                            ggufQuant, ggufOutType, forceGguf, providerExplicit,
+                                            ggufQuant, ggufOutType, forceGguf, modelRepositoryOptions.force(), providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelOptions.modelIds()),
                                     sdk,
                                     reference -> {
