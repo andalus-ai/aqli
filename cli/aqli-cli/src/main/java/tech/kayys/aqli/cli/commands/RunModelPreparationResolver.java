@@ -84,8 +84,11 @@ final class RunModelPreparationResolver {
                 : (options.ggufOutType() != null ? options.ggufOutType() : "Q4_K_M");
 
         try {
+            String requestedReference = options.requestedModelRef() != null
+                    ? options.requestedModelRef()
+                    : modelId;
             boolean forceHuggingFaceRefresh = options.forceRepositoryRefresh()
-                    && ModelSourceResolver.huggingFaceRepositoryId(options.requestedModelRef()) != null;
+                    && ModelSourceResolver.huggingFaceRepositoryId(requestedReference) != null;
             ModelResolution resolution = forceHuggingFaceRefresh
                     ? new ModelResolution(modelId, null, null)
                     : runtime.prepareModel(
