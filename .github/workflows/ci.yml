@@ -81,8 +81,8 @@ jobs:
           java-version: "25"
           cache: gradle
 
-      - name: Build Suling audio API
-        run: ./gradlew --no-daemon -p suling publishToMavenLocal
+      - name: Install Suling audio API to Maven Local
+        run: mvn --batch-mode --no-transfer-progress -f suling/pom.xml -DskipTests install
 
       - name: Check product boundaries
         shell: bash
@@ -195,8 +195,8 @@ jobs:
           java-version: "25"
           cache: gradle
 
-      - name: Build Suling audio API
-        run: ./gradlew --no-daemon -p suling publishToMavenLocal
+      - name: Install Suling audio API to Maven Local
+        run: mvn --batch-mode --no-transfer-progress -f suling/pom.xml -DskipTests install
 
       - name: Prepare llama.cpp source
         shell: bash
@@ -255,8 +255,8 @@ jobs:
           java-version: '25'
           cache: gradle
 
-      - name: Build Suling audio API
-        run: ./gradlew --no-daemon -p suling publishToMavenLocal
+      - name: Install Suling audio API to Maven Local
+        run: mvn --batch-mode --no-transfer-progress -f suling/pom.xml -DskipTests install
 
       - name: Prepare llama.cpp source
         shell: bash
