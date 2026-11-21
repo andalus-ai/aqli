@@ -17,12 +17,12 @@ The inspected default-branch tree has these SDK-related modules:
 
 - `framework/sdk/aqli-sdk`
 - `framework/sdk/aqli-sdk-core`
-- `framework/sdk/aqli-sdk-remote`
+- `framework/sdk/aqli-sdk-api` — present and included in the current Gradle graph.
+- `framework/sdk/aqli-sdk-remote` — present in the tree but not included in the default settings graph.
 - `runtime/sdk/aqli-sdk-local`
-- `framework/sdk/aqli-sdk-protobuf` is referenced by settings/build files but is absent from the inspected tree.
-- `framework/sdk/aqli-sdk-api` is referenced by settings/build files and by both SDK and SDK Core build files, but is absent from the inspected tree.
+- `framework/sdk/aqli-sdk-protobuf` — referenced by optional settings/build declarations but absent from the inspected tree.
 
-The root settings conditionally include the missing API and protobuf projects, while the SDK build scripts directly depend on them. This inconsistency must be resolved before relying on a clean Gradle module graph.
+The canonical API module now exists. The optional remote/protobuf module declarations still need reconciliation with the actual source tree; do not treat a source directory, an optional settings declaration, and an active Gradle project as interchangeable.
 
 The current SDK source contains multiple overlapping public contracts:
 
@@ -47,10 +47,10 @@ The actual CLI module in the inspected tree is `cli/aqli-cli`; the `ui/aqli-cli`
 | Module | Target responsibility | Must not own |
 |---|---|---|
 | `sdk:aqli-sdk-api` | The only public SDK contract: `AqliClient`, builder/configuration types, client-facing capability abstractions and stable exceptions. Uses canonical Aljabr inference/model contracts wherever those are the shared concepts. | HTTP resources, transport implementations, local engine wiring, duplicated inference DTOs |
-| `sdk:aqli-sdk-core` | Transport-neutral client orchestration, validation, retry policy, shared mapping and lifecycle behavior. Implements the public API only where it is transport-neutral. | A second public SDK interface or model of deployment topology |
-| `sdk:aqli-sdk-remote` | Optional remote adapters, separated by protocol where justified (HTTP/REST and gRPC). Implements the same `AqliClient`. | A separate client API, CLI process transport as a core SDK concern |
+| `sdk:aqli-sdk-core` | Current runtime/application capability aggregate and compatibility layer consumed by server/local composition. Target: keep internal runtime ports separate from the public client API and split capabilities by cohesive responsibility. | The canonical public client interface or a second independently evolving SDK contract |
+| `sdk:aqli-sdk-remote` | Target home for optional remote adapters, separated by protocol where justified (HTTP/REST and gRPC). Implements the same `AqliClient`; currently not included in the default settings graph. | A separate client API, CLI process transport as a core SDK concern |
 | `sdk:aqli-sdk-local` | In-process runtime composition and adapters over AQLI runtime/runner services. Implements the same `AqliClient`. | Public contract definitions or duplicated model DTOs |
-| `sdk:aqli-sdk` | Optional convenience/facade artifact and dependency bundle for the default supported SDK experience. It should not contain another client implementation or contract. | Competing API definitions, hidden reflective discovery, all transports in one mandatory dependency |
+| `sdk:aqli-sdk` | Current facade/provider registration and transport implementation module. Target: a thin convenience artifact that registers supported providers and does not own every transport implementation. | Competing API definitions or making all optional transports mandatory |
 | `framework/api/aqli-api` | Server-side REST/OpenAI-compatible resources, server DTOs, authentication, HTTP mapping and server lifecycle. | Client SDK interfaces, client-side builders or transport implementations |
 | `cli/aqli-cli` | Terminal commands, parsing, formatting and command orchestration. Uses runtime/application services or the SDK where appropriate. | SDK contract definitions or server API DTO ownership |
 
@@ -62,16 +62,18 @@ The SDK API must use Aljabr's canonical framework contracts for generic inferenc
 
 | Existing name | Target name / action | Reason |
 |---|---|---|
-| `tech.kayys.aqli.sdk.AqliClient` | Canonical `tech.kayys.aqli.sdk.AqliClient` | Retain the clearest public entry point and migrate its API surface into the API module |
-| `tech.kayys.aqli.sdk.api.AqliClient` | Remove after compatibility migration | Duplicate public client abstraction and nested DTO family |
+| `tech.kayys.aqli.sdk.AqliClient` | Deprecated legacy surface; migrate consumers and remove after compatibility gates | It is a second public client contract with different request/response types |
+| `tech.kayys.aqli.sdk.api.AqliClient` | Canonical public contract in `sdk:aqli-sdk-api` | This is the contract implemented by the current REST, gRPC and embedded adapters |
 | `tech.kayys.aqli.sdk.api.AqliSdk` | Remove after its unique operations are classified and migrated | "SDK" names a distribution/developer experience, not a second client interface |
 | `tech.kayys.aqli.sdk.core.AqliSdk` | Replace with internal runtime/application service interfaces or migrate client-facing operations to canonical `AqliClient` | Currently conflates inference, model management, jobs, and server provider concerns |
 | `sdk.api.DeploymentMode` | `ClientTransport` or `ConnectionMode` | EMBEDDED/REST/GRPC are connection strategies; CLI should be an explicit process adapter, not a deployment mode |
 | `sdk.core.DeploymentMode` | `RuntimeTopology` (only if still needed) | STANDALONE/MICROSERVICE/HYBRID describe topology, not client transport |
 | `AqliClientFactory` | `AqliClientProvider` or protocol-specific factories | Factory should not switch among unrelated transport and runtime concerns |
-| `RemoteAqliClient` / `RestAqliClient` | One clearly named REST adapter implementation | Avoid two layers with indistinguishable remote/REST responsibilities |
-| `GrpcAqliClient` | gRPC adapter implementation | Protocol-specific implementation of the same contract |
-| `EmbeddedAqliClient` / `LocalAqliClient` | One local adapter implementation | Avoid duplicate names for the same in-process mode |
+| `RemoteAqliClient` | Legacy root-package remote adapter; migrate or remove after endpoint and consumer audit | It uses a separate legacy API and stale endpoint assumptions |
+| `RestAqliClient` | Canonical REST adapter after endpoint/auth/stream/embedding conformance | It currently targets a route not exposed by the server and returns placeholder capability results |
+| `GrpcAqliClient` | Canonical gRPC adapter after auth/TLS/deadline/capability conformance | It must preserve protocol-specific lifecycle and capability semantics |
+| `EmbeddedAqliClient` | Canonical in-process adapter after capability reporting is corrected | It currently reports every feature as supported |
+| `LocalAqliClient` | Legacy root-package local adapter; migrate or remove after consumer audit | It implements the legacy root-package client contract |
 | `CliAqliClient` | Move to an explicit CLI/process adapter only if there is a real SDK use case | CLI is not a deployment mode and must not leak into the core API |
 
 Do not mechanically rename types before auditing callers. For public types, provide deprecated forwarding interfaces/builders or a documented breaking release according to the repository's release policy. Avoid maintaining two independently evolving contracts during the transition.
@@ -189,3 +191,47 @@ The first source migration establishes `sdk:aqli-sdk-api` and moves the `tech.ka
 The `aqli-sdk` facade registers the provider and implements the builder by delegating to the existing transport factory. The public builder adds `transport(ClientTransport)`; the old `mode(DeploymentMode)` remains deprecated for source compatibility. `aqli-sdk` exposes the API module as an `api` dependency, while SDK Core no longer depends on the client API module.
 
 This is deliberately an incremental migration, not the completed consolidation: the older root-package `tech.kayys.aqli.sdk.AqliClient`, the two `AqliSdk` interfaces, provider-discovery duplication for those interfaces, and server-side `SdkProvider` still require a call-site and behavior audit before removal.
+
+## Transport conformance findings (2026-11-21)
+
+The canonical API exists, but its implementations do not yet satisfy a consistent production client contract.
+
+### Public contract gaps
+
+- `AqliClient.Builder` exposes model, endpoint, token limit, temperature, backend and transport, but has no API-key/credential or request-timeout configuration.
+- The API server's `SecurityFilter` requires `X-API-Key` or `Authorization: Bearer` for protected routes. The canonical REST and gRPC client builders cannot configure credentials.
+- `AqliClient.Feature` has no `EMBEDDINGS` value even though the interface exposes `embed` and `embedBatch`.
+- `GenerationStream` has callbacks and a future but no explicit cancellation/close contract.
+- Capability semantics are not consistent: `supports` sometimes describes method availability, sometimes native transport support, and sometimes overclaims capabilities.
+
+### REST adapter defects
+
+The current `RestAqliClient`:
+
+- posts to `/v1/generate`, which is not a route in the current API server;
+- serializes the SDK request directly, while the current public chat route expects the OpenAI-compatible request shape at `/v1/chat/completions`;
+- sends no API-key or bearer header;
+- implements `generateStream` by making a normal synchronous generation request and emitting the final text as one token;
+- returns a synthetic zero-filled 768-dimensional embedding from `embed`;
+- reports `STREAMING` support despite not implementing SSE.
+
+The actual API routes include `POST /v1/chat/completions`, SSE streaming on the same route with stream semantics, `POST /v1/embeddings`, and the native `POST /v1/completions` / `POST /v1/completions/stream` routes. The API security filter requires credentials on these protected routes.
+
+### gRPC, embedded and CLI adapter defects
+
+- `GrpcAqliClient` performs real streaming and embedding calls, but uses plaintext channels only, has no API-key metadata or deadline configuration, and does not advertise embeddings in `supports`.
+- `EmbeddedAqliClient.supports` returns `true` for every feature enum value, including features that are not established by the selected runtime/backend. Its generation duration mapping also measures from a timestamp captured after inference, producing a near-zero duration.
+- `CliAqliClient.generateStream` runs a complete non-streaming CLI request and emits the final text as one token. Its embedding methods return empty vectors. It should not claim streaming or embedding support.
+- The legacy `RemoteAqliClient` also targets `/v1/generate` and `/v1/generate/stream`, which are not current API routes. It has credential/timeout configuration, but its wire contract is stale.
+
+### Required bounded migration
+
+1. **Make the contract honest.** Define whether `supports` means client method availability or native provider capability. Add an embedding capability only if the contract needs it. Specify cancellation, timeout, error and resource-close semantics.
+2. **Add transport configuration.** Provide explicit credentials and request/connect timeout configuration in the canonical builder. Use `X-API-Key` or Bearer consistently; never read credentials from hidden global state.
+3. **Correct REST mapping.** Use a dedicated OpenAI-compatible wire mapper for chat completions and embeddings. Map usage, finish reason, model and error responses to the canonical result types. Do not depend on server implementation DTO classes.
+4. **Implement or disable streaming.** Parse SSE events, handle `[DONE]`, preserve errors and usage, and support cancellation. Until then, `supports(STREAMING)` must be false and `generateStream` must fail explicitly rather than faking a stream.
+5. **Implement or disable embeddings.** Call `/v1/embeddings` and parse the returned vector. Until then, throw a typed unsupported-operation error; never return zero-filled or empty vectors as successful embeddings.
+6. **Correct gRPC parity.** Add credentials/metadata, TLS configuration, deadlines, cancellation and accurate capability reporting. Preserve channel ownership and deterministic shutdown.
+7. **Contract-test every adapter.** Run the same request/result/error/stream/embedding/timeout/close contract suite against embedded, REST and gRPC adapters, with fake HTTP/gRPC servers and an API integration test.
+
+Do not fix this by adding another `AqliClient` or `AqliSdk` abstraction. Keep the existing canonical `sdk.api.AqliClient` and move each implementation toward the same observable semantics.
