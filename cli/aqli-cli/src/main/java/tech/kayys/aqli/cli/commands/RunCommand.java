@@ -281,9 +281,6 @@ public class RunCommand implements Runnable {
 
     String quantizeKv;
 
-    @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
-    public String pluginId;
-
     boolean runtimeProfile;
 
     boolean preferAlternateRuntime;
@@ -478,6 +475,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
             noBanner = true;
