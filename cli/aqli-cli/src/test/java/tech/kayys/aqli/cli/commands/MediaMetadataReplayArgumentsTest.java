@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class MediaMetadataReplayArgumentsTest {
 
@@ -13,7 +14,7 @@ class MediaMetadataReplayArgumentsTest {
         assertEquals("metadata-seed", MediaMetadataReplayArguments.audioSeed(
                 Map.of("tts_seed", 42, "seed", 7), "run-seed"));
         assertEquals("run-seed", MediaMetadataReplayArguments.audioSeed(Map.of(), "run-seed"));
-        assertEquals(null, MediaMetadataReplayArguments.audioSeed(null, null));
+        assertNull(MediaMetadataReplayArguments.audioSeed(null, null));
     }
 
     @Test
