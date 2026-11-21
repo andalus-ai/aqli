@@ -48,6 +48,9 @@ final class DirectGenerationFlows {
                 modelResolver.require(modelPath, debug.enabled(), debug.prefix());
         DirectPromptPreparation preparedPrompt = DirectPromptPreparation.text(
                 model, prompt, request.profile(), debug.textPrompt(false));
+        if (cancelled != null && cancelled.getAsBoolean()) {
+            throw new java.util.concurrent.CancellationException("Direct generation cancelled");
+        }
         Tokenizer tokenizer = preparedPrompt.tokenizer();
         ModelConfig config = preparedPrompt.config();
         long[] inputIds = preparedPrompt.ids();
@@ -59,6 +62,9 @@ final class DirectGenerationFlows {
         DirectGenerationOutput output;
         try (KVCacheManager.KVCacheSession session = sessionAllocator.get()
                 .createAllocated(config, cfg, request.timings(), request.profile())) {
+            if (cancelled != null && cancelled.getAsBoolean()) {
+                throw new java.util.concurrent.CancellationException("Direct generation cancelled");
+            }
             debug.step(8, "prefill");
             DirectGenerationExecutor.Result run = generationExecutor.get().runPrefill(
                     new DirectGenerationExecutor.PrefillRequest(

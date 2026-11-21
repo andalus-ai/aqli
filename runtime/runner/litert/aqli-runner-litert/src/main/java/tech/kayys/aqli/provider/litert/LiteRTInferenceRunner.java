@@ -746,6 +746,9 @@ public class LiteRTInferenceRunner implements AutoCloseable {
             String prompt = buildSafetensorPrompt(request);
             Object generationConfig = buildSafetensorGenerationConfig(request);
             Class<?> generationConfigClass = generationConfig.getClass();
+            AtomicBoolean timedOut = new AtomicBoolean();
+            BooleanSupplier stopRequested = () -> cancelled.getAsBoolean() || timedOut.get();
+            long deadline = System.nanoTime() + Duration.ofMinutes(5).toNanos();
             Method generateMethod = directEngine.getClass().getMethod(
                     "generate",
                     String.class,
@@ -753,7 +756,7 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                     generationConfigClass,
                     BooleanSupplier.class);
             Uni<?> inference = ((Uni<?>) generateMethod.invoke(
-                    directEngine, prompt, safetensorFallbackModelPath, generationConfig, cancelled))
+                    directEngine, prompt, safetensorFallbackModelPath, generationConfig, stopRequested))
                     .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
             AtomicReference<Object> responseRef = new AtomicReference<>();
             AtomicReference<Throwable> failureRef = new AtomicReference<>();
@@ -768,13 +771,13 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                         completed.countDown();
                     });
 
-            long deadline = System.nanoTime() + Duration.ofMinutes(5).toNanos();
             while (!completed.await(50, TimeUnit.MILLISECONDS)) {
                 if (cancelled.getAsBoolean()) {
                     subscription.cancel();
                     return true;
                 }
                 if (System.nanoTime() >= deadline) {
+                    timedOut.set(true);
                     subscription.cancel();
                     throw new java.util.concurrent.TimeoutException(
                             "Companion safetensor inference exceeded five minutes");
