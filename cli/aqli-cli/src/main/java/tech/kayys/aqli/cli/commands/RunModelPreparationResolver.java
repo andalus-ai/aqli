@@ -28,6 +28,7 @@ final class RunModelPreparationResolver {
             String ggufQuant,
             String ggufOutType,
             boolean forceGguf,
+            boolean forceRepositoryRefresh,
             boolean providerExplicit,
             boolean quietOutput,
             List<String> fallbackModelIds) {
@@ -83,14 +84,18 @@ final class RunModelPreparationResolver {
                 : (options.ggufOutType() != null ? options.ggufOutType() : "Q4_K_M");
 
         try {
-            ModelResolution resolution = runtime.prepareModel(
-                    modelId,
-                    format,
-                    options.pluginId(),
-                    options.forceGguf(),
-                    quant,
-                    options.fallbackModelIds(),
-                    progressCallback);
+            boolean forceHuggingFaceRefresh = options.forceRepositoryRefresh()
+                    && ModelSourceResolver.huggingFaceRepositoryId(options.requestedModelRef()) != null;
+            ModelResolution resolution = forceHuggingFaceRefresh
+                    ? new ModelResolution(modelId, null, null)
+                    : runtime.prepareModel(
+                            modelId,
+                            format,
+                            options.pluginId(),
+                            options.forceGguf(),
+                            quant,
+                            options.fallbackModelIds(),
+                            progressCallback);
 
             modelId = resolution.getModelId();
             if (resolution.getLocalPath() != null) {
