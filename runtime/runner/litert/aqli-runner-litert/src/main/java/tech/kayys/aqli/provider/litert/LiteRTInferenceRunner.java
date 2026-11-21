@@ -1,6 +1,7 @@
 package tech.kayys.aqli.provider.litert;
 
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.subscription.Cancellable;
 
@@ -19,7 +20,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -754,7 +754,7 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                     BooleanSupplier.class);
             Uni<?> inference = ((Uni<?>) generateMethod.invoke(
                     directEngine, prompt, safetensorFallbackModelPath, generationConfig, cancelled))
-                    .runSubscriptionOn(ForkJoinPool.commonPool());
+                    .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
             AtomicReference<Object> responseRef = new AtomicReference<>();
             AtomicReference<Throwable> failureRef = new AtomicReference<>();
             CountDownLatch completed = new CountDownLatch(1);
