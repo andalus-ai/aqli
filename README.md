@@ -203,6 +203,7 @@ The exact Gradle project graph is authoritative; use `./gradlew projects` when l
 - [Ownership Audit](docs/architecture/ALJABR_AQLI_OWNERSHIP_AUDIT.md) — initial overlap inventory.
 - [Codebase Quality Audit](docs/architecture/CODEBASE_QUALITY_AUDIT.md) — verified structural findings and the incremental cleanup plan.
 - [CLI Command Decomposition Plan](docs/architecture/CLI_COMMAND_DECOMPOSITION_PLAN.md) — staged extraction plan for the large feature and module commands.
+- [SDK Contract Consolidation](docs/architecture/SDK_CONTRACT_CONSOLIDATION.md) — canonical client API, transport ownership and adapter conformance.
 
 Architecture documents describe the target state and migration rules. They are not proof that every consolidation task or model capability is complete.
 
