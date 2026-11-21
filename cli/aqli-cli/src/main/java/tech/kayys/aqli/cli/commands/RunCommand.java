@@ -2542,13 +2542,7 @@ public class RunCommand implements Runnable {
         return null;
     }
 
-    private static String metadataText(Map<String, Object> metadata, String key) {
-        if (metadata == null || metadata.isEmpty()) {
-            return null;
-        }
-        Object value = metadata.get(key);
-        return value == null ? null : String.valueOf(value);
-    }
+
 
     private void printExecutionRouteInfo(Map<String, Object> metadata) {
         ExecutionRouteTerminalRenderer.print(metadata, noBanner, System.out::println);
@@ -2628,94 +2622,33 @@ public class RunCommand implements Runnable {
     }
 
     private void maybeWriteAudioMetadataSidecar(Path audioPath, Map<String, Object> metadata) {
-        MediaMetadataSidecarCliHandler.maybeWriteAudioMetadataSidecar(new MediaMetadataSidecarCliHandler.AudioSidecarRequest(
-                audioPath,
-                mediaMetadataOptions.audioOutputPath(),
-                mediaMetadataOptions.audioSidecar(),
-                modelId,
-                providerId,
-                runner,
-                prompt,
-                effectiveTtsVoiceSelector(),
-                audioDefaultExtension(metadata),
-                MediaMetadataReplayArguments.audio(
-                        audioPath.toAbsolutePath().normalize(),
+        MediaMetadataSidecarCliHandler.maybeWriteAudioMetadataSidecar(
+                MediaMetadataSidecarRequestFactory.audio(
+                        audioPath,
                         metadata,
+                        mediaMetadataOptions,
                         modelId,
                         providerId,
                         runner,
                         prompt,
                         effectiveTtsVoiceSelector(),
-                        audioDefaultExtension(metadata),
-                        seed == null ? null : seed.toString(),
-                        audioRunOptions),
-                metadata
-        ));
+                        audioRunOptions,
+                        generationSeedOptions));
     }
 
     private void maybeWriteImageMetadataSidecar(Path imagePath, Map<String, Object> metadata) {
-        MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(new MediaMetadataSidecarCliHandler.ImageSidecarRequest(
-                imagePath,
-                imageMetadataOptions.imageOutputPath(),
-                imageMetadataOptions.imageSidecar(),
-                modelId,
-                providerId,
-                runner,
-                prompt,
-                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
-                imageGenerationOptions.steps(),
-                imageGenerationOptions.guidanceScale(),
-                imageGenerationOptions.width(),
-                imageGenerationOptions.height(),
-                metadata
-        ));
+        MediaMetadataSidecarCliHandler.maybeWriteImageMetadataSidecar(
+                MediaMetadataSidecarRequestFactory.image(
+                        imagePath,
+                        metadata,
+                        imageMetadataOptions,
+                        modelId,
+                        providerId,
+                        runner,
+                        prompt,
+                        imageGenerationOptions,
+                        generationSeedOptions));
     }
-
-    private String imageReplaySeed(Map<String, Object> metadata) {
-        for (String key : List.of("image_seed", "seed", "generation_seed")) {
-            String metadataSeed = metadataText(metadata, key);
-            if (metadataSeed != null && !metadataSeed.isBlank()) {
-                return metadataSeed;
-            }
-        }
-        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
-    }
-
-    private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
-        return AudioMetadataReplayCommandBuilder.build(new AudioMetadataReplayCommandBuilder.Request(
-                modelId,
-                providerId,
-                runner,
-                prompt,
-                effectiveTtsVoiceSelector(),
-                audioDefaultExtension(metadata),
-                replaySeed(metadata),
-                audioPath == null ? null : audioPath.toString(),
-                audioRunOptions.quality(),
-                audioRunOptions.bitrateKbps(),
-                audioRunOptions.channels(),
-                audioRunOptions.codecDecode(),
-                audioRunOptions.maxFrames(),
-                audioRunOptions.maxSeconds(),
-                audioRunOptions.gainDb(),
-                audioRunOptions.peakDb(),
-                audioRunOptions.fadeMs(),
-                audioRunOptions.trimDbfs(),
-                audioRunOptions.trimPaddingMs(),
-                audioRunOptions.flacCompression(),                audioRunOptions.disablePolish(),
-                audioRunOptions.disableNormalize(),
-                audioRunOptions.trimSilence()));
-    }
-
-    private String replaySeed(Map<String, Object> metadata) {
-        String metadataSeed = metadataText(metadata, "tts_seed");
-        if (metadataSeed != null && !metadataSeed.isBlank()) {
-            return metadataSeed;
-        }
-        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
-    }
-
-
 
     private Path replaceExtension(Path path, String newExt) {
         return CliPathUtils.replaceExtension(path, newExt);
@@ -2723,27 +2656,6 @@ public class RunCommand implements Runnable {
 
     static String normalizeExtension(String ext) {
         return CliPathUtils.normalizeExtension(ext);
-    }
-
-    private static String audioDefaultExtension(Map<String, Object> metadata) {
-        if (metadata == null || metadata.isEmpty()) {
-            return "flac";
-        }
-        Object format = metadata.get("audio_format");
-        if (format == null) {
-            format = metadata.get("audio_ext");
-        }
-        if (format == null) {
-            Object mime = metadata.get("audio_mime");
-            if (mime != null && String.valueOf(mime).toLowerCase(Locale.ROOT).contains("wav")) {
-                return "wav";
-            }
-        }
-        String ext = format == null ? "" : String.valueOf(format).trim().toLowerCase(Locale.ROOT);
-        if (ext.startsWith(".")) {
-            ext = ext.substring(1);
-        }
-        return ext.isBlank() ? "flac" : ext;
     }
 
     static String pathExtension(Path path) {
