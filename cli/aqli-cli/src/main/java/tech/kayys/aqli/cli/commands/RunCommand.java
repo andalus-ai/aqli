@@ -1304,13 +1304,16 @@ public class RunCommand implements Runnable {
                                     if (enableJsonSse) {
                                         printOpenAiSseFinal(request.getRequestId(), request.getModel());
                                     } else {
-                                        printCompletionStatsForOutput(
+                                        RunResponseCompletionCoordinator.printStats(uiRenderer, 
                                                 tokenCount.get(),
                                                 duration,
                                                 tps,
                                                 ttftMs,
                                                 streamMetrics,
-                                                audioOutput.hasOutput());
+                                                audioOutput.hasOutput(),
+                                                noBanner || noInfo,
+                                                enableJsonSse,
+                                                noBanner);
                                     }
                                 },
                                 error -> {
@@ -2458,12 +2461,15 @@ public class RunCommand implements Runnable {
                     audioResponse);
         }
         int outputTokens = response.getOutputTokens() > 0 ? response.getOutputTokens() : response.getTokensUsed();
-        RouteBenchmarkProfileCoordinator.record(
-                response.getModel(),
+        RunResponseCompletionCoordinator.complete(
+                uiRenderer,
                 response.getModel(),
                 metadata,
+                response.getTokensUsed(),
                 outputTokens,
                 response.getDurationMs(),
+                tps,
+                ttftMillis(metadata),
                 audioResponse,
                 AudioRunStatsRenderer::isAudioMetadata);
 
@@ -2513,29 +2519,6 @@ public class RunCommand implements Runnable {
         return metrics;
     }
 
-    private void printCompletionStatsForOutput(
-            int tokenCount,
-            long durationMs,
-            double tps,
-            Double ttftMs,
-            Map<String, Object> metadata,
-            boolean audioOutput) {
-        if (audioOutput || AudioRunStatsRenderer.isAudioMetadata(metadata)) {
-            printAudioRunStats(metadata, durationMs);
-            return;
-        }
-        uiRenderer.printStats(tokenCount, durationMs / 1000.0, tps, ttftMs, noBanner || noInfo);
-        uiRenderer.printBenchmarks(metadata, noBanner || noInfo);
-
-    }
-
-    private void printAudioRunStats(Map<String, Object> metadata, long fallbackDurationMs) {
-        if (enableJsonSse || noBanner) {
-            return;
-        }
-        AudioRunStatsRenderer.render(metadata, fallbackDurationMs).ifPresent(line ->
-                System.out.println(ChatUIRenderer.DIM + line + ChatUIRenderer.RESET));
-    }
     private static long observedStreamDurationMillis(
             long streamStartTimeMs,
             long completionTimeMs,
