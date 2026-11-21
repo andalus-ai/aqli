@@ -42,6 +42,7 @@ final class DirectForwardLayerLoop {
         MemorySegment currentHidden = request.currentHidden();
         MemorySegment nextHidden = request.nextHidden();
         for (int layer = 0; layer < request.config().numHiddenLayers(); layer++) {
+            DirectForwardCancellation.checkpoint();
             logLayerStart(request, layer);
             DirectForwardTransformerLayer.forward(
                     request.context(),
