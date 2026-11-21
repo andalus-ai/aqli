@@ -6,5 +6,6 @@ public record EngineSelectionRunOptions(
         String backend,
         boolean javaNative,
         boolean llamaCpp,
-        boolean benchmark) {
+        boolean benchmark,
+        boolean preferAlternateRuntime) {
 }
