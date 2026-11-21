@@ -2595,6 +2595,22 @@ public class RunCommand implements Runnable {
         System.out.println("--------------------------------------------------");
     }
 
+    private static String audioDefaultExtension(Map<String, Object> metadata) {
+        if (metadata != null) {
+            Object format = metadata.get("audio_format");
+            if (format == null) {
+                format = metadata.get("format");
+            }
+            if (format != null) {
+                String extension = CliPathUtils.normalizeExtension(format.toString());
+                if (CliPathUtils.isKnownAudioExtension(extension)) {
+                    return extension;
+                }
+            }
+        }
+        return "wav";
+    }
+
     private MediaOutputCliHandler mediaOutputHandler() {
         return new MediaOutputCliHandler(
                 outputPath,
