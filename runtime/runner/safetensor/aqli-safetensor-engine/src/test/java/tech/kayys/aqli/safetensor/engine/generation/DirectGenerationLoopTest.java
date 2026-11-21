@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -103,6 +104,41 @@ class DirectGenerationLoopTest {
         assertEquals(1, result.completionTokens());
         assertEquals(0, result.decodeSteps());
         assertEquals(0, samplerLookups.get());
+    }
+
+    @Test
+    void stopsBeforeDecodeWhenCancellationArrivesFromOutputConsumer() {
+        GenerationConfig cfg = GenerationConfig.builder().maxNewTokens(4).build();
+        DirectLoadedModel model = model();
+        DeterministicForwardPass forwardPass = new DeterministicForwardPass();
+        DirectGenerationStepSampler sampler =
+                new DirectGenerationStepSampler(() -> forwardPass, TokenSampler::new);
+        DirectGenerationStepSampler.SamplingState sampling = sampler.createState(
+                model, cfg, new long[] { 0L }, Set.of(), DirectGenerationStepSampler.SamplingMode.RAW_PRETOKENIZED);
+        AtomicBoolean cancelled = new AtomicBoolean();
+        DirectGenerationLoop loop = new DirectGenerationLoop(() -> sampler);
+
+        DirectGenerationLoop.Result result = loop.run(new DirectGenerationLoop.Request(
+                model,
+                cfg,
+                null,
+                sampling,
+                Set.of(),
+                1,
+                1,
+                System.nanoTime(),
+                null,
+                false,
+                true,
+                true,
+                cancelled::get,
+                delta -> cancelled.set(true),
+                null));
+
+        assertEquals("Jak", result.text());
+        assertEquals(1, result.completionTokens());
+        assertEquals(0, result.decodeSteps());
+        assertEquals(0, forwardPass.decodeCalls());
     }
 
     @Test
