@@ -267,10 +267,7 @@ public class RunCommand implements Runnable {
     String quantizeStrategy;
     int quantizeBits;
 
-    @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     // Stable Diffusion specific parameters
-    @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
-    Long seed;
 
     String outputPath;
 
@@ -2647,7 +2644,7 @@ public class RunCommand implements Runnable {
                         prompt,
                         effectiveTtsVoiceSelector(),
                         audioDefaultExtension(metadata),
-                        seed == null ? null : seed.toString(),
+                        generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString(),
                         audioRunOptions),
                 metadata
         ));
@@ -2662,7 +2659,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
+                MediaMetadataReplayArguments.imageSeed(metadata, generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),
