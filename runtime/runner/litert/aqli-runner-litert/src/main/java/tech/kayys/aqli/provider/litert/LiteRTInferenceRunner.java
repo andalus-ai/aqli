@@ -527,6 +527,9 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                 gemmaNativeRunner.generate(request, tokenCallback, cancelled);
                 return;
             } catch (Exception e) {
+                if (cancelled.getAsBoolean()) {
+                    return;
+                }
                 if (isStrictLiteRtOnlyMode(modelPath)) {
                     throw new IllegalStateException(unsupportedLiteRtRuntimeMessage(modelPath, e), e);
                 }
@@ -534,7 +537,13 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                 if (tryGenerateWithSafetensorProviderFallback(request, tokenCallback)) {
                     return;
                 }
-                if (tryGenerateWithSafetensorDirectFallback(request, tokenCallback)) {
+                if (cancelled.getAsBoolean()) {
+                    return;
+                }
+                if (tryGenerateWithSafetensorDirectFallback(request, tokenCallback, cancelled)) {
+                    return;
+                }
+                if (cancelled.getAsBoolean()) {
                     return;
                 }
                 log.warn("All safetensor fallback paths failed; falling back to Gemma Java runner.");
