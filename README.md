@@ -141,14 +141,16 @@ Model IDs, quantizations, backend availability and runtime flags depend on the s
 
 ## SDK example
 
-The exact artifact coordinates and method signatures are versioned with the published SDK. A minimal embedded usage pattern is:
+The local SDK provider runs inside the AQLI Quarkus/CDI runtime with the local provider and selected runner modules on the classpath. A minimal typed text-generation pattern is:
 
 ```java
-AqliSdk sdk = AqliSdkFactory.create(
-    AqliSdkConfig.local().build()
+AqliRuntime runtime = AqliSdkFactory.createLocalSdk(
+    SdkConfig.builder().apiKey("community").build()
 );
 
-InferenceResponse response = sdk.infer("qwen2.5-0.5b", request);
+TextGenerationResponse response = runtime.generateText(
+    TextGenerationRequest.of("your-model-id", "Hello from AQLI")
+);
 ```
 
 Check [API examples](docs/API_EXAMPLES.md) and the [API quick reference](docs/API_QUICK_REFERENCE.md) for complete imports, request construction, authentication, streaming and deployment examples.
@@ -162,14 +164,14 @@ See the [Observability Guide](docs/OBSERVABILITY.md). Avoid assuming a metric or
 ## Repository layout
 
 ```text
-framework/   Public contracts, SPI, SDKs, core abstractions and observability APIs
+framework/   Public contracts, SDK APIs, server API, core abstractions and observability APIs
 runtime/     Runtime lifecycle, model repositories, runner implementations and plugins
-ui/          CLI and user-facing applications
+cli/         CLI application
 scripts/     Build, installation, benchmark and development tooling
 docs/        User guides, API references and architecture documents
 ```
 
-The exact Gradle project graph is authoritative; use `./gradlew projects` when locating a module.
+The exact Gradle project graph is authoritative; use `./gradlew projects` when locating a module. The CLI project is `:cli:aqli-cli`; the API project is `:api:aqli-api`.
 
 ## Documentation
 
