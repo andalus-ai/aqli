@@ -14,6 +14,7 @@ import tech.kayys.aljabr.spi.inference.InferenceResponse;
 
 import java.nio.file.Path;
 import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 
 /**
  * Adapts direct generation flows into the public synchronous API.
@@ -34,8 +35,13 @@ final class DirectInferenceSyncApi {
     }
 
     Uni<InferenceResponse> generate(String prompt, Path modelPath, GenerationConfig cfg) {
+        return generate(prompt, modelPath, cfg, () -> false);
+    }
+
+    Uni<InferenceResponse> generate(
+            String prompt, Path modelPath, GenerationConfig cfg, BooleanSupplier cancelled) {
         return DirectSyncExecution.create(metalBackend.get(), log, "Generation failed", "Direct generation failed",
-                request -> generationFlows.get().textResponse(request, prompt, modelPath, cfg));
+                request -> generationFlows.get().textResponse(request, prompt, modelPath, cfg, cancelled));
     }
 
     long[] encodePrompt(String prompt, Path modelPath) {
