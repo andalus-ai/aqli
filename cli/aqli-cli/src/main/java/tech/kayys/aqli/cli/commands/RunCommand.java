@@ -296,8 +296,6 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
-        preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
-
         runtimeProfileOptions = runCapabilityRegistry.snapshot(
                 "runtime-profile",
                 commandSpec.commandLine().getParseResult(),
@@ -465,6 +463,7 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
+        preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
 
         if (onlyText) {
             noBanner = true;
