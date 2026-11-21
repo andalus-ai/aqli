@@ -1356,7 +1356,7 @@ public class RunCommand implements Runnable {
                 
             } catch (Throwable ignore) {}
             InferenceResponse fallbackResponse = sdk.createCompletion(llamaCppFallbackRequest(request));
-            printResponse(fallbackResponse, startTime);
+            printResponse(fallbackResponse);
             requestProcessExit();
             return true;
         } catch (Throwable fallbackErr) {
@@ -2400,7 +2400,7 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private void printResponse(InferenceResponse response, long startTime) {
+    private void printResponse(InferenceResponse response) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
         boolean structuredOutput = RunResponseContentRenderer.renderStructured(
                 response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
