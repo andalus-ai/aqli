@@ -114,7 +114,10 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
         try {
             InferenceRequest effective = applyDefaults(request);
             var selection = engines.select(effective);
-            return selection.engine().infer(effective).subscribeAsCompletionStage().toCompletableFuture();
+            var timeout = effective.getTimeout().orElse(config.getRequestTimeout());
+            return selection.engine().infer(effective)
+                    .ifNoItem().after(timeout).fail()
+                    .subscribeAsCompletionStage().toCompletableFuture();
         } catch (RuntimeException e) {
             return CompletableFuture.failedFuture(e);
         }
