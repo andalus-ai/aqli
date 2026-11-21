@@ -281,6 +281,8 @@ public class RunCommand implements Runnable {
 
     String quantizeKv;
 
+    String pluginId;
+
     boolean runtimeProfile;
 
     boolean preferAlternateRuntime;
