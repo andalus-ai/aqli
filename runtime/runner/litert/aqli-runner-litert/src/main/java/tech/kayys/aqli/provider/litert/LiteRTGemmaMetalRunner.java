@@ -810,6 +810,7 @@ public class LiteRTGemmaMetalRunner implements AutoCloseable {
                     if (!cancelled.getAsBoolean()) tokenCallback.accept(tokenStr);
                 }
 
+                if (cancelled.getAsBoolean()) break;
                 try (Arena stepArena = Arena.ofConfined()) {
                     MemorySegment hiddenState = forwardHiddenState(nextToken, cacheLen, stepArena);
                     nextToken = argmaxLogitsFromEmbeddingHead(hiddenState, stepArena);

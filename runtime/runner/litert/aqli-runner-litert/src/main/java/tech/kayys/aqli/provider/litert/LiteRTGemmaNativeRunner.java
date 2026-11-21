@@ -418,6 +418,7 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
                     break;
                 }
 
+                if (cancelled.getAsBoolean()) break;
                 logits = runDecodeStep(nextToken, position);
                 nextToken = selectNextToken(logits, recentTokens, temperature, topK, topP, repeatPenalty);
                 position++;
