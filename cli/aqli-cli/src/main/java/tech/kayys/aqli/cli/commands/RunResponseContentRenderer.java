@@ -59,7 +59,7 @@ final class RunResponseContentRenderer {
         payload.put("tokenCount", response.getTokensUsed());
         payload.put("promptTokens", response.getInputTokens());
         payload.put("durationMs", response.getDurationMs());
-        printJsonPayload(payload, out, err);
+        renderJsonPayload(payload, out, err);
         return true;
     }
 
