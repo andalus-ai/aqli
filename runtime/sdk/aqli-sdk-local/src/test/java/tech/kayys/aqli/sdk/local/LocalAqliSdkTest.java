@@ -265,6 +265,47 @@ class LocalAqliSdkTest {
     }
 
     @Test
+    void appliesConfiguredRequestTimeoutToAsynchronousInference() throws Exception {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().nothing());
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)),
+                SdkConfig.builder().requestTimeout(Duration.ofMillis(30)).build());
+
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                java.util.concurrent.ExecutionException.class,
+                () -> sdk.createCompletionAsync(InferenceRequest.builder()
+                        .model("model")
+                        .prompt("hello")
+                        .build()).get(1, TimeUnit.SECONDS));
+
+        org.junit.jupiter.api.Assertions.assertInstanceOf(
+                java.util.concurrent.TimeoutException.class, failure.getCause());
+    }
+
+    @Test
+    void requestSpecificTimeoutOverridesConfiguredAsyncInferenceTimeout() throws Exception {
+        LocalInferenceEngine engine = engine();
+        when(engine.infer(any(InferenceRequest.class))).thenReturn(Uni.createFrom().nothing());
+
+        LocalAqliSdk sdk = new LocalAqliSdk(
+                new LocalInferenceEngineCatalog(List.of(engine)),
+                SdkConfig.builder().requestTimeout(Duration.ofSeconds(5)).build());
+
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(
+                java.util.concurrent.ExecutionException.class,
+                () -> sdk.createCompletionAsync(InferenceRequest.builder()
+                        .model("model")
+                        .prompt("hello")
+                        .timeout(Duration.ofMillis(30))
+                        .build()).get(1, TimeUnit.SECONDS));
+
+        org.junit.jupiter.api.Assertions.assertInstanceOf(
+                java.util.concurrent.TimeoutException.class, failure.getCause());
+    }
+
+    @Test
     void appliesConfiguredProviderOnlyWhenRequestDoesNotSpecifyOne() {
         LocalInferenceEngineCatalog catalog = mock(LocalInferenceEngineCatalog.class);
         LocalInferenceEngine engine = engine();
