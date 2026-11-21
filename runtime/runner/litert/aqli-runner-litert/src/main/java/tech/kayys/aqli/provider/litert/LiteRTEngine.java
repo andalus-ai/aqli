@@ -264,9 +264,6 @@ public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.i
                         .metadata("litert_version", "2.0")
                         .build();
             } catch (Exception e) {
-                if (cancelled.get()) {
-                    return;
-                }
                 String userFacingMessage = userFacingLiteRtFailureMessage(e);
                 if (userFacingMessage != null) {
                     LOG.error("LiteRT 2.0 Inference failed: " + userFacingMessage);
@@ -501,6 +498,9 @@ public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.i
                         null));
                 emitter.complete();
             } catch (Exception e) {
+                if (cancelled.get()) {
+                    return;
+                }
                 String userFacingMessage = userFacingLiteRtFailureMessage(e);
                 if (userFacingMessage != null) {
                     emitter.fail(new InferenceException(userFacingMessage));
