@@ -3,6 +3,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.RouteReportRunOptions;
+import tech.kayys.aqli.cli.commands.route.RunnerSelectionRunOptions;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
@@ -189,6 +190,7 @@ public class RunCommand implements Runnable {
     private MediaMetadataRunOptions mediaMetadataOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
+    private RunnerSelectionRunOptions runnerSelectionOptions;
     private tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions engineSelectionOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
@@ -221,10 +223,6 @@ public class RunCommand implements Runnable {
 
     String providerId;
 
-    @Option(names = { "--runner" },
-            description = "Runner route: auto, safetensor, gguf, litert, or hybrid. Omit for auto-detection.",
-            arity = "0..1",
-            fallbackValue = "auto")
     String runner;
 
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
@@ -464,6 +462,14 @@ public class RunCommand implements Runnable {
                 RouteReportRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions"));
+
+        runnerSelectionOptions = runCapabilityRegistry.snapshot(
+                "runner-selection",
+                commandSpec.commandLine().getParseResult(),
+                RunnerSelectionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'runner-selection' run capability is not registered or does not provide RunnerSelectionRunOptions"));
+        runner = runnerSelectionOptions.runner();
 
         engineSelectionOptions = runCapabilityRegistry.snapshot(
                 "engine-selection",
