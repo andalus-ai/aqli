@@ -8,6 +8,7 @@ GREEN="$(printf '\033[32m')"
 CYAN="$(printf '\033[36m')"
 YELLOW="$(printf '\033[33m')"
 MAGENTA="$(printf '\033[35m')"
+RED="$(printf '\033[31m')"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -87,34 +88,41 @@ echo "${BOLD}${MAGENTA}:) Profile:${RESET} ${BUILD_PROFILE}"
 echo "${BOLD}${MAGENTA}:) Java home:${RESET} ${JAVA_HOME:-$(command -v java)}"
 echo "${BOLD}${MAGENTA}:) Build mode:${RESET} Local CLI"
 echo "${BOLD}${GREEN}:) Selection manifest:${RESET} ${ROOT_DIR}/scripts/module-selection-current.env"
-echo "$GREEN:) Module manifest resolved cleanly.$RESET"
+echo "$GREEN:) Build profile selection loaded.$RESET"
 
 cd "$ROOT_DIR"
 
-JAR_FILE="ui/aqli-cli/build/aqli.jar"
+JAR_FILE="${ROOT_DIR}/cli/aqli-cli/build/aqli.jar"
 
-# If the CLI jar is missing, try to build it automatically to avoid "Unable to access jarfile" errors.
-if [[ ! -f "$JAR_FILE" ]]; then
-  echo "${BOLD}${YELLOW}:) CLI JAR not found at $JAR_FILE — building...${RESET}"
-  if [[ -x "./gradlew" ]]; then
-    ./gradlew build -p ui/aqli-cli -x test
+build_cli() {
+  local gradle_command
+  if [[ -x "$ROOT_DIR/gradlew" ]]; then
+    gradle_command="$ROOT_DIR/gradlew"
+  elif command -v gradle >/dev/null 2>&1; then
+    gradle_command="$(command -v gradle)"
   else
-    gradle build -p ui/aqli-cli -x test
+    echo "${BOLD}${RED}Error:${RESET} Gradle wrapper and Gradle installation were not found." >&2
+    return 1
   fi
+
+  "$gradle_command" :cli:aqli-cli:quarkusBuild \
+    -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
+    -Paqli.profile="${BUILD_PROFILE}" \
+    -Paqli.model.formats="${FORMAT_TARGETS}" \
+    -Paqli.llm.types="${LLM_TARGETS}" \
+    -Paqli.architecture="${ARCHITECTURE_VALUE}"
+}
+
+if [[ "${BUILD_ONLY:-false}" == "true" || "${1:-}" == "--build-only" ]]; then
+  echo "${BOLD}${YELLOW}:) Building latest CLI...${RESET}"
+  build_cli
+  exit 0
 fi
 
-
-
-    if [[ "${BUILD_ONLY:-false}" == "true" || "${1:-}" == "--build-only" ]]; then
-      echo "${BOLD}${YELLOW}:) Building latest CLI...${RESET}"
-      ./gradlew :cli:aqli-cli:quarkusBuild \
-        -Paqli.backend="${RESOLVED_BACKEND_PROPERTY}" \
-        -Paqli.profile="${BUILD_PROFILE}" \
-        -Paqli.model.formats="${FORMAT_TARGETS}" \
-        -Paqli.llm.types="${LLM_TARGETS}" \
-        -Paqli.architecture="${ARCHITECTURE_VALUE}"
-      exit 0
-    fi
+if [[ ! -f "$JAR_FILE" ]]; then
+  echo "${BOLD}${YELLOW}:) CLI JAR not found at $JAR_FILE — building...${RESET}"
+  build_cli
+fi
 
 # Verify JAR exists and execute the built application
 if [[ ! -f "$JAR_FILE" ]]; then
@@ -122,4 +130,4 @@ if [[ ! -f "$JAR_FILE" ]]; then
   exit 1
 fi
 
-exec java ${JAVA_TOOL_OPTIONS:-} -jar "$JAR_FILE" "$@"
+exec java -jar "$JAR_FILE" "$@"
