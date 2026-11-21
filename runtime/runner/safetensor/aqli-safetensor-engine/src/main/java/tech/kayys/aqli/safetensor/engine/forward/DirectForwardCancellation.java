@@ -23,4 +23,13 @@ final class DirectForwardCancellation {
             throw new CancellationException("Direct SafeTensor inference was cancelled");
         }
     }
+
+    /** Runs a state-committing action only while the worker remains active. */
+    static void commitIfActive(Runnable commit) {
+        if (commit == null) {
+            throw new IllegalArgumentException("commit action is required");
+        }
+        checkpoint();
+        commit.run();
+    }
 }
