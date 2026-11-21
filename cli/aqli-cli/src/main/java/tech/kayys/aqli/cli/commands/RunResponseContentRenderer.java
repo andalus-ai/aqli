@@ -46,7 +46,7 @@ final class RunResponseContentRenderer {
             }
             writer.writeJson(payload, ocrJsonOutputPath, ocrJsonOutput || jsonMode, out, err);
             if (ocrJsonOutput || jsonMode) {
-                printJsonPayload(payload, out, err);
+                renderJsonPayload(payload, out, err);
                 return true;
             }
         }
@@ -83,7 +83,7 @@ final class RunResponseContentRenderer {
         }
     }
 
-    private static void printJsonPayload(Map<String, Object> payload, PrintStream out, PrintStream err) {
+    static void renderJsonPayload(Map<String, Object> payload, PrintStream out, PrintStream err) {
         try {
             out.println(OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
         } catch (Exception e) {
