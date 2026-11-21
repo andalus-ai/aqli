@@ -116,7 +116,9 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
             var selection = engines.select(effective);
             var timeout = effective.getTimeout().orElse(config.getRequestTimeout());
             return selection.engine().infer(effective)
-                    .ifNoItem().after(timeout).fail()
+                    .ifNoItem().after(timeout)
+                    .failWith(() -> new java.util.concurrent.TimeoutException(
+                            "Local inference timed out after " + timeout))
                     .subscribeAsCompletionStage().toCompletableFuture();
         } catch (RuntimeException e) {
             return CompletableFuture.failedFuture(e);
