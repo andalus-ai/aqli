@@ -5,5 +5,6 @@ public record ModelRepositoryRunOptions(
         boolean offline,
         String branch,
         boolean importModel,
-        boolean copyModel) {
+        boolean copyModel,
+        boolean force) {
 }

@@ -31,4 +31,14 @@ class MediaMetadataReplayArgumentsTest {
         assertEquals("run-seed", MediaMetadataReplayArguments.imageSeed(
                 Map.of("image_seed", "  ", "seed", ""), "run-seed"));
     }
+    @Test
+    void audioDefaultExtensionPreservesMetadataFormatPrecedence() {
+        assertEquals("wav", MediaMetadataReplayArguments.audioDefaultExtension(Map.of("audio_format", ".WAV")));
+        assertEquals("mp3", MediaMetadataReplayArguments.audioDefaultExtension(
+                Map.of("audio_ext", "MP3", "audio_mime", "audio/wav")));
+        assertEquals("wav", MediaMetadataReplayArguments.audioDefaultExtension(Map.of("audio_mime", "audio/wav")));
+        assertEquals("flac", MediaMetadataReplayArguments.audioDefaultExtension(Map.of()));
+        assertEquals("flac", MediaMetadataReplayArguments.audioDefaultExtension(null));
+    }
+
 }

@@ -15,7 +15,7 @@ class ModelRepositoryRunCapabilityTest {
     @Test
     void snapshotsRepositoryOptionsAndAliases() {
         CommandLine commandLine = commandLine();
-        commandLine.parseArgs("--local", "--branch", "release", "--import", "--copy");
+        commandLine.parseArgs("--local", "--branch", "release", "--import", "--copy", "--force");
 
         ModelRepositoryRunOptions options =
                 new ModelRepositoryRunCapability().snapshot(commandLine.getParseResult());
@@ -24,6 +24,7 @@ class ModelRepositoryRunCapabilityTest {
         assertEquals("release", options.branch());
         assertTrue(options.importModel());
         assertTrue(options.copyModel());
+        assertTrue(options.force());
     }
 
     @Test
@@ -38,6 +39,7 @@ class ModelRepositoryRunCapabilityTest {
         assertEquals(null, options.branch());
         assertFalse(options.importModel());
         assertFalse(options.copyModel());
+        assertFalse(options.force());
     }
 
     @Test

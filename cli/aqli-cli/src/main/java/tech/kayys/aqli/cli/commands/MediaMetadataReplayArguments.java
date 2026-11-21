@@ -55,6 +55,28 @@ final class MediaMetadataReplayArguments {
                 options.trimSilence()));
     }
 
+
+    static String audioDefaultExtension(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return "flac";
+        }
+        Object format = metadata.get("audio_format");
+        if (format == null) {
+            format = metadata.get("audio_ext");
+        }
+        if (format == null) {
+            Object mime = metadata.get("audio_mime");
+            if (mime != null && String.valueOf(mime).toLowerCase(java.util.Locale.ROOT).contains("wav")) {
+                return "wav";
+            }
+        }
+        String ext = format == null ? "" : String.valueOf(format).trim().toLowerCase(java.util.Locale.ROOT);
+        if (ext.startsWith(".")) {
+            ext = ext.substring(1);
+        }
+        return ext.isBlank() ? "flac" : ext;
+    }
+
     static String audioSeed(Map<String, Object> metadata, String fallbackSeed) {
         return firstPresentMetadataValue(metadata, List.of("tts_seed"), fallbackSeed);
     }
