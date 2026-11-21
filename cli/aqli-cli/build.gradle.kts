@@ -59,7 +59,6 @@ dependencies {
     implementation(project(":cli:aqli-cli-spi"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
-    implementation(project(":audio:aqli-audio-core"))
     implementation(project(":media:aqli-media-core"))
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
