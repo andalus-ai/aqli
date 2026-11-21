@@ -39,7 +39,6 @@ import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLayout;
 import tech.kayys.aqli.onnx.runner.tts.moss.codec.MossAudioTokenizerModelLocator;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxPlanner;
 import tech.kayys.aqli.onnx.runner.PaddleOcrVlOnnxProbe;
-import tech.kayys.aqli.sdk.model.ModelResolver;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 import tech.kayys.aljabr.spi.model.ModelLoader;
 import tech.kayys.aqli.sdk.model.ModelResolution;
@@ -54,7 +53,6 @@ import tech.kayys.aqli.cli.commands.request.RunRequestBaseAssembler;
 import tech.kayys.aqli.cli.commands.request.RunInferenceRequestAssembler;
 import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.ModelSourceRunRequestParameterMapper;
-import tech.kayys.aqli.cli.commands.request.RuntimeRoutingRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.runtime.RuntimeExecutionRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.request.RuntimeQuantizationRequestConfiguration;
 import tech.kayys.aqli.cli.commands.request.RuntimeProfilingRequestConfiguration;
@@ -85,7 +83,6 @@ import java.util.function.Consumer;
 import java.util.UUID;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
-import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
@@ -99,6 +96,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenan
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioRunOptions;
+import tech.kayys.aqli.cli.commands.generation.GenerationSeedRunOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
@@ -171,6 +169,7 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private GenerationSeedRunOptions generationSeedOptions;
     private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
@@ -268,6 +267,7 @@ public class RunCommand implements Runnable {
     String quantizeStrategy;
     int quantizeBits;
 
+    @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     // Stable Diffusion specific parameters
     @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
     Long seed;
@@ -281,8 +281,7 @@ public class RunCommand implements Runnable {
 
     String quantizeKv;
 
-    @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
-    public String pluginId;
+    String pluginId;
 
     boolean runtimeProfile;
 
@@ -317,6 +316,13 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        generationSeedOptions = runCapabilityRegistry.snapshot(
+                "generation-seed",
+                commandSpec.commandLine().getParseResult(),
+                GenerationSeedRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions"));
 
         audioRunOptions = runCapabilityRegistry.snapshot(
                 "audio",
@@ -487,6 +493,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
             noBanner = true;
@@ -827,7 +834,7 @@ public class RunCommand implements Runnable {
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
-                printJsonPayload(routeReportResult.payload());
+                RunResponseContentRenderer.renderJsonPayload(routeReportResult.payload(), System.out, System.err);
                 requestProcessExit(routeReportResult.exitCode());
                 return;
             }
@@ -1138,7 +1145,7 @@ public class RunCommand implements Runnable {
                                     executionProviderId,
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
-                                    seed,
+                                    generationSeedOptions.seed(),
                                     imageGenerationOptions.steps(),
                                     format,
                                     imageGenerationOptions.guidanceScale(),
@@ -1295,13 +1302,16 @@ public class RunCommand implements Runnable {
                                     if (enableJsonSse) {
                                         printOpenAiSseFinal(request.getRequestId(), request.getModel());
                                     } else {
-                                        printCompletionStatsForOutput(
+                                        RunResponseCompletionCoordinator.printStats(uiRenderer, 
                                                 tokenCount.get(),
                                                 duration,
                                                 tps,
                                                 ttftMs,
                                                 streamMetrics,
-                                                audioOutput.hasOutput());
+                                                audioOutput.hasOutput(),
+                                                noBanner || noInfo,
+                                                enableJsonSse,
+                                                noBanner);
                                     }
                                 },
                                 error -> {
@@ -2418,7 +2428,8 @@ public class RunCommand implements Runnable {
     private void printResponse(InferenceResponse response) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
         boolean structuredOutput = RunResponseContentRenderer.renderStructured(
-                response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
+                response, metadata, jsonMode,
+                ocrOutputOptions.structuredJson(), ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.overlayOutputPath(),
                 System.out, System.err);
 
         if (!structuredOutput) {
@@ -2430,11 +2441,7 @@ public class RunCommand implements Runnable {
         }
 
         boolean audioResponse = metadata.containsKey("audio") || AudioRunStatsRenderer.isAudioMetadata(metadata);
-        if (metadata.containsKey("audio")) {
-            saveAudio(metadata.get("audio").toString(), audioDefaultExtension(metadata), metadata);
-        } else if (metadata.containsKey("image")) {
-            saveImage(metadata.get("image").toString(), metadata);
-        }
+        mediaOutputHandler().saveResponseMedia(metadata);
 
         double seconds = Math.max(response.getDurationMs() / 1000.0, 0.001);
         double tps = response.getTokensUsed() / seconds;
@@ -2448,12 +2455,15 @@ public class RunCommand implements Runnable {
                     audioResponse);
         }
         int outputTokens = response.getOutputTokens() > 0 ? response.getOutputTokens() : response.getTokensUsed();
-        RouteBenchmarkProfileCoordinator.record(
-                response.getModel(),
+        RunResponseCompletionCoordinator.complete(
+                uiRenderer,
                 response.getModel(),
                 metadata,
+                response.getTokensUsed(),
                 outputTokens,
                 response.getDurationMs(),
+                tps,
+                ttftMillis(metadata),
                 audioResponse,
                 AudioRunStatsRenderer::isAudioMetadata);
 
@@ -2503,29 +2513,6 @@ public class RunCommand implements Runnable {
         return metrics;
     }
 
-    private void printCompletionStatsForOutput(
-            int tokenCount,
-            long durationMs,
-            double tps,
-            Double ttftMs,
-            Map<String, Object> metadata,
-            boolean audioOutput) {
-        if (audioOutput || AudioRunStatsRenderer.isAudioMetadata(metadata)) {
-            printAudioRunStats(metadata, durationMs);
-            return;
-        }
-        uiRenderer.printStats(tokenCount, durationMs / 1000.0, tps, ttftMs, noBanner || noInfo);
-        uiRenderer.printBenchmarks(metadata, noBanner || noInfo);
-
-    }
-
-    private void printAudioRunStats(Map<String, Object> metadata, long fallbackDurationMs) {
-        if (enableJsonSse || noBanner) {
-            return;
-        }
-        AudioRunStatsRenderer.render(metadata, fallbackDurationMs).ifPresent(line ->
-                System.out.println(ChatUIRenderer.DIM + line + ChatUIRenderer.RESET));
-    }
     private static long observedStreamDurationMillis(
             long streamStartTimeMs,
             long completionTimeMs,
@@ -2651,7 +2638,17 @@ public class RunCommand implements Runnable {
                 prompt,
                 effectiveTtsVoiceSelector(),
                 audioDefaultExtension(metadata),
-                audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata),
+                MediaMetadataReplayArguments.audio(
+                        audioPath.toAbsolutePath().normalize(),
+                        metadata,
+                        modelId,
+                        providerId,
+                        runner,
+                        prompt,
+                        effectiveTtsVoiceSelector(),
+                        audioDefaultExtension(metadata),
+                        seed == null ? null : seed.toString(),
+                        audioRunOptions),
                 metadata
         ));
     }
@@ -2665,7 +2662,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                imageReplaySeed(metadata),
+                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),
@@ -2681,7 +2678,7 @@ public class RunCommand implements Runnable {
                 return metadataSeed;
             }
         }
-        return seed == null ? null : seed.toString();
+        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
     }
 
     private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
@@ -2715,47 +2712,11 @@ public class RunCommand implements Runnable {
         if (metadataSeed != null && !metadataSeed.isBlank()) {
             return metadataSeed;
         }
-        return seed == null ? null : seed.toString();
+        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
     }
 
 
 
-    private void saveAudio(String base64) {
-        saveAudio(base64, "flac");
-    }
-
-    private void saveAudio(String base64, String defaultExt) {
-        saveAudio(base64, defaultExt, null);
-    }
-
-    private void saveAudio(String base64, String defaultExt, Map<String, Object> metadata) {
-        saveBufferFromBase64(base64, defaultExt, "Audio", metadata);
-    }
-
-    private void saveImage(String base64) {
-        saveImage(base64, null);
-    }
-
-    private void saveImage(String base64, Map<String, Object> metadata) {
-        saveBufferFromBase64(base64, "png", "Image", metadata);
-    }
-
-    private void saveBufferFromBase64(String base64, String defaultExt, String label) {
-        saveBufferFromBase64(base64, defaultExt, label, null);
-    }
-
-    private void saveBufferFromBase64(
-            String base64,
-            String defaultExt,
-            String label,
-            Map<String, Object> metadata) {
-        try {
-            byte[] decoded = java.util.Base64.getDecoder().decode(base64);
-            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            bos.write(decoded);
-            saveBuffer(bos, defaultExt, label, metadata);
-        } catch (Exception ignored) {}
-    }
     private Path replaceExtension(Path path, String newExt) {
         return CliPathUtils.replaceExtension(path, newExt);
     }

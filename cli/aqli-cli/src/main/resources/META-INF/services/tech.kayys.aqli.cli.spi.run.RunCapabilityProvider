@@ -24,3 +24,4 @@ tech.kayys.aqli.cli.commands.runtime.QuantizationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelConversionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelRoutingRunCapabilityProvider
+tech.kayys.aqli.cli.commands.generation.GenerationSeedRunCapabilityProvider
