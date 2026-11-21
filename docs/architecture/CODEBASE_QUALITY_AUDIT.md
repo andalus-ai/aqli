@@ -255,3 +255,11 @@ The first focused build-config PR triggered the repository's current CI and expo
 - `LocalAqliSdk.createCompletionAsync` used Mutiny's default timeout failure, while the existing async SDK contract tests require `java.util.concurrent.TimeoutException` as the `CompletableFuture` failure cause. The follow-up maps the timeout operator to the JDK exception while retaining the timeout operator.
 
 These are correctness fixes, not regressions introduced by the Gradle declaration cleanup. The focused fixes are tracked in [PR #664](https://github.com/andalus-ai/aqli/pull/664) and [PR #665](https://github.com/andalus-ai/aqli/pull/665). CI must be rerun after those changes land before treating the baseline as green.
+### 22. Two additional CLI god classes need staged decomposition
+
+The command inventory found:
+
+- `FeaturesCommand.java`: 8,270 lines, 59 types, 14 Picocli command annotations and approximately 331 methods. It combines command registration, feature scaffolding/code generation, JAR/ZIP package parsing, installation/backup/rollback, migration, repair, collision detection and output rendering.
+- `ExtensionsCommand.java`: 2,858 lines and approximately 130 methods. It assembles module, plugin, unified-runtime, model-family, tokenizer, extension-availability, audio and route-benchmark reports in one command class.
+
+These should not be rewritten wholesale. The new [CLI Command Decomposition Plan](CLI_COMMAND_DECOMPOSITION_PLAN.md) defines staged extraction boundaries, compatibility gates and proportionality rules. Keep CLI-specific services in the CLI module until a second consumer justifies promoting a stable contract into a shared module.
