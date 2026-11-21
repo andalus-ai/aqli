@@ -3,6 +3,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.RouteReportRunOptions;
+import tech.kayys.aqli.cli.commands.pipeline.FeaturePipelineRunOptions;
 import tech.kayys.aqli.cli.commands.route.RunnerSelectionRunOptions;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
@@ -170,6 +171,7 @@ public class RunCommand implements Runnable {
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
     private GenerationSeedRunOptions generationSeedOptions;
+    private FeaturePipelineRunOptions featurePipelineOptions;
     private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
@@ -252,9 +254,6 @@ public class RunCommand implements Runnable {
 
     String format;
 
-    @Option(names = { "--pipeline", "--feature" }, description = "Explicit feature pipeline id for out-of-core model orchestration")
-    String featurePipelineId;
-
     @Option(names = { "--direct" }, description = "Force use of native Safetensor direct engine", defaultValue = "false")
     boolean direct;
 
@@ -316,6 +315,13 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        featurePipelineOptions = runCapabilityRegistry.snapshot(
+                "feature-pipeline",
+                commandSpec.commandLine().getParseResult(),
+                FeaturePipelineRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'feature-pipeline' run capability is not registered or does not provide FeaturePipelineRunOptions"));
 
         generationSeedOptions = runCapabilityRegistry.snapshot(
                 "generation-seed",
@@ -1056,7 +1062,7 @@ public class RunCommand implements Runnable {
             ImageGenerationRunRequestParameterMapper.apply(
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
-                            featurePipelineId,
+                            featurePipelineOptions.pipelineId(),
                             imageGenerationOptions.guidanceScale() == null
                                     ? null
                                     : imageGenerationOptions.guidanceScale().doubleValue(),
@@ -1141,7 +1147,7 @@ public class RunCommand implements Runnable {
                                     runner != null && !runner.isBlank(),
                                     effectiveRunnerRouteReport.normalizedRunner(),
                                     ggufEngineHint,
-                                    featurePipelineId,
+                                    featurePipelineOptions.pipelineId(),
                                     executionProviderId,
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
