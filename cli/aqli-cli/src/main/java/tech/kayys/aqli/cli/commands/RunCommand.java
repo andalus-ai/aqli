@@ -1,8 +1,10 @@
 package tech.kayys.aqli.cli.commands;
 import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
+import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.RouteReportRunOptions;
+import tech.kayys.aqli.cli.commands.pipeline.FeaturePipelineRunOptions;
 import tech.kayys.aqli.cli.commands.route.RunnerSelectionRunOptions;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
@@ -171,6 +173,7 @@ public class RunCommand implements Runnable {
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
     private GenerationSeedRunOptions generationSeedOptions;
+    private FeaturePipelineRunOptions featurePipelineOptions;
     private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
@@ -249,13 +252,7 @@ public class RunCommand implements Runnable {
 
     String ggufOutType;
 
-    @Option(names = { "--force" }, description = "Force re-download and replace existing files", defaultValue = "false")
-    boolean force;
-
     String format;
-
-    @Option(names = { "--pipeline", "--feature" }, description = "Explicit feature pipeline id for out-of-core model orchestration")
-    String featurePipelineId;
 
     @Option(names = { "--direct" }, description = "Force use of native Safetensor direct engine", defaultValue = "false")
     boolean direct;
@@ -269,8 +266,7 @@ public class RunCommand implements Runnable {
     String quantizeStrategy;
     int quantizeBits;
 
-    @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
-    // Stable Diffusion specific parameters
+    // Stable Diffusion and TTS generation parameter.
     @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
     Long seed;
 
@@ -315,6 +311,13 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        featurePipelineOptions = runCapabilityRegistry.snapshot(
+                "feature-pipeline",
+                commandSpec.commandLine().getParseResult(),
+                FeaturePipelineRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'feature-pipeline' run capability is not registered or does not provide FeaturePipelineRunOptions"));
 
         generationSeedOptions = runCapabilityRegistry.snapshot(
                 "generation-seed",
@@ -399,6 +402,12 @@ public class RunCommand implements Runnable {
                 ModelRepositoryRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
+
+        if (modelRepositoryOptions.force() && modelRepositoryOptions.offline()) {
+            throw new picocli.CommandLine.ParameterException(
+                    commandSpec.commandLine(),
+                    "--force cannot be combined with --offline/--local");
+        }
 
         modelRoutingOptions = runCapabilityRegistry.snapshot(
                 "model-routing",
@@ -734,11 +743,19 @@ public class RunCommand implements Runnable {
                             RunModelPreparationResolver.resolve(
                                     new RunModelPreparationResolver.Options(
                                             modelId, requestedModelRef, format, providerId, pluginId,
-                                            ggufQuant, ggufOutType, forceGguf, providerExplicit,
+                                            ggufQuant, ggufOutType, forceGguf, modelRepositoryOptions.force(), providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelOptions.modelIds()),
                                     sdk,
-                                    reference -> autoPullHfRepositoryForRunIfNeeded(
-                                            reference.modelId(), reference.preferredFormat()),
+                                    reference -> {
+                                        try {
+                                            return autoPullHfRepositoryForRunIfNeeded(
+                                                    reference.modelId(), reference.preferredFormat());
+                                        } catch (Exception repositoryFallbackFailure) {
+                                            throw new IllegalStateException(
+                                                    "Failed to resolve the Hugging Face repository fallback",
+                                                    repositoryFallbackFailure);
+                                        }
+                                    },
                                     LocalModelIndexMetadataInference::providerFor,
                                     LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
@@ -824,6 +841,8 @@ public class RunCommand implements Runnable {
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
             if (routeReportOptions.enabled()) {
+                String routeReportModelId = modelId;
+                String routeReportLocalPath = finalLocalPath;
                 RunRouteValidationCoordinator.RouteReportResult routeReportResult =
                         RunRouteValidationCoordinator.prepareRouteReport(
                                 runnerRouteReport,
@@ -839,7 +858,7 @@ public class RunCommand implements Runnable {
                                 !normalizedInputImages.isEmpty(),
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
-                                        report, requestedModelRef, modelId, finalLocalPath));
+                                        report, requestedModelRef, routeReportModelId, routeReportLocalPath));
                 RunResponseContentRenderer.renderJsonPayload(routeReportResult.payload(), System.out, System.err);
                 requestProcessExit(routeReportResult.exitCode());
                 return;
@@ -1062,7 +1081,7 @@ public class RunCommand implements Runnable {
             ImageGenerationRunRequestParameterMapper.apply(
                     requestBuilder,
                     new ImageGenerationRunRequestParameterMapper.Options(
-                            featurePipelineId,
+                            featurePipelineOptions.pipelineId(),
                             imageGenerationOptions.guidanceScale() == null
                                     ? null
                                     : imageGenerationOptions.guidanceScale().doubleValue(),
@@ -1147,7 +1166,7 @@ public class RunCommand implements Runnable {
                                     runner != null && !runner.isBlank(),
                                     effectiveRunnerRouteReport.normalizedRunner(),
                                     ggufEngineHint,
-                                    featurePipelineId,
+                                    featurePipelineOptions.pipelineId(),
                                     executionProviderId,
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
@@ -1788,7 +1807,7 @@ public class RunCommand implements Runnable {
         }
 
         Optional<LocalModelIndex.Entry> existing = findLocalIndexEntry(repoId, preferredFormat);
-        if (existing.isPresent()) {
+        if (existing.isPresent() && !modelRepositoryOptions.force()) {
             return existing.get();
         }
 
@@ -1809,6 +1828,7 @@ public class RunCommand implements Runnable {
                         .modelSpec("hf:" + repoId)
                         .revision(revision)
                         .format(preferredFormat)
+                        .force(modelRepositoryOptions.force())
                         .build(),
                 progress -> {
                     if (quietRouteResolutionOutput()) {
@@ -2451,15 +2471,6 @@ public class RunCommand implements Runnable {
 
         double seconds = Math.max(response.getDurationMs() / 1000.0, 0.001);
         double tps = response.getTokensUsed() / seconds;
-        if (!structuredOutput) {
-            printCompletionStatsForOutput(
-                    response.getTokensUsed(),
-                    response.getDurationMs(),
-                    tps,
-                    ttftMillis(metadata),
-                    metadata,
-                    audioResponse);
-        }
         int outputTokens = response.getOutputTokens() > 0 ? response.getOutputTokens() : response.getTokensUsed();
         RunResponseCompletionCoordinator.complete(
                 uiRenderer,
@@ -2471,9 +2482,9 @@ public class RunCommand implements Runnable {
                 tps,
                 ttftMillis(metadata),
                 audioResponse,
-                AudioRunStatsRenderer::isAudioMetadata);
-
-        RunResponseTelemetryRecorder.record(metadata, outputTokens, response.getDurationMs(), tps);
+                structuredOutput || noInfo || onlyText,
+                enableJsonSse || jsonMode,
+                noBanner);
     }
 
     private static Double ttftMillis(Map<String, Object> metadata) {
@@ -2653,7 +2664,7 @@ public class RunCommand implements Runnable {
                         prompt,
                         effectiveTtsVoiceSelector(),
                         audioDefaultExtension(metadata),
-                        seed == null ? null : seed.toString(),
+                        generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString(),
                         audioRunOptions),
                 metadata
         ));
@@ -2668,7 +2679,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
+                MediaMetadataReplayArguments.imageSeed(metadata, generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),

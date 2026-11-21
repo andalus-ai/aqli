@@ -209,6 +209,21 @@ Architecture documents describe the target state and migration rules. They are n
 
 ## Build and validation
 
+### Suling audio dependency
+
+The ONNX runner consumes `tech.kayys:suling:0.1.1`. Suling is currently a Maven project
+(`bhangun/suling`), not a Gradle build. Install it into Maven Local before compiling
+AQLI modules that use it:
+
+```bash
+git clone https://github.com/bhangun/suling.git
+mvn --batch-mode -f suling/pom.xml -DskipTests install
+./gradlew :runner:onnx:aqli-runner-onnx:compileJava
+```
+
+AQLI's CI checks out Suling and performs this Maven install before Gradle compilation.
+Do not use `./gradlew -p suling publishToMavenLocal` unless Suling adds a Gradle build.
+
 Before submitting changes:
 
 1. Run the focused module compile and tests for the affected code.
