@@ -125,6 +125,14 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
         }
     }
 
+    /**
+     * Starts a local inference stream.
+     *
+     * <p>Unlike unary inference, this method does not apply the request timeout
+     * as either a total stream deadline or an idle-between-chunks timeout.
+     * Streaming lifetime is controlled by completion, failure, or downstream
+     * cancellation; engines remain responsible for honoring cancellation.</p>
+     */
     @Override
     public Multi<StreamingInferenceChunk> streamCompletion(InferenceRequest request) {
         try {
