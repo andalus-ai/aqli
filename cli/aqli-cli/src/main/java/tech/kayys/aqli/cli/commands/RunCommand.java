@@ -1279,7 +1279,10 @@ public class RunCommand implements Runnable {
                                                 tps,
                                                 ttftMs,
                                                 streamMetrics,
-                                                audioOutput.hasOutput());
+                                                audioOutput.hasOutput(),
+                                                noBanner || noInfo,
+                                                enableJsonSse,
+                                                noBanner);
                                     }
                                 },
                                 error -> {
