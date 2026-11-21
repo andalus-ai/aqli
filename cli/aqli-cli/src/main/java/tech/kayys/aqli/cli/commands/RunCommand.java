@@ -2402,38 +2402,17 @@ public class RunCommand implements Runnable {
 
     private void printResponse(InferenceResponse response, long startTime) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
-        if (RunResponseContentRenderer.renderStructured(
+        boolean structuredOutput = RunResponseContentRenderer.renderStructured(
                 response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
-                System.out, System.err)) {
-        if (OcrOutputWriter.isPaddleOcrMetadata(metadata)) {
-            OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
-            Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
-            Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOutputOptions.overlayOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
-            if (overlayPath != null) {
-                ocrPayload.put("overlay_path", overlayPath.toString());
-            }
-            ocrOutputWriter.writeJson(ocrPayload, ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
-            if (ocrOutputOptions.structuredJson() || jsonMode) {
-                printJsonPayload(ocrPayload);
-                return;
-            }
-        }
-        if (jsonMode) {
-            Map<String, Object> jsonResult = new LinkedHashMap<>();
-            jsonResult.put("text", response.getContent());
-            jsonResult.put("tokenCount", response.getTokensUsed());
-            jsonResult.put("promptTokens", response.getInputTokens());
-            jsonResult.put("durationMs", response.getDurationMs());
-            printJsonPayload(jsonResult);
-            return;
-        }
+                System.out, System.err);
 
-        printExecutionRouteInfo(metadata);
-        printQuantCacheInfo(metadata);
-        printKvCacheQuantizationInfo(metadata);
-        System.out.println();
-        RunResponseContentRenderer.renderText(response, raw, debugPrompt, System.out);
+        if (!structuredOutput) {
+            printExecutionRouteInfo(metadata);
+            printQuantCacheInfo(metadata);
+            printKvCacheQuantizationInfo(metadata);
+            System.out.println();
+            RunResponseContentRenderer.renderText(response, raw, debugPrompt, System.out);
+        }
 
         boolean audioResponse = metadata.containsKey("audio") || AudioRunStatsRenderer.isAudioMetadata(metadata);
         if (metadata.containsKey("audio")) {
@@ -2444,13 +2423,15 @@ public class RunCommand implements Runnable {
 
         double seconds = Math.max(response.getDurationMs() / 1000.0, 0.001);
         double tps = response.getTokensUsed() / seconds;
-        printCompletionStatsForOutput(
-                response.getTokensUsed(),
-                response.getDurationMs(),
-                tps,
-                ttftMillis(metadata),
-                metadata,
-                audioResponse);
+        if (!structuredOutput) {
+            printCompletionStatsForOutput(
+                    response.getTokensUsed(),
+                    response.getDurationMs(),
+                    tps,
+                    ttftMillis(metadata),
+                    metadata,
+                    audioResponse);
+        }
         int outputTokens = response.getOutputTokens() > 0 ? response.getOutputTokens() : response.getTokensUsed();
         RouteBenchmarkProfileCoordinator.record(
                 response.getModel(),
@@ -2460,7 +2441,7 @@ public class RunCommand implements Runnable {
                 response.getDurationMs(),
                 audioResponse,
                 AudioRunStatsRenderer::isAudioMetadata);
-                
+
         RunResponseTelemetryRecorder.record(metadata, outputTokens, response.getDurationMs(), tps);
     }
 
