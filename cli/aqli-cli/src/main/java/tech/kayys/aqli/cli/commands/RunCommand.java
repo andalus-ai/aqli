@@ -85,7 +85,6 @@ import java.util.function.Consumer;
 import java.util.UUID;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
-import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
@@ -2662,7 +2661,17 @@ public class RunCommand implements Runnable {
                 prompt,
                 effectiveTtsVoiceSelector(),
                 audioDefaultExtension(metadata),
-                audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata),
+                MediaMetadataReplayArguments.audio(
+                        audioPath.toAbsolutePath().normalize(),
+                        metadata,
+                        modelId,
+                        providerId,
+                        runner,
+                        prompt,
+                        effectiveTtsVoiceSelector(),
+                        audioDefaultExtension(metadata),
+                        seed == null ? null : seed.toString(),
+                        audioRunOptions),
                 metadata
         ));
     }
@@ -2676,7 +2685,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                imageReplaySeed(metadata),
+                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),
