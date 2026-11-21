@@ -250,9 +250,6 @@ public class RunCommand implements Runnable {
 
     String ggufOutType;
 
-    @Option(names = { "--force" }, description = "Force re-download and replace existing files", defaultValue = "false")
-    boolean force;
-
     String format;
 
     @Option(names = { "--direct" }, description = "Force use of native Safetensor direct engine", defaultValue = "false")
@@ -406,6 +403,12 @@ public class RunCommand implements Runnable {
                 ModelRepositoryRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
+
+        if (modelRepositoryOptions.force() && modelRepositoryOptions.offline()) {
+            throw new picocli.CommandLine.ParameterException(
+                    commandSpec.commandLine(),
+                    "--force cannot be combined with --offline/--local");
+        }
 
         modelRoutingOptions = runCapabilityRegistry.snapshot(
                 "model-routing",
@@ -734,7 +737,7 @@ public class RunCommand implements Runnable {
                             RunModelPreparationResolver.resolve(
                                     new RunModelPreparationResolver.Options(
                                             modelId, requestedModelRef, format, providerId, pluginId,
-                                            ggufQuant, ggufOutType, forceGguf, providerExplicit,
+                                            ggufQuant, ggufOutType, forceGguf, modelRepositoryOptions.force(), providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelOptions.modelIds()),
                                     sdk,
                                     reference -> {
@@ -1798,7 +1801,7 @@ public class RunCommand implements Runnable {
         }
 
         Optional<LocalModelIndex.Entry> existing = findLocalIndexEntry(repoId, preferredFormat);
-        if (existing.isPresent()) {
+        if (existing.isPresent() && !modelRepositoryOptions.force()) {
             return existing.get();
         }
 
@@ -1819,6 +1822,7 @@ public class RunCommand implements Runnable {
                         .modelSpec("hf:" + repoId)
                         .revision(revision)
                         .format(preferredFormat)
+                        .force(modelRepositoryOptions.force())
                         .build(),
                 progress -> {
                     if (quietRouteResolutionOutput()) {
