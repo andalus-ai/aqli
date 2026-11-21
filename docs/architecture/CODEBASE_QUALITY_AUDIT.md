@@ -130,3 +130,46 @@ The architecture describes a long-term direction in which engine-neutral SPIs mo
 4. Do not create abstractions or modules just to satisfy a pattern. Make each extraction improve ownership, reuse, testability, or dependency isolation.
 5. Do not move tensor, model-format, compute-backend, or low-level execution ownership from Aljabr back into AQLI.
 6. Report exact tests/builds run and any platform-specific validation still outstanding.
+
+### 10. SDK public contracts need consolidation and a compatibility map
+
+The current source exposes multiple SDK entry points:
+
+- `framework/sdk/aqli-sdk-api` defines `tech.kayys.aqli.sdk.AqliSdk`, which extends typed `TextGenerationOperations` but also exposes `createCompletion(InferenceRequest)` using the AQLI SPI request type.
+- `AqliClient` exists in both `tech.kayys.aqli.sdk` (the `aqli-sdk` module) and `tech.kayys.aqli.sdk.api` (the `aqli-sdk-api` module). Both are public interfaces and expose different request/result shapes.
+- Embedding request/response types exist in both the SDK model package and the inference SPI package.
+- The repository's SDK-first guidance already says that SDK-owned typed request contracts should be canonical and that SPI conversion belongs in SDK core.
+
+**Disposition:** map all public signatures, implementations, service providers, examples, and consumers. Choose the canonical SDK API per use case, keep the SPI conversion in the application/SDK implementation boundary, and define deprecation/removal conditions for legacy methods and façades. Do not remove SPI dependencies or compatibility methods wholesale.
+
+### 11. The documented module map and optional Gradle registrations need reconciliation
+
+The architecture table lists modules such as `framework/spi/aqli-spi-model` and multiple backend/runner projects that are not present as Gradle build files in the audited tree. `settings.gradle.kts` still contains optional registrations for some absent module paths. It also conditionally includes five sibling Wayang provider modules under AQLI's `:plugins` project group when a Wayang checkout exists.
+
+**Disposition:** compare the documented module map with the actual Gradle project graph and published artifacts. Remove stale declarations/documentation only after checking whether the path is intentionally supplied by an external workspace, a generated project, or a future optional integration. Keep AQLI independently buildable without Wayang.
+
+### 12. Additional repeated implementation names in the Safetensors tooling package
+
+The `engine/tooling/` package contains five classes. Four repeat names and behavior already present in more domain-specific packages:
+
+- `MultiTenantQuotaService` in `engine/tooling` is identical to `engine/routing/MultiTenantQuotaService` after package/comment normalization.
+- `BeamSearchDecoder` closely matches `engine/generation/BeamSearchDecoder`.
+- `SlidingWindowAttention` closely matches the generation attention implementation.
+- `ConversationSessionManager` overlaps with `engine/session/ConversationSessionManager`, but the two versions have materially different APIs and behavior.
+
+The `ToolCallingEngine` source itself does not reference those four classes. That alone does not prove they are unused: CDI discovery, other module consumers, tests, or reflective wiring may still depend on them.
+
+**Disposition:** trace injection and call sites, compare tests, then retain the canonical capability implementation and make tooling depend on it rather than carrying copied implementations. The session manager requires a behavior-level migration plan.
+
+### 13. Other same-name contracts and implementations require bounded-context review
+
+The basename scan also found repeated names such as `ExecutionEngine`, `ExecutionSession`, `ExecutionContext`, `ModelLoadException`, `ModelException`, `MetricsCollector`, `TokenizerFactory`, `TenantResolver`, `KVBlock`, and `UnifiedKVCache`.
+
+These span framework contracts, runtime implementations, SDK compatibility, and model/provider-specific modules. They are not all defects. The audit must compare fully qualified names, public signatures, dependency direction, semantics, and migration state before consolidation.
+
+## Additional audit limitations
+
+- Repository-wide code search did not return indexed results for the targeted class names in this snapshot. Therefore, no deletion decision is based on a claim that a class has zero references.
+- Cross-repository consumers and published Maven artifacts require separate inspection before public API or package removals.
+- Platform-specific execution, native resource behavior, and model correctness require focused builds/tests and, where relevant, hardware validation.
+
