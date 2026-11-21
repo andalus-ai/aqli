@@ -114,12 +114,25 @@ public class LocalAqliSdk implements AqliSdk, tech.kayys.aqli.sdk.AqliSdk {
         try {
             InferenceRequest effective = applyDefaults(request);
             var selection = engines.select(effective);
-            return selection.engine().infer(effective).subscribeAsCompletionStage().toCompletableFuture();
+            var timeout = effective.getTimeout().orElse(config.getRequestTimeout());
+            return selection.engine().infer(effective)
+                    .ifNoItem().after(timeout)
+                    .failWith(() -> new java.util.concurrent.TimeoutException(
+                            "Local inference timed out after " + timeout))
+                    .subscribeAsCompletionStage().toCompletableFuture();
         } catch (RuntimeException e) {
             return CompletableFuture.failedFuture(e);
         }
     }
 
+    /**
+     * Starts a local inference stream.
+     *
+     * <p>Unlike unary inference, this method does not apply the request timeout
+     * as either a total stream deadline or an idle-between-chunks timeout.
+     * Streaming lifetime is controlled by completion, failure, or downstream
+     * cancellation; engines remain responsible for honoring cancellation.</p>
+     */
     @Override
     public Multi<StreamingInferenceChunk> streamCompletion(InferenceRequest request) {
         try {

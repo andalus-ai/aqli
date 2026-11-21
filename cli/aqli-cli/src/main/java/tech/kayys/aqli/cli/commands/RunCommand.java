@@ -3,6 +3,7 @@ import tech.kayys.aqli.cli.commands.audio.AudioRunStatsRenderer;
 import tech.kayys.aqli.cli.commands.audio.TtsCliOptionsValidator;
 import tech.kayys.aqli.cli.commands.route.LiteRtRoutePreflightValidator;
 import tech.kayys.aqli.cli.commands.route.RouteReportRunOptions;
+import tech.kayys.aqli.cli.commands.route.RunnerSelectionRunOptions;
 import tech.kayys.aqli.cli.commands.route.SafetensorCompatibilityPreflightValidator;
 import tech.kayys.aqli.cli.commands.route.ExecutionRouteTerminalRenderer;
 import tech.kayys.aqli.cli.commands.route.GgufRouteAliasPolicy;
@@ -84,7 +85,6 @@ import java.util.function.Consumer;
 import java.util.UUID;
 import java.util.stream.Stream;
 import tech.kayys.aqli.cli.chat.ChatUIRenderer;
-import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayCommandBuilder;
 import tech.kayys.aqli.audio.output.LivePcmAudioPlayer;
 import tech.kayys.aqli.audio.metadata.AudioMetadataSidecarStore;
 import tech.kayys.aqli.media.metadata.ImageMetadataSidecarStore;
@@ -98,6 +98,7 @@ import tech.kayys.aqli.onnx.runner.tts.moss.cache.MossTtsOptimizedCacheMaintenan
 import tech.kayys.aqli.cli.commands.audio.AudioMetadataReplayParser;
 import tech.kayys.aqli.cli.commands.audio.AudioRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioRunOptions;
+import tech.kayys.aqli.cli.commands.generation.GenerationSeedRunOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
@@ -118,9 +119,11 @@ import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelConversionRunOptions;
+import tech.kayys.aqli.cli.commands.model.ModelRoutingRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
+import tech.kayys.aqli.cli.commands.media.MediaOutputRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -168,6 +171,7 @@ public class RunCommand implements Runnable {
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
+    private GenerationSeedRunOptions generationSeedOptions;
     private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
     private VisionInputRunOptions visionInputOptions;
@@ -182,11 +186,14 @@ public class RunCommand implements Runnable {
     private FallbackModelRunOptions fallbackModelOptions;
     private ModelRepositoryRunOptions modelRepositoryOptions;
     private ModelConversionRunOptions modelConversionOptions;
+    private ModelRoutingRunOptions modelRoutingOptions;
     private QuantizationRunOptions quantizationOptions;
     private RuntimeProfileRunOptions runtimeProfileOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
+    private MediaOutputRunOptions mediaOutputOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
+    private RunnerSelectionRunOptions runnerSelectionOptions;
     private tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions engineSelectionOptions;
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
 
@@ -217,14 +224,8 @@ public class RunCommand implements Runnable {
     @Option(names = { "-p", "--prompt" }, description = "Input prompt")
     public String prompt;
 
-    @Option(names = {
-            "--provider" }, description = "Provider: native, litert, llamacpp, safetensor, libtorch(experimental), gemini, openai, anthropic, cerebras. Omit for auto-detection.", arity = "0..1", fallbackValue = "")
     String providerId;
 
-    @Option(names = { "--runner" },
-            description = "Runner route: auto, safetensor, gguf, litert, or hybrid. Omit for auto-detection.",
-            arity = "0..1",
-            fallbackValue = "auto")
     String runner;
 
     @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
@@ -251,7 +252,6 @@ public class RunCommand implements Runnable {
     @Option(names = { "--force" }, description = "Force re-download and replace existing files", defaultValue = "false")
     boolean force;
 
-    @Option(names = { "--format" }, description = "Preferred model format (e.g., safetensors, gguf, onnx)")
     String format;
 
     @Option(names = { "--pipeline", "--feature" }, description = "Explicit feature pipeline id for out-of-core model orchestration")
@@ -269,28 +269,24 @@ public class RunCommand implements Runnable {
     String quantizeStrategy;
     int quantizeBits;
 
+    @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     // Stable Diffusion specific parameters
     @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
     Long seed;
 
-    @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
     String outputPath;
 
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
-    @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
     String quantizeKv;
 
-    @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
-    public String pluginId;
+    String pluginId;
 
     boolean runtimeProfile;
 
-    @Option(names = {
-            "--prefer-alternate-runtime" }, description = "Allow Gemma safetensor checkpoints to route to local LiteRT/GGUF companion artifacts")
     boolean preferAlternateRuntime;
 
     @Parameters(arity = "0..*", hidden = true)
@@ -322,6 +318,13 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'text' run capability is not registered or does not provide TextRunOptions"));
+
+        generationSeedOptions = runCapabilityRegistry.snapshot(
+                "generation-seed",
+                commandSpec.commandLine().getParseResult(),
+                GenerationSeedRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions"));
 
         audioRunOptions = runCapabilityRegistry.snapshot(
                 "audio",
@@ -400,6 +403,15 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
 
+        modelRoutingOptions = runCapabilityRegistry.snapshot(
+                "model-routing",
+                commandSpec.commandLine().getParseResult(),
+                ModelRoutingRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'model-routing' run capability is not registered or does not provide ModelRoutingRunOptions"));
+        providerId = modelRoutingOptions.providerId();
+        format = modelRoutingOptions.format();
+
         modelConversionOptions = runCapabilityRegistry.snapshot(
                 "model-conversion",
                 commandSpec.commandLine().getParseResult(),
@@ -452,6 +464,15 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
 
+        mediaOutputOptions = runCapabilityRegistry.snapshot(
+                "media-output",
+                commandSpec.commandLine().getParseResult(),
+                MediaOutputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions"));
+        outputPath = mediaOutputOptions.outputPath();
+        extension = mediaOutputOptions.extension();
+
         routeReportOptions = runCapabilityRegistry.snapshot(
                 "route-report",
                 commandSpec.commandLine().getParseResult(),
@@ -459,12 +480,22 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions"));
 
+        runnerSelectionOptions = runCapabilityRegistry.snapshot(
+                "runner-selection",
+                commandSpec.commandLine().getParseResult(),
+                RunnerSelectionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'runner-selection' run capability is not registered or does not provide RunnerSelectionRunOptions"));
+        runner = runnerSelectionOptions.runner();
+
         engineSelectionOptions = runCapabilityRegistry.snapshot(
                 "engine-selection",
                 commandSpec.commandLine().getParseResult(),
                 tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
+        preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
             noBanner = true;
@@ -805,7 +836,7 @@ public class RunCommand implements Runnable {
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
-                printJsonPayload(routeReportResult.payload());
+                RunResponseContentRenderer.renderJsonPayload(routeReportResult.payload(), System.out, System.err);
                 requestProcessExit(routeReportResult.exitCode());
                 return;
             }
@@ -1116,7 +1147,7 @@ public class RunCommand implements Runnable {
                                     executionProviderId,
                                     libtorchSafetensorCliBridge),
                             new ImageRunRequestParameterMapper.Options(
-                                    seed,
+                                    generationSeedOptions.seed(),
                                     imageGenerationOptions.steps(),
                                     format,
                                     imageGenerationOptions.guidanceScale(),
@@ -1198,7 +1229,7 @@ public class RunCommand implements Runnable {
                     requestProcessExit(1);
                     return;
                 }
-                printResponse(response, startTime);
+                printResponse(response);
                 requestProcessExit();
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
@@ -1312,7 +1343,7 @@ public class RunCommand implements Runnable {
                         requestProcessExit(1);
                         return;
                     }
-                    printResponse(response, startTime);
+                    printResponse(response);
                     requestProcessExit();
                 } catch (Throwable createEx) {
                     // Attempt fallback to local llama.cpp provider if available
@@ -1352,7 +1383,7 @@ public class RunCommand implements Runnable {
                 
             } catch (Throwable ignore) {}
             InferenceResponse fallbackResponse = sdk.createCompletion(llamaCppFallbackRequest(request));
-            printResponse(fallbackResponse, startTime);
+            printResponse(fallbackResponse);
             requestProcessExit();
             return true;
         } catch (Throwable fallbackErr) {
@@ -2396,40 +2427,20 @@ public class RunCommand implements Runnable {
         }
     }
 
-    private void printResponse(InferenceResponse response, long startTime) {
+    private void printResponse(InferenceResponse response) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
-        if (RunResponseContentRenderer.renderStructured(
-                response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
-                System.out, System.err)) {
-        if (OcrOutputWriter.isPaddleOcrMetadata(metadata)) {
-            OcrOutputWriter ocrOutputWriter = new OcrOutputWriter();
-            Map<String, Object> ocrPayload = ocrOutputWriter.createPayload(response, metadata);
-            Path overlayPath = ocrOutputWriter.writeOverlay(
-                    ocrPayload, ocrOutputOptions.overlayOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
-            if (overlayPath != null) {
-                ocrPayload.put("overlay_path", overlayPath.toString());
-            }
-            ocrOutputWriter.writeJson(ocrPayload, ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.structuredJson() || jsonMode, System.out, System.err);
-            if (ocrOutputOptions.structuredJson() || jsonMode) {
-                printJsonPayload(ocrPayload);
-                return;
-            }
-        }
-        if (jsonMode) {
-            Map<String, Object> jsonResult = new LinkedHashMap<>();
-            jsonResult.put("text", response.getContent());
-            jsonResult.put("tokenCount", response.getTokensUsed());
-            jsonResult.put("promptTokens", response.getInputTokens());
-            jsonResult.put("durationMs", response.getDurationMs());
-            printJsonPayload(jsonResult);
-            return;
-        }
+        boolean structuredOutput = RunResponseContentRenderer.renderStructured(
+                response, metadata, jsonMode,
+                ocrOutputOptions.structuredJson(), ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.overlayOutputPath(),
+                System.out, System.err);
 
-        printExecutionRouteInfo(metadata);
-        printQuantCacheInfo(metadata);
-        printKvCacheQuantizationInfo(metadata);
-        System.out.println();
-        RunResponseContentRenderer.renderText(response, raw, debugPrompt, System.out);
+        if (!structuredOutput) {
+            printExecutionRouteInfo(metadata);
+            printQuantCacheInfo(metadata);
+            printKvCacheQuantizationInfo(metadata);
+            System.out.println();
+            RunResponseContentRenderer.renderText(response, raw, debugPrompt, System.out);
+        }
 
         boolean audioResponse = metadata.containsKey("audio") || AudioRunStatsRenderer.isAudioMetadata(metadata);
         if (metadata.containsKey("audio")) {
@@ -2440,6 +2451,15 @@ public class RunCommand implements Runnable {
 
         double seconds = Math.max(response.getDurationMs() / 1000.0, 0.001);
         double tps = response.getTokensUsed() / seconds;
+        if (!structuredOutput) {
+            printCompletionStatsForOutput(
+                    response.getTokensUsed(),
+                    response.getDurationMs(),
+                    tps,
+                    ttftMillis(metadata),
+                    metadata,
+                    audioResponse);
+        }
         int outputTokens = response.getOutputTokens() > 0 ? response.getOutputTokens() : response.getTokensUsed();
         RunResponseCompletionCoordinator.complete(
                 uiRenderer,
@@ -2451,9 +2471,9 @@ public class RunCommand implements Runnable {
                 tps,
                 ttftMillis(metadata),
                 audioResponse,
-                noBanner || noInfo,
-                enableJsonSse,
-                noBanner);
+                AudioRunStatsRenderer::isAudioMetadata);
+
+        RunResponseTelemetryRecorder.record(metadata, outputTokens, response.getDurationMs(), tps);
     }
 
     private static Double ttftMillis(Map<String, Object> metadata) {
@@ -2624,7 +2644,17 @@ public class RunCommand implements Runnable {
                 prompt,
                 effectiveTtsVoiceSelector(),
                 audioDefaultExtension(metadata),
-                audioMetadataReplayArgs(audioPath.toAbsolutePath().normalize(), metadata),
+                MediaMetadataReplayArguments.audio(
+                        audioPath.toAbsolutePath().normalize(),
+                        metadata,
+                        modelId,
+                        providerId,
+                        runner,
+                        prompt,
+                        effectiveTtsVoiceSelector(),
+                        audioDefaultExtension(metadata),
+                        seed == null ? null : seed.toString(),
+                        audioRunOptions),
                 metadata
         ));
     }
@@ -2638,7 +2668,7 @@ public class RunCommand implements Runnable {
                 providerId,
                 runner,
                 prompt,
-                imageReplaySeed(metadata),
+                MediaMetadataReplayArguments.imageSeed(metadata, seed == null ? null : seed.toString()),
                 imageGenerationOptions.steps(),
                 imageGenerationOptions.guidanceScale(),
                 imageGenerationOptions.width(),
@@ -2654,7 +2684,7 @@ public class RunCommand implements Runnable {
                 return metadataSeed;
             }
         }
-        return seed == null ? null : seed.toString();
+        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
     }
 
     private List<String> audioMetadataReplayArgs(Path audioPath, Map<String, Object> metadata) {
@@ -2688,7 +2718,7 @@ public class RunCommand implements Runnable {
         if (metadataSeed != null && !metadataSeed.isBlank()) {
             return metadataSeed;
         }
-        return seed == null ? null : seed.toString();
+        return generationSeedOptions.seed() == null ? null : generationSeedOptions.seed().toString();
     }
 
 

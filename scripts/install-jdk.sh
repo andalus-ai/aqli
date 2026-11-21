@@ -1,6 +1,6 @@
 #!/bin/bash
 # Aqli SDK - JDK 25 Installation Script
-# Usage: curl -sSL https://raw.githubusercontent.com/bhangun/aqli/main/scripts/install-jdk.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/andalus-ai/aqli/main/scripts/install-jdk.sh | bash
 
 set -e
 

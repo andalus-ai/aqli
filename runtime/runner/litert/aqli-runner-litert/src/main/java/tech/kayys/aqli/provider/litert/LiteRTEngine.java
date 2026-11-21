@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -263,6 +264,9 @@ public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.i
                         .metadata("litert_version", "2.0")
                         .build();
             } catch (Exception e) {
+                if (cancelled.get()) {
+                    return;
+                }
                 String userFacingMessage = userFacingLiteRtFailureMessage(e);
                 if (userFacingMessage != null) {
                     LOG.error("LiteRT 2.0 Inference failed: " + userFacingMessage);
@@ -415,6 +419,8 @@ public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.i
     @Override
     public io.smallrye.mutiny.Multi<StreamingInferenceChunk> stream(InferenceRequest request) {
         return Multi.createFrom().emitter(emitter -> {
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+            emitter.onTermination(() -> cancelled.set(true));
             ensureInitialized();
 
             String tenantId = resolveTenantId(request);
@@ -448,6 +454,9 @@ public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.i
                         .build();
 
                 sessionContext.runner().stream(inferenceRequest, delta -> {
+                    if (cancelled.get()) {
+                        return;
+                    }
                     Map<String, Object> metadata = Map.of(
                             "provider", PROVIDER_ID,
                             "litert_version", "2.0");
@@ -465,7 +474,11 @@ public class LiteRTEngine implements LocalInferenceEngine, tech.kayys.aqli.spi.i
                             null,
                             null,
                             null));
-                });
+                }, cancelled::get);
+
+                if (cancelled.get()) {
+                    return;
+                }
 
                 Map<String, Object> finalMetadata = new LinkedHashMap<>();
                 finalMetadata.put("provider", PROVIDER_ID);

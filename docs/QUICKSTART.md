@@ -1,146 +1,117 @@
-# Aqli Quickstart
+# AQLI Quickstart
 
-Get started with Aqli ML framework in 5 minutes.
+AQLI is the Java inference runtime and serving product in the Aljabr + AQLI + Tafkir ecosystem. Aljabr owns reusable ML compute and model execution foundations; AQLI owns inference orchestration, model lifecycle, serving, SDKs and CLI operations.
 
----
+## Requirements
 
-## 1. Install
+- JDK 25
+- Git
+- macOS, Linux, or another supported Java 25 environment
+- Gradle is included through the repository wrapper
 
-### Option A: JBang (No build tools)
-
-```bash
-curl -Ls https://sh.jbang.dev | bash -s -
-```
-
-### Option B: Maven
-
-```xml
-<dependency>
-    <groupId>tech.kayys.aqli</groupId>
-    <artifactId>aqli-ml-api</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
-</dependency>
-```
-
-### Option C: Clone & Build
+## 1. Get the source
 
 ```bash
-git clone https://github.com/bhangun/aqli.git
+git clone https://github.com/andalus-ai/aqli.git
 cd aqli
-mvn clean install -DskipTests
 ```
 
----
-
-## 2. Verify Installation
+Inspect the actual project graph before choosing modules:
 
 ```bash
-# Via JBang
-jbang examples/jbang/common/hello_aqli.java
-
-# Via Maven
-cd framework/lib/aqli-ml-examples
-mvn exec:java -Dexec.mainClass=tech.kayys.aqli.train.examples.SimpleFFNExample
+./gradlew projects
 ```
 
-Expected output:
+## 2. Build the CLI
+
+```bash
+./gradlew :cli:aqli-cli:quarkusBuild
 ```
-✓ Aqli SDK installed successfully
-✓ Tensor operations working
+
+The CLI module is `cli/aqli-cli` and its Gradle project path is `:cli:aqli-cli`.
+
+Show the available commands:
+
+```bash
+java --enable-native-access=ALL-UNNAMED --add-modules=jdk.incubator.vector \
+  -jar cli/aqli-cli/build/aqli.jar --help
 ```
 
----
+Use the installed `aqli` executable instead when you have installed the local runtime.
 
-## 3. Create Your First Model
+## 3. Download and run a model
 
-### Using JBang
+Download a model from a supported repository:
 
-Create `my_model.java`:
+```bash
+aqli pull hf:Qwen/Qwen2.5-7B-Instruct-GGUF
+```
+
+Run a single prompt:
+
+```bash
+aqli run \
+  --model hf:unsloth/gemma-4-12b-it-GGUF \
+  --no-banner \
+  --prompt "Who are you?" \
+  --max-tokens 50
+```
+
+Model availability, quantization, backend support and memory requirements depend on the selected model and host. Use `aqli run --help` and `aqli pull --help` for the options supported by the installed build.
+
+## 4. Start the API server
+
+Start the OpenAI-compatible serving API:
+
+```bash
+aqli serve --model <model-id> --port 8080
+```
+
+Check health:
+
+```bash
+curl -H 'Accept: application/json' http://localhost:8080/health
+```
+
+List available models:
+
+```bash
+curl -H 'X-API-Key: community' \
+  -H 'Accept: application/json' \
+  http://localhost:8080/v1/models
+```
+
+The API accepts either `X-API-Key` or a Bearer token. See the [API quick reference](API_QUICK_REFERENCE.md) and [complete API examples](API_EXAMPLES.md).
+
+## 5. Use the Java SDK
+
+The local SDK provider is intended to run inside the AQLI Quarkus/CDI runtime with the local SDK provider and required runner modules on the classpath. New text-generation code should use the SDK-owned text capability types rather than constructing internal inference SPI DTOs.
 
 ```java
-///usr/bin/env jbang "$0" "$@" ; exit $?
-//JAVA 25
-//DEPS tech.kayys.aqli:aqli-ml-ml:0.3.0-SNAPSHOT
-//COMPILE_OPTIONS --enable-preview --add-modules jdk.incubator.vector
-//RUNTIME_OPTIONS --enable-preview --add-modules jdk.incubator.vector
-//REPOS local,mavencentral,github=https://maven.pkg.github.com/bhangun/aqli
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationResponse;
 
-import tech.kayys.aqli.ml.Aqli;
-import tech.kayys.aqli.ml.tensor.Tensor;
-import tech.kayys.aqli.ml.nn.Linear;
-import tech.kayys.aqli.ml.nn.ReLU;
-import tech.kayys.aqli.ml.nn.Sequential;
+AqliRuntime runtime = AqliSdkFactory.createLocalSdk(
+    SdkConfig.builder().apiKey("community").build());
 
-public class my_model {
-    public static void main(String[] args) {
-        // Build a simple neural network
-        Sequential model = Sequential.builder()
-            .add(new Linear(784, 256))
-            .add(new ReLU())
-            .add(new Linear(256, 10))
-            .build();
+TextGenerationResponse response = runtime.generateText(
+    TextGenerationRequest.of("your-model-id", "Hello from AQLI"));
 
-        // Create random input (simulating a 28x28 image)
-        Tensor input = Aqli.randn(1, 784);
-
-        // Forward pass
-        Tensor output = model.forward(input);
-
-        System.out.println("Model: 784 → 256 → 10");
-        System.out.println("Input shape: [1, 784]");
-        System.out.println("Output shape: " + java.util.Arrays.toString(output.shape()));
-    }
-}
+System.out.println(response.content());
 ```
 
-Run:
-```bash
-jbang my_model.java
-```
+The implementation is composed from `:sdk:aqli-sdk`, `:sdk:aqli-sdk-core`, `:sdk:aqli-sdk-local`, and the required runner modules. See the [SDK module guide](../framework/sdk/README.md) and [SDK contract consolidation](architecture/SDK_CONTRACT_CONSOLIDATION.md) before choosing a public API or provider.
 
----
+## 6. Where to go next
 
-## 4. Run Inference
+- [CLI guide](../cli/aqli-cli/README.md)
+- [API quick reference](API_QUICK_REFERENCE.md)
+- [API examples](API_EXAMPLES.md)
+- [Observability guide](OBSERVABILITY.md)
+- [System architecture](architecture/SYSTEM_ARCHITECTURE.md)
+- [Module ownership matrix](architecture/MODULE_OWNERSHIP_MATRIX.md)
 
-```java
-import tech.kayys.aqli.ml.runner.*;
-
-ModelRunner runner = ModelRunner.builder()
-    .modelPath("model.onnx")
-    .device(RunnerDevice.CUDA)
-    .build();
-
-InferenceResult result = runner.infer(
-    InferenceInput.fromFloats(inputData, 1, 3, 224, 224)
-);
-
-System.out.println("Output: " + result.primaryOutput().asFloats());
-System.out.println("Latency: " + result.latency());
-
-runner.close();
-```
-
----
-
-## 5. Explore Examples
-
-```bash
-# Browse all examples
-ls examples/jbang/
-
-# Run comprehensive demo
-jbang examples/jbang/sdk/unified_framework_demo.java --demo all
-
-# Open Jupyter notebooks
-cd examples/jupyter/
-jupyter notebook
-```
-
----
-
-## Next Steps
-
-- **[Examples Setup](examples/docs/SETUP.md) - Detailed example setup guide
-- **[SDK Installation](docs/setup/sdk-installation.md) - Full installation guide
-- **[Framework Guide](website/aqli-ai.github.io/docs/framework/) - ML framework docs
-- **[Inference Guide](website/aqli-ai.github.io/docs/framework/inference.md) - Model inference docs
+Use the Gradle project graph and module README files as the source of truth for current modules. Architecture documents distinguish implemented capabilities from proposed migrations.

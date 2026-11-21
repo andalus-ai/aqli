@@ -1,97 +1,44 @@
-# Aqli SDK - Modular Architecture
+# AQLI Java SDK
 
-This repository contains the modular SDK for the Aqli inference engine, designed with a clean separation between interface and implementation.
+The SDK provides Java application-facing contracts and adapters for using AQLI inference capabilities. Keep public client contracts independent of local runner implementations and transport frameworks.
 
-## Architecture
+## Module ownership
 
-The SDK is divided into three main modules:
+| Gradle project | Responsibility |
+|---|---|
+| `:sdk:aqli-sdk-api` | Public transport-neutral `AqliClient` contract, request/result types and provider boundary |
+| `:sdk:aqli-sdk` | SDK provider implementation and client adapters |
+| `:sdk:aqli-sdk-core` | Runtime capability ports, text-generation mapping and compatibility aggregate |
+| `:sdk:aqli-sdk-local` | Local runtime provider composed inside the AQLI CDI runtime |
+| `:sdk:aqli-sdk-remote` | Optional/legacy remote SDK module; not part of the default settings graph |
 
-### 1. aqli-sdk-core
-Contains the core interfaces and shared models that define the contract for the Aqli SDK.
+Use `./gradlew projects` to confirm which optional projects are included in a particular checkout.
 
-- `AqliSdk` - The main interface defining all inference operations
-- Shared models like `AsyncJobStatus`, `BatchInferenceRequest`
-- Core exception hierarchy
-- Factory for creating SDK instances
+## Local runtime usage
 
-### 2. aqli-sdk
-A local implementation of the SDK that runs within the same JVM as the inference engine.
-
-- Direct access to internal services without HTTP overhead
-- Optimized for performance when running embedded
-- Uses CDI for dependency injection
-
-### 3. aqli-sdk-remote
-A remote implementation of the SDK that communicates with the inference engine via HTTP API.
-
-- Communicates with the engine over HTTP/HTTPS
-- Handles authentication, retries, and error mapping
-- Suitable for external applications
-
-## Usage
-
-### For Local (Embedded) Usage:
-```java
-import tech.kayys.aqli.sdk.factory.AqliSdkFactory;
-import tech.kayys.aqli.sdk.core.AqliSdk;
-
-AqliSdk sdk = AqliSdkFactory.createLocalSdk();
-```
-
-### For Remote (HTTP) Usage:
-```java
-import tech.kayys.aqli.sdk.factory.AqliSdkFactory;
-import tech.kayys.aqli.sdk.core.AqliSdk;
-
-AqliSdk sdk = AqliSdkFactory.createRemoteSdk(
-    "https://api.aqli.example.com",
-    "your-api-key"
-);
-```
-
-### Using the SDK:
-```java
-import tech.kayys.aqli.spi.inference.InferenceRequest;
-import tech.kayys.aqli.spi.inference.InferenceResponse;
-import tech.kayys.aqli.sdk.core.AqliSdk;
-
-// Create an inference request
-var request = InferenceRequest.builder()
-    .model("llama3:latest")
-    .userMessage("Hello, how are you?")
-    .temperature(0.7)
-    .maxTokens(100)
-    .build();
-
-// Execute the request
-InferenceResponse response = sdk.createCompletion(request);
-System.out.println("Response: " + response.getContent());
-```
-
-### ML Kit-Style Feature APIs
-
-`aqli-sdk-core` now provides a high-level feature surface for:
-
-- face recognition
-- natural language
-- document scanning
-
-Entry point:
+The current local runtime factory returns `AqliRuntime`. New text-generation calls should use the SDK-owned `TextGenerationRequest` and `TextGenerationResponse` contracts:
 
 ```java
-import tech.kayys.aqli.sdk.feature.AqliFeatureKit;
+import tech.kayys.aqli.factory.AqliSdkFactory;
+import tech.kayys.aqli.sdk.config.SdkConfig;
+import tech.kayys.aqli.sdk.runtime.AqliRuntime;
+import tech.kayys.aqli.sdk.capability.text.TextGenerationRequest;
 
-AqliFeatureKit featureKit = sdk.featureKit();
+AqliRuntime runtime = AqliSdkFactory.createLocalSdk(
+    SdkConfig.builder().apiKey("community").build());
+
+var response = runtime.generateText(
+    TextGenerationRequest.of("your-model-id", "Hello from AQLI"));
+
+System.out.println(response.content());
 ```
 
-### API Key Note
+This path requires the local provider and relevant runner modules on the classpath and must be created inside the running AQLI Quarkus/CDI environment.
 
-Multi-tenancy is resolved on the backend using your API key. For community/standalone deployments, use the API key `"community"`.
+## Public client API and compatibility
 
-## Benefits of This Architecture
+The canonical public client contract is `tech.kayys.aqli.sdk.api.AqliClient` in `:sdk:aqli-sdk-api`. The older root-package `tech.kayys.aqli.sdk.AqliClient` and broad `AqliSdk` aggregates are compatibility surfaces under staged consolidation.
 
-1. **Flexibility**: Choose the appropriate implementation based on your deployment scenario
-2. **Performance**: Local implementation avoids HTTP overhead when running embedded
-3. **Maintainability**: Clear separation of concerns between interface and implementation
-4. **Testability**: Easy to mock the core interface for testing
-5. **Consistency**: Same API regardless of implementation used
+The broad `AqliSdk` API still exposes some AQLI SPI DTOs. Prefer SDK-owned typed capability contracts for new application code. Do not add another parallel client interface or duplicate request/response model.
+
+See [SDK Contract Consolidation](../../docs/architecture/SDK_CONTRACT_CONSOLIDATION.md) for canonical naming, migration stages and compatibility gates.

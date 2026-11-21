@@ -40,6 +40,14 @@ public final class EngineSelectionRunCapability
                 .type(boolean.class)
                 .description("Compare Java-native GGUF probe with llama.cpp fallback")
                 .build());
+        commandSpec.addOption(OptionSpec.builder("--plugin")
+                .type(String.class)
+                .description("Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
+                .build());
+        commandSpec.addOption(OptionSpec.builder("--prefer-alternate-runtime")
+                .type(boolean.class)
+                .description("Allow compatible model checkpoints to route to local companion runtime artifacts")
+                .build());
     }
 
     @Override
@@ -55,6 +63,8 @@ public final class EngineSelectionRunCapability
                 parseResult.matchedOptionValue("--backend", null),
                 parseResult.matchedOptionValue("--java-native", false),
                 parseResult.matchedOptionValue("--llamacpp", false),
-                parseResult.matchedOptionValue("--benchmark", false));
+                parseResult.matchedOptionValue("--benchmark", false),
+                parseResult.matchedOptionValue("--prefer-alternate-runtime", false),
+                parseResult.matchedOptionValue("--plugin", null));
     }
 }
