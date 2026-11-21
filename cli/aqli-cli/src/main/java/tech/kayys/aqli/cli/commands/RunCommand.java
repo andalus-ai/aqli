@@ -124,6 +124,7 @@ import tech.kayys.aqli.cli.commands.model.ModelRoutingRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
+import tech.kayys.aqli.cli.commands.media.MediaOutputRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
 import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
@@ -190,6 +191,7 @@ public class RunCommand implements Runnable {
     private QuantizationRunOptions quantizationOptions;
     private RuntimeProfileRunOptions runtimeProfileOptions;
     private MediaMetadataRunOptions mediaMetadataOptions;
+    private MediaOutputRunOptions mediaOutputOptions;
     private ImageMetadataRunOptions imageMetadataOptions;
     private RouteReportRunOptions routeReportOptions;
     private RunnerSelectionRunOptions runnerSelectionOptions;
@@ -269,18 +271,20 @@ public class RunCommand implements Runnable {
     int quantizeBits;
 
     @Option(names = { "--output", "-o" }, description = "Output image file path (default: output.png)")
+    // Stable Diffusion specific parameters
+    @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
+    Long seed;
+
     String outputPath;
 
     @Option(names = { "--onnx-variant", "--onnx-precision" }, description = "Preferred ONNX graph variant for multi-graph models (auto, q4, q8, full, uint8)")
     String onnxVariant;
 
-    @Option(names = { "--ext" }, description = "Explicit output file extension (mp3, wav, flac, png, jpg, mp4). Overrides extension in --output if provided.")
     String extension;
 
     String quantizeKv;
 
-    @Option(names = { "--plugin" }, description = "Explicit plugin/engine to use (e.g. llamacpp, java, bnb)")
-    public String pluginId;
+    String pluginId;
 
     boolean runtimeProfile;
 
@@ -461,6 +465,15 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
 
+        mediaOutputOptions = runCapabilityRegistry.snapshot(
+                "media-output",
+                commandSpec.commandLine().getParseResult(),
+                MediaOutputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions"));
+        outputPath = mediaOutputOptions.outputPath();
+        extension = mediaOutputOptions.extension();
+
         routeReportOptions = runCapabilityRegistry.snapshot(
                 "route-report",
                 commandSpec.commandLine().getParseResult(),
@@ -483,6 +496,7 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
+        pluginId = engineSelectionOptions.pluginId();
 
         if (onlyText) {
             noBanner = true;
@@ -823,7 +837,7 @@ public class RunCommand implements Runnable {
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
                                         report, requestedModelRef, modelId, finalLocalPath));
-                printJsonPayload(routeReportResult.payload());
+                RunResponseContentRenderer.renderJsonPayload(routeReportResult.payload(), System.out, System.err);
                 requestProcessExit(routeReportResult.exitCode());
                 return;
             }
@@ -2414,7 +2428,8 @@ public class RunCommand implements Runnable {
     private void printResponse(InferenceResponse response) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
         boolean structuredOutput = RunResponseContentRenderer.renderStructured(
-                response, metadata, jsonMode, ocrJsonOutput, ocrJsonOutputPath, ocrOverlayOutputPath,
+                response, metadata, jsonMode,
+                ocrOutputOptions.structuredJson(), ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.overlayOutputPath(),
                 System.out, System.err);
 
         if (!structuredOutput) {
