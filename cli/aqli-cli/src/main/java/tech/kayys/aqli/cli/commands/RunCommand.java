@@ -731,8 +731,16 @@ public class RunCommand implements Runnable {
                                             ggufQuant, ggufOutType, forceGguf, providerExplicit,
                                             quietRouteResolutionOutput(), fallbackModelOptions.modelIds()),
                                     sdk,
-                                    reference -> autoPullHfRepositoryForRunIfNeeded(
-                                            reference.modelId(), reference.preferredFormat()),
+                                    reference -> {
+                                        try {
+                                            return autoPullHfRepositoryForRunIfNeeded(
+                                                    reference.modelId(), reference.preferredFormat());
+                                        } catch (Exception repositoryFallbackFailure) {
+                                            throw new IllegalStateException(
+                                                    "Failed to resolve the Hugging Face repository fallback",
+                                                    repositoryFallbackFailure);
+                                        }
+                                    },
                                     LocalModelIndexMetadataInference::providerFor,
                                     LocalModelIndexMetadataInference::formatFor,
                                     path -> SafetensorCompatibilityPreflightValidator.detect(preparationProviderId, path),
@@ -818,6 +826,8 @@ public class RunCommand implements Runnable {
 
             List<String> normalizedInputImages = normalizedInputImagePaths();
             if (routeReportOptions.enabled()) {
+                String routeReportModelId = modelId;
+                String routeReportLocalPath = finalLocalPath;
                 RunRouteValidationCoordinator.RouteReportResult routeReportResult =
                         RunRouteValidationCoordinator.prepareRouteReport(
                                 runnerRouteReport,
@@ -833,7 +843,7 @@ public class RunCommand implements Runnable {
                                 !normalizedInputImages.isEmpty(),
                                 visionInputOptions.ocrMode(),
                                 report -> RouteBenchmarkProfileCoordinator.applyCachedProfile(
-                                        report, requestedModelRef, modelId, finalLocalPath));
+                                        report, requestedModelRef, routeReportModelId, routeReportLocalPath));
                 RunResponseContentRenderer.renderJsonPayload(routeReportResult.payload(), System.out, System.err);
                 requestProcessExit(routeReportResult.exitCode());
                 return;
