@@ -1205,7 +1205,7 @@ public class RunCommand implements Runnable {
                     requestProcessExit(1);
                     return;
                 }
-                printResponse(response, startTime);
+                printResponse(response);
                 requestProcessExit();
             } else if (effectiveStream) {
                 java.io.ByteArrayOutputStream imageBuffer = new java.io.ByteArrayOutputStream();
@@ -1316,7 +1316,7 @@ public class RunCommand implements Runnable {
                         requestProcessExit(1);
                         return;
                     }
-                    printResponse(response, startTime);
+                    printResponse(response);
                     requestProcessExit();
                 } catch (Throwable createEx) {
                     // Attempt fallback to local llama.cpp provider if available
