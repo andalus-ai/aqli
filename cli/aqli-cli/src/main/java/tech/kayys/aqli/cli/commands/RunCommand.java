@@ -101,7 +101,6 @@ import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
-import tech.kayys.aqli.cli.commands.image.ImageMetadataReplayCommandBuilder;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunRequestParameterMapper;
