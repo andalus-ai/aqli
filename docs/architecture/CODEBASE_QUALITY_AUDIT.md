@@ -180,4 +180,18 @@ The audited tree contains 77 Gradle build files. The active settings file contai
 The tree also contains build files for projects that are not part of the active settings graph. The optimization section explicitly labels most optimization plugins experimental/unintegrated and includes only KV-cache by default; ONNX export/helper, pickle, TensorRT plugin, Quarkus extension, and YAFF stub projects also need an explicit active/experimental/legacy status.
 
 **Disposition:** publish a truthful module matrix with one status per project: default build, opt-in build, external composite integration, experimental/unintegrated, legacy/not included, or removed. Remove stale registrations for capabilities now owned by Aljabr (especially backend and model SPI paths) after confirming no supported workspace relies on them. Do not equate the presence of a `build.gradle.kts` file with inclusion, publication, or runtime support.
+## Existing architecture work to continue (avoid parallel plans)
 
+This audit is a cross-cutting inventory. It does not replace the repository's more detailed ownership and migration documents. Use those as the source of truth for implementation sequencing and acceptance gates:
+
+- [Module Ownership Matrix](MODULE_OWNERSHIP_MATRIX.md) — placement rules and the existing ExecutionEngine overlap finding.
+- [Aljabr–AQLI Ownership Audit](ALJABR_AQLI_OWNERSHIP_AUDIT.md) — execution-engine and Safetensors class-by-class migration boundaries.
+- [Inference Contract Migration Audit](INFERENCE_CONTRACT_MIGRATION_AUDIT.md) — direct contract comparisons, consumer-inventory requirements, and compatibility gates.
+- [SDK Contract Consolidation](SDK_CONTRACT_CONSOLIDATION.md) — identifies tech.kayys.aqli.sdk.api.AqliClient in aqli-sdk-api as the canonical public client contract and the root-package tech.kayys.aqli.sdk.AqliClient as the legacy surface.
+- [RunCommand Decomposition Plan](RUN_COMMAND_DECOMPOSITION_PLAN.md) — existing staged plan for extracting CLI execution lifecycle, model resolution, dispatch, audio/media and diagnostics.
+- [Safetensors Engine README](../../runtime/runner/safetensor/aqli-safetensor-engine/README.md) — records that excluded legacy tests are migration work, not passing coverage.
+- [Optimization Architecture](../../runtime/optimization/ARCHITECTURE.md) — records the status and default-build policy for experimental optimization modules.
+
+The SDK source inspection in this audit adds one point to the existing SDK decision: the broad tech.kayys.aqli.sdk.AqliSdk interface in aqli-sdk-api still exposes AQLI SPI types such as InferenceRequest and EmbeddingRequest. Keep that compatibility/API-surface issue distinct from the canonical AqliClient decision; do not create a third public client abstraction.
+
+For each workstream, update its existing migration document rather than maintaining competing plans. This audit should remain a concise index of verified structural findings and cross-cutting cleanup status.
