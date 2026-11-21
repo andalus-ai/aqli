@@ -96,20 +96,12 @@ public final class AqliChatService {
         String requestId = resolveRequestId(request);
         TextGenerationRequest effectiveRequest = withRequestId(request, requestId);
         String modelId = effectiveRequest.model();
-        recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
-        long startMs = System.currentTimeMillis();
+        UnaryObservation observation = new UnaryObservation(requestId, modelId);
+        observation.start();
 
         return Uni.createFrom().completionStage(() -> sdk.generateTextAsync(effectiveRequest))
-                .onItem().invoke(response -> {
-                    long duration = System.currentTimeMillis() - startMs;
-                    recordMetrics(metrics -> metrics.recordClientSuccess(modelId, duration, response.totalTokens()));
-                    recordAudit(audit -> audit.logClientRequestComplete(requestId, modelId, response.totalTokens(), duration));
-                })
-                .onFailure().invoke(error -> {
-                    recordMetrics(metrics -> metrics.recordClientFailure(modelId, error.getClass().getSimpleName()));
-                    recordAudit(audit -> audit.logClientRequestFailure(
-                            requestId, modelId, error.getClass().getSimpleName()));
-                });
+                .onItem().invoke(response -> observation.complete(response.totalTokens()))
+                .onFailure().invoke(observation::fail);
     }
 
 
@@ -199,6 +191,34 @@ public final class AqliChatService {
             long duration = System.currentTimeMillis() - startMs;
             recordMetrics(metrics -> metrics.recordClientCancellation(modelId, duration));
             recordAudit(audit -> audit.logClientRequestCancelled(requestId, modelId, duration));
+        }
+    }
+
+    /** Per-request lifecycle shared by typed and legacy unary text execution. */
+    private final class UnaryObservation {
+        private final String requestId;
+        private final String modelId;
+        private final long startMs = System.currentTimeMillis();
+
+        private UnaryObservation(String requestId, String modelId) {
+            this.requestId = requestId;
+            this.modelId = modelId;
+        }
+
+        private void start() {
+            recordAudit(audit -> audit.logClientRequestStart(requestId, modelId));
+        }
+
+        private void complete(int tokensUsed) {
+            long duration = System.currentTimeMillis() - startMs;
+            recordMetrics(metrics -> metrics.recordClientSuccess(modelId, duration, tokensUsed));
+            recordAudit(audit -> audit.logClientRequestComplete(requestId, modelId, tokensUsed, duration));
+        }
+
+        private void fail(Throwable error) {
+            String errorType = error.getClass().getSimpleName();
+            recordMetrics(metrics -> metrics.recordClientFailure(modelId, errorType));
+            recordAudit(audit -> audit.logClientRequestFailure(requestId, modelId, errorType));
         }
     }
 
@@ -311,19 +331,12 @@ public final class AqliChatService {
             ChatParams p) {
 
         InferenceRequest req = createRequest(modelId, systemPrompt, history, tools, p, false);
-        recordAudit(audit -> audit.logClientRequestStart(req.getRequestId(), modelId));
-        long startMs = System.currentTimeMillis();
+        UnaryObservation observation = new UnaryObservation(req.getRequestId(), modelId);
+        observation.start();
 
         return Uni.createFrom().completionStage(() -> sdk.createCompletionAsync(req))
-                .onItem().invoke(resp -> {
-                    long duration = System.currentTimeMillis() - startMs;
-                    recordMetrics(metrics -> metrics.recordClientSuccess(modelId, duration, resp.getTokensUsed()));
-                    recordAudit(audit -> audit.logClientRequestComplete(req.getRequestId(), modelId, resp.getTokensUsed(), duration));
-                })
-                .onFailure().invoke(err -> {
-                    recordMetrics(metrics -> metrics.recordClientFailure(modelId, err.getClass().getSimpleName()));
-                    recordAudit(audit -> audit.logClientRequestFailure(req.getRequestId(), modelId, err.getClass().getSimpleName()));
-                });
+                .onItem().invoke(response -> observation.complete(response.getTokensUsed()))
+                .onFailure().invoke(observation::fail);
     }
 
     /**
