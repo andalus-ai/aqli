@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -228,6 +229,11 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
     }
 
     public void generate(InferenceRequest request, Consumer<String> tokenCallback) {
+        generate(request, tokenCallback, () -> false);
+    }
+
+    public void generate(InferenceRequest request, Consumer<String> tokenCallback, BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) return;
         boolean plainPrompt = request.getMessages() == null || request.getMessages().isEmpty();
         String prompt = request.getPrompt() == null ? "" : request.getPrompt();
         if (!plainPrompt && request.getMessages().size() == 1
@@ -247,7 +253,7 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
                 request.getTopK(),
                 request.getTopP(),
                 request.getRepeatPenalty(),
-                plainPrompt ? suppressPlainPromptEcho(prompt, tokenCallback) : tokenCallback);
+                plainPrompt ? suppressPlainPromptEcho(prompt, tokenCallback) : tokenCallback, cancelled);
     }
 
     public void generate(String prompt, Consumer<String> tokenCallback) {
@@ -339,6 +345,12 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
                          double topP,
                          double repeatPenalty,
                          Consumer<String> tokenCallback) {
+        generate(inputIds, maxNewTokens, temperature, topK, topP, repeatPenalty, tokenCallback, () -> false);
+    }
+
+    public void generate(int[] inputIds, int maxNewTokens, double temperature, int topK, double topP,
+                         double repeatPenalty, Consumer<String> tokenCallback, BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) return;
         if (!initialized) {
             throw new IllegalStateException("Native LiteRT-LM runner is not initialized");
         }
@@ -357,13 +369,14 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
         int lastToken = Integer.MIN_VALUE;
 
         try {
-            PromptPreparation preparedPrompt = preparePrompt(inputIds);
+            PromptPreparation preparedPrompt = preparePrompt(inputIds, cancelled);
+            if (cancelled.getAsBoolean()) return;
             byte[] logits = preparedPrompt.logits;
             int nextToken = selectNextToken(logits, recentTokens, temperature, topK, topP, repeatPenalty);
             int position = preparedPrompt.nextPosition;
 
             for (int i = 0; i < maxNewTokens; i++) {
-                if (tokenizer.isTerminalToken(nextToken)) {
+                if (cancelled.getAsBoolean() || tokenizer.isTerminalToken(nextToken)) {
                     break;
                 }
 
@@ -372,13 +385,13 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
                 if (decodedText.startsWith(emittedText)) {
                     String delta = decodedText.substring(emittedText.length());
                     if (!delta.isEmpty()) {
-                        tokenCallback.accept(delta);
+                        if (!cancelled.getAsBoolean()) tokenCallback.accept(delta);
                     }
                     emittedText = decodedText;
                 } else {
                     String tokenText = tokenizer.decodeToken(nextToken);
                     if (!tokenText.isEmpty()) {
-                        tokenCallback.accept(tokenText);
+                        if (!cancelled.getAsBoolean()) tokenCallback.accept(tokenText);
                     }
                     emittedText = decodedText;
                 }
@@ -414,11 +427,15 @@ public final class LiteRTGemmaNativeRunner implements AutoCloseable {
         }
     }
 
-    private PromptPreparation preparePrompt(int[] inputIds) {
+    private PromptPreparation preparePrompt(int[] inputIds, BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) return new PromptPreparation(new byte[0], 0);
         int prefetchedPrefixTokens = prefillPromptPrefix(inputIds);
+        if (cancelled.getAsBoolean()) return new PromptPreparation(new byte[0], prefetchedPrefixTokens);
         for (int i = prefetchedPrefixTokens; i < inputIds.length - 1; i++) {
+            if (cancelled.getAsBoolean()) return new PromptPreparation(new byte[0], i);
             runDecodeStep(inputIds[i], i);
         }
+        if (cancelled.getAsBoolean()) return new PromptPreparation(new byte[0], inputIds.length - 1);
         byte[] logits = runDecodeStep(inputIds[inputIds.length - 1], inputIds.length - 1);
         return new PromptPreparation(logits, inputIds.length);
     }
