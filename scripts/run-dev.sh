@@ -8,6 +8,7 @@ GREEN="$(printf '\033[32m')"
 CYAN="$(printf '\033[36m')"
 YELLOW="$(printf '\033[33m')"
 MAGENTA="$(printf '\033[35m')"
+RED="$(printf '\033[31m')"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -87,7 +88,7 @@ echo "${BOLD}${MAGENTA}:) Profile:${RESET} ${BUILD_PROFILE}"
 echo "${BOLD}${MAGENTA}:) Java home:${RESET} ${JAVA_HOME:-$(command -v java)}"
 echo "${BOLD}${MAGENTA}:) Build mode:${RESET} Local CLI"
 echo "${BOLD}${GREEN}:) Selection manifest:${RESET} ${ROOT_DIR}/scripts/module-selection-current.env"
-echo "$GREEN:) Module manifest resolved cleanly.$RESET"
+echo "$GREEN:) Build profile selection loaded.$RESET"
 
 cd "$ROOT_DIR"
 
@@ -129,4 +130,4 @@ if [[ ! -f "$JAR_FILE" ]]; then
   exit 1
 fi
 
-exec java ${JAVA_TOOL_OPTIONS:-} -jar "$JAR_FILE" "$@"
+exec java -jar "$JAR_FILE" "$@"
