@@ -195,3 +195,50 @@ This audit is a cross-cutting inventory. It does not replace the repository's mo
 The SDK source inspection in this audit adds one point to the existing SDK decision: the broad tech.kayys.aqli.sdk.AqliSdk interface in aqli-sdk-api still exposes AQLI SPI types such as InferenceRequest and EmbeddingRequest. Keep that compatibility/API-surface issue distinct from the canonical AqliClient decision; do not create a third public client abstraction.
 
 For each workstream, update its existing migration document rather than maintaining competing plans. This audit should remain a concise index of verified structural findings and cross-cutting cleanup status.
+### 15. Installer scripts can recurse instead of installing
+
+The current bootstrap chain is circular:
+
+- `scripts/install.sh` downloads and runs `scripts/install-cli.sh`.
+- When Homebrew is unavailable, `scripts/install-cli.sh` downloads and runs `scripts/install.sh` again.
+
+On a machine without the Homebrew path, this can recurse indefinitely instead of invoking the actual source installer, `scripts/install-local-runtime.sh`. The installer scripts also hardcode `bhangun/aqli` in their repository defaults/comments, while the current repository and README entry point are `andalus-ai/aqli`.
+
+**Disposition:** make one bootstrap path download/checkout the selected repository revision and invoke the local runtime installer exactly once. Keep repository/branch configurable, use one canonical default, and test the no-Homebrew path as well as the already-installed/update path. Do not use a piped script for a child installer that assumes its own on-disk repository path.
+
+### 16. Development and local installation scripts retain obsolete `ui/` paths
+
+The checked-in layout places the CLI in `cli/aqli-cli` and the API server in `framework/api/aqli-api`, but:
+
+- `scripts/run-dev.sh` looks for `ui/aqli-cli/build/aqli.jar` and tries to build with `-p ui/aqli-cli`.
+- `scripts/build-aqli.sh` reports the output at `ui/aqli-cli/build/aqli.jar`.
+- `scripts/install-local-runtime.sh` copies the API Quarkus runtime from `ui/aqli-api/build/quarkus-app`.
+
+The same installer correctly uses `:cli:aqli-cli:quarkusBuild` and the `cli/aqli-cli` source module, so its CLI path and API copy path disagree.
+
+**Disposition:** centralize module/output paths or derive them from Gradle project paths. Validate build, run, local install, API runtime copy, and native install from a clean checkout.
+
+### 17. The current module-selection manifest is mostly from an older project graph
+
+`scripts/module-selection-current.env` lists 63 Gradle project paths. A comparison against the current `settings.gradle.kts` and tracked module build files matched only 20 of those paths; 43 names do not map to an active current project. Examples include old `:backend`, `:models`, `:core:aqli-tensor`, `:core:aqli-tokenizer-core`, old Safetensors modules, and `:framework:api:aqli-api` (the current logical project path is `:api:aqli-api`).
+
+`scripts/build-aqli.sh` and `scripts/install-local-macos.sh` source this manifest and turn its `MODULES` entries into Gradle build/publication tasks. The build wrapper skips only a subset of legacy names, so the remaining absent project paths can still be passed to Gradle.
+
+**Disposition:** replace the stale module list with the actual active Gradle project graph and an explicit capability/profile selection. Let Gradle resolve transitive project dependencies from the CLI/API composition roots instead of maintaining a second hand-written list of obsolete module names. Preserve profile properties for backend/format selection.
+
+### 18. CLI command documentation does not match registered Picocli commands
+
+The current `AqliCommand` top-level registration does not include `mcp`, `providers`, or `convert`. The `ConvertCommand` source is marked "CURRENTLY DISABLED" and is not registered. The extension/component command is registered as `modules`, and system information is exposed by `info`, not `system info`.
+
+**Disposition:** derive the command table from the actual top-level Picocli registration and command annotations. Mark disabled commands as unavailable rather than advertising them. Verify the command help output after changes.
+
+### 19. Several maintained user guides still describe the previous product/build architecture
+
+- `docs/QUICKSTART.md` describes the former ML framework, Maven artifact `aqli-ml-api`, old package names, old repository and example paths.
+- `framework/sdk/README.md` describes the older `AqliSdkFactory`/SDK-core architecture without identifying the canonical public `AqliClient` API or compatibility layers.
+- `framework/sdk/aqli-sdk/README.md` is only a one-line placeholder.
+- `framework/api/aqli-api/README.md` instructs developers to use Maven wrapper commands although the module is a Gradle/Quarkus project.
+- `docs/README_API.md` links to a missing `API_TEST_SCRIPT.sh` and describes an older server workflow.
+- `cli/aqli-cli/README.md` lists unregistered commands and old `bhangun/aqli` release/Homebrew URLs.
+
+**Disposition:** align each guide with the current CLI registration, Gradle project path, canonical SDK contracts, and API module. Avoid documenting examples or install channels that are not present in the repository.
