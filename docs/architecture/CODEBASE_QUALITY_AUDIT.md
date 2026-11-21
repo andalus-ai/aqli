@@ -241,7 +241,7 @@ The current `AqliCommand` top-level registration does not include `mcp`, `provid
 - `docs/README_API.md` links to a missing `API_TEST_SCRIPT.sh` and describes an older server workflow.
 - `cli/aqli-cli/README.md` lists unregistered commands and old `bhangun/aqli` release/Homebrew URLs.
 
-**Disposition:** align each guide with the current CLI registration, Gradle project path, canonical SDK contracts, and API module. Avoid documenting examples or install channels that are not present in the repository.
+**Disposition:** these guides have been aligned in this audit branch: the quickstart now uses the current Gradle/CLI flow and typed SDK example; SDK READMEs distinguish the canonical `sdk.api.AqliClient` from legacy surfaces; the API README uses Gradle commands/output paths; the API index no longer links to a missing test script; and the CLI README reflects registered Picocli commands. The remaining SDK transport behavior is tracked separately below.
 ### 20. Local installer also used an invalid API Gradle project path
 
 The local runtime installer invoked `:framework:api:aqli-api:quarkusBuild`, but the actual logical Gradle project path declared by settings is `:api:aqli-api`. The source directory path and Gradle project path are different concepts; both must be derived from the settings mapping.
@@ -271,3 +271,18 @@ Two exact/near-exact duplicates have been isolated into small cleanup PRs:
 - `safetensor.engine.tooling.MultiTenantQuotaService` duplicated the routing package's service implementation. The tooling copy had no dedicated test and was not referenced by `ToolCallingEngine`; the duplicate is removed in [PR #663](https://github.com/andalus-ai/aqli/pull/663).
 
 These changes are intentionally isolated so CI can prove the remaining code does not depend on the deleted copies.
+
+### 24. SDK transport implementations do not yet conform to the canonical client contract
+
+The canonical `tech.kayys.aqli.sdk.api.AqliClient` now exists, but the current adapters expose materially different and sometimes misleading behavior:
+
+- The canonical builder has no API-key/credential or request-timeout configuration, while the server security filter requires `X-API-Key` or Bearer authentication.
+- The REST adapter calls `/v1/generate`, which is not a current server route; it does not send credentials, fakes streaming with a single non-streaming response, returns zero-filled embeddings, and advertises streaming support.
+- The current server routes are `/v1/chat/completions` (including SSE streaming), `/v1/embeddings`, and `/v1/completions` / `/v1/completions/stream`.
+- The gRPC adapter uses plaintext only, has no auth metadata/deadline configuration, and does not report embedding support despite implementing embedding calls.
+- The embedded adapter reports every feature as supported and computes generation duration from a timestamp captured after inference.
+- The CLI adapter fakes streaming and returns empty embedding vectors.
+- The legacy remote adapter also targets stale `/v1/generate` routes.
+- The public feature enum omits embeddings, and the stream contract has no explicit cancellation operation.
+
+The existing [SDK Contract Consolidation](SDK_CONTRACT_CONSOLIDATION.md) now records the exact adapter defects and a bounded conformance sequence. Do not add another public SDK abstraction to work around these gaps. First make capability reporting honest, then implement or explicitly disable unsupported operations, add credentials/timeouts, align REST wire mapping with the server contract, and run a shared contract suite across transports.
