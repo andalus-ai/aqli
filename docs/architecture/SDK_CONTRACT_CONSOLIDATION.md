@@ -236,3 +236,8 @@ The actual API routes include `POST /v1/chat/completions`, SSE streaming on the 
 
 Do not fix this by adding another `AqliClient` or `AqliSdk` abstraction. Keep the existing canonical `sdk.api.AqliClient` and move each implementation toward the same observable semantics.
 Additional REST mapping defects: the canonical `GenerationRequest` contains no model field, and `RestAqliClient.generate` serializes that request directly. The configured builder model is not added to the request body. It then deserializes the server response directly into `GenerationResult`, although the native `/v1/completions` route returns the AQLI `InferenceResponse` shape and the OpenAI-compatible chat route returns `choices[].message.content` plus `usage`. Even after correcting the URL, the current request and response mappings would still be incompatible.
+### Test coverage gap
+
+The `framework/sdk/aqli-sdk` implementation module currently has no `src/test` tree. The API module tests cover text-generation contracts/tool choice, and the local runtime SDK module tests `LocalAqliSdk`; neither provides contract coverage for `RestAqliClient`, `GrpcAqliClient`, `EmbeddedAqliClient`, `CliAqliClient`, the legacy `RemoteAqliClient`, the provider builder or the transport factory.
+
+The transport migration must add a shared adapter contract suite plus protocol-specific tests. A successful compile is not evidence that the wire contract, authentication, streaming, embeddings, capability flags, deadlines or resource ownership work.
