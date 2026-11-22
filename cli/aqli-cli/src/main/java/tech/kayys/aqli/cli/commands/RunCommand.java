@@ -171,6 +171,7 @@ public class RunCommand implements Runnable {
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
     private AudioRunOptions audioRunOptions;
     private GenerationSeedRunOptions generationSeedOptions;
+    private tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions responseCacheOptions;
     private FeaturePipelineRunOptions featurePipelineOptions;
     private AudioReplayRunOptions audioReplayOptions;
     private ImageGenerationRunOptions imageGenerationOptions;
@@ -237,9 +238,6 @@ public class RunCommand implements Runnable {
     @Option(names = {
             "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
     boolean enableJsonSse;
-
-    @Option(names = { "--no-cache" }, description = "Bypass response cache")
-    boolean noCache;
 
     String modelPath;
 
@@ -319,6 +317,13 @@ public class RunCommand implements Runnable {
                 GenerationSeedRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions"));
+
+        responseCacheOptions = runCapabilityRegistry.snapshot(
+                "response-cache",
+                commandSpec.commandLine().getParseResult(),
+                tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'response-cache' run capability is not registered or does not provide ResponseCacheRunOptions"));
 
         audioRunOptions = runCapabilityRegistry.snapshot(
                 "audio",
@@ -1046,7 +1051,7 @@ public class RunCommand implements Runnable {
                             conversationSessionOptions.sessionId(),
                             textRunOptions.mirostat(),
                             textRunOptions.grammar(),
-                            noCache));
+                            responseCacheOptions.bypassCache()));
 
             ModelSourceRunRequestParameterMapper.apply(
                     requestBuilder,
@@ -1225,7 +1230,7 @@ public class RunCommand implements Runnable {
                                     effectiveSystemPrompt,
                                     ragSystemPrompt,
                                     prompt),
-                            noCache));
+                            responseCacheOptions.bypassCache()));
 
             if (!quietRouteResolutionOutput() && !enableJsonSse) {
                 uiRenderer.printModelInfo(modelId, providerId, format, null, false);
