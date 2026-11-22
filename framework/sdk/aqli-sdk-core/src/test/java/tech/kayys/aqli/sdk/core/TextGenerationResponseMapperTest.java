@@ -43,6 +43,32 @@ class TextGenerationResponseMapperTest {
     }
 
     @Test
+    void mapsProtocolParsedToolCallsThroughTheTypedResponsePath() {
+        var protocol = tech.kayys.aljabr.core.tool.ToolCallProtocolDescriptor.of("test-protocol");
+        var registry = tech.kayys.aljabr.core.tool.ToolCallParserRegistry.builder()
+                .register(protocol, output -> new tech.kayys.aljabr.core.tool.ToolCallParseResult(
+                        java.util.List.of(new tech.kayys.aljabr.core.tool.ToolCall(
+                                "lookup", Map.of("query", "weather"))),
+                        java.util.List.of()))
+                .build();
+        var parser = new tech.kayys.aqli.sdk.core.tool.ToolCallResponseParser(registry);
+        InferenceResponse source = InferenceResponse.builder()
+                .requestId("response-2")
+                .model("model-id")
+                .content("native tool-call output")
+                .metadata(tech.kayys.aqli.sdk.core.tool.ToolCallResponseParser.PROTOCOL_METADATA_KEY,
+                        protocol.id())
+                .build();
+
+        TextGenerationResponse mapped = TextGenerationResponseMapper.toResponse(source, parser);
+
+        assertEquals(TextGenerationResponse.FinishReason.TOOL_CALLS, mapped.finishReason());
+        assertEquals(1, mapped.toolCalls().size());
+        assertEquals("lookup", mapped.toolCalls().getFirst().getFunction().getName());
+        assertEquals(Map.of("query", "weather"), mapped.toolCalls().getFirst().getArguments());
+    }
+
+    @Test
     void mapsStreamingChunkUsageMetadataAndTerminalReason() {
         Instant emittedAt = Instant.parse("2026-11-19T03:00:00Z");
         StreamingInferenceChunk source = new StreamingInferenceChunk(
