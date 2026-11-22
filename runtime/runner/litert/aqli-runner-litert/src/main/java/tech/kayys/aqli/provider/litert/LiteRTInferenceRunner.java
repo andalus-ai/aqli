@@ -514,9 +514,12 @@ public class LiteRTInferenceRunner implements AutoCloseable {
         }
         if (officialLmBridge != null) {
             try {
-                officialLmBridge.generate(request, tokenCallback);
+                officialLmBridge.generate(request, tokenCallback, cancelled);
                 return;
             } catch (Exception e) {
+                if (cancelled.getAsBoolean()) {
+                    return;
+                }
                 log.warn("Official LiteRT-LM bridge failed: {}. Falling back to native signature runner.",
                         e.getMessage());
                 officialLmBridge = null;

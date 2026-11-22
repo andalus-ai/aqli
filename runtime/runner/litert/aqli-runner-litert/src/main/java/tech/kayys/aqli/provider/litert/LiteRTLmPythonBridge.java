@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -162,13 +163,20 @@ final class LiteRTLmPythonBridge {
     }
 
     void generate(InferenceRequest request, Consumer<String> tokenCallback) {
-        String text = runOfficialEngine(extractPrompt(request), Math.max(1, request.getMaxTokens()));
-        if (!text.isEmpty()) {
+        generate(request, tokenCallback, () -> false);
+    }
+
+    void generate(InferenceRequest request, Consumer<String> tokenCallback, BooleanSupplier cancelled) {
+        if (cancelled.getAsBoolean()) {
+            return;
+        }
+        String text = runOfficialEngine(extractPrompt(request), Math.max(1, request.getMaxTokens()), cancelled);
+        if (!text.isEmpty() && !cancelled.getAsBoolean()) {
             tokenCallback.accept(text);
         }
     }
 
-    private String runOfficialEngine(String prompt, int maxTokens) {
+    private String runOfficialEngine(String prompt, int maxTokens, BooleanSupplier cancelled) {
         Path driver = null;
         try {
             Files.createDirectories(cacheDir());
@@ -186,11 +194,21 @@ final class LiteRTLmPythonBridge {
                     cacheDir().toAbsolutePath().toString())
                     .redirectErrorStream(true)
                     .start();
-            boolean finished = process.waitFor(timeout().toMillis(), TimeUnit.MILLISECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                throw new IllegalStateException("official LiteRT-LM bridge timed out after "
-                        + timeout().toSeconds() + "s");
+            long deadline = System.nanoTime() + timeout().toNanos();
+            while (!process.waitFor(50, TimeUnit.MILLISECONDS)) {
+                if (cancelled.getAsBoolean()) {
+                    terminateProcessTree(process);
+                    return "";
+                }
+                if (System.nanoTime() >= deadline) {
+                    terminateProcessTree(process);
+                    throw new IllegalStateException("official LiteRT-LM bridge timed out after "
+                            + timeout().toSeconds() + "s");
+                }
+            }
+            if (cancelled.getAsBoolean()) {
+                terminateProcessTree(process);
+                return "";
             }
             String output = readProcessOutput(process);
             if (process.exitValue() != 0) {
@@ -236,6 +254,28 @@ final class LiteRTLmPythonBridge {
         String encoded = (valueEnd >= 0 ? output.substring(valueStart, valueEnd) : output.substring(valueStart))
                 .trim();
         return new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    private static void terminateProcessTree(Process process) {
+        ProcessHandle handle = process.toHandle();
+        ProcessHandle[] descendants = handle.descendants().toArray(ProcessHandle[]::new);
+        for (ProcessHandle descendant : descendants) {
+            descendant.destroy();
+        }
+        process.destroy();
+        try {
+            process.waitFor(250, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        for (ProcessHandle descendant : descendants) {
+            if (descendant.isAlive()) {
+                descendant.destroyForcibly();
+            }
+        }
+        if (process.isAlive()) {
+            process.destroyForcibly();
+        }
     }
 
     private static String readProcessOutput(Process process) {
