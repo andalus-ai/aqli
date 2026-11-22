@@ -81,8 +81,7 @@ final class DirectForwardSequenceRunner {
                 embeddings,
                 seqLenInt,
                 verboseTokens));
-        DirectForwardCancellation.checkpoint();
-        kvCache.advance(seqLenInt);
+        DirectForwardCancellation.commitIfActive(() -> kvCache.advance(seqLenInt));
         return logits;
     }
 
@@ -123,8 +122,7 @@ final class DirectForwardSequenceRunner {
                     finalHidden,
                     prepared.hiddenShape(),
                     request.reuseLogitsOutput()));
-            DirectForwardCancellation.checkpoint();
-            kvCache.advance(1);
+            DirectForwardCancellation.commitIfActive(() -> kvCache.advance(1));
             return logits;
         }
     }
