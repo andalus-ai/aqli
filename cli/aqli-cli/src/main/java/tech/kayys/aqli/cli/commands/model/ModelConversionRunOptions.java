@@ -4,5 +4,6 @@ package tech.kayys.aqli.cli.commands.model;
 public record ModelConversionRunOptions(
         String convertMode,
         String ggufOutType,
-        String ggufQuant) {
+        String ggufQuant,
+        boolean forceGguf) {
 }
