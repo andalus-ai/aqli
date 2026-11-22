@@ -238,7 +238,6 @@ public class RunCommand implements Runnable {
 
     String ggufQuant;
 
-    @Option(names = { "--gguf" }, description = "Force GGUF conversion and usage", defaultValue = "false")
     boolean forceGguf;
 
 
@@ -420,6 +419,7 @@ public class RunCommand implements Runnable {
         convertMode = modelConversionOptions.convertMode();
         ggufOutType = modelConversionOptions.ggufOutType();
         ggufQuant = modelConversionOptions.ggufQuant();
+        forceGguf = modelConversionOptions.forceGguf();
 
         systemPromptOptions = runCapabilityRegistry.snapshot(
                 "system-prompt",
