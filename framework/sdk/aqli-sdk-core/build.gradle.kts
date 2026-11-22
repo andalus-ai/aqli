@@ -5,6 +5,7 @@ plugins {
 dependencies {
     api(project(":sdk:aqli-sdk-api"))
     implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT")
     implementation(project(":core:aqli-core"))
     implementation(project(":plugin:aqli-plugin-kernel-core"))
     implementation(project(":spi:aqli-spi"))
