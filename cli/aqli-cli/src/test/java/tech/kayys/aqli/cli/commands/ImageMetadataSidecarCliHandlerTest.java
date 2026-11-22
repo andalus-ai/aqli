@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -58,6 +61,22 @@ class ImageMetadataSidecarCliHandlerTest {
 
         assertFalse(Files.exists(implicitSidecar));
     }
+    @Test
+    void preservesImageStoreDomainDiagnosticWithoutGenericWrapper() throws Exception {
+        Path missingSidecar = tempDir.resolve("missing-image.json");
+        ByteArrayOutputStream error = new ByteArrayOutputStream();
+        PrintStream originalError = System.err;
+        try (PrintStream captured = new PrintStream(error, true, StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            assertFalse(ImageMetadataSidecarCliHandler.verify(missingSidecar.toString(), null));
+        } finally {
+            System.setErr(originalError);
+        }
+        String diagnostic = error.toString(StandardCharsets.UTF_8);
+        assertTrue(diagnostic.contains("Error: image metadata file not found:"));
+        assertFalse(diagnostic.contains("failed to verify image metadata"));
+    }
+
     @Test
     void returnsFalseWhenVerificationOrRefreshSidecarDoesNotExist() {
         Path missingSidecar = tempDir.resolve("missing-image.json");
