@@ -261,9 +261,6 @@ public class RunCommand implements Runnable {
     int quantizeBits;
 
     // Stable Diffusion and TTS generation parameter.
-    @Option(names = { "--seed" }, description = "Random seed for image generation and TTS (MOSS TTS default: 1234)")
-    Long seed;
-
     String outputPath;
 
     String extension;
