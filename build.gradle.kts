@@ -173,8 +173,6 @@ subprojects {
                 .using(module("tech.kayys.aljabr:aljabr-spi-tokenizer:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-model-flux"))
                 .using(module("tech.kayys.aljabr:aljabr-model-flux:0.1.0-SNAPSHOT"))
-            substitute(module("tech.kayys.alkhawarizm:alkhawarizm-safetensor-api"))
-                .using(module("tech.kayys.aljabr:aljabr-safetensor-api:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-spi-plugin"))
                 .using(module("tech.kayys.aljabr:aljabr-spi-plugin:0.1.0-SNAPSHOT"))
             substitute(module("tech.kayys.alkhawarizm:alkhawarizm-gguf-llamacpp"))
