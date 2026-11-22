@@ -84,7 +84,6 @@ public class LiteRTInferenceRunner implements AutoCloseable {
     private LiteRTGemmaMetalRunner gemmaMetalRunner;
     private LiteRTGemmaNativeRunner gemmaNativeRunner;
     private LiteRTLmJvmBridge officialJvmLmBridge;
-    private LiteRTLmPythonBridge officialLmBridge;
     private Path safetensorFallbackModelPath;
     private Path litertLmRuntimeModelPath;
     private boolean preferCompanionSafetensorFallback;
@@ -136,21 +135,6 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                 }
                 if (tryInitializeOfficialJvmBridge(runtimeModelPath)) {
                     return;
-                }
-                if (LiteRTLmPythonBridge.enabled()) {
-                    if (LiteRTLmPythonBridge.available()) {
-                        this.officialLmBridge = new LiteRTLmPythonBridge(runtimeModelPath, tokenizer(), useGpu);
-                        log.warn("Using official LiteRT-LM Python bridge for {} (backend={}). "
-                                        + "This path avoids the slow Java KV-cache copy fallback.",
-                                runtimeModelPath.getFileName(),
-                                LiteRTLmPythonBridge.backendName(useGpu));
-                        return;
-                    }
-                    log.warn("Official LiteRT-LM Python bridge is not available through '{}'; "
-                                    + "falling back to the slower manual LiteRT signature runner. "
-                                    + "Install Google's litert_lm package or set -D{}=false to suppress this probe.",
-                            LiteRTLmPythonBridge.pythonCommand(),
-                            LiteRTLmPythonBridge.ENABLE_PROPERTY);
                 }
                 try {
                     initializeNativeLiteRtLmFallback(runtimeModelPath);
@@ -510,17 +494,6 @@ public class LiteRTInferenceRunner implements AutoCloseable {
                     officialJvmLmBridge.generate(request, tokenCallback, cancelled);
                     return;
                 }
-            }
-        }
-        if (officialLmBridge != null) {
-            try {
-                officialLmBridge.generate(request, tokenCallback);
-                return;
-            } catch (Exception e) {
-                log.warn("Official LiteRT-LM bridge failed: {}. Falling back to native signature runner.",
-                        e.getMessage());
-                officialLmBridge = null;
-                initializeNativeLiteRtLmFallback(litertLmRuntimeModelPath != null ? litertLmRuntimeModelPath : modelPath);
             }
         }
         if (gemmaNativeRunner != null) {
