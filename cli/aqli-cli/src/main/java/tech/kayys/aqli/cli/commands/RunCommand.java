@@ -204,7 +204,7 @@ public class RunCommand implements Runnable {
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
 
-                        public String modelFile;
+    public String modelFile;
 
     public String modelDir;
 
