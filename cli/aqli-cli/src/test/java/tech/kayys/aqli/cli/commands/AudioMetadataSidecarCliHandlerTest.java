@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -59,6 +62,21 @@ class AudioMetadataSidecarCliHandlerTest {
 
         assertFalse(Files.exists(implicitSidecar));
     }
+    @Test
+    void reportsAudioStoreFailuresWithAudioContext() throws Exception {
+        Path missingSidecar = tempDir.resolve("missing-audio.json");
+        ByteArrayOutputStream error = new ByteArrayOutputStream();
+        PrintStream originalError = System.err;
+        try (PrintStream captured = new PrintStream(error, true, StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            assertFalse(AudioMetadataSidecarCliHandler.verify(missingSidecar.toString(), null));
+        } finally {
+            System.setErr(originalError);
+        }
+        assertTrue(error.toString(StandardCharsets.UTF_8)
+                .contains("Error: failed to verify audio metadata: audio metadata file not found:"));
+    }
+
     @Test
     void returnsFalseWhenVerificationOrRefreshSidecarDoesNotExist() {
         Path missingSidecar = tempDir.resolve("missing-audio.json");
