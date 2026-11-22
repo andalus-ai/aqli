@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation("tech.kayys.aljabr:aljabr-tensor:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-core:0.1.0-SNAPSHOT")
     implementation(project(":core:aqli-core"))
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
