@@ -29,7 +29,6 @@ sourceSets {
             exclude("tech/kayys/aqli/safetensor/engine/EngineIntegrationTest.java")
             exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceRequestPlannerWiringTest.java")
             exclude("tech/kayys/aqli/safetensor/engine/planning/InferenceRequestRuntimeConfigMapperTest.java")
-            exclude("tech/kayys/aqli/safetensor/engine/planning/RequestQuantizationPlannerTest.java")
             // Legacy no-op request-planning classes and their excluded tests were removed.
             // Stale tests referencing removed forward/attention types
             exclude("tech/kayys/aqli/safetensor/engine/forward/**")
