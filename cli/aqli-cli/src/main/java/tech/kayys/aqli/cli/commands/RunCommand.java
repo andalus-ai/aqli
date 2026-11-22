@@ -1601,7 +1601,7 @@ public class RunCommand implements Runnable {
                     "--audio-channels",
                     audioRunOptions.channels(),
                     Set.of("auto", "1", "mono", "single", "2", "stereo", "dual-mono", "dual_mono",
-                            "native", "source", "presentationOptions.raw()"),
+                            "native", "source", "raw"),
                     "auto, mono, stereo, dual-mono, native");
         }
         if (audioRunOptions.codecDecode() != null && !audioRunOptions.codecDecode().isBlank()) {
@@ -1985,8 +1985,8 @@ public class RunCommand implements Runnable {
         return null;
     }
 
-    private String effectiveQuantizationStrategy(String presentationOptions.raw()) {
-        String normalized = presentationOptions.raw() == null ? "" : presentationOptions.raw().trim().toLowerCase();
+    private String effectiveQuantizationStrategy(String raw) {
+        String normalized = raw == null ? "" : raw.trim().toLowerCase();
         return switch (normalized) {
             case "turbo" -> "bnb";
             case "gptq", "autoround" -> "int4";
@@ -1994,8 +1994,8 @@ public class RunCommand implements Runnable {
         };
     }
 
-    private String effectiveKvQuantization(String presentationOptions.raw()) {
-        String normalized = presentationOptions.raw() == null ? "" : presentationOptions.raw().trim().toLowerCase();
+    private String effectiveKvQuantization(String raw) {
+        String normalized = raw == null ? "" : raw.trim().toLowerCase();
         return switch (normalized) {
             case "", "none" -> "off";
             case "int8" -> "int8";
@@ -2122,7 +2122,7 @@ public class RunCommand implements Runnable {
             args.add("--no-info");
         }
         if (presentationOptions.raw()) {
-            args.add("--presentationOptions.raw()");
+            args.add("--raw");
         }
         if (presentationOptions.debugPrompt()) {
             args.add("--debug-prompt");
