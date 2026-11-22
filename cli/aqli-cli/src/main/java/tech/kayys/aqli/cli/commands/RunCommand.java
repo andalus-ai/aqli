@@ -123,6 +123,7 @@ import tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaMetadataRunOptions;
 import tech.kayys.aqli.cli.commands.media.MediaOutputRunOptions;
 import tech.kayys.aqli.cli.commands.presentation.RunPresentationRunOptions;
+import tech.kayys.aqli.cli.commands.response.ResponseDeliveryRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.onnx.OnnxModelVariantRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
@@ -201,6 +202,7 @@ public class RunCommand implements Runnable {
     private OnnxDiagnosticsRunOptions onnxDiagnosticsOptions;
     private OnnxModelVariantRunOptions onnxModelVariantOptions;
     private RunPresentationRunOptions presentationOptions;
+    private ResponseDeliveryRunOptions responseDeliveryOptions;
 
     @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
@@ -215,16 +217,6 @@ public class RunCommand implements Runnable {
     String providerId;
 
     String runner;
-
-    @Option(names = { "-s", "--stream" }, description = "Stream output", defaultValue = "true")
-    boolean stream;
-
-    @Option(names = { "--json" }, description = "Enable JSON output mode", defaultValue = "false")
-    boolean jsonMode;
-
-    @Option(names = {
-            "--enable-json" }, description = "Emit OpenAI-compatible SSE JSON for streamed chunks", defaultValue = "false")
-    boolean enableJsonSse;
 
     String modelPath;
 
@@ -511,6 +503,13 @@ public class RunCommand implements Runnable {
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'run-presentation' run capability is not registered or does not provide RunPresentationRunOptions"));
 
+        responseDeliveryOptions = runCapabilityRegistry.snapshot(
+                "response-delivery",
+                commandSpec.commandLine().getParseResult(),
+                ResponseDeliveryRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'response-delivery' run capability is not registered or does not provide ResponseDeliveryRunOptions"));
+
         
         try (ExternalModelFamilyPluginScope ignored =
                 ExternalModelFamilyPluginScope.attach(
@@ -665,7 +664,7 @@ public class RunCommand implements Runnable {
             boolean customModelPathUsed = false;
             String finalLocalPath = null;
             String requestedModelRef = modelId;
-            uiRenderer.setJsonMode(enableJsonSse || jsonMode || ttsVoiceDiscoveryOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportOptions.enabled());
+            uiRenderer.setJsonMode(responseDeliveryOptions.openAiSse() || responseDeliveryOptions.jsonOutput() || ttsVoiceDiscoveryOptions.listVoicesJson() || ocrOutputOptions.structuredJson() || routeReportOptions.enabled());
             if (!quietRouteResolutionOutput()) {
                 uiRenderer.printBanner();
             }
@@ -712,7 +711,7 @@ public class RunCommand implements Runnable {
                                         providerId,
                                         providerExplicit,
                                         quietRouteResolutionOutput(),
-                                        jsonMode,
+                                        responseDeliveryOptions.jsonOutput(),
                                         ocrOutputOptions.structuredJson()),
                                 LocalModelIndexMetadataInference::providerFor,
                                 LocalModelIndexMetadataInference::formatFor);
@@ -919,12 +918,12 @@ public class RunCommand implements Runnable {
                 prompt = "Extract all text from the image.";
             }
             boolean structuredOcrOutput =
-                    (jsonMode
+                    (responseDeliveryOptions.jsonOutput()
                             || ocrOutputOptions.structuredJson()
                             || (ocrOutputOptions.jsonOutputPath() != null && !ocrOutputOptions.jsonOutputPath().isBlank())
                             || (ocrOutputOptions.overlayOutputPath() != null && !ocrOutputOptions.overlayOutputPath().isBlank()))
                             && (visionInputOptions.ocrMode() || !normalizedInputImages.isEmpty());
-            boolean effectiveStream = stream && !structuredOcrOutput;
+            boolean effectiveStream = responseDeliveryOptions.streaming() && !structuredOcrOutput;
 
             boolean promptlessExtensionRun = allowsPromptlessExtensionRun(modelId, finalLocalPath);
             if ((prompt == null || prompt.isBlank()) && !promptlessExtensionRun) {
@@ -974,7 +973,7 @@ public class RunCommand implements Runnable {
 
             String litertPreflightFailure = LiteRtRoutePreflightValidator.detectUnsupported(executionProviderId, finalLocalPath);
             if (litertPreflightFailure != null) {
-                if (!enableJsonSse) {
+                if (!responseDeliveryOptions.openAiSse()) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
                     printQuantizationInfo();
                 }
@@ -991,7 +990,7 @@ public class RunCommand implements Runnable {
                             !normalizedInputImages.isEmpty(),
                             visionInputOptions.ocrMode());
             if (!gemma4UnifiedMultimodalRouteValidation.allowed()) {
-                if (!enableJsonSse) {
+                if (!responseDeliveryOptions.openAiSse()) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
                     printQuantizationInfo();
                 }
@@ -1004,7 +1003,7 @@ public class RunCommand implements Runnable {
                     DirectSafetensorRoutePolicy.validateGemma4UnifiedExecutionRoute(
                             executionProviderId, modelId, finalLocalPath);
             if (!gemma4UnifiedRouteValidation.allowed()) {
-                if (!enableJsonSse) {
+                if (!responseDeliveryOptions.openAiSse()) {
                     uiRenderer.printModelInfo(modelId, providerId, format, null, false);
                     printQuantizationInfo();
                 }
@@ -1031,7 +1030,7 @@ public class RunCommand implements Runnable {
                             textRunOptions.topP(),
                             textRunOptions.topK(),
                             textRunOptions.repeatPenalty(),
-                            jsonMode,
+                            responseDeliveryOptions.jsonOutput(),
                             textRunOptions.maxTokens(),
                             pluginId,
                             effectiveStream,
@@ -1219,7 +1218,7 @@ public class RunCommand implements Runnable {
                                     prompt),
                             responseCacheOptions.bypassCache()));
 
-            if (!quietRouteResolutionOutput() && !enableJsonSse) {
+            if (!quietRouteResolutionOutput() && !responseDeliveryOptions.openAiSse()) {
                 uiRenderer.printModelInfo(modelId, providerId, format, null, false);
                 printQuantizationInfo();
                 if (libtorchSafetensorCliBridge) {
@@ -1267,7 +1266,7 @@ public class RunCommand implements Runnable {
                                 imageBuffer,
                                 chunk -> audioChunkRouter.accept(chunk.getDelta(), chunk.metadata()),
                                 delta -> {
-                                    if (enableJsonSse) {
+                                    if (responseDeliveryOptions.openAiSse()) {
                                         printOpenAiSseDelta(request.getRequestId(), request.getModel(), delta);
                                     } else {
                                         System.out.print(delta);
@@ -1275,7 +1274,7 @@ public class RunCommand implements Runnable {
                                     }
                                 },
                                 delta -> {
-                                    if (!enableJsonSse) {
+                                    if (!responseDeliveryOptions.openAiSse()) {
                                         System.out.print("\r" + ChatUIRenderer.CYAN + delta + ChatUIRenderer.RESET + "  ");
                                         System.out.flush();
                                     }
@@ -1321,7 +1320,7 @@ public class RunCommand implements Runnable {
                                             duration,
                                             audioOutput.hasOutput(),
                                             AudioRunStatsRenderer::isAudioMetadata);
-                                    if (enableJsonSse) {
+                                    if (responseDeliveryOptions.openAiSse()) {
                                         printOpenAiSseFinal(request.getRequestId(), request.getModel());
                                     } else {
                                         RunResponseCompletionCoordinator.printStats(uiRenderer, 
@@ -1332,7 +1331,7 @@ public class RunCommand implements Runnable {
                                                 streamMetrics,
                                                 audioOutput.hasOutput(),
                                                 isNoBanner() || isNoInfo(),
-                                                enableJsonSse,
+                                                responseDeliveryOptions.openAiSse(),
                                                 isNoBanner());
                                     }
                                 },
@@ -1684,7 +1683,7 @@ public class RunCommand implements Runnable {
     }
 
     private boolean ttsVoicesJsonOutput() {
-        return jsonMode || ttsVoiceDiscoveryOptions.listVoicesJson();
+        return responseDeliveryOptions.jsonOutput() || ttsVoiceDiscoveryOptions.listVoicesJson();
     }
 
     private boolean quietRouteResolutionOutput() {
@@ -2212,8 +2211,8 @@ public class RunCommand implements Runnable {
                 && isEmpty(retrievalContextOptions.contexts())
                 && isEmpty(retrievalContextOptions.files())
                 && isEmpty(visionInputOptions.inputImagePaths())
-                && !jsonMode
-                && !enableJsonSse
+                && !responseDeliveryOptions.jsonOutput()
+                && !responseDeliveryOptions.openAiSse()
                 && !visionInputOptions.ocrMode()
                 && !ocrOutputOptions.structuredJson()
                 && isBlank(ocrOutputOptions.jsonOutputPath())
@@ -2460,7 +2459,7 @@ public class RunCommand implements Runnable {
     private void printResponse(InferenceResponse response) {
         Map<String, Object> metadata = effectiveExecutionRouteMetadata(response.getMetadata());
         boolean structuredOutput = RunResponseContentRenderer.renderStructured(
-                response, metadata, jsonMode,
+                response, metadata, responseDeliveryOptions.jsonOutput(),
                 ocrOutputOptions.structuredJson(), ocrOutputOptions.jsonOutputPath(), ocrOutputOptions.overlayOutputPath(),
                 System.out, System.err);
 
@@ -2489,7 +2488,7 @@ public class RunCommand implements Runnable {
                 ttftMillis(metadata),
                 audioResponse,
                 structuredOutput || isNoInfo() || presentationOptions.onlyText(),
-                enableJsonSse || jsonMode,
+                responseDeliveryOptions.openAiSse() || responseDeliveryOptions.jsonOutput(),
                 isNoBanner());
     }
 
