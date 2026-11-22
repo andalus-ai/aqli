@@ -218,7 +218,7 @@ public class RunCommand implements Runnable {
 
     String runner;
 
-                String modelPath;
+    String modelPath;
 
     String convertMode;
 
