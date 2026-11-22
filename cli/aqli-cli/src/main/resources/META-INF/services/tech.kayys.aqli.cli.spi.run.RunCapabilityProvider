@@ -25,6 +25,7 @@ tech.kayys.aqli.cli.commands.model.ModelConversionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.runtime.RuntimeProfileRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelRoutingRunCapabilityProvider
 tech.kayys.aqli.cli.commands.generation.GenerationSeedRunCapabilityProvider
+tech.kayys.aqli.cli.commands.request.ResponseCacheRunCapabilityProvider
 tech.kayys.aqli.cli.commands.onnx.OnnxModelVariantRunCapabilityProvider
 tech.kayys.aqli.cli.commands.pipeline.FeaturePipelineRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelSourceRunCapabilityProvider
