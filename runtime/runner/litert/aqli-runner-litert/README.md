@@ -1,3 +1,28 @@
+# LiteRT runtime architecture
+
+## Java/JVM and native only
+
+AQLI's LiteRT inference runtime is Java-first and does not require Python, `python3`,
+`pip`, a virtual environment, or the Python `litert_lm` package.
+
+The supported execution paths are:
+
+1. **Official LiteRT-LM JVM engine** — uses Google's
+   `com.google.ai.edge.litertlm:litertlm-jvm` artifact when it is present and
+   initializes successfully.
+2. **Java FFM/native LiteRT runner** — uses AQLI's Java implementation and the
+   platform LiteRT native runtime libraries when the official JVM engine is
+   unavailable or unsuitable.
+
+Python-based upstream conversion or model-authoring tools are outside the AQLI
+inference runtime. A model prepared elsewhere must be loadable by one of the
+supported Java/native execution paths before AQLI can run it.
+
+The runtime must never probe for Python or silently launch a Python subprocess
+as an inference fallback.
+
+---
+
 # ✅ LiteRT Native Bindings - VERIFIED & UPDATED
 
 ## Module Summary
