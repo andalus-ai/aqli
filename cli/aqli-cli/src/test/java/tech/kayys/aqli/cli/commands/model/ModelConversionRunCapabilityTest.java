@@ -17,7 +17,8 @@ class ModelConversionRunCapabilityTest {
         commandLine.parseArgs(
                 "--convert-mode", "off",
                 "--gguf-outtype", "f16",
-                "--gguf-quant", "Q4_K_M");
+                "--gguf-quant", "Q4_K_M",
+                "--gguf");
 
         ModelConversionRunOptions options =
                 new ModelConversionRunCapability().snapshot(commandLine.getParseResult());
@@ -25,6 +26,7 @@ class ModelConversionRunCapabilityTest {
         assertEquals("off", options.convertMode());
         assertEquals("f16", options.ggufOutType());
         assertEquals("Q4_K_M", options.ggufQuant());
+        org.junit.jupiter.api.Assertions.assertTrue(options.forceGguf());
     }
 
     @Test
@@ -38,6 +40,7 @@ class ModelConversionRunCapabilityTest {
         assertEquals("auto", options.convertMode());
         assertNull(options.ggufOutType());
         assertNull(options.ggufQuant());
+        org.junit.jupiter.api.Assertions.assertFalse(options.forceGguf());
     }
 
     private static CommandLine commandLine() {
