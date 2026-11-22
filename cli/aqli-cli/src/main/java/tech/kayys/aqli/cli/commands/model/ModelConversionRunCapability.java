@@ -20,6 +20,11 @@ public final class ModelConversionRunCapability
     @Override
     public void registerOptions(CommandSpec commandSpec) {
         Objects.requireNonNull(commandSpec, "commandSpec");
+        commandSpec.addOption(OptionSpec.builder("--gguf")
+                .type(boolean.class)
+                .defaultValue("false")
+                .description("Force GGUF conversion and usage")
+                .build());
         commandSpec.addOption(OptionSpec.builder("--convert-mode")
                 .type(String.class)
                 .defaultValue("auto")
@@ -46,6 +51,7 @@ public final class ModelConversionRunCapability
         return new ModelConversionRunOptions(
                 parseResult.matchedOptionValue("--convert-mode", "auto"),
                 parseResult.matchedOptionValue("--gguf-outtype", null),
-                parseResult.matchedOptionValue("--gguf-quant", null));
+                parseResult.matchedOptionValue("--gguf-quant", null),
+                parseResult.matchedOptionValue("--gguf", false));
     }
 }
