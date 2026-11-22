@@ -17,6 +17,17 @@ public final class TextGenerationResponseMapper {
     private TextGenerationResponseMapper() {
     }
 
+    /**
+     * Maps an inference result after applying the explicitly configured
+     * protocol parser, when the response declares a tool-call protocol.
+     */
+    public static TextGenerationResponse toResponse(
+            InferenceResponse response,
+            tech.kayys.aqli.sdk.core.tool.ToolCallResponseParser toolCallParser) {
+        java.util.Objects.requireNonNull(toolCallParser, "toolCallParser");
+        return toResponse(toolCallParser.apply(response));
+    }
+
     public static TextGenerationResponse toResponse(InferenceResponse response) {
         java.util.Objects.requireNonNull(response, "response");
         return new TextGenerationResponse(
