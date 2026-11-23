@@ -34,9 +34,10 @@ public final class ToolCallParsingService {
             tech.kayys.aqli.spi.inference.InferenceRequest request,
             String modelOutput) {
         Objects.requireNonNull(request, "request");
-        ToolCallProtocolDescriptor protocol = request.getToolCallProtocol()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Inference request does not declare a tool-call protocol"));
+        ToolCallProtocolDescriptor protocol = request.getToolCallProtocol();
+        if (protocol == null) {
+            throw new IllegalStateException("Inference request does not declare a tool-call protocol");
+        }
         return parse(protocol, modelOutput);
     }
 
