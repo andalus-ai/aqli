@@ -9,6 +9,7 @@ import tech.kayys.aqli.spi.Message;
 import tech.kayys.aqli.spi.auth.ApiKeyConstants;
 import tech.kayys.aqli.spi.context.RequestContext;
 import tech.kayys.aqli.spi.tool.ToolDefinition;
+import tech.kayys.aljabr.spi.inference.ToolCallProtocolDescriptor;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -44,6 +45,9 @@ public final class InferenceRequest {
     @Nullable
     private final Object toolChoice;
 
+    @Nullable
+    private final ToolCallProtocolDescriptor toolCallProtocol;
+
     private final Map<String, Object> parameters;
     private final boolean streaming;
 
@@ -76,7 +80,6 @@ public final class InferenceRequest {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private final transient MemorySegment nativeContextSegment;
 
-    @JsonCreator
     public InferenceRequest(
             @JsonProperty("requestId") String requestId,
             @JsonProperty("apiKey") @JsonAlias("apiKey") String apiKey,
@@ -98,6 +101,34 @@ public final class InferenceRequest {
             @JsonProperty("promptTokenCount") int promptTokenCount,
             @JsonProperty("metadata") Map<String, Object> metadata,
             @JsonProperty("attachments") List<Attachment> attachments) {
+        this(requestId, apiKey, model, messages, parameters, tools, toolChoice, streaming,
+                preferredProvider, plugin, timeout, priority, cacheBypass, userId, sessionId, traceId,
+                inferenceStage, promptTokenCount, metadata, attachments, null);
+    }
+
+    @JsonCreator
+    public InferenceRequest(
+            @JsonProperty("requestId") String requestId,
+            @JsonProperty("apiKey") @JsonAlias("apiKey") String apiKey,
+            @JsonProperty("model") String model,
+            @JsonProperty("messages") List<Message> messages,
+            @JsonProperty("parameters") Map<String, Object> parameters,
+            @JsonProperty("tools") List<ToolDefinition> tools,
+            @JsonProperty("toolChoice") Object toolChoice,
+            @JsonProperty("streaming") boolean streaming,
+            @JsonProperty("preferredProvider") String preferredProvider,
+            @JsonProperty("plugin") String plugin,
+            @JsonProperty("timeout") Duration timeout,
+            @JsonProperty("priority") Priority priority,
+            @JsonProperty("cacheBypass") boolean cacheBypass,
+            @JsonProperty("userId") String userId,
+            @JsonProperty("sessionId") String sessionId,
+            @JsonProperty("traceId") String traceId,
+            @JsonProperty("inferenceStage") InferenceStage inferenceStage,
+            @JsonProperty("promptTokenCount") int promptTokenCount,
+            @JsonProperty("metadata") Map<String, Object> metadata,
+            @JsonProperty("attachments") List<Attachment> attachments,
+            @JsonProperty("toolCallProtocol") ToolCallProtocolDescriptor toolCallProtocol) {
         this.requestId = Objects.requireNonNull(requestId, "requestId");
         this.requestContext = new RequestContext() {
             @Override
@@ -147,6 +178,7 @@ public final class InferenceRequest {
         this.attachments = attachments != null
                 ? Collections.unmodifiableList(new ArrayList<>(attachments))
                 : Collections.emptyList();
+        this.toolCallProtocol = toolCallProtocol;
         this.nativeContextSegment = null;
     }
 
@@ -171,7 +203,8 @@ public final class InferenceRequest {
             int promptTokenCount,
             Map<String, Object> metadata,
             List<Attachment> attachments,
-            MemorySegment nativeContextSegment) {
+            MemorySegment nativeContextSegment,
+            ToolCallProtocolDescriptor toolCallProtocol) {
         this.requestId = Objects.requireNonNull(requestId, "requestId");
         this.requestContext = new RequestContext() {
             @Override
@@ -221,6 +254,7 @@ public final class InferenceRequest {
         this.attachments = attachments != null
                 ? Collections.unmodifiableList(new ArrayList<>(attachments))
                 : Collections.emptyList();
+        this.toolCallProtocol = toolCallProtocol;
         this.nativeContextSegment = nativeContextSegment;
     }
 
@@ -281,6 +315,12 @@ public final class InferenceRequest {
 
     public Object getToolChoice() {
         return toolChoice;
+    }
+
+    /** Explicit wire protocol used to encode tool calls, when configured. */
+    @JsonProperty("toolCallProtocol")
+    public Optional<ToolCallProtocolDescriptor> getToolCallProtocol() {
+        return Optional.ofNullable(toolCallProtocol);
     }
 
     public Map<String, Object> getParameters() {
@@ -412,6 +452,7 @@ public final class InferenceRequest {
                 .preferredProvider(preferredProvider)
                 .plugin(plugin)
                 .toolChoice(toolChoice)
+                .toolCallProtocol(toolCallProtocol)
                 .streaming(streaming)
                 .priority(priority)
                 .cacheBypass(cacheBypass)
@@ -446,6 +487,7 @@ public final class InferenceRequest {
         private final List<Message> messages = new ArrayList<>();
         private final List<ToolDefinition> tools = new ArrayList<>();
         private Object toolChoice;
+        private ToolCallProtocolDescriptor toolCallProtocol;
         private final Map<String, Object> parameters = new HashMap<>();
         private boolean streaming = false;
         private String preferredProvider;
@@ -530,6 +572,12 @@ public final class InferenceRequest {
 
         public Builder toolChoice(Object toolChoice) {
             this.toolChoice = toolChoice;
+            return this;
+        }
+
+        /** Selects the explicit tool-call wire protocol for this inference request. */
+        public Builder toolCallProtocol(ToolCallProtocolDescriptor toolCallProtocol) {
+            this.toolCallProtocol = toolCallProtocol;
             return this;
         }
 
@@ -694,7 +742,8 @@ public final class InferenceRequest {
             return new InferenceRequest(
                     requestId, apiKey, model, messages, parameters, tools, toolChoice, streaming,
                     preferredProvider, plugin, timeout, priority, cacheBypass, userId, sessionId, traceId,
-                    inferenceStage, promptTokenCount, metadata, attachments, nativeContextSegment);
+                    inferenceStage, promptTokenCount, metadata, attachments, nativeContextSegment,
+                    toolCallProtocol);
         }
     }
 
@@ -711,6 +760,7 @@ public final class InferenceRequest {
                 messages.equals(that.messages) &&
                 Objects.equals(tools, that.tools) &&
                 Objects.equals(toolChoice, that.toolChoice) &&
+                Objects.equals(toolCallProtocol, that.toolCallProtocol) &&
                 Objects.equals(requestContext.userId(), that.requestContext.userId()) &&
                 Objects.equals(requestContext.sessionId(), that.requestContext.sessionId()) &&
                 Objects.equals(requestContext.traceId(), that.requestContext.traceId());
@@ -718,7 +768,7 @@ public final class InferenceRequest {
 
     @Override
     public int hashCode() {
-        return Objects.hash(requestId, model, messages, tools, toolChoice, streaming, priority, 
+        return Objects.hash(requestId, model, messages, tools, toolChoice, toolCallProtocol, streaming, priority, 
                 requestContext.userId(), requestContext.sessionId(), requestContext.traceId());
     }
 
