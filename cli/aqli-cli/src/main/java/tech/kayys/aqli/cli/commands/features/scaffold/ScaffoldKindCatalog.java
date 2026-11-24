@@ -1,6 +1,6 @@
 package tech.kayys.aqli.cli.commands.features.scaffold;
 
-import tech.kayys.aqli.cli.commands.FeaturesCommand.FeatureAdapterKinds;
+import tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds;
 
 import java.util.LinkedHashMap;
 import java.util.List;
