@@ -64,6 +64,14 @@ Do not reintroduce these responsibilities into a new facade or duplicate their c
 
 ### Stage 1 — Stream execution lifecycle
 
+**Completed package-consolidation slice:** the existing CLI stream collaborators now live together under `tech.kayys.aqli.cli.commands.run.stream`:
+
+- `RunStreamExecutionCoordinator` — subscription, one fallback attempt, terminal signaling and interruption.
+- `RunStreamChunkHandler` — CLI chunk routing/presentation callbacks and token timing.
+
+Their tests moved with the implementation. This is a package ownership cleanup only; it does not claim that the coordinator is a shared runtime service or change its execution semantics. The coordinator's tests cover primary success/failure, fallback success/failure, chunk callback failure, null stream, and interruption. Preserve this boundary; do not duplicate it in another stream facade.
+
+
 - Keep `RunStreamChunkHandler` as the chunk/presentation adapter and `StreamingAudioChunkRouter` as the audio capability router.
 - Isolate the remaining subscription/fallback/completion lifecycle from the large `run()` method.
 - Separate transport-neutral stream timing/resource coordination from CLI callbacks. Do not move terminal output or Picocli state into audio/runtime modules.
