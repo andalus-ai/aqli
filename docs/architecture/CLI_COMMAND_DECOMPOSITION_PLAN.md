@@ -40,8 +40,10 @@ commands/features/
     DoctorCommand
   scaffold/
     InitCommand
-    FeatureScaffoldGenerator
-    ScaffoldTemplates
+    ScaffoldKindCatalog
+    ScaffoldContentGenerator
+    ScaffoldFileWriter
+    ScaffoldDefinition
   install/
     InstallCommand
     RemoveCommand
@@ -69,9 +71,9 @@ This is a target grouping, not a requirement to create every file immediately. K
 
 ### Extraction order
 
-**Completed second scaffold slice:** `ScaffoldContentGenerator` now owns deterministic rendering of Java providers, Gradle build files, service registrations, manifests, plugin descriptors and README files. Its immutable `ScaffoldDefinition` input lives with the scaffold capability. `ScaffoldFileWriter` owns path containment, directory creation, dry-run reporting and create/overwrite behavior. The generator has no filesystem or terminal side effects; the CLI `Init` command only normalizes options, constructs the definition, delegates, and renders the result. Existing file paths, generated content, command output fields and force/dry-run behavior are preserved. Focused tests cover deterministic generation, model-family registrations, dry-run and overwrite semantics.
-
 **Completed first scaffold slice:** `ScaffoldKindCatalog` now owns the immutable list of scaffold kinds, their JSON projection, and adapter default input/output metadata. `FeaturesCommand.Kinds` is now a Picocli presentation adapter over that catalog, and `Init` reuses the same default metadata. The catalog lives at `commands.features.scaffold`; it is not a new Gradle module. The adapter-kind vocabulary now lives in `commands.features.FeatureAdapterKinds`, so the catalog no longer depends on the Picocli root command. The former nested `FeaturesCommand.FeatureAdapterKinds` remains as a deprecated compatibility facade. Existing command names, output field names, ordering, normalization behavior, and generated scaffold templates are preserved.
+
+**Completed second scaffold slice:** `ScaffoldContentGenerator` now owns deterministic rendering of Java providers, Gradle build files, service registrations, manifests, plugin descriptors and README files. Its immutable `ScaffoldDefinition` input lives with the scaffold capability. `ScaffoldFileWriter` owns path containment, directory creation, dry-run reporting and create/overwrite behavior. The generator has no filesystem or terminal side effects; the CLI `Init` command only normalizes options, constructs the definition, delegates, and renders the result. Existing file paths, generated content, command output fields and force/dry-run behavior are preserved. Focused tests cover deterministic generation, model-family registrations, dry-run and overwrite semantics.
 
 
 1. **Command boundaries first.** Move nested Picocli command classes into top-level package-private/public command classes while preserving names, aliases, options, exit codes and help output.
