@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands.stream;
+package tech.kayys.aqli.cli.commands.run.stream;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;

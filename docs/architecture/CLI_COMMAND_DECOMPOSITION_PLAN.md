@@ -8,7 +8,7 @@ This plan covers the CLI command classes whose responsibilities are too broad to
 |---|---:|---|
 | `FeaturesCommand` | 8,270 lines | 59 top-level/nested types, 14 Picocli command annotations, about 331 methods |
 | `ExtensionsCommand` | 2,858 lines | 3 types, about 130 methods, one Picocli command annotation |
-| `RunCommand` | 2,856 lines | Already has a staged extraction plan; continue that plan rather than creating another |
+| `RunCommand` | 2,763 lines | Already has a staged extraction plan; continue that plan rather than creating another |
 
 These counts are from the current source files and should be refreshed before each extraction.
 
@@ -141,3 +141,78 @@ Each extraction should be a separate, reviewable PR.
 - Do not move CLI-specific output DTOs into the public SDK.
 - Do not duplicate runtime plugin/model-family policies in the CLI.
 - Do not split every method into a class; the goal is cohesive ownership, not maximum file count.
+
+
+## 6. Capability-first package and deployment organization
+
+The command tree is an adapter surface; it is not the owner of the capabilities it exposes. Keep the existing public root command classes as stable Picocli entry points while moving their implementation into cohesive capability packages.
+
+### CLI package target
+
+```text
+tech.kayys.aqli.cli.commands
+  RunCommand                         # stable root command / composition only
+  FeaturesCommand                    # stable root command / registration only
+  run/
+    text/                            # text-generation option groups and CLI mapping
+    audio/                           # audio/TTS options, replay and CLI presentation
+    vision/                          # image/vision/OCR CLI input and presentation
+    tools/                           # tool and MCP CLI options/mapping
+    retrieval/                       # RAG/retrieval CLI options/mapping
+    pipeline/                        # pipeline-specific CLI options/mapping
+    model/
+      source/                         # source intent and CLI precedence policy
+      repository/                     # repository option groups and CLI mapping
+      conversion/                     # conversion option groups and CLI mapping
+    routing/                          # CLI route flags and route presentation
+    execution/                        # execution-mode selection at adapter boundary
+    stream/                           # CLI stream callbacks and output routing
+    output/                           # terminal, JSON/SSE and artifact presentation
+    diagnostics/                      # CLI diagnostics options and rendering
+  features/
+    catalog/                          # kinds, index, inspect, doctor command adapters
+    scaffold/                         # init command and CLI scaffold presentation
+    install/                          # install/remove/detach/rollback/backups adapters
+    migration/                        # migration command adapters
+    diagnostics/                      # doctor/collision/repair presentation
+    report/                           # CLI JSON/table projections
+```
+
+This is a destination map, not a mandate to move every option record into a separate file. Existing cohesive option groups should be moved as units, and package moves must include tests and all callers. The stable `RunCommand` and `FeaturesCommand` FQCNs remain until a separately justified compatibility change.
+
+### Runtime and framework ownership
+
+| Capability | Contract / public API | Reusable implementation | CLI responsibility |
+|---|---|---|---|
+| Text inference | SDK text capability API | SDK application path and selected runtime runner | Parse text flags, map request, render output |
+| Audio / TTS | Audio/TTS capability contracts | audio runtime and provider/model-specific runner | Audio flags, playback choice, terminal progress |
+| Image / vision / OCR | modality contracts | corresponding runtime/runner capability | Input paths and CLI result presentation |
+| Model lifecycle | SDK model lifecycle capabilities | model repository and provider-owned lifecycle services | Source intent, flags, progress display |
+| Routing / execution | SDK/runtime route contracts | runtime route policy and runner catalog | Translate explicit CLI choices and explain decisions |
+| Tools / retrieval / pipelines | capability APIs and SPIs | corresponding runtime/plugin capabilities | CLI-only option contribution and mapping |
+| Media artifacts | media/audio contracts | media and audio runtime capabilities | Output naming, auto-open, terminal messages |
+| Diagnostics / metrics | observability and runner diagnostics APIs | owning runtime/runner capability | Select diagnostic action and render report |
+| Feature installation | stable feature/package contracts only where shared | plugin/extension lifecycle owner | Picocli command and interactive confirmation |
+
+Do not promote a CLI-only option record or report DTO into the SDK. Conversely, do not keep reusable filesystem, archive, repository, media, or runtime policy in the CLI simply because a command currently calls it.
+
+### Deployment and profiling strategy
+
+Capability packages provide source-level discoverability; Gradle artifacts provide dependency isolation; deployment profiles provide selectable runtime composition. These are related but not interchangeable.
+
+1. Keep capability implementations in their existing runtime modules (audio, media, repository, runner, plugin, observability, and SDK-local modules). Extend an existing owner before adding a module.
+2. Keep `:cli:aqli-cli-spi` as the CLI-only Picocli contribution SPI. It must not become the public capability registry or runtime engine catalog.
+3. Keep `:cli:aqli-cli` as the command/application adapter. Move runner-specific composition behind the existing SDK/runtime capability boundaries before trying to make individual runner dependencies optional.
+4. Define deployment profiles as curated dependency compositions (for example, text-only, text-plus-audio, multimodal, and full development). Each profile must declare its included capabilities, runner/provider implementations, native requirements, and exclusions.
+5. Do not implement profile switching by excluding jars from the runtime classpath while CLI classes still directly reference those runner types. First remove those compile-time coupling points and prove service discovery/Quarkus augmentation works without the omitted implementation.
+6. Create a separate Gradle distribution/profile module only when it produces a genuinely independently buildable/packageable application artifact. Do not create one module per CLI command or one thin wrapper per capability.
+7. Keep profiling metadata capability-scoped: each capability should expose stable identity, implementation/provider identity, required runtime features, and optional native/device requirements through existing registries/contracts. Deployment assembly consumes this metadata; CLI report code must not duplicate runtime policy.
+
+### Packaging acceptance gates
+
+- A profile builds without resolving implementation artifacts it excludes.
+- A profile starts without class-loading or CDI augmentation failures for excluded capabilities.
+- Capability discovery reports only implementations present and eligible in that profile.
+- SDK/application contracts remain usable without Picocli.
+- The same capability can be composed by CLI, REST, gRPC, or programmatic callers without duplicating its execution semantics.
+- Profile-specific smoke tests cover startup, capability inventory, and one representative operation; hardware inference tests are required only for profiles that exercise device/native execution.

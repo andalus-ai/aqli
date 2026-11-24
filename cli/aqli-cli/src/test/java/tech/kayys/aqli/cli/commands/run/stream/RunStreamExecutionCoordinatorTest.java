@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands.stream;
+package tech.kayys.aqli.cli.commands.run.stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,6 +35,24 @@ class RunStreamExecutionCoordinatorTest {
         assertFalse(result.failed());
         assertEquals(1, chunks.get());
         assertEquals(1, completed.get());
+    }
+
+    @Test
+    void rejectsNullPrimaryStreamAndReportsFailure() {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        var result = coordinator.execute(
+                null,
+                () -> { throw new AssertionError("fallback must not be requested"); },
+                () -> false,
+                chunk -> { },
+                () -> { throw new AssertionError("null stream cannot complete"); },
+                failure::set,
+                () -> { },
+                error -> { });
+
+        assertTrue(result.failed());
+        assertEquals("Streaming inference returned no stream", failure.get().getMessage());
     }
 
     @Test

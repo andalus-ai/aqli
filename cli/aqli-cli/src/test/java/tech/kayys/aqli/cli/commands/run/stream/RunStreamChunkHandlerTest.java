@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands.stream;
+package tech.kayys.aqli.cli.commands.run.stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;

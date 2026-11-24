@@ -127,7 +127,7 @@ import tech.kayys.aqli.cli.commands.response.ResponseDeliveryRunOptions;
 import tech.kayys.aqli.cli.commands.diagnostics.OnnxDiagnosticsRunOptions;
 import tech.kayys.aqli.cli.commands.onnx.OnnxModelVariantRunOptions;
 import tech.kayys.aqli.cli.commands.replay.ReplayShellCommandFormatter;
-import tech.kayys.aqli.cli.commands.stream.RunStreamExecutionCoordinator;
+import tech.kayys.aqli.cli.commands.run.stream.RunStreamExecutionCoordinator;
 import tech.kayys.aqli.cli.runtime.CliMetalRuntime;
 import tech.kayys.aqli.cli.commands.rag.RagRunRequestConfiguration;
 import tech.kayys.aqli.cli.commands.tools.ToolRunRequestConfiguration;
@@ -1261,8 +1261,8 @@ public class RunCommand implements Runnable {
                 tech.kayys.aqli.audio.output.StreamingAudioChunkRouter audioChunkRouter =
                         new tech.kayys.aqli.audio.output.StreamingAudioChunkRouter(
                                 audioOutput, mediaOutputHandler()::resolveAudioOutputPath, liveAudioSink::write);
-                tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler chunkHandler =
-                        new tech.kayys.aqli.cli.commands.stream.RunStreamChunkHandler(
+                tech.kayys.aqli.cli.commands.run.stream.RunStreamChunkHandler chunkHandler =
+                        new tech.kayys.aqli.cli.commands.run.stream.RunStreamChunkHandler(
                                 imageBuffer,
                                 chunk -> audioChunkRouter.accept(chunk.getDelta(), chunk.metadata()),
                                 delta -> {

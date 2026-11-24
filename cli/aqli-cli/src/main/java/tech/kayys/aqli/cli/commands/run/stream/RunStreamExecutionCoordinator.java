@@ -1,4 +1,4 @@
-package tech.kayys.aqli.cli.commands.stream;
+package tech.kayys.aqli.cli.commands.run.stream;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.subscription.Cancellable;
