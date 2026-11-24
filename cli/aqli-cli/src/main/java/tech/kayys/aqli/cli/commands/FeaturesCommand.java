@@ -8067,22 +8067,29 @@ public class FeaturesCommand implements Runnable {
         }
     }
 
-    // --- DUMMY CLASSES FOR SPI MIGRATION ---
+    /**
+     * @deprecated Use {@link tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds}.
+     * Kept as a compatibility facade for callers of the original nested CLI type.
+     */
+    @Deprecated(forRemoval = false)
     public static class FeatureAdapterKinds {
-        public static final String PIPELINE = "pipeline";
-        public static final String RUNNER = "runner";
-        public static final String TRAINING = "training";
-        public static final String BACKEND = "backend";
-        public static final String CONVERTER = "converter";
-        public static final String EXPORTER = "exporter";
-        public static final String DATASET = "dataset";
-        public static final String EVALUATOR = "evaluator";
-        public static final String TOOLING = "tooling";
-        public static final String ADAPTER = "adapter";
-        public static final String OPTIMIZATION = "optimization";
-        public static final String QUANTIZATION = "quantization";
-        public static final String CAPABILITY = "capability";
-        public static String normalize(String kind) { return kind; }
+        public static final String PIPELINE = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.PIPELINE;
+        public static final String RUNNER = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.RUNNER;
+        public static final String TRAINING = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.TRAINING;
+        public static final String BACKEND = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.BACKEND;
+        public static final String CONVERTER = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.CONVERTER;
+        public static final String EXPORTER = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.EXPORTER;
+        public static final String DATASET = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.DATASET;
+        public static final String EVALUATOR = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.EVALUATOR;
+        public static final String TOOLING = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.TOOLING;
+        public static final String ADAPTER = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.ADAPTER;
+        public static final String OPTIMIZATION = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.OPTIMIZATION;
+        public static final String QUANTIZATION = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.QUANTIZATION;
+        public static final String CAPABILITY = tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.CAPABILITY;
+
+        public static String normalize(String kind) {
+            return tech.kayys.aqli.cli.commands.features.FeatureAdapterKinds.normalize(kind);
+        }
     }
     public enum ModalityType {
         TEXT, IMAGE, AUDIO, VIDEO, STRUCTURED;
