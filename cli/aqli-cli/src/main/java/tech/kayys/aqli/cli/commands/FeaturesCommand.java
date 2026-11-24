@@ -10,6 +10,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
+import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldKindCatalog;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -180,12 +181,12 @@ public class FeaturesCommand implements Runnable {
 
         @Override
         public Integer call() {
-            List<ScaffoldKind> kinds = scaffoldKinds();
+            List<ScaffoldKindCatalog.ScaffoldKind> kinds = ScaffoldKindCatalog.all();
             if (json) {
                 Map<String, Object> result = new LinkedHashMap<>();
                 result.put("action", "kinds");
                 result.put("count", kinds.size());
-                result.put("kinds", kinds.stream().map(ScaffoldKind::toMap).toList());
+                result.put("kinds", kinds.stream().map(ScaffoldKindCatalog.ScaffoldKind::toMap).toList());
                 printObjectJson(result);
                 return 0;
             }
@@ -195,7 +196,7 @@ public class FeaturesCommand implements Runnable {
             System.out.printf("%-14s %-15s %-18s %-18s %s%n",
                     "KIND", "SERVICE", "DEFAULT INPUTS", "DEFAULT OUTPUTS", "USE WHEN");
             System.out.println("-".repeat(112));
-            for (ScaffoldKind kind : kinds) {
+            for (ScaffoldKindCatalog.ScaffoldKind kind : kinds) {
                 System.out.printf("%-14s %-15s %-18s %-18s %s%n",
                         truncate(kind.kind(), 14),
                         truncate(kind.service(), 15),
@@ -205,7 +206,7 @@ public class FeaturesCommand implements Runnable {
             }
             System.out.println();
             System.out.println("Examples:");
-            for (ScaffoldKind kind : kinds) {
+            for (ScaffoldKindCatalog.ScaffoldKind kind : kinds) {
                 if (kind.exampleCommand() != null && !kind.exampleCommand().isBlank()) {
                     System.out.printf("  %-14s %s%n", kind.kind(), kind.exampleCommand());
                 }
@@ -394,10 +395,10 @@ public class FeaturesCommand implements Runnable {
                 List<ModalityType> outputs = pipelineScaffold ? parseModalities(outputModalities, "output") : List.of();
                 List<String> adapterInputs = pipelineScaffold
                         ? List.of()
-                        : normalizeScaffoldTokens(inputModalities, defaultAdapterInputs(normalizedKind));
+                        : normalizeScaffoldTokens(inputModalities, ScaffoldKindCatalog.defaultAdapterInputs(normalizedKind));
                 List<String> adapterOutputs = pipelineScaffold
                         ? List.of()
-                        : normalizeScaffoldTokens(outputModalities, defaultAdapterOutputs(normalizedKind));
+                        : normalizeScaffoldTokens(outputModalities, ScaffoldKindCatalog.defaultAdapterOutputs(normalizedKind));
                 List<String> normalizedFormats = normalizeScaffoldTokens(formatHint, List.of());
                 List<String> normalizedTargets = normalizeScaffoldTokens(targets, List.of());
                 List<String> normalizedTags = normalizeTags(tags, normalizedFamily, providerHint, formatHint, normalizedKind);
@@ -2125,30 +2126,6 @@ public class FeaturesCommand implements Runnable {
         return List.copyOf(values);
     }
 
-    private static List<String> defaultAdapterInputs(String kind) {
-        return switch (FeatureAdapterKinds.normalize(kind)) {
-            case FeatureAdapterKinds.TRAINING -> List.of("dataset", "model");
-            case FeatureAdapterKinds.BACKEND -> List.of("tensor");
-            case FeatureAdapterKinds.DATASET -> List.of("source");
-            case FeatureAdapterKinds.EVALUATOR -> List.of("model", "dataset");
-            case FeatureAdapterKinds.RUNNER -> List.of("model", "request");
-            default -> List.of("model");
-        };
-    }
-
-    private static List<String> defaultAdapterOutputs(String kind) {
-        return switch (FeatureAdapterKinds.normalize(kind)) {
-            case FeatureAdapterKinds.TRAINING -> List.of("model", "metrics");
-            case FeatureAdapterKinds.BACKEND -> List.of("tensor");
-            case FeatureAdapterKinds.CONVERTER, FeatureAdapterKinds.EXPORTER -> List.of("artifact");
-            case FeatureAdapterKinds.DATASET -> List.of("dataset");
-            case FeatureAdapterKinds.EVALUATOR -> List.of("metrics");
-            case FeatureAdapterKinds.RUNNER -> List.of("response");
-            case FeatureAdapterKinds.TOOLING, FeatureAdapterKinds.ADAPTER -> List.of("artifact");
-            default -> List.of("model");
-        };
-    }
-
     private static List<String> normalizeModelFamilyCapabilities(List<String> values, boolean modelFamilyScaffold) {
         if (!modelFamilyScaffold) {
             return List.of();
@@ -2252,114 +2229,6 @@ public class FeaturesCommand implements Runnable {
             case "none" -> "List.of()";
             default -> throw new IllegalArgumentException("Unknown tokenizer kind: " + scaffold.tokenizerKind());
         };
-    }
-
-    private static List<ScaffoldKind> scaffoldKinds() {
-        return List.of(
-                scaffoldKind(
-                        FeatureAdapterKinds.PIPELINE,
-                        "ModelPipeline",
-                        List.of("text"),
-                        List.of("text"),
-                        List.of(),
-                        "multi-step inference orchestration",
-                        "aqli extensions init features/aqli-ocr-lab --kind pipeline --pipeline-id ocr-lab --input image,text --output text,document --provider onnx --format onnx"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.TRAINING,
-                        List.of("llm", "vision", "audio"),
-                        "training loops, LoRA, fine-tuning, experiments",
-                        "aqli extensions init features/aqli-lora-lab --kind training --adapter-id lora-trainer --input dataset,model --output model,metrics --target llm"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.OPTIMIZATION,
-                        List.of("llm", "edge"),
-                        "graph rewrites, pruning, tuning, compile passes",
-                        "aqli extensions init features/aqli-opt-lab --kind optimization --adapter-id graph-optimizer --input model --output model --target edge"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.QUANTIZATION,
-                        List.of("llm"),
-                        "AWQ, GPTQ, INT8, FP8, or format-aware quantizers",
-                        "aqli extensions init features/aqli-awq-lab --kind quantization --adapter-id awq-quantizer --input model --output model --target llm --format safetensors,gguf"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.BACKEND,
-                        List.of("cpu", "metal", "cuda", "rocm"),
-                        "backend bridges, kernels, delegates, device runtimes",
-                        "aqli extensions init features/aqli-metal-lab --kind backend --adapter-id metal-backend --input tensor --output tensor --target metal"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.EXPORTER,
-                        List.of("onnx", "gguf", "safetensors"),
-                        "model or artifact export workflows",
-                        "aqli extensions init features/aqli-export-lab --kind exporter --adapter-id onnx-exporter --input model --output artifact --format onnx"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.CONVERTER,
-                        List.of("onnx", "gguf", "safetensors"),
-                        "model format conversion or migration tools",
-                        "aqli extensions init features/aqli-convert-lab --kind converter --adapter-id model-converter --input model --output artifact"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.DATASET,
-                        List.of("llm", "vision", "audio"),
-                        "dataset loaders, preprocessors, corpus tools",
-                        "aqli extensions init features/aqli-data-lab --kind dataset --adapter-id corpus-loader --input source --output dataset --target llm"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.EVALUATOR,
-                        List.of("llm", "vision", "audio"),
-                        "benchmarks, eval harnesses, scoring tools",
-                        "aqli extensions init features/aqli-eval-lab --kind evaluator --adapter-id llm-evaluator --input model,dataset --output metrics --target llm"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.RUNNER,
-                        List.of("llm", "vision", "audio"),
-                        "runner adapters outside the core provider path",
-                        "aqli extensions init features/aqli-runner-lab --kind runner --adapter-id custom-runner --input model,request --output response"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.TOOLING,
-                        List.of("research", "ops"),
-                        "research, diagnostics, packaging, or ops tooling",
-                        "aqli extensions init features/aqli-tools-lab --kind tooling --adapter-id report-tool --input model --output artifact"),
-                adapterScaffoldKind(
-                        FeatureAdapterKinds.ADAPTER,
-                        List.of("custom"),
-                        "generic adapter when no common kind fits yet",
-                        "aqli extensions init features/aqli-custom-lab --kind adapter --adapter-id custom-adapter --input model --output artifact"),
-                scaffoldKind(
-                        MODEL_FAMILY_KIND,
-                        "ModelFamilyPlugin",
-                        List.of("config.json", "tokenizer.json"),
-                        List.of("ModelFamilyDescriptor", "ModelTokenizerDescriptor"),
-                        List.of("llm", "production", "optional"),
-                        "detachable model-family metadata, tokenizer descriptors, and optional architecture adapters",
-                        "aqli extensions init features/aqli-model-acme --kind model-family --family-id acme --model-type acme --architecture AcmeForCausalLM --capability causal_lm,tokenizer --tokenizer-metadata-status pending --tokenizer-pending-reason scaffold"));
-    }
-
-    private static ScaffoldKind adapterScaffoldKind(
-            String kind,
-            List<String> defaultTargets,
-            String summary,
-            String exampleCommand) {
-        return scaffoldKind(
-                FeatureAdapterKinds.normalize(kind),
-                "FeatureAdapter",
-                defaultAdapterInputs(kind),
-                defaultAdapterOutputs(kind),
-                defaultTargets,
-                summary,
-                exampleCommand);
-    }
-
-    private static ScaffoldKind scaffoldKind(
-            String kind,
-            String service,
-            List<String> defaultInputs,
-            List<String> defaultOutputs,
-            List<String> defaultTargets,
-            String summary,
-            String exampleCommand) {
-        return new ScaffoldKind(
-                kind,
-                service,
-                defaultInputs == null ? List.of() : List.copyOf(defaultInputs),
-                defaultOutputs == null ? List.of() : List.copyOf(defaultOutputs),
-                defaultTargets == null ? List.of() : List.copyOf(defaultTargets),
-                summary == null ? "" : summary,
-                exampleCommand == null ? "" : exampleCommand);
     }
 
     private static List<String> normalizeTags(
@@ -2606,27 +2475,6 @@ public class FeaturesCommand implements Runnable {
 
         List<String> outputNames() {
             return pipeline() ? modalityNames(pipelineOutputs) : adapterOutputs;
-        }
-    }
-
-    private record ScaffoldKind(
-            String kind,
-            String service,
-            List<String> defaultInputs,
-            List<String> defaultOutputs,
-            List<String> defaultTargets,
-            String summary,
-            String exampleCommand) {
-        Map<String, Object> toMap() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("kind", kind);
-            value.put("service", service);
-            value.put("default_inputs", defaultInputs);
-            value.put("default_outputs", defaultOutputs);
-            value.put("default_targets", defaultTargets);
-            value.put("summary", summary);
-            value.put("example", exampleCommand);
-            return value;
         }
     }
 
