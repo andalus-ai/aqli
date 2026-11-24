@@ -6,7 +6,7 @@ This plan covers the CLI command classes whose responsibilities are too broad to
 
 | Class | Current size | Structural signal |
 |---|---:|---|
-| `FeaturesCommand` | 8118 lines | 59 top-level/nested types before this extraction; 14 Picocli command annotations |
+| `FeaturesCommand` | 8125 lines | 59 top-level/nested types before this extraction; 14 Picocli command annotations |
 | `ExtensionsCommand` | 2,858 lines | 3 types, about 130 methods, one Picocli command annotation |
 | `RunCommand` | 2,763 lines | Already has a staged extraction plan; continue that plan rather than creating another |
 
@@ -69,7 +69,7 @@ This is a target grouping, not a requirement to create every file immediately. K
 
 ### Extraction order
 
-**Completed first scaffold slice:** `ScaffoldKindCatalog` now owns the immutable list of scaffold kinds, their JSON projection, and adapter default input/output metadata. `FeaturesCommand.Kinds` is now a Picocli presentation adapter over that catalog, and `Init` reuses the same default metadata. The catalog lives at `commands.features.scaffold`; it is not a new Gradle module. Existing command names, output field names, ordering, and generated scaffold templates are preserved.
+**Completed first scaffold slice:** `ScaffoldKindCatalog` now owns the immutable list of scaffold kinds, their JSON projection, and adapter default input/output metadata. `FeaturesCommand.Kinds` is now a Picocli presentation adapter over that catalog, and `Init` reuses the same default metadata. The catalog lives at `commands.features.scaffold`; it is not a new Gradle module. The adapter-kind vocabulary now lives in `commands.features.FeatureAdapterKinds`, so the catalog no longer depends on the Picocli root command. The former nested `FeaturesCommand.FeatureAdapterKinds` remains as a deprecated compatibility facade. Existing command names, output field names, ordering, normalization behavior, and generated scaffold templates are preserved.
 
 
 1. **Command boundaries first.** Move nested Picocli command classes into top-level package-private/public command classes while preserving names, aliases, options, exit codes and help output.
