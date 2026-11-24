@@ -38,6 +38,24 @@ class RunStreamExecutionCoordinatorTest {
     }
 
     @Test
+    void rejectsNullPrimaryStreamAndReportsFailure() {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        var result = coordinator.execute(
+                null,
+                () -> { throw new AssertionError("fallback must not be requested"); },
+                () -> false,
+                chunk -> { },
+                () -> { throw new AssertionError("null stream cannot complete"); },
+                failure::set,
+                () -> { },
+                error -> { });
+
+        assertTrue(result.failed());
+        assertEquals("Streaming inference returned no stream", failure.get().getMessage());
+    }
+
+    @Test
     void reportsPrimaryFailureWhenFallbackIsUnavailable() {
         AtomicReference<Throwable> failure = new AtomicReference<>();
 
