@@ -4,7 +4,7 @@
 
 Decompose `cli/aqli-cli/.../RunCommand.java` along real capability and adapter boundaries. The goal is not merely to reduce line count: reusable behavior must move to the module that owns it, while Picocli parsing, CLI policy, terminal rendering, and process behavior remain at the CLI boundary.
 
-This assessment is based on the repository `main` baseline at commit `138a96ec597e3c38c862186d74d6878242b741b6`. At that baseline, `RunCommand.java` is 5,749 lines and its `run()` method spans approximately lines 537–1703 (about 1,167 lines). These counts are baseline measurements and will change as the plan is executed.
+This assessment is refreshed against the current `main` source: `RunCommand.java` is 2,763 lines (the earlier 5,749-line measurement is historical). The current file already has capability option groups and several extracted collaborators; future work must consolidate those existing pieces rather than re-create them.
 
 ## Guardrails
 
@@ -150,3 +150,49 @@ Each item should be a separate, reviewable PR when it crosses an ownership bound
 - Run affected Gradle compile/test tasks and CI workflows when available.
 - Review the final diff for stale classes, imports, resources, dependencies, duplicate implementations, and dependency inversion.
 - Mac hardware inference/performance tests are reserved for changes that affect actual Metal/native/device behavior; do not ask for hardware testing for pure Java refactors.
+
+
+## Capability-first package consolidation
+
+Keep `tech.kayys.aqli.cli.commands.RunCommand` as the stable Picocli root entry point. Organize supporting CLI-only option groups, policies, mappers, and renderers under capability packages. The intended grouping is:
+
+```text
+commands/
+  RunCommand                         # root command; no reusable capability implementation
+  run/
+    text/
+    audio/
+    vision/
+    tools/
+    retrieval/
+    pipeline/
+    model/
+      source/
+      repository/
+      conversion/
+    routing/
+    execution/
+    request/
+    stream/
+    output/
+    diagnostics/
+```
+
+Existing packages such as `audio`, `route`, `pipeline`, `request`, `runtime`, `engine`, and `text` must be inventoried before moving. Consolidate them by capability and responsibility, not by mechanically nesting every class under `run`. Keep the stable root command FQCN and preserve public/internal callers while package moves are staged.
+
+### Capability ownership and deployment packaging
+
+| Concern | Owning layer/module | What remains in CLI |
+|---|---|---|
+| Text generation contract and invocation | SDK text capability + shared application execution path | Picocli text flags and request mapping |
+| Audio/TTS behavior | audio capability/runtime; model/provider specifics stay with their runner | CLI audio options, playback selection and presentation |
+| Vision/image/OCR | modality capability and corresponding runtime/runner | CLI paths, flags and rendering |
+| Model source/repository lifecycle | SDK lifecycle contracts and repository runtime modules | source intent, precedence, progress display |
+| Route selection and engine catalog | SDK/runtime route contracts and runtime catalog | translate explicit CLI flags, show selected route |
+| Stream lifecycle | shared application/runtime only for transport-neutral semantics; CLI coordinator only for terminal callbacks | terminal chunk handling and process interruption policy |
+| Output/media artifacts | media/audio runtime | output naming, auto-open and terminal messages |
+| Metrics and diagnostics | observability and runner-owned diagnostics | diagnostic option parsing and terminal/JSON projection |
+
+The current CLI build directly composes several runner implementations. That is a deployment-coupling issue, not a reason to move engine code into the CLI. Before optional deployment profiles are introduced, move direct runner references behind SDK/runtime capability boundaries and verify that Quarkus augmentation and service discovery work when a runner is absent.
+
+Use curated deployment compositions (initial candidates: text-only, text-plus-audio, multimodal, full-development) over existing runtime capability modules. Add a dedicated distribution module only if it creates a separately buildable/packageable application artifact. Do not create one Gradle module per CLI capability or command. Each profile must document included implementations, native/device requirements, excluded providers, and startup/capability-inventory smoke tests.
