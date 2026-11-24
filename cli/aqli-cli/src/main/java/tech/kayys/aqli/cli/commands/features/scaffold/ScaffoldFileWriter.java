@@ -57,8 +57,10 @@ public final class ScaffoldFileWriter {
     }
 
     private static void ensureInside(Path root, Path target) {
-        if (!normalize(target).startsWith(normalize(root))) {
-            throw new IllegalArgumentException("Scaffold path escapes target directory: " + target);
+        Path normalizedRoot = normalize(root);
+        Path normalizedTarget = normalize(target);
+        if (!normalizedTarget.startsWith(normalizedRoot)) {
+            throw new IllegalArgumentException("Path escapes extension directory: " + normalizedTarget);
         }
     }
 }
