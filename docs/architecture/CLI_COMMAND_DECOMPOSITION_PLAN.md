@@ -6,7 +6,7 @@ This plan covers the CLI command classes whose responsibilities are too broad to
 
 | Class | Current size | Structural signal |
 |---|---:|---|
-| `FeaturesCommand` | 8125 lines | 59 top-level/nested types before this extraction; 14 Picocli command annotations |
+| `FeaturesCommand` | 7360 lines | 14 Picocli command annotations; scaffold catalog, rendering and file writes extracted |
 | `ExtensionsCommand` | 2,858 lines | 3 types, about 130 methods, one Picocli command annotation |
 | `RunCommand` | 2,763 lines | Already has a staged extraction plan; continue that plan rather than creating another |
 
@@ -40,8 +40,10 @@ commands/features/
     DoctorCommand
   scaffold/
     InitCommand
-    FeatureScaffoldGenerator
-    ScaffoldTemplates
+    ScaffoldKindCatalog
+    ScaffoldContentGenerator
+    ScaffoldFileWriter
+    ScaffoldDefinition
   install/
     InstallCommand
     RemoveCommand
@@ -71,9 +73,11 @@ This is a target grouping, not a requirement to create every file immediately. K
 
 **Completed first scaffold slice:** `ScaffoldKindCatalog` now owns the immutable list of scaffold kinds, their JSON projection, and adapter default input/output metadata. `FeaturesCommand.Kinds` is now a Picocli presentation adapter over that catalog, and `Init` reuses the same default metadata. The catalog lives at `commands.features.scaffold`; it is not a new Gradle module. The adapter-kind vocabulary now lives in `commands.features.FeatureAdapterKinds`, so the catalog no longer depends on the Picocli root command. The former nested `FeaturesCommand.FeatureAdapterKinds` remains as a deprecated compatibility facade. Existing command names, output field names, ordering, normalization behavior, and generated scaffold templates are preserved.
 
+**Completed second scaffold slice:** `ScaffoldContentGenerator` now owns deterministic rendering of Java providers, Gradle build files, service registrations, manifests, plugin descriptors and README files. Its immutable `ScaffoldDefinition` input lives with the scaffold capability. `ScaffoldFileWriter` owns path containment, directory creation, dry-run reporting and create/overwrite behavior. The generator has no filesystem or terminal side effects; the CLI `Init` command only normalizes options, constructs the definition, delegates, and renders the result. Existing file paths, generated content, command output fields and force/dry-run behavior are preserved. Focused tests cover deterministic generation, model-family registrations, dry-run and overwrite semantics.
+
 
 1. **Command boundaries first.** Move nested Picocli command classes into top-level package-private/public command classes while preserving names, aliases, options, exit codes and help output.
-2. **Scaffolding second.** Move template generation and identifier/path normalization into a deterministic `FeatureScaffoldGenerator`. It should accept immutable input and return a file plan; writing files belongs in a small filesystem adapter.
+2. **Scaffolding second.** Template generation and filesystem writing are now separated into `ScaffoldContentGenerator` and `ScaffoldFileWriter`. Continue by extracting the remaining input normalization/validation from `Init` into a focused scaffold request factory/validator only where it removes real duplication; do not add another facade around the generator.
 3. **Package inspection third.** Centralize JAR/ZIP manifest reading, path validation and package identity extraction in `FeaturePackageReader`. Do not duplicate archive parsing in install, inspect and doctor flows.
 4. **Installation lifecycle fourth.** Move install-lock, backup, remove, detach and rollback state transitions into `FeatureInstallService`. Keep filesystem mutations explicit and transactional.
 5. **Migration and repair fifth.** Separate migration planning from applying operations. Support dry-run plans and deterministic reports.
