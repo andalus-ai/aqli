@@ -2,7 +2,7 @@ package tech.kayys.aqli.runtime.tool;
 
 import tech.kayys.aljabr.core.tool.ToolCallParseResult;
 import tech.kayys.aljabr.core.tool.ToolCallParserRegistry;
-import tech.kayys.aljabr.core.tool.ToolCallProtocolDescriptor;
+import tech.kayys.aljabr.spi.inference.ToolCallProtocolDescriptor;
 
 import java.util.Objects;
 
@@ -23,6 +23,22 @@ public final class ToolCallParsingService {
 
     public ToolCallParsingService(ToolCallParserRegistry parsers) {
         this.parsers = Objects.requireNonNull(parsers, "parsers");
+    }
+
+    /**
+     * Parses output using the protocol explicitly carried by an inference request.
+     *
+     * @throws IllegalStateException if the request has no configured tool-call protocol
+     */
+    public ToolCallParseResult parse(
+            tech.kayys.aqli.spi.inference.InferenceRequest request,
+            String modelOutput) {
+        Objects.requireNonNull(request, "request");
+        ToolCallProtocolDescriptor protocol = request.getToolCallProtocol();
+        if (protocol == null) {
+            throw new IllegalStateException("Inference request does not declare a tool-call protocol");
+        }
+        return parse(protocol, modelOutput);
     }
 
     /**

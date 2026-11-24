@@ -45,6 +45,9 @@ public final class AljabrInferenceDtoAdapter {
                     .map(AljabrInferenceSpiAdapter::toAljabr)
                     .forEach(builder::tool);
         }
+        if (value.getToolCallProtocol() != null) {
+            builder.toolCallProtocol(value.getToolCallProtocol());
+        }
         value.getPreferredProvider().ifPresent(builder::preferredProvider);
         value.getPlugin().ifPresent(builder::plugin);
         value.getTimeout().ifPresent(builder::timeout);
@@ -83,6 +86,9 @@ public final class AljabrInferenceDtoAdapter {
             value.getTools().stream()
                     .map(AljabrInferenceSpiAdapter::fromAljabr)
                     .forEach(builder::tool);
+        }
+        if (value.getToolCallProtocol() != null) {
+            builder.toolCallProtocol(value.getToolCallProtocol());
         }
         value.getPreferredProvider().ifPresent(builder::preferredProvider);
         value.getPlugin().ifPresent(builder::plugin);
