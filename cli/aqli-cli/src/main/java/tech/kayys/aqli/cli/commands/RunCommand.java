@@ -100,6 +100,7 @@ import tech.kayys.aqli.cli.commands.generation.GenerationSeedRunOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageRunRequestParameterMapper;
 import tech.kayys.aqli.cli.commands.text.TextRunRequestParameterMapper;
+import tech.kayys.aqli.cli.commands.input.PromptInputRunOptions;
 import tech.kayys.aqli.cli.commands.audio.AudioReplayOutputPathResolver;
 import tech.kayys.aqli.cli.commands.image.ImageGenerationRunOptions;
 import tech.kayys.aqli.cli.commands.image.ImageMetadataRunOptions;
@@ -171,6 +172,7 @@ public class RunCommand implements Runnable {
     private picocli.CommandLine.Model.CommandSpec commandSpec;
 
     private tech.kayys.aqli.cli.commands.text.TextRunOptions textRunOptions;
+    private PromptInputRunOptions promptInputOptions;
     private AudioRunOptions audioRunOptions;
     private GenerationSeedRunOptions generationSeedOptions;
     private tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions responseCacheOptions;
@@ -211,7 +213,6 @@ public class RunCommand implements Runnable {
 
     public String modelDir;
 
-    @Option(names = { "-p", "--prompt" }, description = "Input prompt")
     public String prompt;
 
     String providerId;
@@ -271,6 +272,14 @@ public class RunCommand implements Runnable {
         quantizeStrategy = quantizationOptions.strategy();
         quantizeBits = quantizationOptions.bits();
         quantizeKv = quantizationOptions.kvCacheMode();
+
+        promptInputOptions = runCapabilityRegistry.snapshot(
+                "prompt-input",
+                commandSpec.commandLine().getParseResult(),
+                PromptInputRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'prompt-input' run capability is not registered or does not provide PromptInputRunOptions"));
+        prompt = promptInputOptions.prompt();
 
         textRunOptions = runCapabilityRegistry.snapshot(
                 "text",
