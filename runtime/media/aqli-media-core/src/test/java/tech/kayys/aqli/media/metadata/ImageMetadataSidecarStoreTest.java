@@ -99,7 +99,7 @@ class ImageMetadataSidecarStoreTest {
                   "type": "legacy-image-metadata",
                   "schema_version": 0,
                   "output_path": "generated.png",
-                  "output_size_bytes": 13,
+                  "output_size_bytes": 14,
                   "output_sha256": "%s",
                   "model": "keep-image-model",
                   "provider": "keep-provider",
