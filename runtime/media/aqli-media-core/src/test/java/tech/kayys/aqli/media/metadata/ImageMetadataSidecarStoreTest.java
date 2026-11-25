@@ -87,4 +87,58 @@ class ImageMetadataSidecarStoreTest {
         assertFalse(payload.has("seed"));
         assertFalse(payload.has("steps"));
     }
+
+    @Test
+    void preservesExistingMetadataWhenRefreshingIntegrityFields() throws Exception {
+        Path image = tempDir.resolve("generated.png");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(image, "original-image");
+        String originalDigest = MediaFileIntegrity.sha256Hex(image);
+        Files.writeString(sidecar, """
+                {
+                  "type": "legacy-image-metadata",
+                  "schema_version": 0,
+                  "output_path": "generated.png",
+                  "output_size_bytes": 13,
+                  "output_sha256": "%s",
+                  "model": "keep-image-model",
+                  "provider": "keep-provider",
+                  "prompt": "keep image prompt",
+                  "image_format": "webp",
+                  "seed": "keep-seed",
+                  "steps": 31,
+                  "guidance_scale": 6.5,
+                  "width": 768,
+                  "height": 512,
+                  "replay_args": ["run", "--model", "keep-image-model"],
+                  "metadata": {"custom": "keep-image-metadata"}
+                }
+                """.formatted(originalDigest));
+        Files.writeString(image, "replacement-image-content");
+
+        ImageMetadataSidecarStore.RefreshResult result =
+                ImageMetadataSidecarStore.refresh(sidecar, null);
+
+        JsonNode payload = mapper.readTree(sidecar.toFile());
+        String refreshedDigest = MediaFileIntegrity.sha256Hex(image);
+        assertEquals("aqli_image_metadata", payload.path("type").asText());
+        assertEquals(1, payload.path("schema_version").asInt());
+        assertEquals("keep-image-model", payload.path("model").asText());
+        assertEquals("keep-provider", payload.path("provider").asText());
+        assertEquals("keep image prompt", payload.path("prompt").asText());
+        assertEquals("webp", payload.path("image_format").asText());
+        assertEquals("keep-seed", payload.path("seed").asText());
+        assertEquals(31, payload.path("steps").asInt());
+        assertEquals(6.5, payload.path("guidance_scale").asDouble());
+        assertEquals(768, payload.path("width").asInt());
+        assertEquals(512, payload.path("height").asInt());
+        assertEquals("run", payload.path("replay_args").get(0).asText());
+        assertEquals("keep-image-metadata", payload.path("metadata").path("custom").asText());
+        assertTrue(payload.hasNonNull("refreshed_at"));
+        assertEquals(image.toAbsolutePath().normalize().toString(), payload.path("output_path").asText());
+        assertEquals(Files.size(image), payload.path("output_size_bytes").asLong());
+        assertEquals(refreshedDigest, payload.path("output_sha256").asText());
+        assertFalse(originalDigest.equals(refreshedDigest));
+        assertEquals(refreshedDigest, result.sha256());
+    }
 }
