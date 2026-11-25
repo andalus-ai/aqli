@@ -122,6 +122,26 @@ class AudioMetadataSidecarStoreTest {
     }
 
     @Test
+    void leavesSidecarUnchangedWhenRefreshCannotFindOutput() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        String original = """
+                {
+                  "type": "aqli_audio_metadata",
+                  "schema_version": 1,
+                  "output_path": "missing.wav",
+                  "model": "preserve-this-model",
+                  "metadata": {"custom": "preserve-this-value"}
+                }
+                """;
+        Files.writeString(sidecar, original);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AudioMetadataSidecarStore.refresh(sidecar, null));
+
+        assertEquals(original, Files.readString(sidecar));
+    }
+
+    @Test
     void refreshesExistingSidecarIntegrityFields() throws Exception {
         Path audio = tempDir.resolve("generated.wav");
         Path sidecar = tempDir.resolve("metadata.json");
