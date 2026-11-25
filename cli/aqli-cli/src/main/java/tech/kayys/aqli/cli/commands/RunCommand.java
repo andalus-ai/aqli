@@ -204,7 +204,6 @@ public class RunCommand implements Runnable {
     private RunPresentationRunOptions presentationOptions;
     private ResponseDeliveryRunOptions responseDeliveryOptions;
 
-    @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
 
     public String modelFile;
@@ -386,6 +385,7 @@ public class RunCommand implements Runnable {
                 ModelRepositoryRunOptions.class)
                 .orElseThrow(() -> new IllegalStateException(
                         "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
+        modelId = modelRepositoryOptions.modelId();
 
         if (modelRepositoryOptions.force() && modelRepositoryOptions.offline()) {
             throw new picocli.CommandLine.ParameterException(
