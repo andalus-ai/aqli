@@ -3,7 +3,7 @@ package tech.kayys.aqli.sdk.core.tool;
 import tech.kayys.aljabr.core.tool.ToolCallParseDiagnostic;
 import tech.kayys.aljabr.core.tool.ToolCallParseResult;
 import tech.kayys.aljabr.core.tool.ToolCallParserRegistry;
-import tech.kayys.aljabr.core.tool.ToolCallProtocolDescriptor;
+import tech.kayys.aljabr.spi.inference.ToolCallProtocolDescriptor;
 import tech.kayys.aqli.spi.inference.InferenceResponse;
 
 import java.util.LinkedHashMap;
