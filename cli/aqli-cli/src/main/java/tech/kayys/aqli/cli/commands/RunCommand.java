@@ -116,6 +116,7 @@ import tech.kayys.aqli.cli.commands.conversation.SystemPromptRunOptions;
 import tech.kayys.aqli.cli.commands.model.FallbackModelRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRepositoryRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelSourceRunOptions;
+import tech.kayys.aqli.cli.commands.model.ModelSelectionRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelConversionRunOptions;
 import tech.kayys.aqli.cli.commands.model.ModelRoutingRunOptions;
 import tech.kayys.aqli.cli.commands.runtime.QuantizationRunOptions;
@@ -203,8 +204,8 @@ public class RunCommand implements Runnable {
     private OnnxModelVariantRunOptions onnxModelVariantOptions;
     private RunPresentationRunOptions presentationOptions;
     private ResponseDeliveryRunOptions responseDeliveryOptions;
+    private ModelSelectionRunOptions modelSelectionOptions;
 
-    @Option(names = { "-m", "--model" }, description = "Model ID for repository resolution (e.g., huggingface ID)")
     public String modelId;
 
     public String modelFile;
@@ -254,6 +255,14 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
+        modelSelectionOptions = runCapabilityRegistry.snapshot(
+                "model-selection",
+                commandSpec.commandLine().getParseResult(),
+                ModelSelectionRunOptions.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "The 'model-selection' run capability is not registered or does not provide ModelSelectionRunOptions"));
+        modelId = modelSelectionOptions.modelId();
+
         runtimeProfileOptions = runCapabilityRegistry.snapshot(
                 "runtime-profile",
                 commandSpec.commandLine().getParseResult(),
