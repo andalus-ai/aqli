@@ -456,51 +456,44 @@ public class ExtensionsCommand implements Runnable {
 
     
 
-    private Map<String, Object> unifiedRuntimeReport(
-            UnifiedRuntimeRegistry.UnifiedRuntimeReport runtime) {
+    
+
+    
+
+    private List<Map<String, Object>> runtimeModuleReports() {
+        Set<String> runtimeProviders = getRuntimeProviderIds();
+        return EXTENSIONS.stream()
+                .filter(extension -> showAll || isClassPresent(extension.markerClass()))
+                .map(extension -> runtimeModuleReport(extension, runtimeProviders))
+                .toList();
+    }
+
+    private Map<String, Object> runtimeModuleReport(ExtensionDef extension, Set<String> runtimeProviders) {
+        boolean packaged = isClassPresent(extension.markerClass());
+
         Map<String, Object> report = new LinkedHashMap<>();
-        report.put("runtimeId", runtime.runtimeId());
-        report.put("valid", runtime.valid());
-        report.put("manifestAvailable", runtime.manifestAvailable());
-        report.put("diagnostics", runtime.diagnostics());
-        report.put("violations", runtime.violations().stream()
-                .map(this::unifiedRuntimeViolationReport)
-                .toList());
-        UnifiedRuntimeManifest manifest = runtime.manifest();
-        if (manifest == null) {
-            report.put("displayName", runtime.runtimeId());
-            report.put("modelFamilyIds", List.of());
-            report.put("modelTypes", List.of());
-            report.put("inputModalities", List.of());
-            report.put("readiness", "unavailable");
-            report.put("readinessReason", runtime.diagnostics());
-            report.put("productionReady", false);
-            report.put("requiredProcessorFiles", List.of());
-            report.put("requiredTokenizerFiles", List.of());
-            report.put("metadata", Map.of());
-            return report;
-        }
-        report.put("displayName", manifest.displayName());
-        report.put("modelFamilyIds", manifest.modelFamilyIds());
-        report.put("modelTypes", manifest.modelTypes());
-        report.put("inputModalities", manifest.inputModalities().stream()
-                .map(modality -> modality.name().toLowerCase(Locale.ROOT))
-                .toList());
-        report.put("readiness", manifest.readiness().statusLabel());
-        report.put("readinessReason", manifest.readinessReason());
-        report.put("productionReady", manifest.productionReady() && runtime.valid());
-        report.put("requiredProcessorFiles", manifest.requiredProcessorFiles());
-        report.put("requiredTokenizerFiles", manifest.requiredTokenizerFiles());
-        report.put("metadata", manifest.metadata());
+        report.put("type", extension.type());
+        report.put("name", extension.name());
+        report.put("profile", extension.profile());
+        report.put("packaged", packaged);
+        report.put("providerAvailable", runtimeProviders.contains(extension.providerId()));
+        report.put("providerId", extension.providerId());
+        report.put("markerClass", extension.markerClass());
         return report;
     }
 
-    private Map<String, Object> unifiedRuntimeViolationReport(
-            UnifiedRuntimeManifestViolation violation) {
-        Map<String, Object> report = new LinkedHashMap<>();
-        report.put("runtimeId", violation.runtimeId());
-        report.put("code", violation.code());
-        report.put(;
+    private Map<String, Object> runnerPluginSectionReport() {
+        Map<String, Object> section = new LinkedHashMap<>();
+        Map<String, Object> routeReportSchema = RunnerRouteReportContract.schema();
+        section.put("routeReportSchema", routeReportSchema);
+        section.put("routeReportSchemaValidation",
+                RunnerRouteReportContract.schemaValidationReport(routeReportSchema));
+        Map<String, Object> routeReportPayloadSchema = RouteReportPayloadContract.schema();
+        section.put("routeReportPayloadSchema", routeReportPayloadSchema);
+        section.put("routeReportPayloadSchemaValidation",
+                RouteReportPayloadContract.schemaValidationReport(routeReportPayloadSchema));
+        Map<String, Object> routePreflightDiagnosticSchema = RoutePreflightDiagnosticContract.schema();
+        section.put("routePreflightDiagnosticSchema", routePreflightDiagnosticSchema);
         section.put("routePreflightDiagnosticSchemaValidation",
                 RoutePreflightDiagnosticContract.schemaValidationReport(routePreflightDiagnosticSchema));
         Map<String, Object> routeContractBundle = RunnerRouteContractBundle.report();
@@ -539,7 +532,17 @@ public class ExtensionsCommand implements Runnable {
         report.put("name", plugin.name());
         report.put("version", plugin.version());
         report.put("format", plugin.format());
-        report.put("status", "a      ModelFamilyPluginRegistry registry,
+        report.put("status", "active");
+        report.put("priority", plugin.priority());
+        report.put("supportedFormats", plugin.supportedFormats());
+        report.put("supportedArchitectures", plugin.supportedArchitectures());
+        return report;
+    }
+
+    private Map<String, Object> modelFamilyBundleReport(
+            ModelFamilyBundleManifest manifest,
+            Map<String, ModelFamilyPlugin> discoveredFamilies,
+            ModelFamilyPluginRegistry registry,
             String registryScope) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("present", manifest.present());
