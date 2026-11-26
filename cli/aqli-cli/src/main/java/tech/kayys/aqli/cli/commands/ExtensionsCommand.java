@@ -1,5 +1,7 @@
 package tech.kayys.aqli.cli.commands;
 
+import tech.kayys.aqli.cli.commands.modules.report.UnifiedRuntimeReadinessReport;
+
 import tech.kayys.aqli.cli.util.RouteBenchmarkCacheReportContract;
 import tech.kayys.aqli.sdk.route.*;
 import tech.kayys.aqli.safetensor.engine.route.*;
