@@ -2342,7 +2342,7 @@ public class FeaturesCommand implements Runnable {
                 return sourcePackage;
             }
             putIfMissing(sourcePackage, "manifest_entry", manifestEntry::getName);
-            Map<String, Object> packageManifest = readZipJsonObject(zip, manifestEntry);
+            Map<String, Object> packageManifest = ExtensionPackageReader.readZipJsonObject(zip, manifestEntry);
             putManifestIfMissing(sourcePackage, packageManifest, "id");
             putManifestIfMissing(sourcePackage, packageManifest, "name");
             putManifestIfMissing(sourcePackage, packageManifest, "version");
@@ -2371,7 +2371,7 @@ public class FeaturesCommand implements Runnable {
             }
         }
         try {
-            return findPackageManifestEntry(zip);
+            return ExtensionPackageReader.findPackageManifestEntry(zip);
         } catch (Exception ignored) {
             return null;
         }
@@ -2390,9 +2390,9 @@ public class FeaturesCommand implements Runnable {
             }
         }
         try {
-            ZipEntry entry = zip.getEntry(safeZipEntryName(
-                    zipEntryRoot(manifestEntry.getName()),
-                    packageJarArtifactPath(packageManifest)));
+            ZipEntry entry = zip.getEntry(ExtensionPackageReader.safeZipEntryName(
+                    ExtensionPackageReader.zipEntryRoot(manifestEntry.getName()),
+                    ExtensionPackageReader.packageJarArtifactPath(packageManifest)));
             return entry == null || entry.isDirectory() ? null : entry;
         } catch (Exception ignored) {
             return null;
@@ -2872,7 +2872,7 @@ public class FeaturesCommand implements Runnable {
             }
             if (manifestEntry == null) {
                 try {
-                    manifestEntry = findPackageManifestEntry(zip);
+                    manifestEntry = ExtensionPackageReader.findPackageManifestEntry(zip);
                 } catch (Exception e) {
                     warnings.add("Extension source package descriptor could not be found: " + e.getMessage());
                     return;
@@ -2881,7 +2881,7 @@ public class FeaturesCommand implements Runnable {
 
             Map<String, Object> packageManifest;
             try {
-                packageManifest = readZipJsonObject(zip, manifestEntry);
+                packageManifest = ExtensionPackageReader.readZipJsonObject(zip, manifestEntry);
             } catch (Exception e) {
                 warnings.add("Extension source package descriptor could not be read: " + e.getMessage());
                 return;
@@ -2902,9 +2902,9 @@ public class FeaturesCommand implements Runnable {
                 }
             } else {
                 try {
-                    String inferredEntry = safeZipEntryName(
-                            zipEntryRoot(manifestEntry.getName()),
-                            packageJarArtifactPath(packageManifest));
+                    String inferredEntry = ExtensionPackageReader.safeZipEntryName(
+                            ExtensionPackageReader.zipEntryRoot(manifestEntry.getName()),
+                            ExtensionPackageReader.packageJarArtifactPath(packageManifest));
                     ZipEntry artifactEntry = zip.getEntry(inferredEntry);
                     if (artifactEntry == null || artifactEntry.isDirectory()) {
                         warnings.add("Extension source package jar artifact entry is missing: " + inferredEntry);
