@@ -1,6 +1,7 @@
 package tech.kayys.aqli.audio.metadata;
 
 import tech.kayys.aqli.media.integrity.MediaFileIntegrity;
+import tech.kayys.aqli.media.metadata.MediaMetadataSidecarFiles;
 
 
 import java.nio.file.Files;
@@ -57,7 +58,7 @@ public final class AudioMetadataSidecarStore {
         payload.put("replay_command", request.replayCommand());
         payload.put("metadata", request.metadata() == null ? Map.of() : new LinkedHashMap<>(request.metadata()));
 
-        Files.writeString(sidecarPath, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
+        MediaMetadataSidecarFiles.writeAtomically(sidecarPath, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
         return new WriteResult(sidecarPath, false);
     }
 
@@ -105,7 +106,7 @@ public final class AudioMetadataSidecarStore {
         root.put("output_size_bytes", sizeBytes);
         root.put("output_sha256", sha256);
 
-        Files.writeString(sidecarPath, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+        MediaMetadataSidecarFiles.writeAtomically(sidecarPath, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root));
         return new RefreshResult(sidecarPath.toAbsolutePath().normalize(),
                 audioPath.toAbsolutePath().normalize(), sizeBytes, sha256);
     }
