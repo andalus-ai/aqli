@@ -67,7 +67,7 @@ public final class ExtensionPackageReader {
     }
 
     public static String packageJarArtifactPath(Map<String, Object> packageManifest) {
-        String path = value(packageJarArtifact(packageManifest), "path").replace('\\\\', '/');
+        String path = value(packageJarArtifact(packageManifest), "path").replace('\\', '/');
         if (path.isBlank()) {
             throw new IllegalArgumentException("Extension package has no java-jar artifact in " + PACKAGE_MANIFEST_ENTRY);
         }
@@ -80,10 +80,7 @@ public final class ExtensionPackageReader {
             ZipEntry manifestEntry = findPackageManifestEntry(zip);
             Map<String, Object> manifest = readZipJsonObject(zip, manifestEntry);
             String root = zipEntryRoot(manifestEntry.getName());
-            String artifactPath = value(packageJarArtifact(manifest), "path").replace('\\', '/');
-            if (artifactPath.isBlank()) {
-                throw new IllegalArgumentException("Extension package has no java-jar artifact in " + PACKAGE_MANIFEST_ENTRY);
-            }
+            String artifactPath = packageJarArtifactPath(manifest);
             String artifactEntryName = safeZipEntryName(root, artifactPath);
             ZipEntry artifactEntry = zip.getEntry(artifactEntryName);
             if (artifactEntry == null || artifactEntry.isDirectory()) {
