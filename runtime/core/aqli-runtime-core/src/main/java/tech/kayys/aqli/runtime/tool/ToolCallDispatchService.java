@@ -61,9 +61,13 @@ public final class ToolCallDispatchService {
                     new ToolCallDispatchException("Tool call is not authorized: " + result.denialReason()));
         }
 
-        Tool tool = resolver.resolve(call.name())
+        Tool tool = Objects.requireNonNull(resolver.resolve(call.name()), "resolver result")
                 .orElseThrow(() -> new ToolCallDispatchException(
                         "No implementation is registered for declared tool '" + call.name() + "'"));
+        if (!call.name().equals(tool.name())) {
+            throw new ToolCallDispatchException(
+                    "Resolved tool name '" + tool.name() + "' does not match declared tool '" + call.name() + "'");
+        }
         Map<String, Object> trustedContext =
                 Collections.unmodifiableMap(new HashMap<>(executionContext));
         return Objects.requireNonNull(
