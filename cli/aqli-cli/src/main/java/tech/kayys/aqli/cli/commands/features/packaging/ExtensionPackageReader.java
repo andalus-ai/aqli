@@ -7,11 +7,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
-import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
+import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -30,7 +31,7 @@ public final class ExtensionPackageReader {
 
     public static InstallSource resolve(Path source) throws IOException {
         Path normalized = source.toAbsolutePath().normalize();
-        String filename = normalized.getFileName() == null ? "" : normalized.getFileName().toString().toLowerCase();
+        String filename = normalized.getFileName() == null ? "" : normalized.getFileName().toString().toLowerCase(Locale.ROOT);
         if (filename.endsWith(".jar")) {
             return new InstallSource(normalized, normalized, null, null);
         }
@@ -59,7 +60,7 @@ public final class ExtensionPackageReader {
             String artifactPath = value(artifact, "path").replace('\\', '/');
             if (!artifactPath.isBlank() && artifactPath.endsWith(".jar")
                     && (type.isBlank() || "java-jar".equals(type) || "jar".equals(type))) {
-                return Map.copyOf(artifact);
+                return Collections.unmodifiableMap(new LinkedHashMap<>(artifact));
             }
         }
         return Map.of();
@@ -136,7 +137,7 @@ public final class ExtensionPackageReader {
         try (var input = zip.getInputStream(entry)) {
             @SuppressWarnings("unchecked")
             Map<String, Object> value = new ObjectMapper().readValue(input, Map.class);
-            return value == null ? Map.of() : Map.copyOf(value);
+            return value == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(value));
         }
     }
 
@@ -203,7 +204,7 @@ public final class ExtensionPackageReader {
             long artifactSizeBytes,
             String artifactSha256) {
         public PackageReport {
-            manifest = manifest == null ? Map.of() : Map.copyOf(manifest);
+            manifest = manifest == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(manifest));
         }
 
         public Map<String, Object> toMap() {
