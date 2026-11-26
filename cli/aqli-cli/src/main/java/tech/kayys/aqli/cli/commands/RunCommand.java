@@ -254,138 +254,50 @@ public class RunCommand implements Runnable {
 
     @Override
     public void run() {
-        runtimeProfileOptions = runCapabilityRegistry.snapshot(
-                "runtime-profile",
-                commandSpec.commandLine().getParseResult(),
-                RuntimeProfileRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The runtime-profile run capability is not registered or does not provide RuntimeProfileRunOptions"));
+        RunCommandCapabilityOptionsReader options = new RunCommandCapabilityOptionsReader(
+                runCapabilityRegistry, commandSpec.commandLine().getParseResult());
+        runtimeProfileOptions = options.require("runtime-profile", RuntimeProfileRunOptions.class, "The runtime-profile run capability is not registered or does not provide RuntimeProfileRunOptions")
         runtimeProfile = runtimeProfileOptions.enabled();
 
-        quantizationOptions = runCapabilityRegistry.snapshot(
-                "quantization",
-                commandSpec.commandLine().getParseResult(),
-                QuantizationRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The quantization run capability is not registered or does not provide QuantizationRunOptions"));
+        quantizationOptions = options.require("quantization", QuantizationRunOptions.class, "The quantization run capability is not registered or does not provide QuantizationRunOptions")
         quantizeStrategy = quantizationOptions.strategy();
         quantizeBits = quantizationOptions.bits();
         quantizeKv = quantizationOptions.kvCacheMode();
 
-        textRunOptions = runCapabilityRegistry.snapshot(
-                "text",
-                commandSpec.commandLine().getParseResult(),
-                tech.kayys.aqli.cli.commands.text.TextRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'text' run capability is not registered or does not provide TextRunOptions"));
+        textRunOptions = options.require("text", tech.kayys.aqli.cli.commands.text.TextRunOptions.class, "The 'text' run capability is not registered or does not provide TextRunOptions")
 
-        featurePipelineOptions = runCapabilityRegistry.snapshot(
-                "feature-pipeline",
-                commandSpec.commandLine().getParseResult(),
-                FeaturePipelineRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'feature-pipeline' run capability is not registered or does not provide FeaturePipelineRunOptions"));
+        featurePipelineOptions = options.require("feature-pipeline", FeaturePipelineRunOptions.class, "The 'feature-pipeline' run capability is not registered or does not provide FeaturePipelineRunOptions")
 
-        generationSeedOptions = runCapabilityRegistry.snapshot(
-                "generation-seed",
-                commandSpec.commandLine().getParseResult(),
-                GenerationSeedRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions"));
+        generationSeedOptions = options.require("generation-seed", GenerationSeedRunOptions.class, "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions")
 
-        responseCacheOptions = runCapabilityRegistry.snapshot(
-                "response-cache",
-                commandSpec.commandLine().getParseResult(),
-                tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'response-cache' run capability is not registered or does not provide ResponseCacheRunOptions"));
+        responseCacheOptions = options.require("response-cache", tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions.class, "The 'response-cache' run capability is not registered or does not provide ResponseCacheRunOptions")
 
-        audioRunOptions = runCapabilityRegistry.snapshot(
-                "audio",
-                commandSpec.commandLine().getParseResult(),
-                AudioRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'audio' run capability is not registered or does not provide AudioRunOptions"));
+        audioRunOptions = options.require("audio", AudioRunOptions.class, "The 'audio' run capability is not registered or does not provide AudioRunOptions")
 
-        audioReplayOptions = runCapabilityRegistry.snapshot(
-                "audio-replay",
-                commandSpec.commandLine().getParseResult(),
-                AudioReplayRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'audio-replay' run capability is not registered or does not provide AudioReplayRunOptions"));
+        audioReplayOptions = options.require("audio-replay", AudioReplayRunOptions.class, "The 'audio-replay' run capability is not registered or does not provide AudioReplayRunOptions")
 
-        imageGenerationOptions = runCapabilityRegistry.snapshot(
-                "image-generation",
-                commandSpec.commandLine().getParseResult(),
-                ImageGenerationRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions"));
+        imageGenerationOptions = options.require("image-generation", ImageGenerationRunOptions.class, "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions")
 
-        visionInputOptions = runCapabilityRegistry.snapshot(
-                "vision-input",
-                commandSpec.commandLine().getParseResult(),
-                VisionInputRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions"));
+        visionInputOptions = options.require("vision-input", VisionInputRunOptions.class, "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions")
 
-        ocrOutputOptions = runCapabilityRegistry.snapshot(
-                "ocr-output",
-                commandSpec.commandLine().getParseResult(),
-                OcrOutputRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions"));
+        ocrOutputOptions = options.require("ocr-output", OcrOutputRunOptions.class, "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions")
 
-        ttsOperationsOptions = runCapabilityRegistry.snapshot(
-                "tts-operations",
-                commandSpec.commandLine().getParseResult(),
-                TtsOperationsRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions"));
+        ttsOperationsOptions = options.require("tts-operations", TtsOperationsRunOptions.class, "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions")
 
-        ttsVoiceDiscoveryOptions = runCapabilityRegistry.snapshot(
-                "tts-voice-discovery",
-                commandSpec.commandLine().getParseResult(),
-                TtsVoiceDiscoveryRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions"));
+        ttsVoiceDiscoveryOptions = options.require("tts-voice-discovery", TtsVoiceDiscoveryRunOptions.class, "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions")
 
-        externalPluginLoadingOptions = runCapabilityRegistry.snapshot(
-                "external-plugin-loading",
-                commandSpec.commandLine().getParseResult(),
-                ExternalPluginLoadingRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions"));
+        externalPluginLoadingOptions = options.require("external-plugin-loading", ExternalPluginLoadingRunOptions.class, "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions")
 
-        retrievalContextOptions = runCapabilityRegistry.snapshot(
-                "retrieval-context",
-                commandSpec.commandLine().getParseResult(),
-                RetrievalContextRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions"));
+        retrievalContextOptions = options.require("retrieval-context", RetrievalContextRunOptions.class, "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions")
 
-        fallbackModelOptions = runCapabilityRegistry.snapshot(
-                "model-fallback",
-                commandSpec.commandLine().getParseResult(),
-                FallbackModelRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions"));
+        fallbackModelOptions = options.require("model-fallback", FallbackModelRunOptions.class, "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions")
 
-        modelSourceOptions = runCapabilityRegistry.snapshot(
-                "model-source",
-                commandSpec.commandLine().getParseResult(),
-                ModelSourceRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'model-source' run capability is not registered or does not provide ModelSourceRunOptions"));
+        modelSourceOptions = options.require("model-source", ModelSourceRunOptions.class, "The 'model-source' run capability is not registered or does not provide ModelSourceRunOptions")
         modelFile = modelSourceOptions.modelFile();
         modelDir = modelSourceOptions.modelDirectory();
         modelPath = modelSourceOptions.modelPath();
 
-        modelRepositoryOptions = runCapabilityRegistry.snapshot(
-                "model-repository",
-                commandSpec.commandLine().getParseResult(),
-                ModelRepositoryRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions"));
+        modelRepositoryOptions = options.require("model-repository", ModelRepositoryRunOptions.class, "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions")
 
         if (modelRepositoryOptions.force() && modelRepositoryOptions.offline()) {
             throw new picocli.CommandLine.ParameterException(
@@ -393,122 +305,47 @@ public class RunCommand implements Runnable {
                     "--force cannot be combined with --offline/--local");
         }
 
-        modelRoutingOptions = runCapabilityRegistry.snapshot(
-                "model-routing",
-                commandSpec.commandLine().getParseResult(),
-                ModelRoutingRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'model-routing' run capability is not registered or does not provide ModelRoutingRunOptions"));
+        modelRoutingOptions = options.require("model-routing", ModelRoutingRunOptions.class, "The 'model-routing' run capability is not registered or does not provide ModelRoutingRunOptions")
         providerId = modelRoutingOptions.providerId();
         format = modelRoutingOptions.format();
 
-        modelConversionOptions = runCapabilityRegistry.snapshot(
-                "model-conversion",
-                commandSpec.commandLine().getParseResult(),
-                ModelConversionRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'model-conversion' run capability is not registered or does not provide ModelConversionRunOptions"));
+        modelConversionOptions = options.require("model-conversion", ModelConversionRunOptions.class, "The 'model-conversion' run capability is not registered or does not provide ModelConversionRunOptions")
         convertMode = modelConversionOptions.convertMode();
         ggufOutType = modelConversionOptions.ggufOutType();
         ggufQuant = modelConversionOptions.ggufQuant();
         forceGguf = modelConversionOptions.forceGguf();
 
-        systemPromptOptions = runCapabilityRegistry.snapshot(
-                "system-prompt",
-                commandSpec.commandLine().getParseResult(),
-                SystemPromptRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions"));
+        systemPromptOptions = options.require("system-prompt", SystemPromptRunOptions.class, "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions")
 
-        conversationSessionOptions = runCapabilityRegistry.snapshot(
-                "conversation-session",
-                commandSpec.commandLine().getParseResult(),
-                ConversationSessionRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions"));
+        conversationSessionOptions = options.require("conversation-session", ConversationSessionRunOptions.class, "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions")
 
-        toolInvocationOptions = runCapabilityRegistry.snapshot(
-                "tool-invocation",
-                commandSpec.commandLine().getParseResult(),
-                ToolInvocationRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions"));
+        toolInvocationOptions = options.require("tool-invocation", ToolInvocationRunOptions.class, "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions")
 
-        onnxModelVariantOptions = runCapabilityRegistry.snapshot(
-                "onnx-model-variant",
-                commandSpec.commandLine().getParseResult(),
-                OnnxModelVariantRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'onnx-model-variant' run capability is not registered or does not provide OnnxModelVariantRunOptions"));
+        onnxModelVariantOptions = options.require("onnx-model-variant", OnnxModelVariantRunOptions.class, "The 'onnx-model-variant' run capability is not registered or does not provide OnnxModelVariantRunOptions")
 
-        onnxDiagnosticsOptions = runCapabilityRegistry.snapshot(
-                "onnx-diagnostics",
-                commandSpec.commandLine().getParseResult(),
-                OnnxDiagnosticsRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions"));
+        onnxDiagnosticsOptions = options.require("onnx-diagnostics", OnnxDiagnosticsRunOptions.class, "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions")
 
-        mediaMetadataOptions = runCapabilityRegistry.snapshot(
-                "media-metadata",
-                commandSpec.commandLine().getParseResult(),
-                MediaMetadataRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions"));
+        mediaMetadataOptions = options.require("media-metadata", MediaMetadataRunOptions.class, "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions")
 
-        imageMetadataOptions = runCapabilityRegistry.snapshot(
-                "image-metadata",
-                commandSpec.commandLine().getParseResult(),
-                ImageMetadataRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions"));
+        imageMetadataOptions = options.require("image-metadata", ImageMetadataRunOptions.class, "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions")
 
-        mediaOutputOptions = runCapabilityRegistry.snapshot(
-                "media-output",
-                commandSpec.commandLine().getParseResult(),
-                MediaOutputRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions"));
+        mediaOutputOptions = options.require("media-output", MediaOutputRunOptions.class, "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions")
         outputPath = mediaOutputOptions.outputPath();
         extension = mediaOutputOptions.extension();
 
-        routeReportOptions = runCapabilityRegistry.snapshot(
-                "route-report",
-                commandSpec.commandLine().getParseResult(),
-                RouteReportRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions"));
+        routeReportOptions = options.require("route-report", RouteReportRunOptions.class, "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions")
 
-        runnerSelectionOptions = runCapabilityRegistry.snapshot(
-                "runner-selection",
-                commandSpec.commandLine().getParseResult(),
-                RunnerSelectionRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'runner-selection' run capability is not registered or does not provide RunnerSelectionRunOptions"));
+        runnerSelectionOptions = options.require("runner-selection", RunnerSelectionRunOptions.class, "The 'runner-selection' run capability is not registered or does not provide RunnerSelectionRunOptions")
         runner = runnerSelectionOptions.runner();
 
-        engineSelectionOptions = runCapabilityRegistry.snapshot(
-                "engine-selection",
-                commandSpec.commandLine().getParseResult(),
-                tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions"));
+        engineSelectionOptions = options.require("engine-selection", tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class, "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions")
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
         direct = engineSelectionOptions.directSafetensor();
         pluginId = engineSelectionOptions.pluginId();
 
-        presentationOptions = runCapabilityRegistry.snapshot(
-                "run-presentation",
-                commandSpec.commandLine().getParseResult(),
-                RunPresentationRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'run-presentation' run capability is not registered or does not provide RunPresentationRunOptions"));
+        presentationOptions = options.require("run-presentation", RunPresentationRunOptions.class, "The 'run-presentation' run capability is not registered or does not provide RunPresentationRunOptions")
 
-        responseDeliveryOptions = runCapabilityRegistry.snapshot(
-                "response-delivery",
-                commandSpec.commandLine().getParseResult(),
-                ResponseDeliveryRunOptions.class)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The 'response-delivery' run capability is not registered or does not provide ResponseDeliveryRunOptions"));
+        responseDeliveryOptions = options.require("response-delivery", ResponseDeliveryRunOptions.class, "The 'response-delivery' run capability is not registered or does not provide ResponseDeliveryRunOptions")
 
         
         try (ExternalModelFamilyPluginScope ignored =
