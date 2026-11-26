@@ -37,9 +37,9 @@ public final class ToolCallDispatchService {
     /**
      * Dispatches a call only after successful validation and explicit authorization.
      *
-     * <p>Validation/authorization and resolution failures are surfaced before
-     * execution. An authorization denial or missing implementation returns a
-     * failed Uni and never invokes {@link Tool#execute(Map, Map)}.</p>
+     * <p>Validation and authorization complete before resolution. An
+     * authorization denial returns a failed Uni; a missing or mismatched
+     * implementation fails before {@link Tool#execute(Map, Map)} is invoked.</p>
      *
      * @param request inference request containing the trusted tool declarations
      * @param call parsed, untrusted model-originated tool call
