@@ -34,7 +34,7 @@ class ExtensionPackageReaderTest {
     @Test
     void extractsDeclaredJarAndPreservesPackageMetadata() throws Exception {
         Path archive = packageZip("dist/aqli-package.json",
-                manifest("extensions.demo", "dist/lib/demo.jar"));
+                manifest("extensions.demo", "lib/demo.jar"));
 
         Path extracted;
         try (var source = ExtensionPackageReader.resolve(archive)) {
