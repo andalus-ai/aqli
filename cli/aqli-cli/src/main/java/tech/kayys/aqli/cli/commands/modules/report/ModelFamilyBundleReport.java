@@ -18,7 +18,7 @@ public final class ModelFamilyBundleReport {
     private ModelFamilyBundleReport() {
     }
 
-public static Map<String, Object> modelFamilyBundleFixtureStatusReport(
+public static Map<String, Object> fixtureStatus(
             ModelFamilyBundleManifest.FixtureStatus fixtureStatus) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("known", fixtureStatus.statusKnown());
@@ -40,7 +40,7 @@ public static Map<String, Object> modelFamilyBundleFixtureStatusReport(
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundleAvailabilityReport(
+public static Map<String, Object> availability(
             PluginAvailabilityChecker.ModelFamilyBundleAvailability availability) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("present", availability.present());
@@ -77,7 +77,7 @@ public static Map<String, Object> modelFamilyBundleAvailabilityReport(
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundleProductionSafetyReport(ModelFamilyBundleManifest manifest) {
+public static Map<String, Object> productionSafety(ModelFamilyBundleManifest manifest) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("tokenizerMetadataRequired", manifest.productionTokenizerMetadataRequired());
         report.put("tokenizerMetadataReady", manifest.productionTokenizerMetadataReady());
@@ -90,7 +90,7 @@ public static Map<String, Object> modelFamilyBundleProductionSafetyReport(ModelF
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundleCatalogReadinessReport(ModelFamilyBundleManifest manifest) {
+public static Map<String, Object> catalogReadiness(ModelFamilyBundleManifest manifest) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("statusKnown", manifest.catalogReadinessStatusKnown());
         report.put("passed", manifest.catalogReadinessPassed());
@@ -116,7 +116,7 @@ public static Map<String, Object> gate(ModelFamilyBundleGate gate, boolean failO
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundlePresetReport(ModelFamilyBundleManifest.BundlePreset preset) {
+public static Map<String, Object> preset(ModelFamilyBundleManifest.BundlePreset preset) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("id", preset.id());
         report.put("description", preset.description());
@@ -145,11 +145,11 @@ public static Map<String, Object> modelFamilyBundlePresetReport(ModelFamilyBundl
         policyStatus.put("status", preset.policyStatusLabel());
         policyStatus.put("violationCount", preset.policyViolationCount());
         report.put("policyStatus", policyStatus);
-        report.put("policyViolations", modelFamilyBundlePolicyViolationsReport(preset.policyViolations()));
+        report.put("policyViolations", policyViolations(preset.policyViolations()));
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundlePresetConformanceReport(
+public static Map<String, Object> presetConformance(
             ModelFamilyBundleManifest.BundlePresetConformance conformance) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("presetId", conformance.hasPreset() ? conformance.presetId() : null);
@@ -175,7 +175,7 @@ public static Map<String, Object> modelFamilyBundlePresetConformanceReport(
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundlePolicyStatusReport(ModelFamilyBundleManifest.BundlePolicy policy) {
+public static Map<String, Object> policyStatus(ModelFamilyBundleManifest.BundlePolicy policy) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("known", policy.statusKnown());
         report.put("passed", policy.passed());
@@ -184,7 +184,7 @@ public static Map<String, Object> modelFamilyBundlePolicyStatusReport(ModelFamil
         return report;
     }
 
-public static Map<String, Object> modelFamilyBundlePolicyViolationsReport(
+public static Map<String, Object> policyViolations(
             ModelFamilyBundleManifest.BundlePolicyViolations violations) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("missingRequired", violations.missingRequiredFamilies());
@@ -208,7 +208,7 @@ static List<Map<String, Object>> aliasFamilyMapReport(Map<String, List<String>> 
                 .toList();
     }
 
-public static Map<String, Object> modelFamilyBundleAliasReport(ModelFamilyBundleManifest.BundleAliasCoverage alias) {
+public static Map<String, Object> alias(ModelFamilyBundleManifest.BundleAliasCoverage alias) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("id", alias.id());
         report.put("description", alias.description());
