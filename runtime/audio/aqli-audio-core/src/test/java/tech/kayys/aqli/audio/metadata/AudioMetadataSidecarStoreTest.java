@@ -141,4 +141,18 @@ class AudioMetadataSidecarStoreTest {
         assertEquals(Files.size(audio), payload.path("output_size_bytes").asLong());
         assertEquals(MediaFileIntegrity.sha256Hex(audio), payload.path("output_sha256").asText());
     }
+
+    @Test
+    void leavesExistingSidecarUnchangedWhenRefreshCannotFindOutput() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        String original = """
+                {"type":"aqli_audio_metadata","schema_version":1,"output_path":"missing.wav","custom":"preserve"}
+                """;
+        Files.writeString(sidecar, original);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AudioMetadataSidecarStore.refresh(sidecar, null));
+
+        assertEquals(original, Files.readString(sidecar));
+    }
 }
