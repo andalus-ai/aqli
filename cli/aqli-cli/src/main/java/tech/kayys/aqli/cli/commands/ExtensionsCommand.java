@@ -373,7 +373,7 @@ public class ExtensionsCommand implements Runnable {
 
         report.put("pluginGates", pluginGatesReport(snapshot.pluginGates()));
         report.put("extensionGate", extensionAvailabilityGateReport(snapshot.extensionGate()));
-        report.put("modelFamilyGate", ModelFamilyBundleReport.gate(snapshot.modelFamilyGate()));
+        report.put("modelFamilyGate", ModelFamilyBundleReport.gate(snapshot.modelFamilyGate(), failOnModelFamilyGate));
         report.put("pluginDirectoryReadiness", PluginDirectoryReadinessReports.report(
                 snapshot.pluginDirectoryInspection()));
         putRouteBenchmarkCacheReadiness(report, snapshot.routeBenchmarkCache());
@@ -643,7 +643,7 @@ public class ExtensionsCommand implements Runnable {
         report.put("bundlePreset", manifest.hasBundlePreset() ? manifest.bundlePreset() : null);
         report.put("availableBundlePresets", manifest.availableBundlePresets());
         report.put("activeBundlePreset", manifest.activeBundlePreset()
-                .map(this::modelFamilyBundlePresetReport)
+                .map(ModelFamilyBundleReport::preset)
                 .orElse(null));
         report.put("requiresDirectSafetensorRuntime", manifest.requiresDirectSafetensorRuntime());
         report.put("productionSafety", ModelFamilyBundleReport.productionSafety(manifest));
@@ -699,10 +699,10 @@ public class ExtensionsCommand implements Runnable {
         report.put("tokenizerMetadataPendingFamilies", manifest.tokenizerMetadataPendingFamilies());
         report.put("tokenizerMetadataPendingReasons", manifest.tokenizerMetadataPendingReasons());
         report.put("bundlePresets", manifest.bundlePresets().stream()
-                .map(this::modelFamilyBundlePresetReport)
+                .map(ModelFamilyBundleReport::preset)
                 .toList());
         report.put("bundleAliases", manifest.bundleAliasCoverage().stream()
-                .map(this::modelFamilyBundleAliasReport)
+                .map(ModelFamilyBundleReport::alias)
                 .toList());
         report.put("completeAliases", manifest.completeBundleAliases().stream()
                 .map(ModelFamilyBundleManifest.BundleAliasCoverage::id)
