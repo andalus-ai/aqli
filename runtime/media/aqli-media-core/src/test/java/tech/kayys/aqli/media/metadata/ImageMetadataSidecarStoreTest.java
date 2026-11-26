@@ -2,6 +2,7 @@ package tech.kayys.aqli.media.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -86,5 +87,19 @@ class ImageMetadataSidecarStoreTest {
         assertTrue(Files.isRegularFile(sidecar));
         assertFalse(payload.has("seed"));
         assertFalse(payload.has("steps"));
+    }
+
+    @Test
+    void leavesExistingSidecarUnchangedWhenRefreshCannotFindOutput() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        String original = """
+                {"type":"aqli_image_metadata","schema_version":1,"output_path":"missing.png","custom":"preserve"}
+                """;
+        Files.writeString(sidecar, original);
+
+        assertThrows(ImageMetadataSidecarStore.ImageMetadataSidecarException.class,
+                () -> ImageMetadataSidecarStore.refresh(sidecar, null));
+
+        assertEquals(original, Files.readString(sidecar));
     }
 }
