@@ -1,11 +1,14 @@
 package tech.kayys.aqli.media.metadata;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 
 /** Shared filesystem operations for durable media metadata sidecar persistence. */
 public final class MediaMetadataSidecarFiles {
@@ -28,7 +31,15 @@ public final class MediaMetadataSidecarFiles {
         Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
         boolean replaced = false;
         try {
-            Files.writeString(temporary, content, StandardCharsets.UTF_8);
+            byte[] encoded = content.getBytes(StandardCharsets.UTF_8);
+            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(encoded);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                channel.force(true);
+            }
             try {
                 Files.move(temporary, target,
                         StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
