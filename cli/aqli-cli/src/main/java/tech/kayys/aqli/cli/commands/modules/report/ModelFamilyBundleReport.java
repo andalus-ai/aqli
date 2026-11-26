@@ -18,7 +18,7 @@ public final class ModelFamilyBundleReport {
     private ModelFamilyBundleReport() {
     }
 
-public static Map<String, Object> fixtureStatus(
+    public static Map<String, Object> fixtureStatus(
             ModelFamilyBundleManifest.FixtureStatus fixtureStatus) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("known", fixtureStatus.statusKnown());
@@ -40,7 +40,7 @@ public static Map<String, Object> fixtureStatus(
         return report;
     }
 
-public static Map<String, Object> availability(
+    public static Map<String, Object> availability(
             PluginAvailabilityChecker.ModelFamilyBundleAvailability availability) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("present", availability.present());
@@ -77,7 +77,7 @@ public static Map<String, Object> availability(
         return report;
     }
 
-public static Map<String, Object> productionSafety(ModelFamilyBundleManifest manifest) {
+    public static Map<String, Object> productionSafety(ModelFamilyBundleManifest manifest) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("tokenizerMetadataRequired", manifest.productionTokenizerMetadataRequired());
         report.put("tokenizerMetadataReady", manifest.productionTokenizerMetadataReady());
@@ -90,7 +90,7 @@ public static Map<String, Object> productionSafety(ModelFamilyBundleManifest man
         return report;
     }
 
-public static Map<String, Object> catalogReadiness(ModelFamilyBundleManifest manifest) {
+    public static Map<String, Object> catalogReadiness(ModelFamilyBundleManifest manifest) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("statusKnown", manifest.catalogReadinessStatusKnown());
         report.put("passed", manifest.catalogReadinessPassed());
@@ -103,7 +103,7 @@ public static Map<String, Object> catalogReadiness(ModelFamilyBundleManifest man
         return report;
     }
 
-public static Map<String, Object> gate(ModelFamilyBundleGate gate, boolean failOnModelFamilyGate) {
+    public static Map<String, Object> gate(ModelFamilyBundleGate gate, boolean failOnModelFamilyGate) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("passed", gate.passed());
         report.put("failed", gate.failed());
@@ -116,7 +116,7 @@ public static Map<String, Object> gate(ModelFamilyBundleGate gate, boolean failO
         return report;
     }
 
-public static Map<String, Object> preset(ModelFamilyBundleManifest.BundlePreset preset) {
+    public static Map<String, Object> preset(ModelFamilyBundleManifest.BundlePreset preset) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("id", preset.id());
         report.put("description", preset.description());
@@ -149,7 +149,7 @@ public static Map<String, Object> preset(ModelFamilyBundleManifest.BundlePreset 
         return report;
     }
 
-public static Map<String, Object> presetConformance(
+    public static Map<String, Object> presetConformance(
             ModelFamilyBundleManifest.BundlePresetConformance conformance) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("presetId", conformance.hasPreset() ? conformance.presetId() : null);
@@ -175,7 +175,7 @@ public static Map<String, Object> presetConformance(
         return report;
     }
 
-public static Map<String, Object> policyStatus(ModelFamilyBundleManifest.BundlePolicy policy) {
+    public static Map<String, Object> policyStatus(ModelFamilyBundleManifest.BundlePolicy policy) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("known", policy.statusKnown());
         report.put("passed", policy.passed());
@@ -184,7 +184,7 @@ public static Map<String, Object> policyStatus(ModelFamilyBundleManifest.BundleP
         return report;
     }
 
-public static Map<String, Object> policyViolations(
+    public static Map<String, Object> policyViolations(
             ModelFamilyBundleManifest.BundlePolicyViolations violations) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("missingRequired", violations.missingRequiredFamilies());
@@ -196,7 +196,7 @@ public static Map<String, Object> policyViolations(
         return report;
     }
 
-static List<Map<String, Object>> aliasFamilyMapReport(Map<String, List<String>> values, String familyField) {
+    static List<Map<String, Object>> aliasFamilyMapReport(Map<String, List<String>> values, String familyField) {
         return values.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> {
@@ -208,7 +208,7 @@ static List<Map<String, Object>> aliasFamilyMapReport(Map<String, List<String>> 
                 .toList();
     }
 
-public static Map<String, Object> alias(ModelFamilyBundleManifest.BundleAliasCoverage alias) {
+    public static Map<String, Object> alias(ModelFamilyBundleManifest.BundleAliasCoverage alias) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("id", alias.id());
         report.put("description", alias.description());
