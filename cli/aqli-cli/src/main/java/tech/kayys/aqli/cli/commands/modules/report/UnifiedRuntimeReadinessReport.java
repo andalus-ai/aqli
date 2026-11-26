@@ -21,7 +21,7 @@ public final class UnifiedRuntimeReadinessReport {
     private UnifiedRuntimeReadinessReport() {
     }
 
-public static Map<String, Object> report(
+    public static Map<String, Object> report(
             UnifiedRuntimeRegistry registry,
             String registryScope,
             List<UnifiedRuntimeRequirementCompatibility> requirementCompatibilities) {
@@ -67,7 +67,7 @@ public static Map<String, Object> report(
         return section;
     }
 
-private static Map<String, Object> unifiedRuntimeReport(
+    private static Map<String, Object> unifiedRuntimeReport(
             UnifiedRuntimeRegistry.UnifiedRuntimeReport runtime) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("runtimeId", runtime.runtimeId());
@@ -106,7 +106,7 @@ private static Map<String, Object> unifiedRuntimeReport(
         return report;
     }
 
-private static Map<String, Object> unifiedRuntimeViolationReport(
+    private static Map<String, Object> unifiedRuntimeViolationReport(
             UnifiedRuntimeManifestViolation violation) {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("runtimeId", violation.runtimeId());
