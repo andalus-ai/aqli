@@ -256,48 +256,153 @@ public class RunCommand implements Runnable {
     public void run() {
         RunCommandCapabilityOptionsReader options = new RunCommandCapabilityOptionsReader(
                 runCapabilityRegistry, commandSpec.commandLine().getParseResult());
-        runtimeProfileOptions = options.require("runtime-profile", RuntimeProfileRunOptions.class, "The runtime-profile run capability is not registered or does not provide RuntimeProfileRunOptions");
+        runtimeProfileOptions = options.require(
+                "runtime-profile",
+                RuntimeProfileRunOptions.class,
+                "The runtime-profile run capability is not registered or does not provide RuntimeProfileRunOptions");
         runtimeProfile = runtimeProfileOptions.enabled();
 
-        quantizationOptions = options.require("quantization", QuantizationRunOptions.class, "The quantization run capability is not registered or does not provide QuantizationRunOptions");
+        quantizationOptions = options.require(
+
+                "quantization",
+
+                QuantizationRunOptions.class,
+
+                "The quantization run capability is not registered or does not provide QuantizationRunOptions");
         quantizeStrategy = quantizationOptions.strategy();
         quantizeBits = quantizationOptions.bits();
         quantizeKv = quantizationOptions.kvCacheMode();
 
-        textRunOptions = options.require("text", tech.kayys.aqli.cli.commands.text.TextRunOptions.class, "The 'text' run capability is not registered or does not provide TextRunOptions");
+        textRunOptions = options.require(
 
-        featurePipelineOptions = options.require("feature-pipeline", FeaturePipelineRunOptions.class, "The 'feature-pipeline' run capability is not registered or does not provide FeaturePipelineRunOptions");
+                "text",
 
-        generationSeedOptions = options.require("generation-seed", GenerationSeedRunOptions.class, "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions");
+                tech.kayys.aqli.cli.commands.text.TextRunOptions.class,
 
-        responseCacheOptions = options.require("response-cache", tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions.class, "The 'response-cache' run capability is not registered or does not provide ResponseCacheRunOptions");
+                "The 'text' run capability is not registered or does not provide TextRunOptions");
 
-        audioRunOptions = options.require("audio", AudioRunOptions.class, "The 'audio' run capability is not registered or does not provide AudioRunOptions");
+        featurePipelineOptions = options.require(
 
-        audioReplayOptions = options.require("audio-replay", AudioReplayRunOptions.class, "The 'audio-replay' run capability is not registered or does not provide AudioReplayRunOptions");
+                "feature-pipeline",
 
-        imageGenerationOptions = options.require("image-generation", ImageGenerationRunOptions.class, "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions");
+                FeaturePipelineRunOptions.class,
 
-        visionInputOptions = options.require("vision-input", VisionInputRunOptions.class, "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions");
+                "The 'feature-pipeline' run capability is not registered or does not provide FeaturePipelineRunOptions");
 
-        ocrOutputOptions = options.require("ocr-output", OcrOutputRunOptions.class, "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions");
+        generationSeedOptions = options.require(
 
-        ttsOperationsOptions = options.require("tts-operations", TtsOperationsRunOptions.class, "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions");
+                "generation-seed",
 
-        ttsVoiceDiscoveryOptions = options.require("tts-voice-discovery", TtsVoiceDiscoveryRunOptions.class, "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions");
+                GenerationSeedRunOptions.class,
 
-        externalPluginLoadingOptions = options.require("external-plugin-loading", ExternalPluginLoadingRunOptions.class, "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions");
+                "The 'generation-seed' run capability is not registered or does not provide GenerationSeedRunOptions");
 
-        retrievalContextOptions = options.require("retrieval-context", RetrievalContextRunOptions.class, "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions");
+        responseCacheOptions = options.require(
 
-        fallbackModelOptions = options.require("model-fallback", FallbackModelRunOptions.class, "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions");
+                "response-cache",
 
-        modelSourceOptions = options.require("model-source", ModelSourceRunOptions.class, "The 'model-source' run capability is not registered or does not provide ModelSourceRunOptions");
+                tech.kayys.aqli.cli.commands.request.ResponseCacheRunOptions.class,
+
+                "The 'response-cache' run capability is not registered or does not provide ResponseCacheRunOptions");
+
+        audioRunOptions = options.require(
+
+                "audio",
+
+                AudioRunOptions.class,
+
+                "The 'audio' run capability is not registered or does not provide AudioRunOptions");
+
+        audioReplayOptions = options.require(
+
+                "audio-replay",
+
+                AudioReplayRunOptions.class,
+
+                "The 'audio-replay' run capability is not registered or does not provide AudioReplayRunOptions");
+
+        imageGenerationOptions = options.require(
+
+                "image-generation",
+
+                ImageGenerationRunOptions.class,
+
+                "The 'image-generation' run capability is not registered or does not provide ImageGenerationRunOptions");
+
+        visionInputOptions = options.require(
+
+                "vision-input",
+
+                VisionInputRunOptions.class,
+
+                "The 'vision-input' run capability is not registered or does not provide VisionInputRunOptions");
+
+        ocrOutputOptions = options.require(
+
+                "ocr-output",
+
+                OcrOutputRunOptions.class,
+
+                "The 'ocr-output' run capability is not registered or does not provide OcrOutputRunOptions");
+
+        ttsOperationsOptions = options.require(
+
+                "tts-operations",
+
+                TtsOperationsRunOptions.class,
+
+                "The 'tts-operations' run capability is not registered or does not provide TtsOperationsRunOptions");
+
+        ttsVoiceDiscoveryOptions = options.require(
+
+                "tts-voice-discovery",
+
+                TtsVoiceDiscoveryRunOptions.class,
+
+                "The 'tts-voice-discovery' run capability is not registered or does not provide TtsVoiceDiscoveryRunOptions");
+
+        externalPluginLoadingOptions = options.require(
+
+                "external-plugin-loading",
+
+                ExternalPluginLoadingRunOptions.class,
+
+                "The 'external-plugin-loading' run capability is not registered or does not provide ExternalPluginLoadingRunOptions");
+
+        retrievalContextOptions = options.require(
+
+                "retrieval-context",
+
+                RetrievalContextRunOptions.class,
+
+                "The 'retrieval-context' run capability is not registered or does not provide RetrievalContextRunOptions");
+
+        fallbackModelOptions = options.require(
+
+                "model-fallback",
+
+                FallbackModelRunOptions.class,
+
+                "The model-fallback run capability is not registered or does not provide FallbackModelRunOptions");
+
+        modelSourceOptions = options.require(
+
+                "model-source",
+
+                ModelSourceRunOptions.class,
+
+                "The 'model-source' run capability is not registered or does not provide ModelSourceRunOptions");
         modelFile = modelSourceOptions.modelFile();
         modelDir = modelSourceOptions.modelDirectory();
         modelPath = modelSourceOptions.modelPath();
 
-        modelRepositoryOptions = options.require("model-repository", ModelRepositoryRunOptions.class, "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions");
+        modelRepositoryOptions = options.require(
+
+                "model-repository",
+
+                ModelRepositoryRunOptions.class,
+
+                "The 'model-repository' run capability is not registered or does not provide ModelRepositoryRunOptions");
 
         if (modelRepositoryOptions.force() && modelRepositoryOptions.offline()) {
             throw new picocli.CommandLine.ParameterException(
@@ -305,47 +410,137 @@ public class RunCommand implements Runnable {
                     "--force cannot be combined with --offline/--local");
         }
 
-        modelRoutingOptions = options.require("model-routing", ModelRoutingRunOptions.class, "The 'model-routing' run capability is not registered or does not provide ModelRoutingRunOptions");
+        modelRoutingOptions = options.require(
+
+                "model-routing",
+
+                ModelRoutingRunOptions.class,
+
+                "The 'model-routing' run capability is not registered or does not provide ModelRoutingRunOptions");
         providerId = modelRoutingOptions.providerId();
         format = modelRoutingOptions.format();
 
-        modelConversionOptions = options.require("model-conversion", ModelConversionRunOptions.class, "The 'model-conversion' run capability is not registered or does not provide ModelConversionRunOptions");
+        modelConversionOptions = options.require(
+
+                "model-conversion",
+
+                ModelConversionRunOptions.class,
+
+                "The 'model-conversion' run capability is not registered or does not provide ModelConversionRunOptions");
         convertMode = modelConversionOptions.convertMode();
         ggufOutType = modelConversionOptions.ggufOutType();
         ggufQuant = modelConversionOptions.ggufQuant();
         forceGguf = modelConversionOptions.forceGguf();
 
-        systemPromptOptions = options.require("system-prompt", SystemPromptRunOptions.class, "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions");
+        systemPromptOptions = options.require(
 
-        conversationSessionOptions = options.require("conversation-session", ConversationSessionRunOptions.class, "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions");
+                "system-prompt",
 
-        toolInvocationOptions = options.require("tool-invocation", ToolInvocationRunOptions.class, "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions");
+                SystemPromptRunOptions.class,
 
-        onnxModelVariantOptions = options.require("onnx-model-variant", OnnxModelVariantRunOptions.class, "The 'onnx-model-variant' run capability is not registered or does not provide OnnxModelVariantRunOptions");
+                "The 'system-prompt' run capability is not registered or does not provide SystemPromptRunOptions");
 
-        onnxDiagnosticsOptions = options.require("onnx-diagnostics", OnnxDiagnosticsRunOptions.class, "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions");
+        conversationSessionOptions = options.require(
 
-        mediaMetadataOptions = options.require("media-metadata", MediaMetadataRunOptions.class, "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions");
+                "conversation-session",
 
-        imageMetadataOptions = options.require("image-metadata", ImageMetadataRunOptions.class, "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions");
+                ConversationSessionRunOptions.class,
 
-        mediaOutputOptions = options.require("media-output", MediaOutputRunOptions.class, "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions");
+                "The 'conversation-session' run capability is not registered or does not provide ConversationSessionRunOptions");
+
+        toolInvocationOptions = options.require(
+
+                "tool-invocation",
+
+                ToolInvocationRunOptions.class,
+
+                "The 'tool-invocation' run capability is not registered or does not provide ToolInvocationRunOptions");
+
+        onnxModelVariantOptions = options.require(
+
+                "onnx-model-variant",
+
+                OnnxModelVariantRunOptions.class,
+
+                "The 'onnx-model-variant' run capability is not registered or does not provide OnnxModelVariantRunOptions");
+
+        onnxDiagnosticsOptions = options.require(
+
+                "onnx-diagnostics",
+
+                OnnxDiagnosticsRunOptions.class,
+
+                "The 'onnx-diagnostics' run capability is not registered or does not provide OnnxDiagnosticsRunOptions");
+
+        mediaMetadataOptions = options.require(
+
+                "media-metadata",
+
+                MediaMetadataRunOptions.class,
+
+                "The 'media-metadata' run capability is not registered or does not provide MediaMetadataRunOptions");
+
+        imageMetadataOptions = options.require(
+
+                "image-metadata",
+
+                ImageMetadataRunOptions.class,
+
+                "The 'image-metadata' run capability is not registered or does not provide ImageMetadataRunOptions");
+
+        mediaOutputOptions = options.require(
+
+                "media-output",
+
+                MediaOutputRunOptions.class,
+
+                "The 'media-output' run capability is not registered or does not provide MediaOutputRunOptions");
         outputPath = mediaOutputOptions.outputPath();
         extension = mediaOutputOptions.extension();
 
-        routeReportOptions = options.require("route-report", RouteReportRunOptions.class, "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions");
+        routeReportOptions = options.require(
 
-        runnerSelectionOptions = options.require("runner-selection", RunnerSelectionRunOptions.class, "The 'runner-selection' run capability is not registered or does not provide RunnerSelectionRunOptions");
+                "route-report",
+
+                RouteReportRunOptions.class,
+
+                "The 'route-report' run capability is not registered or does not provide RouteReportRunOptions");
+
+        runnerSelectionOptions = options.require(
+
+                "runner-selection",
+
+                RunnerSelectionRunOptions.class,
+
+                "The 'runner-selection' run capability is not registered or does not provide RunnerSelectionRunOptions");
         runner = runnerSelectionOptions.runner();
 
-        engineSelectionOptions = options.require("engine-selection", tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class, "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions");
+        engineSelectionOptions = options.require(
+
+                "engine-selection",
+
+                tech.kayys.aqli.cli.commands.engine.EngineSelectionRunOptions.class,
+
+                "The 'engine-selection' run capability is not registered or does not provide EngineSelectionRunOptions");
         preferAlternateRuntime = engineSelectionOptions.preferAlternateRuntime();
         direct = engineSelectionOptions.directSafetensor();
         pluginId = engineSelectionOptions.pluginId();
 
-        presentationOptions = options.require("run-presentation", RunPresentationRunOptions.class, "The 'run-presentation' run capability is not registered or does not provide RunPresentationRunOptions");
+        presentationOptions = options.require(
 
-        responseDeliveryOptions = options.require("response-delivery", ResponseDeliveryRunOptions.class, "The 'response-delivery' run capability is not registered or does not provide ResponseDeliveryRunOptions");
+                "run-presentation",
+
+                RunPresentationRunOptions.class,
+
+                "The 'run-presentation' run capability is not registered or does not provide RunPresentationRunOptions");
+
+        responseDeliveryOptions = options.require(
+
+                "response-delivery",
+
+                ResponseDeliveryRunOptions.class,
+
+                "The 'response-delivery' run capability is not registered or does not provide ResponseDeliveryRunOptions");
 
         
         try (ExternalModelFamilyPluginScope ignored =
