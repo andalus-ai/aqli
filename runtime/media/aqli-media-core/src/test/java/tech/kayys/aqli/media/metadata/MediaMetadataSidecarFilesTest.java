@@ -44,4 +44,14 @@ class MediaMetadataSidecarFilesTest {
             assertEquals(1, files.count(), "failed write should not leave a temporary file");
         }
     }
-}
+
+    @Test
+    void writesUtf8ContentBeforeReplacingDestination() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        String content = "{\"prompt\":\"こんにちは 🌳\"}";
+
+        MediaMetadataSidecarFiles.writeAtomically(sidecar, content);
+
+        assertEquals(content, Files.readString(sidecar));
+    }
+}\n
