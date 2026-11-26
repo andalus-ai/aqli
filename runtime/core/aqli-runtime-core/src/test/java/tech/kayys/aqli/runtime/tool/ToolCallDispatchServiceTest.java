@@ -127,6 +127,32 @@ class ToolCallDispatchServiceTest {
         assertThrows(NullPointerException.class, () -> service.dispatch(request(), CALL, null));
     }
 
+
+    @Test
+    void mismatchedResolvedToolNameIsRejectedBeforeExecution() {
+        var executions = new AtomicInteger();
+        Tool mismatched = new Tool() {
+            @Override public String id() { return "other-tool"; }
+            @Override public String name() { return "other"; }
+            @Override public String description() { return "Wrong tool"; }
+            @Override public Map<String, Object> inputSchema() { return Map.of(); }
+            @Override public Uni<Map<String, Object>> execute(
+                    Map<String, Object> arguments, Map<String, Object> context) {
+                executions.incrementAndGet();
+                return Uni.createFrom().item(Map.of());
+            }
+        };
+        var service = service(
+                (request, call) -> ToolCallAuthorizer.AuthorizationDecision.allow(),
+                name -> Optional.of(mismatched));
+
+        var failure = assertThrows(ToolCallDispatchService.ToolCallDispatchException.class,
+                () -> service.dispatch(request(), CALL, Map.of()));
+
+        assertTrue(failure.getMessage().contains("does not match"));
+        assertEquals(0, executions.get());
+    }
+
     private static ToolCallDispatchService service(
             ToolCallAuthorizer authorizer,
             ToolCallResolver resolver) {
