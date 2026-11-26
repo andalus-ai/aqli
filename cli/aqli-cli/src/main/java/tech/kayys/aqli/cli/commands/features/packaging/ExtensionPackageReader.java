@@ -66,11 +66,19 @@ public final class ExtensionPackageReader {
         return Map.of();
     }
 
+    public static String packageJarArtifactPath(Map<String, Object> packageManifest) {
+        String path = value(packageJarArtifact(packageManifest), "path").replace('\\\\', '/');
+        if (path.isBlank()) {
+            throw new IllegalArgumentException("Extension package has no java-jar artifact in " + PACKAGE_MANIFEST_ENTRY);
+        }
+        return path;
+    }
+
     private static InstallSource resolvePackage(Path packagePath) throws IOException {
         Path tempDir = null;
         try (ZipFile zip = new ZipFile(packagePath.toFile())) {
             ZipEntry manifestEntry = findPackageManifestEntry(zip);
-            Map<String, Object> manifest = readJsonObject(zip, manifestEntry);
+            Map<String, Object> manifest = readZipJsonObject(zip, manifestEntry);
             String root = zipEntryRoot(manifestEntry.getName());
             String artifactPath = value(packageJarArtifact(manifest), "path").replace('\\', '/');
             if (artifactPath.isBlank()) {
@@ -116,7 +124,7 @@ public final class ExtensionPackageReader {
         }
     }
 
-    private static ZipEntry findPackageManifestEntry(ZipFile zip) {
+    public static ZipEntry findPackageManifestEntry(ZipFile zip) {
         List<? extends ZipEntry> entries = zip.stream()
                 .filter(entry -> entry != null && !entry.isDirectory())
                 .filter(entry -> {
@@ -133,7 +141,7 @@ public final class ExtensionPackageReader {
         return entries.get(0);
     }
 
-    private static Map<String, Object> readJsonObject(ZipFile zip, ZipEntry entry) throws IOException {
+    public static Map<String, Object> readZipJsonObject(ZipFile zip, ZipEntry entry) throws IOException {
         try (var input = zip.getInputStream(entry)) {
             @SuppressWarnings("unchecked")
             Map<String, Object> value = new ObjectMapper().readValue(input, Map.class);
@@ -141,12 +149,12 @@ public final class ExtensionPackageReader {
         }
     }
 
-    private static String zipEntryRoot(String entryName) {
+    public static String zipEntryRoot(String entryName) {
         int slash = entryName == null ? -1 : entryName.lastIndexOf('/');
         return slash < 0 ? "" : entryName.substring(0, slash + 1);
     }
 
-    private static String safeZipEntryName(String root, String relative) {
+    public static String safeZipEntryName(String root, String relative) {
         String cleanRoot = root == null ? "" : root;
         String cleanRelative = relative == null ? "" : relative.replace('\\', '/');
         if (cleanRelative.isBlank() || cleanRelative.startsWith("/") || cleanRelative.contains("\0")) {
