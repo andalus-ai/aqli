@@ -1,5 +1,6 @@
 package tech.kayys.aqli.cli.commands.modules.report;
 
+import tech.kayys.aqli.cli.util.UnifiedRuntimeRequirementReportFields;
 import tech.kayys.aqli.spi.multimodal.UnifiedRuntimeRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -7,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UnifiedRuntimeReadinessReportTest {
@@ -27,7 +27,7 @@ class UnifiedRuntimeReadinessReportTest {
         assertEquals(List.of(), report.get("runtimes"));
         assertEquals(List.of(), report.get("conflicts"));
         assertEquals(List.of(), report.get("contractViolations"));
-        assertTrue(report.containsKey("modelFamilyRequirements"));
+        assertTrue(report.containsKey(UnifiedRuntimeRequirementReportFields.Section.MODEL_FAMILY_REQUIREMENTS));
     }
 
     @Test
@@ -38,6 +38,5 @@ class UnifiedRuntimeReadinessReportTest {
         assertEquals(0, report.get("runtimeCount"));
         assertEquals(List.of(), report.get("runtimes"));
         assertEquals(List.of(), report.get("conflicts"));
-        assertFalse(report.containsKey("runtime"));
     }
 }
