@@ -10,6 +10,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
+import tech.kayys.aqli.cli.commands.features.packaging.ExtensionPackageReader;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldKindCatalog;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator.ScaffoldDefinition;
@@ -570,7 +571,7 @@ public class FeaturesCommand implements Runnable {
                 if (!Files.isRegularFile(source)) {
                     throw new IllegalArgumentException("Extension artifact not found: " + source);
                 }
-                try (FeatureInstallSource input = resolveExtensionInstallSource(source)) {
+                try (ExtensionPackageReader.InstallSource input = resolveExtensionInstallSource(source)) {
                     FeatureJarReport inspected = inspectJar(input.jarPath()).withPath(input.displayJarPath());
                     FeatureJarReport report = input.packageReport() == null
                             ? applyInstallLock(source.getParent(), inspected, readInstallLock(source.getParent()))
@@ -737,7 +738,7 @@ public class FeaturesCommand implements Runnable {
                 if (pluginDir != null && !pluginDir.isBlank() && outputDir != null && !outputDir.isBlank()) {
                     throw new IllegalArgumentException("Use either --dir for extension installs or --plugin-dir for plugin installs, not both");
                 }
-                try (FeatureInstallSource input = resolveExtensionInstallSource(source)) {
+                try (ExtensionPackageReader.InstallSource input = resolveExtensionInstallSource(source)) {
                     FeatureJarReport report = inspectJar(input.jarPath()).withPath(input.displayJarPath());
                     if (report.error() != null) {
                         throw new IllegalArgumentException("Extension jar is not readable: " + report.error());
@@ -2557,122 +2558,8 @@ public class FeaturesCommand implements Runnable {
         }
     }
 
-    private static FeatureInstallSource resolveExtensionInstallSource(Path source) throws java.io.IOException {
-        Path normalized = normalize(source);
-        if (isJar(normalized)) {
-            return new FeatureInstallSource(normalized, normalized, null, null);
-        }
-        if (isZip(normalized)) {
-            return resolveExtensionPackageSource(normalized);
-        }
-        throw new IllegalArgumentException("Extension artifact must be a .jar or .zip package: " + source);
-    }
-
-    private static FeatureInstallSource resolveExtensionPackageSource(Path packagePath) throws java.io.IOException {
-        Path tempDir = null;
-        try (ZipFile zip = new ZipFile(packagePath.toFile())) {
-            ZipEntry packageEntry = findPackageManifestEntry(zip);
-            Map<String, Object> packageManifest = readZipJsonObject(zip, packageEntry);
-            String packageRoot = zipEntryRoot(packageEntry.getName());
-            String artifactPath = packageJarArtifactPath(packageManifest);
-            String artifactEntryName = safeZipEntryName(packageRoot, artifactPath);
-            ZipEntry artifactEntry = zip.getEntry(artifactEntryName);
-            if (artifactEntry == null || artifactEntry.isDirectory()) {
-                throw new IllegalArgumentException("Extension package jar artifact not found: " + artifactEntryName);
-            }
-            tempDir = Files.createTempDirectory("aqli-extension-package.");
-            String filename = Path.of(artifactPath.replace('\\', '/')).getFileName().toString();
-            Path tempJar = normalize(tempDir.resolve(filename));
-            try (var input = zip.getInputStream(artifactEntry)) {
-                Files.copy(input, tempJar, StandardCopyOption.REPLACE_EXISTING);
-            }
-            FeaturePackageReport packageReport = new FeaturePackageReport(
-                    packagePath.toString(),
-                    packageManifest,
-                    packageEntry.getName(),
-                    artifactEntryName,
-                    filename,
-                    Files.size(packagePath),
-                    sha256(packagePath),
-                    Files.size(tempJar),
-                    sha256(tempJar));
-            return new FeatureInstallSource(packagePath, tempJar, packageReport, tempDir);
-        } catch (Exception e) {
-            if (tempDir != null) {
-                deleteRecursively(tempDir);
-            }
-            if (e instanceof java.io.IOException io) {
-                throw io;
-            }
-            if (e instanceof RuntimeException runtime) {
-                throw runtime;
-            }
-            throw new IllegalArgumentException(e.getMessage(), e);
-        }
-    }
-
-    private static ZipEntry findPackageManifestEntry(ZipFile zip) {
-        List<? extends ZipEntry> entries = zip.stream()
-                .filter(entry -> entry != null && !entry.isDirectory())
-                .filter(entry -> {
-                    String name = entry.getName();
-                    return PACKAGE_MANIFEST_ENTRY.equals(name) || name.endsWith("/" + PACKAGE_MANIFEST_ENTRY);
-                })
-                .toList();
-        if (entries.isEmpty()) {
-            throw new IllegalArgumentException("Extension package is missing " + PACKAGE_MANIFEST_ENTRY);
-        }
-        if (entries.size() > 1) {
-            throw new IllegalArgumentException("Extension package contains multiple " + PACKAGE_MANIFEST_ENTRY + " files");
-        }
-        return entries.get(0);
-    }
-
-    private static Map<String, Object> readZipJsonObject(ZipFile zip, ZipEntry entry) throws java.io.IOException {
-        try (var input = zip.getInputStream(entry)) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> value = new ObjectMapper().readValue(input, Map.class);
-            return value == null ? Map.of() : value;
-        }
-    }
-
-    private static String packageJarArtifactPath(Map<String, Object> packageManifest) {
-        String path = manifestValue(packageJarArtifact(packageManifest), "path").replace('\\', '/');
-        if (!path.isBlank()) {
-            return path;
-        }
-        throw new IllegalArgumentException("Extension package has no java-jar artifact in " + PACKAGE_MANIFEST_ENTRY);
-    }
-
-    private static Map<String, Object> packageJarArtifact(Map<String, Object> packageManifest) {
-        for (Map<String, Object> artifact : manifestObjectList(packageManifest, "artifacts")) {
-            String type = manifestValue(artifact, "type");
-            String path = manifestValue(artifact, "path").replace('\\', '/');
-            if (!path.isBlank() && path.endsWith(".jar")
-                    && (type.isBlank() || "java-jar".equals(type) || "jar".equals(type))) {
-                return artifact;
-            }
-        }
-        return Map.of();
-    }
-
-    private static String zipEntryRoot(String entryName) {
-        int slash = entryName == null ? -1 : entryName.lastIndexOf('/');
-        return slash < 0 ? "" : entryName.substring(0, slash + 1);
-    }
-
-    private static String safeZipEntryName(String root, String relative) {
-        String cleanRoot = root == null ? "" : root;
-        String cleanRelative = relative == null ? "" : relative.replace('\\', '/');
-        if (cleanRelative.isBlank() || cleanRelative.startsWith("/") || cleanRelative.contains("\0")) {
-            throw new IllegalArgumentException("Invalid extension package artifact path: " + relative);
-        }
-        for (String part : cleanRelative.split("/")) {
-            if (part.isBlank() || ".".equals(part) || "..".equals(part)) {
-                throw new IllegalArgumentException("Invalid extension package artifact path: " + relative);
-            }
-        }
-        return cleanRoot + cleanRelative;
+    private static ExtensionPackageReader.InstallSource resolveExtensionInstallSource(Path source) throws java.io.IOException {
+        return ExtensionPackageReader.resolve(source);
     }
 
     private static void deleteRecursively(Path root) throws java.io.IOException {
@@ -3164,7 +3051,7 @@ public class FeaturesCommand implements Runnable {
             Path featureDir,
             Path jarPath,
             FeatureJarReport report,
-            FeaturePackageReport packageReport) throws java.io.IOException {
+            ExtensionPackageReader.PackageReport packageReport) throws java.io.IOException {
         Path rootDir = normalize(featureDir);
         Path target = normalize(jarPath);
         Files.createDirectories(rootDir);
@@ -4046,7 +3933,7 @@ public class FeaturesCommand implements Runnable {
     private static Map<String, Object> installLockEntry(
             Path jarPath,
             FeatureJarReport report,
-            FeaturePackageReport packageReport) {
+            ExtensionPackageReader.PackageReport packageReport) {
         return installLockEntry(jarPath, jarPath, report, packageReport);
     }
 
@@ -4054,7 +3941,7 @@ public class FeaturesCommand implements Runnable {
             Path jarPath,
             Path digestPath,
             FeatureJarReport report,
-            FeaturePackageReport packageReport) {
+            ExtensionPackageReader.PackageReport packageReport) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("filename", jarPath.getFileName() == null ? "" : jarPath.getFileName().toString());
         entry.put("path", jarPath.toString());
@@ -4327,7 +4214,7 @@ public class FeaturesCommand implements Runnable {
 
     private static FeatureJarValidation validateArtifact(
             FeatureJarReport report,
-            FeaturePackageReport packageReport,
+            ExtensionPackageReader.PackageReport packageReport,
             boolean strict) {
         FeatureJarValidation jarValidation = validateJar(report, false);
         List<String> warnings = new ArrayList<>(jarValidation.warnings());
@@ -4343,7 +4230,7 @@ public class FeaturesCommand implements Runnable {
     }
 
     private static List<String> packageJarConsistencyWarnings(
-            FeaturePackageReport packageReport,
+            ExtensionPackageReader.PackageReport packageReport,
             FeatureJarReport report) {
         if (packageReport == null || report == null || !report.hasManifest()) {
             return List.of();
@@ -4357,7 +4244,7 @@ public class FeaturesCommand implements Runnable {
         appendPackageJarFieldWarning(packageManifest, jarManifest, "name", warnings);
         appendPackageJarFieldWarning(packageManifest, jarManifest, "version", warnings);
         appendPackageJarRequiresWarnings(packageManifest, jarManifest, warnings);
-        Map<String, Object> artifact = packageJarArtifact(packageManifest);
+        Map<String, Object> artifact = ExtensionPackageReader.packageJarArtifact(packageManifest);
         String expectedManifest = manifestValue(artifact, "manifest");
         if (!expectedManifest.isBlank()
                 && report.manifestEntryName() != null
@@ -5279,7 +5166,7 @@ public class FeaturesCommand implements Runnable {
         }
     }
 
-    private static void printPackageInspect(FeaturePackageReport report) {
+    private static void printPackageInspect(ExtensionPackageReader.PackageReport report) {
         if (report == null) {
             return;
         }
@@ -6203,120 +6090,6 @@ public class FeaturesCommand implements Runnable {
                 value.put("error", error);
             }
             return value;
-        }
-    }
-
-    private record FeaturePackageReport(
-            String path,
-            Map<String, Object> manifest,
-            String manifestEntryName,
-            String artifactEntryName,
-            String installFilename,
-            long sizeBytes,
-            String sha256,
-            long artifactSizeBytes,
-            String artifactSha256) {
-        Map<String, Object> toMap() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("path", path);
-            value.put("manifest_entry", manifestEntryName);
-            value.put("artifact_entry", artifactEntryName);
-            value.put("install_filename", installFilename);
-            if (artifactSizeBytes >= 0) {
-                value.put("artifact_size_bytes", artifactSizeBytes);
-            }
-            if (artifactSha256 != null && !artifactSha256.isBlank()) {
-                value.put("artifact_sha256", artifactSha256);
-            }
-            if (sizeBytes >= 0) {
-                value.put("size_bytes", sizeBytes);
-            }
-            if (sha256 != null && !sha256.isBlank()) {
-                value.put("sha256", sha256);
-            }
-            value.put("manifest", manifest == null ? Map.of() : manifest);
-            return value;
-        }
-
-        Map<String, Object> toLockMap() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            Map<String, Object> packageManifest = manifest == null ? Map.of() : manifest;
-            value.put("path", path);
-            value.put("manifest_entry", manifestEntryName);
-            value.put("artifact_entry", artifactEntryName);
-            value.put("install_filename", installFilename);
-            if (artifactSizeBytes >= 0) {
-                value.put("artifact_size_bytes", artifactSizeBytes);
-            }
-            if (artifactSha256 != null && !artifactSha256.isBlank()) {
-                value.put("artifact_sha256", artifactSha256);
-            }
-            if (sizeBytes >= 0) {
-                value.put("size_bytes", sizeBytes);
-            }
-            if (sha256 != null && !sha256.isBlank()) {
-                value.put("sha256", sha256);
-            }
-            value.put("id", manifestValue(packageManifest, "id"));
-            value.put("name", manifestValue(packageManifest, "name"));
-            value.put("version", manifestValue(packageManifest, "version"));
-            value.put("kind", manifestValue(packageManifest, "kind"));
-            Object requires = packageManifest.get("requires");
-            if (requires instanceof Map<?, ?> rawRequires) {
-                Map<String, Object> copied = new LinkedHashMap<>();
-                rawRequires.forEach((key, item) -> {
-                    if (key != null) {
-                        copied.put(String.valueOf(key), item);
-                    }
-                });
-                value.put("requires", copied);
-            }
-            return value;
-        }
-    }
-
-    private static final class FeatureInstallSource implements AutoCloseable {
-        private final Path sourcePath;
-        private final Path jarPath;
-        private final FeaturePackageReport packageReport;
-        private final Path tempDir;
-
-        private FeatureInstallSource(
-                Path sourcePath,
-                Path jarPath,
-                FeaturePackageReport packageReport,
-                Path tempDir) {
-            this.sourcePath = sourcePath;
-            this.jarPath = jarPath;
-            this.packageReport = packageReport;
-            this.tempDir = tempDir;
-        }
-
-        Path jarPath() {
-            return jarPath;
-        }
-
-        FeaturePackageReport packageReport() {
-            return packageReport;
-        }
-
-        String defaultInstalledName() {
-            if (packageReport != null && packageReport.installFilename() != null && !packageReport.installFilename().isBlank()) {
-                return packageReport.installFilename();
-            }
-            return sourcePath.getFileName() == null ? sourcePath.toString() : sourcePath.getFileName().toString();
-        }
-
-        String displayJarPath() {
-            if (packageReport == null) {
-                return jarPath.toString();
-            }
-            return sourcePath + "!" + packageReport.artifactEntryName();
-        }
-
-        @Override
-        public void close() throws java.io.IOException {
-            deleteRecursively(tempDir);
         }
     }
 
