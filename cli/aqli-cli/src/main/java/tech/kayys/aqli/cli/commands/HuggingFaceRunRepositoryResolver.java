@@ -19,6 +19,7 @@ final class HuggingFaceRunRepositoryResolver {
 
     record Options(
             String requestedModel,
+            String preferredFormat,
             String providerId,
             boolean mcpProvider,
             boolean offline,
@@ -54,7 +55,7 @@ final class HuggingFaceRunRepositoryResolver {
             return null;
         }
 
-        Optional<LocalModelIndex.Entry> existing = localIndexLookup.apply(repositoryId, null);
+        Optional<LocalModelIndex.Entry> existing = localIndexLookup.apply(repositoryId, options.preferredFormat());
         if (existing.isPresent() && !options.force()) {
             return existing.get();
         }
@@ -77,6 +78,7 @@ final class HuggingFaceRunRepositoryResolver {
                 HuggingFacePullRequest.builder()
                         .modelSpec("hf:" + repositoryId)
                         .revision(revision)
+                        .format(options.preferredFormat())
                         .force(options.force())
                         .build(),
                 progressCallback);
@@ -90,6 +92,8 @@ final class HuggingFaceRunRepositoryResolver {
         if (downloaded.isPresent()) {
             return downloaded.get();
         }
-        throw new IllegalStateException("download finished, but no local artifact was indexed for " + repositoryId);
+        throw new IllegalStateException("download finished, but no local"
+                + (options.preferredFormat() == null ? "" : " " + options.preferredFormat())
+                + " artifact was indexed for " + repositoryId);
     }
 }
