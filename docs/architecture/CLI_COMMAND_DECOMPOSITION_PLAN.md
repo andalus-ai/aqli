@@ -75,15 +75,21 @@ This is a target grouping, not a requirement to create every file immediately. K
 
 **Completed second scaffold slice:** `ScaffoldContentGenerator` now owns deterministic rendering of Java providers, Gradle build files, service registrations, manifests, plugin descriptors and README files. Its immutable `ScaffoldDefinition` input lives with the scaffold capability. `ScaffoldFileWriter` owns path containment, directory creation, dry-run reporting and create/overwrite behavior. The generator has no filesystem or terminal side effects; the CLI `Init` command only normalizes options, constructs the definition, delegates, and renders the result. Existing file paths, generated content, command output fields and force/dry-run behavior are preserved. Focused tests cover deterministic generation, model-family registrations, dry-run and overwrite semantics.
 
+**Package-reader slice:** `ExtensionPackageReader` owns the ZIP distribution boundary used by extension inspect/install flows: package-manifest discovery, Java-artifact selection, archive-relative path validation, temporary extraction, SHA-256 metadata, and deterministic temporary-directory cleanup. It returns a package report and an AutoCloseable install source; it does not load providers, register capabilities, resolve SDK capability implementations, or select runtime engines. Package `kind` and artifact metadata remain descriptive package metadata; capability semantics and execution registration stay with the owning SDK/runtime capability contracts. Focused tests cover JAR passthrough, ZIP extraction and cleanup, traversal rejection, duplicate manifests, and unsupported file types.
+
 
 1. **Command boundaries first.** Move nested Picocli command classes into top-level package-private/public command classes while preserving names, aliases, options, exit codes and help output.
 2. **Scaffolding second.** Template generation and filesystem writing are now separated into `ScaffoldContentGenerator` and `ScaffoldFileWriter`. Continue by extracting the remaining input normalization/validation from `Init` into a focused scaffold request factory/validator only where it removes real duplication; do not add another facade around the generator.
-3. **Package inspection third.** Centralize JAR/ZIP manifest reading, path validation and package identity extraction in `FeaturePackageReader`. Do not duplicate archive parsing in install, inspect and doctor flows.
+3. **Package inspection third.** Centralize JAR/ZIP manifest reading, path validation and package identity extraction in `ExtensionPackageReader`. Do not duplicate archive parsing in install, inspect and doctor flows.
 4. **Installation lifecycle fourth.** Move install-lock, backup, remove, detach and rollback state transitions into `FeatureInstallService`. Keep filesystem mutations explicit and transactional.
 5. **Migration and repair fifth.** Separate migration planning from applying operations. Support dry-run plans and deterministic reports.
 6. **Rendering last.** Move JSON/table projection out of command classes after service contracts stabilize.
 
 ## 2. ExtensionsCommand (the `modules` command)
+### Extraction progress
+
+**Completed first reporting slice:** `UnifiedRuntimeReadinessReport` now owns the unified-runtime JSON projection (`runtimes`, conflicts, contract violations, and model-family requirement rows). It consumes the registry and compatibility rows supplied by the command; plugin discovery and compatibility/policy evaluation remain with their existing owners. Focused tests cover empty registries and null input normalization. The Picocli command and JSON section keys remain unchanged.
+
 
 Source: `cli/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/ExtensionsCommand.java`
 

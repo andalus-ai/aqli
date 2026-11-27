@@ -187,6 +187,16 @@ Apply SOLID as practical design guidance, not as a requirement to create an inte
 - Avoid god classes, god packages, generic dumping grounds, and deeply nested implementation types that make ownership hard to discover.
 - Organize packages primarily around capability and domain responsibility. Use subpackages for meaningful internal boundaries; do not create a new package or Gradle module for every class.
 
+### God-class and god-file prevention
+
+- Do not add new responsibilities to an existing class or file that already coordinates unrelated workflows. If a change touches a known oversized or mixed-responsibility area identified in `docs/architecture/CODEBASE_QUALITY_AUDIT.md`, prefer extracting the specific cohesive behavior behind an owner-defined boundary rather than extending the hotspot.
+- A class or source file must have a discoverable, cohesive purpose. Do not use one class/file as a container for unrelated commands, capability implementations, transport mappings, persistence, provider selection, execution, reporting, and lifecycle management.
+- Keep top-level types in appropriately named files. Use nested types only when they are implementation details tightly coupled to their enclosing type; do not hide independently reusable domain concepts inside a large command or service.
+- Decompose by responsibility and ownership, not by arbitrary line ranges. A useful extraction has a clear owner, meaningful callers, explicit dependencies, and focused tests; mechanical splitting into many tiny classes is not an improvement.
+- Before adding substantial behavior to a class, identify its existing reasons to change and the new reason being introduced. If those responsibilities vary independently, extract or delegate the new behavior instead of making the class a broader coordinator.
+- Treat an unresolved god class/file as an architectural risk, not permission to create another one nearby. New work must not increase its responsibility count or deepen its coupling; unrelated refactoring of the hotspot should remain a separate, reviewable change.
+- In code review, request a decomposition plan when a change materially expands a class/file that already has multiple independent responsibilities. The plan must identify the target owner, dependency direction, compatibility path, and focused tests; do not require a broad rewrite as a prerequisite for an unrelated fix.
+
 ### SOLID, abstraction, and dependency direction
 
 - **SRP:** separate policies and lifecycle responsibilities that change for different reasons.
