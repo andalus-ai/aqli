@@ -1,4 +1,5 @@
 tech.kayys.aqli.cli.commands.text.TextRunCapabilityProvider
+tech.kayys.aqli.cli.commands.input.PromptInputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunCapabilityProvider
 tech.kayys.aqli.cli.commands.tools.ToolInvocationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.audio.AudioRunCapabilityProvider
@@ -29,5 +30,6 @@ tech.kayys.aqli.cli.commands.request.ResponseCacheRunCapabilityProvider
 tech.kayys.aqli.cli.commands.onnx.OnnxModelVariantRunCapabilityProvider
 tech.kayys.aqli.cli.commands.pipeline.FeaturePipelineRunCapabilityProvider
 tech.kayys.aqli.cli.commands.model.ModelSourceRunCapabilityProvider
+tech.kayys.aqli.cli.commands.model.ModelSelectionRunCapabilityProvider
 tech.kayys.aqli.cli.commands.presentation.RunPresentationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.response.ResponseDeliveryRunCapabilityProvider

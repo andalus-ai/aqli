@@ -20,6 +20,10 @@ public final class ModelRepositoryRunCapability
     @Override
     public void registerOptions(CommandSpec commandSpec) {
         Objects.requireNonNull(commandSpec, "commandSpec");
+        commandSpec.addOption(OptionSpec.builder("-m", "--model")
+                .type(String.class)
+                .description("Model ID for repository resolution (e.g., Hugging Face model ID)")
+                .build());
         commandSpec.addOption(OptionSpec.builder("--offline", "--local")
                 .type(boolean.class)
                 .description("Force using existing models without checking for updates/downloads")
@@ -51,6 +55,7 @@ public final class ModelRepositoryRunCapability
     public ModelRepositoryRunOptions snapshot(ParseResult parseResult) {
         Objects.requireNonNull(parseResult, "parseResult");
         return new ModelRepositoryRunOptions(
+                parseResult.matchedOptionValue("--model", (String) null),
                 parseResult.hasMatchedOption("--offline") || parseResult.hasMatchedOption("--local"),
                 parseResult.matchedOptionValue("--branch", null),
                 parseResult.hasMatchedOption("--import"),
