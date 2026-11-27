@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 import tech.kayys.aqli.sdk.model.HuggingFacePullRequest;
-import tech.kayys.aqli.sdk.model.PullProgress;
 import tech.kayys.aqli.sdk.runtime.AqliRuntime;
 
 class HuggingFaceRunRepositoryResolverTest {
