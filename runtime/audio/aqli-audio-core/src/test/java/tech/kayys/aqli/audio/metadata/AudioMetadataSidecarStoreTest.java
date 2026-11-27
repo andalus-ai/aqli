@@ -141,4 +141,47 @@ class AudioMetadataSidecarStoreTest {
         assertEquals(Files.size(audio), payload.path("output_size_bytes").asLong());
         assertEquals(MediaFileIntegrity.sha256Hex(audio), payload.path("output_sha256").asText());
     }
+
+    @Test
+    void preservesExistingMetadataWhenRefreshingIntegrityFields() throws Exception {
+        Path audio = tempDir.resolve("generated.wav");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(audio, "original-audio");
+        String originalDigest = MediaFileIntegrity.sha256Hex(audio);
+        Files.writeString(sidecar, """
+                {
+                  "type": "aqli_audio_metadata",
+                  "schema_version": 1,
+                  "output_path": "generated.wav",
+                  "output_size_bytes": 14,
+                  "output_sha256": "%s",
+                  "model": "keep-audio-model",
+                  "provider": "keep-provider",
+                  "prompt": "keep audio prompt",
+                  "voice_selector": "keep-voice",
+                  "replay_args": ["run", "--model", "keep-audio-model"],
+                  "metadata": {"custom": "keep-audio-metadata"}
+                }
+                """.formatted(originalDigest));
+        Files.writeString(audio, "replacement-audio-content");
+
+        AudioMetadataSidecarStore.RefreshResult result =
+                AudioMetadataSidecarStore.refresh(sidecar, null);
+
+        JsonNode payload = mapper.readTree(sidecar.toFile());
+        String refreshedDigest = MediaFileIntegrity.sha256Hex(audio);
+        assertEquals("keep-audio-model", payload.path("model").asText());
+        assertEquals("keep-provider", payload.path("provider").asText());
+        assertEquals("keep audio prompt", payload.path("prompt").asText());
+        assertEquals("keep-voice", payload.path("voice_selector").asText());
+        assertEquals("run", payload.path("replay_args").get(0).asText());
+        assertEquals("keep-audio-metadata", payload.path("metadata").path("custom").asText());
+        assertEquals(2, payload.path("schema_version").asInt());
+        assertTrue(payload.hasNonNull("refreshed_at"));
+        assertEquals(audio.toAbsolutePath().normalize().toString(), payload.path("output_path").asText());
+        assertEquals(Files.size(audio), payload.path("output_size_bytes").asLong());
+        assertEquals(refreshedDigest, payload.path("output_sha256").asText());
+        assertFalse(originalDigest.equals(refreshedDigest));
+        assertEquals(refreshedDigest, result.sha256());
+    }
 }

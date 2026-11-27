@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":spi:aqli-spi"))
     implementation(project(":spi:aqli-spi-inference"))
     implementation("tech.kayys.aljabr:aljabr-spi-model:0.1.0-SNAPSHOT")
+    implementation("tech.kayys.aljabr:aljabr-spi-inference:0.1.0-SNAPSHOT")
     implementation(project(":spi:aqli-spi-multimodal"))
     implementation(project(":spi:aqli-spi-plugin"))
 

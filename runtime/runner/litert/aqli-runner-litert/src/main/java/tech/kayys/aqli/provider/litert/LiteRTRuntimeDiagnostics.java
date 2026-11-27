@@ -29,8 +29,8 @@ public final class LiteRTRuntimeDiagnostics {
                 nativeProviderAvailable,
                 LiteRTLmJvmBridge.enabled(),
                 LiteRTLmJvmBridge.available(),
-                LiteRTLmPythonBridge.enabled(),
-                LiteRTLmPythonBridge.available(),
+                optionalBridgeState("tech.kayys.aqli.provider.litert.LiteRTLmPythonBridge", "enabled"),
+                optionalBridgeState("tech.kayys.aqli.provider.litert.LiteRTLmPythonBridge", "available"),
                 legacyInterpreterAvailable,
                 gpuDelegateAvailable,
                 nnapiAvailable,
@@ -90,6 +90,17 @@ public final class LiteRTRuntimeDiagnostics {
         }
 
         return Optional.empty();
+    }
+
+    /** Optional bridge implementations must not become hard compile-time dependencies. */
+    private static boolean optionalBridgeState(String className, String methodName) {
+        try {
+            Class<?> bridge = Class.forName(className, false, LiteRTRuntimeDiagnostics.class.getClassLoader());
+            Object value = bridge.getMethod(methodName).invoke(null);
+            return Boolean.TRUE.equals(value);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return false;
+        }
     }
 
     private static boolean classAvailable(String className) {
