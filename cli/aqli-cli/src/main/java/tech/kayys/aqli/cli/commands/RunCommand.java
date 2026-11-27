@@ -1762,13 +1762,13 @@ public class RunCommand implements Runnable {
                         return;
                     }
                     if (progress.getTotal() > 0) {
-                        System.out.printf("\\r  Downloading %s: %3d%% (%d/%d MB)",
+                        System.out.printf("\r  Downloading %s: %3d%% (%d/%d MB)",
                                 ModelSourceResolver.huggingFaceRepositoryId(requestedModel),
                                 progress.getPercentComplete(),
                                 progress.getCompleted() / 1024 / 1024,
                                 progress.getTotal() / 1024 / 1024);
                     } else {
-                        System.out.printf("\\r  %s", progress.getStatus());
+                        System.out.printf("\r  %s", progress.getStatus());
                     }
                     System.out.flush();
                 });
