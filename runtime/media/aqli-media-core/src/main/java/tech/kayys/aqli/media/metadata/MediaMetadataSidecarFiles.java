@@ -19,6 +19,7 @@ public final class MediaMetadataSidecarFiles {
     /**
      * Writes UTF-8 content to a sibling temporary file before replacing the destination.
      * The temporary file is kept on the same filesystem so an atomic move can be attempted.
+     * If atomic moves are unsupported, replacement falls back to a regular move.
      */
     public static void writeAtomically(Path destination, String content) throws IOException {
         Path target = destination.toAbsolutePath().normalize();
@@ -29,7 +30,6 @@ public final class MediaMetadataSidecarFiles {
 
         Files.createDirectories(parent);
         Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
-        boolean replaced = false;
         try {
             byte[] encoded = content.getBytes(StandardCharsets.UTF_8);
             try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
@@ -46,11 +46,13 @@ public final class MediaMetadataSidecarFiles {
             } catch (AtomicMoveNotSupportedException unsupported) {
                 Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
             }
-            replaced = true;
-        } finally {
-            if (!replaced) {
+        } catch (IOException | RuntimeException | Error failure) {
+            try {
                 Files.deleteIfExists(temporary);
+            } catch (IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
             }
+            throw failure;
         }
     }
 }
