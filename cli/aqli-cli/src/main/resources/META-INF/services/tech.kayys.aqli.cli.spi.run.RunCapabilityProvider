@@ -1,4 +1,5 @@
 tech.kayys.aqli.cli.commands.text.TextRunCapabilityProvider
+tech.kayys.aqli.cli.commands.input.PromptInputRunCapabilityProvider
 tech.kayys.aqli.cli.commands.retrieval.RetrievalContextRunCapabilityProvider
 tech.kayys.aqli.cli.commands.tools.ToolInvocationRunCapabilityProvider
 tech.kayys.aqli.cli.commands.audio.AudioRunCapabilityProvider
