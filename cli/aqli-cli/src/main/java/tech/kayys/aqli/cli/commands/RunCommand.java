@@ -1742,62 +1742,37 @@ public class RunCommand implements Runnable {
 
     private LocalModelIndex.Entry autoPullHfRepositoryForRunIfNeeded(String requestedModel, String preferredFormat)
             throws Exception {
-        String repoId = ModelSourceResolver.huggingFaceRepositoryId(requestedModel);
-        if (repoId == null || ModelSourceRoutingPolicy.isRemoteProvider(providerId) || isMcpProvider()) {
-            return null;
-        }
-
-        Optional<LocalModelIndex.Entry> existing = findLocalIndexEntry(repoId, preferredFormat);
-        if (existing.isPresent() && !modelRepositoryOptions.force()) {
-            return existing.get();
-        }
-
-        if (modelRepositoryOptions.offline()) {
-            System.err.println("Error: Model " + repoId
-                    + " is not installed locally, and --offline/--local disables automatic downloads.");
-            System.err.println("Run once online: aqli pull " + repoId);
-            return null;
-        }
-        String branch = modelRepositoryOptions.branch();
-        String revision = branch == null || branch.isBlank() ? "main" : branch.trim();
-        if (!ttsVoicesJsonOutput()) {
-            System.out.println("Model not found locally; pulling hf:" + repoId
-                    + ("main".equalsIgnoreCase(revision) ? "" : "@" + revision) + "...");
-        }
-        sdk.pullHuggingFaceModel(
-                HuggingFacePullRequest.builder()
-                        .modelSpec("hf:" + repoId)
-                        .revision(revision)
-                        .format(preferredFormat)
-                        .force(modelRepositoryOptions.force())
-                        .build(),
+        return HuggingFaceRunRepositoryResolver.resolve(
+                new HuggingFaceRunRepositoryResolver.Options(
+                        requestedModel,
+                        preferredFormat,
+                        providerId,
+                        isMcpProvider(),
+                        modelRepositoryOptions.offline(),
+                        modelRepositoryOptions.force(),
+                        modelRepositoryOptions.branch(),
+                        quietRouteResolutionOutput(),
+                        ttsVoicesJsonOutput()),
+                sdk,
+                this::findLocalIndexEntry,
+                LocalModelIndex::refreshFromDisk,
+                System.out::println,
+                System.err::println,
                 progress -> {
                     if (quietRouteResolutionOutput()) {
                         return;
                     }
                     if (progress.getTotal() > 0) {
-                        System.out.printf("\r  Downloading %s: %3d%% (%d/%d MB)",
-                                repoId,
+                        System.out.printf("\\r  Downloading %s: %3d%% (%d/%d MB)",
+                                ModelSourceResolver.huggingFaceRepositoryId(requestedModel),
                                 progress.getPercentComplete(),
                                 progress.getCompleted() / 1024 / 1024,
                                 progress.getTotal() / 1024 / 1024);
                     } else {
-                        System.out.printf("\r  %s", progress.getStatus());
+                        System.out.printf("\\r  %s", progress.getStatus());
                     }
                     System.out.flush();
                 });
-        if (!quietRouteResolutionOutput()) {
-            System.out.println();
-        }
-        LocalModelIndex.refreshFromDisk();
-
-        Optional<LocalModelIndex.Entry> downloaded = findLocalIndexEntry(repoId, preferredFormat);
-        if (downloaded.isPresent()) {
-            return downloaded.get();
-        }
-        throw new IllegalStateException("download finished, but no local"
-                + (preferredFormat == null ? "" : " " + preferredFormat)
-                + " artifact was indexed for " + repoId);
     }
 
     private Optional<LocalModelIndex.Entry> findLocalIndexEntry(String repoId, String preferredFormat) {
