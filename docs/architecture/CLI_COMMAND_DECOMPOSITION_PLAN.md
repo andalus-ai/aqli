@@ -107,6 +107,8 @@ The command currently builds and renders a large composite report spanning:
 This is a reporting/projection concern, not one cohesive command operation.
 
 ### Target organization
+**Completed first bundle-report slice:** `ModelFamilyBundleReport` now owns the CLI projections for bundle fixture/availability, production safety, catalog readiness, gates, presets, preset conformance, policy status/violations, and aliases. The command continues to load the manifest, collect plugins/registries, and evaluate availability/gate policy through the existing owners. This keeps the extracted class a projection layer rather than a second policy engine.
+
 
 Keep `ExtensionsCommand` as the Picocli adapter. Extract focused report builders that consume existing registries and immutable snapshots:
 
