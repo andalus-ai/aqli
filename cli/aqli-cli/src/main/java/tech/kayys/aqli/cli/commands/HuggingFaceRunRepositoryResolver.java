@@ -88,7 +88,7 @@ final class HuggingFaceRunRepositoryResolver {
         }
         refreshLocalIndex.run();
 
-        Optional<LocalModelIndex.Entry> downloaded = localIndexLookup.apply(repositoryId, null);
+        Optional<LocalModelIndex.Entry> downloaded = localIndexLookup.apply(repositoryId, options.preferredFormat());
         if (downloaded.isPresent()) {
             return downloaded.get();
         }
