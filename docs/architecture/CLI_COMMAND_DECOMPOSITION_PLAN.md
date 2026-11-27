@@ -84,6 +84,10 @@ This is a target grouping, not a requirement to create every file immediately. K
 6. **Rendering last.** Move JSON/table projection out of command classes after service contracts stabilize.
 
 ## 2. ExtensionsCommand (the `modules` command)
+### Extraction progress
+
+**Completed first reporting slice:** `UnifiedRuntimeReadinessReport` now owns the unified-runtime JSON projection (`runtimes`, conflicts, contract violations, and model-family requirement rows). It consumes the registry and compatibility rows supplied by the command; plugin discovery and compatibility/policy evaluation remain with their existing owners. Focused tests cover empty registries and null input normalization. The Picocli command and JSON section keys remain unchanged.
+
 
 Source: `cli/aqli-cli/src/main/java/tech/kayys/aqli/cli/commands/ExtensionsCommand.java`
 
