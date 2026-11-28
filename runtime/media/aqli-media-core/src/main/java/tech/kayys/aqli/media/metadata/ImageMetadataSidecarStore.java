@@ -66,6 +66,7 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
+        requireRegularFile(sidecarPath, "Error: image metadata file not found: ");
         return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
                 () -> verifyUnlocked(sidecarPath, outputOverride));
     }
@@ -101,6 +102,7 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
+        requireRegularFile(sidecarPath, "image metadata file not found: ");
         return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
                 () -> refreshUnlocked(sidecarPath, outputOverride));
     }
