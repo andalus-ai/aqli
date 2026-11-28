@@ -67,12 +67,6 @@ public final class ImageMetadataSidecarStore {
 
     public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "Error: image metadata file not found: ");
-        return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
-                () -> verifyUnlocked(sidecarPath, outputOverride));
-    }
-
-    private static VerificationResult verifyUnlocked(Path sidecarPath, Path outputOverride) throws Exception {
-        requireRegularFile(sidecarPath, "Error: image metadata file not found: ");
         JsonNode root = readObject(sidecarPath, "Error: invalid image metadata file: ");
 
         String expectedSha256 = text(root, "output_sha256");
