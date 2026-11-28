@@ -270,6 +270,25 @@ class MediaMetadataSidecarFilesTest {
     }
 
     @Test
+    void sidecarLockResolvesSymbolicLinkParentToCanonicalLockFile() throws Exception {
+        Path realDirectory = Files.createDirectory(tempDir.resolve("real"));
+        Path aliasDirectory = tempDir.resolve("alias");
+        try {
+            Files.createSymbolicLink(aliasDirectory, realDirectory);
+        } catch (UnsupportedOperationException | SecurityException | IOException unsupported) {
+            org.junit.jupiter.api.Assumptions.abort("symbolic links are unavailable: " + unsupported);
+        }
+
+        Path aliasedSidecar = aliasDirectory.resolve("metadata.json");
+        MediaMetadataSidecarFiles.withSidecarLock(aliasedSidecar, () -> "locked");
+
+        assertTrue(Files.exists(realDirectory.resolve(".metadata.json.lock")),
+                "the lock file should be created under the canonical parent directory");
+        assertFalse(Files.exists(aliasDirectory.resolve(".metadata.json.lock")),
+                "the symlink alias must not create a second lock-file identity");
+    }
+
+    @Test
     void sidecarLockSerializesConcurrentOperationsAndRetainsLockFile() throws Exception {
         Path sidecar = tempDir.resolve("metadata.json");
         CountDownLatch firstEntered = new CountDownLatch(1);
