@@ -24,7 +24,7 @@ class MediaMetadataSidecarFilesTest {
         Files.createDirectories(sidecar.getParent());
         Files.writeString(sidecar, "old-content");
 
-        MediaMetadataSidecarFiles.writeAtomically(sidecar, "{\"schema_version\":1}");
+        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "{\"schema_version\":1}");
 
         assertEquals("{\"schema_version\":1}", Files.readString(sidecar));
         try (Stream<Path> files = Files.list(sidecar.getParent())) {
@@ -38,7 +38,7 @@ class MediaMetadataSidecarFilesTest {
         Files.createDirectory(destinationDirectory);
 
         assertThrows(IOException.class,
-                () -> MediaMetadataSidecarFiles.writeAtomically(destinationDirectory, "content"));
+                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(destinationDirectory, "content"));
 
         assertTrue(Files.isDirectory(destinationDirectory));
         try (Stream<Path> files = Files.list(tempDir)) {
@@ -51,9 +51,9 @@ class MediaMetadataSidecarFilesTest {
         Path sidecar = tempDir.resolve("not-created/metadata.json");
 
         assertThrows(NullPointerException.class,
-                () -> MediaMetadataSidecarFiles.writeAtomically(sidecar, null));
+                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, null));
         assertThrows(NullPointerException.class,
-                () -> MediaMetadataSidecarFiles.writeAtomically(null, "content"));
+                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(null, "content"));
 
         assertFalse(Files.exists(sidecar.getParent()));
     }
@@ -63,7 +63,7 @@ class MediaMetadataSidecarFilesTest {
         Path sidecar = tempDir.resolve("metadata.json");
         String content = "{\"prompt\":\"こんにちは 🌳\"}";
 
-        MediaMetadataSidecarFiles.writeAtomically(sidecar, content);
+        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, content);
 
         assertEquals(content, Files.readString(sidecar));
     }
