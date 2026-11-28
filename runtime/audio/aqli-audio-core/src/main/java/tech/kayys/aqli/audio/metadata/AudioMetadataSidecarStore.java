@@ -64,6 +64,7 @@ public final class AudioMetadataSidecarStore {
     }
 
     public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
+        requireRegularFile(sidecarPath, "audio metadata file not found: ");
         return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
                 () -> verifyUnlocked(sidecarPath, outputOverride));
     }
@@ -97,6 +98,7 @@ public final class AudioMetadataSidecarStore {
     }
 
     public static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
+        requireRegularFile(sidecarPath, "audio metadata file not found: ");
         return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
                 () -> refreshUnlocked(sidecarPath, outputOverride));
     }
