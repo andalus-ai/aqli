@@ -25,7 +25,12 @@ public final class AudioMetadataSidecarStore {
     }
 
     public static WriteResult write(WriteRequest request) throws Exception {
-        MediaMetadataSidecarFiles.createSidecarParentDirectories(request.sidecarPath());
+        Path audioPath = request.audioPath().toAbsolutePath().normalize();
+        Path sidecarPath = request.sidecarPath().toAbsolutePath().normalize();
+        if (audioPath.equals(sidecarPath)) {
+            return new WriteResult(sidecarPath, true);
+        }
+        MediaMetadataSidecarFiles.createSidecarParentDirectories(sidecarPath);
         return MediaMetadataSidecarFiles.withSidecarLock(request.sidecarPath(),
                 () -> writeUnlocked(request));
     }
