@@ -44,7 +44,7 @@ public final class FeatureInstallLockStore {
         try (var input = Files.newInputStream(lockfile)) {
             Map<?, ?> root = MAPPER.readValue(input, Map.class);
             Object raw = root == null ? null
-                    : root.containsKey("extensions") ? root.get("extensions") : root.get("features");
+                    : root.get("extensions") != null ? root.get("extensions") : root.get("features");
             if (!(raw instanceof Map<?, ?> rawEntries)) {
                 return new State(Map.of(),
                         "Extension install lock has no 'extensions' object: " + lockfile);
