@@ -24,6 +24,12 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static WriteResult write(WriteRequest request) throws Exception {
+        MediaMetadataSidecarFiles.createSidecarParentDirectories(request.sidecarPath());
+        return MediaMetadataSidecarFiles.withSidecarLock(request.sidecarPath(),
+                () -> writeUnlocked(request));
+    }
+
+    private static WriteResult writeUnlocked(WriteRequest request) throws Exception {
         Path imagePath = request.imagePath().toAbsolutePath().normalize();
         Path sidecarPath = request.sidecarPath().toAbsolutePath().normalize();
         if (imagePath.equals(sidecarPath)) {
@@ -60,6 +66,11 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
+        return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
+                () -> verifyUnlocked(sidecarPath, outputOverride));
+    }
+
+    private static VerificationResult verifyUnlocked(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "Error: image metadata file not found: ");
         JsonNode root = readObject(sidecarPath, "Error: invalid image metadata file: ");
 
@@ -90,6 +101,11 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
+        return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
+                () -> refreshUnlocked(sidecarPath, outputOverride));
+    }
+
+    private static RefreshResult refreshUnlocked(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "image metadata file not found: ");
         JsonNode rootNode = readObject(sidecarPath, "invalid image metadata file: ");
         ObjectNode root = (ObjectNode) rootNode;
