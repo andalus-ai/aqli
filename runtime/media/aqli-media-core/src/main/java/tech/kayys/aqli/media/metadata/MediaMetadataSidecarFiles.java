@@ -46,6 +46,12 @@ public final class MediaMetadataSidecarFiles {
      * not serialize callers or protect read-modify-write sequences performed before this method is
      * called. Callers that need to prevent lost updates must coordinate the complete transaction.
      *
+     * <p>Each invocation creates its own sibling temporary file, so concurrent invocations do not
+     * share temporary state. When multiple invocations target the same destination, each successful
+     * replacement publishes one complete payload; the last successful move wins. This method does
+     * not serialize callers or protect read-modify-write sequences performed before this method is
+     * called. Callers that need to prevent lost updates must coordinate the complete transaction.
+     *
      * <p>The temporary file contents are forced before replacement. The parent directory is not
      * synchronized, so this method does not promise directory-entry durability across power loss.
      */
