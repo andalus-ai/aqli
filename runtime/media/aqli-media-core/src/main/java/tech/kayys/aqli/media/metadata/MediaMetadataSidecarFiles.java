@@ -20,9 +20,12 @@ public final class MediaMetadataSidecarFiles {
     /**
      * Writes UTF-8 content to a sibling temporary file before replacing the destination.
      * The temporary file is kept on the same filesystem so an atomic move can be attempted.
-     * If atomic moves are unsupported, replacement falls back to a regular move.
+     * If atomic moves are unsupported, replacement falls back to a regular, non-atomic move.
+     *
+     * <p>The temporary file contents are forced before replacement. The parent directory is not
+     * synchronized, so this method does not promise directory-entry durability across power loss.
      */
-    public static void writeAtomically(Path destination, String content) throws IOException {
+    public static void writeWithAtomicMoveFallback(Path destination, String content) throws IOException {
         Objects.requireNonNull(destination, "destination");
         Objects.requireNonNull(content, "content");
 
