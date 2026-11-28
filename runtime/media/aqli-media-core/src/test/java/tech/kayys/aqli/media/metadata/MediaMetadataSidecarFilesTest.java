@@ -6,14 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -273,6 +274,7 @@ class MediaMetadataSidecarFilesTest {
         Path sidecar = tempDir.resolve("metadata.json");
         CountDownLatch firstEntered = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondAttempting = new CountDownLatch(1);
         CountDownLatch secondEntered = new CountDownLatch(1);
         AtomicInteger active = new AtomicInteger();
         AtomicInteger maximum = new AtomicInteger();
@@ -299,6 +301,7 @@ class MediaMetadataSidecarFilesTest {
             assertTrue(firstEntered.await(10, TimeUnit.SECONDS));
             Future<?> second = executor.submit(() -> {
                 try {
+                    secondAttempting.countDown();
                     MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
                         maximum.accumulateAndGet(active.incrementAndGet(), Math::max);
                         secondEntered.countDown();
@@ -309,6 +312,7 @@ class MediaMetadataSidecarFilesTest {
                     throw new RuntimeException(failure);
                 }
             });
+            assertTrue(secondAttempting.await(10, TimeUnit.SECONDS));
             assertEquals(1, secondEntered.getCount(), "second operation must wait for the first lock");
             releaseFirst.countDown();
             first.get(10, TimeUnit.SECONDS);
@@ -347,7 +351,12 @@ class MediaMetadataSidecarFilesTest {
         String helperClass = "tech.kayys.aqli.media.metadata.MediaMetadataSidecarFilesTest$SidecarLockProcess";
         String java = Path.of(System.getProperty("java.home"), "bin",
                 System.getProperty("os.name").toLowerCase().contains("win") ? "java.exe" : "java").toString();
-        String classpath = System.getProperty("java.class.path");
+        String testClasses = Path.of(SidecarLockProcess.class.getProtectionDomain()
+                .getCodeSource().getLocation().toURI()).toString();
+        String productionClasses = Path.of(MediaMetadataSidecarFiles.class.getProtectionDomain()
+                .getCodeSource().getLocation().toURI()).toString();
+        String classpath = String.join(File.pathSeparator,
+                System.getProperty("java.class.path"), testClasses, productionClasses);
 
         Process holder = new ProcessBuilder(java, "-cp", classpath, helperClass,
                 "hold", sidecar.toString(), holderEntered.toString(), releaseHolder.toString())
