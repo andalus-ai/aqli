@@ -362,14 +362,14 @@ class MediaMetadataSidecarFilesTest {
             assertFalse(Files.exists(contenderEntered),
                     "a second JVM must wait while the first JVM holds the sidecar lock");
 
-            Files.createFile(releaseHolder);
+            Files.writeString(releaseHolder, "release");
             assertTrue(holder.waitFor(10, TimeUnit.SECONDS), "holder process should finish");
             assertTrue(contender.waitFor(10, TimeUnit.SECONDS), "contender process should finish");
             assertEquals(0, holder.exitValue());
             assertEquals(0, contender.exitValue());
             assertTrue(Files.exists(contenderEntered));
         } finally {
-            Files.createFile(releaseHolder);
+            Files.writeString(releaseHolder, "release");
             if (holder.isAlive()) {
                 holder.destroyForcibly();
             }
