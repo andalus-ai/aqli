@@ -15,26 +15,40 @@ class FeatureCollisionScannerTest {
                 List.of("example.Pipeline"),
                 List.of("example.Adapter"),
                 List.of("example.ModelFamily"),
-                List.of(new FeatureCollisionScanner.CapabilityClaim(
-                        "shared-feature", "pipeline", "example.Implementation", "shared-provider",
-                        "capabilities[0]:pipeline")));
+                List.of(
+                        new FeatureCollisionScanner.CapabilityClaim(
+                                "shared-feature", "pipeline", "example.Implementation", "shared-provider",
+                                "capabilities[0]:pipeline"),
+                        new FeatureCollisionScanner.CapabilityClaim(
+                                "shared-adapter", "adapter", "example.AdapterImpl", "shared-adapter-provider",
+                                "capabilities[1]:adapter"),
+                        new FeatureCollisionScanner.CapabilityClaim(
+                                "shared-model-family", "model-family", "example.ModelFamilyImpl", "shared-model-provider",
+                                "capabilities[2]:model-family")));
         var second = new FeatureCollisionScanner.JarClaims(
                 "/extensions/b.jar",
                 "shared-extension",
                 List.of("example.Pipeline"),
                 List.of("example.Adapter"),
                 List.of("example.ModelFamily"),
-                List.of(new FeatureCollisionScanner.CapabilityClaim(
-                        "shared-feature", "pipeline", "example.Implementation", "shared-provider",
-                        "capabilities[0]:pipeline")));
+                List.of(
+                        new FeatureCollisionScanner.CapabilityClaim(
+                                "shared-feature", "pipeline", "example.Implementation", "shared-provider",
+                                "capabilities[0]:pipeline"),
+                        new FeatureCollisionScanner.CapabilityClaim(
+                                "shared-adapter", "adapter", "example.AdapterImpl", "shared-adapter-provider",
+                                "capabilities[1]:adapter"),
+                        new FeatureCollisionScanner.CapabilityClaim(
+                                "shared-model-family", "model-family", "example.ModelFamilyImpl", "shared-model-provider",
+                                "capabilities[2]:model-family")));
 
         var report = FeatureCollisionScanner.scan(
                 List.of(first, second), "pipeline-service", "adapter-service", "model-family-service");
 
         assertEquals(
                 List.of("adapter_id", "adapter_provider_class", "extension_id", "feature_id",
-                        "implementation_class", "model_family_provider_class", "pipeline_id",
-                        "provider_class", "provider_id"),
+                        "implementation_class", "model_family_id", "model_family_provider_class",
+                        "pipeline_id", "provider_class", "provider_id"),
                 report.items().stream().map(FeatureCollisionScanner.Item::kind).toList());
         assertEquals("warning", report.toMap().get("status"));
     }
