@@ -32,11 +32,6 @@ public final class AudioMetadataSidecarStore {
             return new WriteResult(sidecarPath, true);
         }
 
-        Path parent = sidecarPath.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
-
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "aqli_audio_metadata");
         payload.put("schema_version", 2);
