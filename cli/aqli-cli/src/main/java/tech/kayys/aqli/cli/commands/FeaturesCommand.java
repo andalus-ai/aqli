@@ -11,6 +11,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.commands.features.packaging.ExtensionPackageReader;
+import tech.kayys.aqli.cli.commands.features.diagnostics.FeatureCollisionScanner;
 import tech.kayys.aqli.cli.commands.features.install.FeatureInstallLockStore;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldKindCatalog;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator;
@@ -2049,111 +2050,27 @@ public class FeaturesCommand implements Runnable {
         }
     }
 
-    private static FeatureCollisionReport detectFeatureCollisions(List<FeatureJarReport> jars) {
-        Map<String, List<FeatureCollisionClaim>> extensionIds = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> featureIds = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> pipelineIds = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> adapterIds = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> modelFamilyIds = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> providerClasses = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> adapterProviderClasses = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> modelFamilyProviderClasses = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> implementationClasses = new LinkedHashMap<>();
-        Map<String, List<FeatureCollisionClaim>> providerIds = new LinkedHashMap<>();
-
+    private static FeatureCollisionScanner.Report detectFeatureCollisions(List<FeatureJarReport> jars) {
+        List<FeatureCollisionScanner.JarClaims> inputs = new ArrayList<>();
         for (FeatureJarReport jar : jars == null ? List.<FeatureJarReport>of() : jars) {
-            if (jar == null || jar.error() != null && !jar.error().isBlank()) {
-                continue;
-            }
-            String path = jar.path();
+            if (jar == null || jar.error() != null && !jar.error().isBlank()) continue;
             Map<String, Object> manifest = jar.manifest();
-            addCollisionClaim(extensionIds, manifestValue(manifest, "id"), path, "manifest.id");
-            for (String provider : jar.providers()) {
-                addCollisionClaim(providerClasses, provider, path, SERVICE_ENTRY);
-            }
-            for (String provider : jar.adapterProviders()) {
-                addCollisionClaim(adapterProviderClasses, provider, path, ADAPTER_SERVICE_ENTRY);
-            }
-            for (String provider : jar.modelFamilyProviders()) {
-                addCollisionClaim(modelFamilyProviderClasses, provider, path, MODEL_FAMILY_SERVICE_ENTRY);
-            }
+            List<FeatureCollisionScanner.CapabilityClaim> capabilities = new ArrayList<>();
             int index = 0;
             for (Map<String, Object> capability : manifestCapabilities(manifest)) {
                 String source = firstNonBlank(manifestValue(capability, "_manifest_source"), "capabilities");
                 String kind = manifestCapabilityKind(capability);
-                String id = manifestValue(capability, "id");
                 String claimSource = source + "[" + index + "]" + (kind.isBlank() ? "" : ":" + kind);
-                addCollisionClaim(featureIds, id, path, claimSource);
-                if (FeatureAdapterKinds.PIPELINE.equals(kind)) {
-                    addCollisionClaim(pipelineIds, id, path, claimSource);
-                } else if (FeatureAdapterKinds.ADAPTER.equals(kind)) {
-                    addCollisionClaim(adapterIds, id, path, claimSource);
-                } else if (MODEL_FAMILY_KIND.equals(kind)) {
-                    addCollisionClaim(modelFamilyIds, id, path, claimSource);
-                }
-                addCollisionClaim(implementationClasses, manifestValue(capability, "class"), path, claimSource + ".class");
-                addCollisionClaim(providerIds, manifestValue(capability, "provider"), path, claimSource + ".provider");
+                capabilities.add(new FeatureCollisionScanner.CapabilityClaim(
+                        manifestValue(capability, "id"), kind,
+                        manifestValue(capability, "class"), manifestValue(capability, "provider"), claimSource));
                 index++;
             }
+            inputs.add(new FeatureCollisionScanner.JarClaims(
+                    jar.path(), manifestValue(manifest, "id"), jar.providers(),
+                    jar.adapterProviders(), jar.modelFamilyProviders(), capabilities));
         }
-
-        List<FeatureCollisionItem> items = new ArrayList<>();
-        items.addAll(collisionItems("extension_id", extensionIds));
-        items.addAll(collisionItems("feature_id", featureIds));
-        items.addAll(collisionItems("pipeline_id", pipelineIds));
-        items.addAll(collisionItems("adapter_id", adapterIds));
-        items.addAll(collisionItems("model_family_id", modelFamilyIds));
-        items.addAll(collisionItems("provider_class", providerClasses));
-        items.addAll(collisionItems("adapter_provider_class", adapterProviderClasses));
-        items.addAll(collisionItems("model_family_provider_class", modelFamilyProviderClasses));
-        items.addAll(collisionItems("implementation_class", implementationClasses));
-        items.addAll(collisionItems("provider_id", providerIds));
-        items.sort((left, right) -> {
-            int kind = left.kind().compareTo(right.kind());
-            return kind != 0 ? kind : left.value().compareTo(right.value());
-        });
-        return new FeatureCollisionReport(List.copyOf(items));
-    }
-
-    private static void addCollisionClaim(
-            Map<String, List<FeatureCollisionClaim>> target,
-            String value,
-            String path,
-            String source) {
-        if (value == null || value.isBlank()) {
-            return;
-        }
-        String key = value.trim();
-        FeatureCollisionClaim claim = new FeatureCollisionClaim(
-                path == null ? "" : path,
-                source == null || source.isBlank() ? "unknown" : source);
-        List<FeatureCollisionClaim> claims = target.computeIfAbsent(key, ignored -> new ArrayList<>());
-        boolean exists = false;
-        for (FeatureCollisionClaim existing : claims) {
-            if (existing.path().equals(claim.path()) && existing.source().equals(claim.source())) {
-                exists = true;
-                break;
-            }
-        }
-        if (!exists) {
-            claims.add(claim);
-        }
-    }
-
-    private static List<FeatureCollisionItem> collisionItems(
-            String kind,
-            Map<String, List<FeatureCollisionClaim>> claimsByValue) {
-        List<FeatureCollisionItem> items = new ArrayList<>();
-        for (Map.Entry<String, List<FeatureCollisionClaim>> entry : claimsByValue.entrySet()) {
-            Set<String> paths = new LinkedHashSet<>();
-            for (FeatureCollisionClaim claim : entry.getValue()) {
-                paths.add(claim.path());
-            }
-            if (paths.size() > 1) {
-                items.add(new FeatureCollisionItem(kind, entry.getKey(), List.copyOf(entry.getValue())));
-            }
-        }
-        return items;
+        return FeatureCollisionScanner.scan(inputs, SERVICE_ENTRY, ADAPTER_SERVICE_ENTRY, MODEL_FAMILY_SERVICE_ENTRY);
     }
 
     private static FeatureRepairReport repairInstallLocks(List<Path> roots, boolean dryRun) {
@@ -4843,12 +4760,12 @@ public class FeaturesCommand implements Runnable {
                 System.out.printf("  %-9s %s%n", kind, root.path());
             }
         }
-        FeatureCollisionReport collisions = report.collisionReport();
+        FeatureCollisionScanner.Report collisions = report.collisionReport();
         if (!collisions.items().isEmpty()) {
             System.out.println("Collisions:");
-            for (FeatureCollisionItem collision : collisions.items()) {
+            for (FeatureCollisionScanner.Item collision : collisions.items()) {
                 System.out.printf("  warning   %-22s %s%n", collision.kind(), collision.value());
-                for (FeatureCollisionClaim claim : collision.claims()) {
+                for (FeatureCollisionScanner.Claim claim : collision.claims()) {
                     System.out.printf("    %s (%s)%n", claim.path(), claim.source());
                 }
             }
@@ -6121,7 +6038,7 @@ public class FeaturesCommand implements Runnable {
                     tokenizerLockStale);
         }
 
-        private FeatureCollisionReport collisionReport() {
+        private FeatureCollisionScanner.Report collisionReport() {
             return detectFeatureCollisions(jars);
         }
     }
@@ -6828,42 +6745,6 @@ public class FeaturesCommand implements Runnable {
             if (message != null && !message.isBlank()) {
                 value.put("message", message);
             }
-            return value;
-        }
-    }
-
-    private record FeatureCollisionReport(
-            List<FeatureCollisionItem> items) {
-        Map<String, Object> toMap() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("count", items.size());
-            value.put("status", items.isEmpty() ? "ok" : "warning");
-            value.put("items", items.stream().map(FeatureCollisionItem::toMap).toList());
-            return value;
-        }
-    }
-
-    private record FeatureCollisionItem(
-            String kind,
-            String value,
-            List<FeatureCollisionClaim> claims) {
-        Map<String, Object> toMap() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("kind", kind);
-            value.put("value", value());
-            value.put("severity", "warning");
-            value.put("claims", claims.stream().map(FeatureCollisionClaim::toMap).toList());
-            return value;
-        }
-    }
-
-    private record FeatureCollisionClaim(
-            String path,
-            String source) {
-        Map<String, Object> toMap() {
-            Map<String, Object> value = new LinkedHashMap<>();
-            value.put("path", path);
-            value.put("source", source);
             return value;
         }
     }
