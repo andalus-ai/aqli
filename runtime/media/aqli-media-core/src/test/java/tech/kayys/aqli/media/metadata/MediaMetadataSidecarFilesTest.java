@@ -11,6 +11,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class MediaMetadataSidecarFilesTest {
         AtomicInteger atomicAttempts = new AtomicInteger();
         AtomicInteger replacementAttempts = new AtomicInteger();
 
-        MediaMetadataSidecarFiles.MoveStrategy moveStrategy = new MediaMetadataSidecarFiles.MoveStrategy() {
+        MediaMetadataSidecarFiles.FileOperations fileOperations = new MediaMetadataSidecarFiles.FileOperations() {
             @Override
             public void atomicMove(Path source, Path target) throws IOException {
                 atomicAttempts.incrementAndGet();
@@ -54,9 +55,14 @@ class MediaMetadataSidecarFilesTest {
                 replacementAttempts.incrementAndGet();
                 Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
+
+            @Override
+            public void deleteTemporary(Path temporary) throws IOException {
+                Files.deleteIfExists(temporary);
+            }
         };
 
-        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", moveStrategy);
+        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", fileOperations);
 
         assertEquals(1, atomicAttempts.get());
         assertEquals(1, replacementAttempts.get());
@@ -73,7 +79,7 @@ class MediaMetadataSidecarFilesTest {
         IOException fallbackFailure = new IOException("forced replacement failure");
         AtomicInteger replacementAttempts = new AtomicInteger();
 
-        MediaMetadataSidecarFiles.MoveStrategy moveStrategy = new MediaMetadataSidecarFiles.MoveStrategy() {
+        MediaMetadataSidecarFiles.FileOperations fileOperations = new MediaMetadataSidecarFiles.FileOperations() {
             @Override
             public void atomicMove(Path source, Path target) throws IOException {
                 throw new AtomicMoveNotSupportedException(source.toString(), target.toString(), "forced by test");
@@ -84,10 +90,15 @@ class MediaMetadataSidecarFilesTest {
                 replacementAttempts.incrementAndGet();
                 throw fallbackFailure;
             }
+
+            @Override
+            public void deleteTemporary(Path temporary) throws IOException {
+                Files.deleteIfExists(temporary);
+            }
         };
 
         IOException thrown = assertThrows(IOException.class,
-                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", moveStrategy));
+                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", fileOperations));
 
         assertSame(fallbackFailure, thrown);
         assertEquals(1, replacementAttempts.get());
@@ -95,6 +106,43 @@ class MediaMetadataSidecarFilesTest {
         try (Stream<Path> files = Files.list(tempDir)) {
             assertEquals(1, files.count(), "failed write should not leave a temporary file");
         }
+    }
+
+    @Test
+    void retainsWriteFailureAndSuppressesTemporaryCleanupFailure() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(sidecar, "old-content");
+        IOException writeFailure = new IOException("forced replacement failure");
+        IOException cleanupFailure = new IOException("forced temporary cleanup failure");
+        AtomicReference<Path> temporaryPath = new AtomicReference<>();
+
+        MediaMetadataSidecarFiles.FileOperations fileOperations = new MediaMetadataSidecarFiles.FileOperations() {
+            @Override
+            public void atomicMove(Path source, Path target) throws IOException {
+                temporaryPath.set(source);
+                throw new AtomicMoveNotSupportedException(source.toString(), target.toString(), "forced by test");
+            }
+
+            @Override
+            public void replace(Path source, Path target) throws IOException {
+                throw writeFailure;
+            }
+
+            @Override
+            public void deleteTemporary(Path temporary) throws IOException {
+                throw cleanupFailure;
+            }
+        };
+
+        IOException thrown = assertThrows(IOException.class,
+                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", fileOperations));
+
+        assertSame(writeFailure, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(cleanupFailure, thrown.getSuppressed()[0]);
+        assertEquals("old-content", Files.readString(sidecar));
+        assertTrue(Files.exists(temporaryPath.get()), "failed cleanup should leave the temp file for diagnosis");
+        Files.deleteIfExists(temporaryPath.get());
     }
 
     @Test
