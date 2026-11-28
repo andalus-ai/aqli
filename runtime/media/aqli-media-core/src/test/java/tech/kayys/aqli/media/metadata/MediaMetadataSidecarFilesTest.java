@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -60,9 +61,7 @@ class MediaMetadataSidecarFilesTest {
             @Override
             public void replace(Path source, Path target) throws IOException {
                 replacementAttempts.incrementAndGet();
-                synchronized (replacementLock) {
-                    Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                }
+                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
             @Override
@@ -257,6 +256,68 @@ class MediaMetadataSidecarFilesTest {
         } catch (IOException failure) {
             throw new RuntimeException(failure);
         }
+    }
+
+    @Test
+    void sidecarLockSerializesConcurrentOperationsAndRetainsLockFile() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        CountDownLatch firstEntered = new CountDownLatch(1);
+        CountDownLatch secondAttempting = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondEntered = new CountDownLatch(1);
+        AtomicInteger activeOperations = new AtomicInteger();
+        AtomicInteger maximumConcurrentOperations = new AtomicInteger();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> {
+                try {
+                    MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                        int active = activeOperations.incrementAndGet();
+                        maximumConcurrentOperations.accumulateAndGet(active, Math::max);
+                        firstEntered.countDown();
+                        try {
+                            if (!releaseFirst.await(10, TimeUnit.SECONDS)) {
+                                throw new IOException("timed out waiting to release first sidecar operation");
+                            }
+                        } finally {
+                            activeOperations.decrementAndGet();
+                        }
+                        return null;
+                    });
+                } catch (Exception failure) {
+                    throw new RuntimeException(failure);
+                }
+            });
+
+            assertTrue(firstEntered.await(10, TimeUnit.SECONDS), "first operation should acquire the lock");
+            Future<?> second = executor.submit(() -> {
+                secondAttempting.countDown();
+                try {
+                    MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                        int active = activeOperations.incrementAndGet();
+                        maximumConcurrentOperations.accumulateAndGet(active, Math::max);
+                        secondEntered.countDown();
+                        activeOperations.decrementAndGet();
+                        return null;
+                    });
+                } catch (Exception failure) {
+                    throw new RuntimeException(failure);
+                }
+            });
+
+            assertTrue(secondAttempting.await(10, TimeUnit.SECONDS));
+            assertEquals(1, secondEntered.getCount(), "second operation must wait while first holds the lock");
+            releaseFirst.countDown();
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdownNow();
+        }
+
+        assertEquals(1, maximumConcurrentOperations.get(), "operations for one sidecar must not overlap");
+        assertTrue(Files.exists(tempDir.resolve(".metadata.json.lock")),
+                "stable lock file must remain to preserve cross-process coordination");
     }
 
     @Test
