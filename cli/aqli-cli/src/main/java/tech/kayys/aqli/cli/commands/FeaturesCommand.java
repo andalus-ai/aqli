@@ -11,6 +11,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.commands.features.packaging.ExtensionPackageReader;
+import tech.kayys.aqli.cli.commands.features.install.FeatureInstallLockStore;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldKindCatalog;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator.ScaffoldDefinition;
