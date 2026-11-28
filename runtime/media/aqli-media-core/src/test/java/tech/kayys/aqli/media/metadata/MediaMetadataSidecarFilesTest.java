@@ -60,7 +60,9 @@ class MediaMetadataSidecarFilesTest {
             @Override
             public void replace(Path source, Path target) throws IOException {
                 replacementAttempts.incrementAndGet();
-                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                synchronized (replacementLock) {
+                    Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
             }
 
             @Override
@@ -187,6 +189,7 @@ class MediaMetadataSidecarFilesTest {
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch bothWritersReady = new CountDownLatch(2);
         Set<Path> temporaryPaths = ConcurrentHashMap.newKeySet();
+        Object replacementLock = new Object();
 
         MediaMetadataSidecarFiles.FileOperations fileOperations = new MediaMetadataSidecarFiles.FileOperations() {
             @Override
@@ -201,8 +204,10 @@ class MediaMetadataSidecarFilesTest {
                     Thread.currentThread().interrupt();
                     throw new IOException("interrupted while coordinating concurrent sidecar writes", interrupted);
                 }
-                Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                synchronized (replacementLock) {
+                    Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
             }
 
             @Override
