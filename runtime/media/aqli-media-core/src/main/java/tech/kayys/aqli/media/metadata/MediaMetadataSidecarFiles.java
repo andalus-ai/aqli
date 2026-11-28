@@ -14,7 +14,7 @@ import java.util.Objects;
 /** Shared filesystem operations for media metadata sidecar persistence. */
 public final class MediaMetadataSidecarFiles {
 
-    private static final MoveStrategy FILE_SYSTEM_MOVE = new MoveStrategy() {
+    private static final FileOperations FILE_OPERATIONS = new FileOperations() {
         @Override
         public void atomicMove(Path source, Path target) throws IOException {
             Files.move(source, target,
@@ -24,6 +24,11 @@ public final class MediaMetadataSidecarFiles {
         @Override
         public void replace(Path source, Path target) throws IOException {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        @Override
+        public void deleteTemporary(Path temporary) throws IOException {
+            Files.deleteIfExists(temporary);
         }
     };
 
@@ -39,14 +44,14 @@ public final class MediaMetadataSidecarFiles {
      * synchronized, so this method does not promise directory-entry durability across power loss.
      */
     public static void writeWithAtomicMoveFallback(Path destination, String content) throws IOException {
-        writeWithAtomicMoveFallback(destination, content, FILE_SYSTEM_MOVE);
+        writeWithAtomicMoveFallback(destination, content, FILE_OPERATIONS);
     }
 
-    static void writeWithAtomicMoveFallback(Path destination, String content, MoveStrategy moveStrategy)
+    static void writeWithAtomicMoveFallback(Path destination, String content, FileOperations fileOperations)
             throws IOException {
         Objects.requireNonNull(destination, "destination");
         Objects.requireNonNull(content, "content");
-        Objects.requireNonNull(moveStrategy, "moveStrategy");
+        Objects.requireNonNull(fileOperations, "fileOperations");
 
         Path target = destination.toAbsolutePath().normalize();
         Path parent = target.getParent();
@@ -67,13 +72,13 @@ public final class MediaMetadataSidecarFiles {
                 channel.force(true);
             }
             try {
-                moveStrategy.atomicMove(temporary, target);
+                fileOperations.atomicMove(temporary, target);
             } catch (AtomicMoveNotSupportedException unsupported) {
-                moveStrategy.replace(temporary, target);
+                fileOperations.replace(temporary, target);
             }
         } catch (IOException | RuntimeException | Error failure) {
             try {
-                Files.deleteIfExists(temporary);
+                fileOperations.deleteTemporary(temporary);
             } catch (IOException cleanupFailure) {
                 failure.addSuppressed(cleanupFailure);
             }
@@ -81,9 +86,11 @@ public final class MediaMetadataSidecarFiles {
         }
     }
 
-    interface MoveStrategy {
+    interface FileOperations {
         void atomicMove(Path source, Path target) throws IOException;
 
         void replace(Path source, Path target) throws IOException;
+
+        void deleteTemporary(Path temporary) throws IOException;
     }
 }
