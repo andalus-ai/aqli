@@ -71,6 +71,7 @@ class ImageMetadataSidecarStoreTest {
         assertTrue(result.skippedBecausePathsMatch());
         assertEquals(image.toAbsolutePath().normalize(), result.sidecarPath());
         assertEquals("image-bytes", Files.readString(image));
+        assertFalse(Files.exists(tempDir.resolve(".generated.png.lock")));
     }
 
     @Test
