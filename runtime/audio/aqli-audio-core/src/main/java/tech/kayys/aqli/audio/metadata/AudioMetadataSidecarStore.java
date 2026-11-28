@@ -16,6 +16,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 /**
  * Reads and writes audio metadata sidecars and validates their referenced output artifacts.
  * CLI option interpretation and presentation remain in the command layer.
+ *
+ * <p>Operations replace complete sidecar documents. A refresh reads the existing document,
+ * updates integrity fields, and then writes the replacement; concurrent refreshes or writes to
+ * the same sidecar are not serialized and may overwrite one another. Callers that require
+ * read-modify-write isolation must coordinate the complete store operation, not only the final
+ * filesystem replacement.
  */
 public final class AudioMetadataSidecarStore {
 
