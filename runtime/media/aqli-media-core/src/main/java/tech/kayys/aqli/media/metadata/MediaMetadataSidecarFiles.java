@@ -3,16 +3,25 @@ package tech.kayys.aqli.media.metadata;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** Shared filesystem operations for media metadata sidecar persistence. */
 public final class MediaMetadataSidecarFiles {
+
+    private static final ReentrantLock[] SIDE_CAR_LOCKS = new ReentrantLock[64];
+
+    static {
+        Arrays.setAll(SIDE_CAR_LOCKS, ignored -> new ReentrantLock());
+    }
 
     private static final FileOperations FILE_OPERATIONS = new FileOperations() {
         @Override
@@ -51,6 +60,48 @@ public final class MediaMetadataSidecarFiles {
      */
     public static void writeWithAtomicMoveFallback(Path destination, String content) throws IOException {
         writeWithAtomicMoveFallback(destination, content, FILE_OPERATIONS);
+    }
+
+    /**
+     * Runs a complete sidecar operation while holding both a JVM-local and an operating-system
+     * file lock for the normalized destination path.
+     *
+     * <p>The lock file is a hidden sibling named {@code .<sidecar-name>.lock} and is intentionally
+     * retained after the operation. Deleting lock files can split concurrent processes across
+     * different inodes and invalidate mutual exclusion. Filesystem providers must support
+     * {@link FileChannel#lock()} for cross-process coordination; network filesystems may have
+     * provider-specific locking semantics.
+     *
+     * <p>The JVM-local lock prevents {@link java.nio.channels.OverlappingFileLockException} when
+     * multiple threads in this process contend for the same lock file. A fixed set of lock stripes
+     * bounds retained in-memory state; unrelated paths may occasionally share a stripe.
+     */
+    public static <T> T withSidecarLock(Path destination, SidecarOperation<T> operation) throws Exception {
+        Objects.requireNonNull(destination, "destination");
+        Objects.requireNonNull(operation, "operation");
+
+        Path target = destination.toAbsolutePath().normalize();
+        Path parent = target.getParent();
+        if (parent == null || target.getFileName() == null) {
+            throw new IOException("sidecar destination must be a file path: " + destination);
+        }
+
+        Files.createDirectories(parent);
+        Path lockPath = parent.resolve("." + target.getFileName() + ".lock");
+        ReentrantLock processLock = SIDE_CAR_LOCKS[Math.floorMod(target.hashCode(), SIDE_CAR_LOCKS.length)];
+        processLock.lock();
+        try (FileChannel channel = FileChannel.open(lockPath,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             FileLock ignored = channel.lock()) {
+            return operation.execute();
+        } finally {
+            processLock.unlock();
+        }
+    }
+
+    @FunctionalInterface
+    public interface SidecarOperation<T> {
+        T execute() throws Exception;
     }
 
     static void writeWithAtomicMoveFallback(Path destination, String content, FileOperations fileOperations)
