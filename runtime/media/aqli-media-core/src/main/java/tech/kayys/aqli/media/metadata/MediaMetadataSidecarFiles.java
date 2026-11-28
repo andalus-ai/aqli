@@ -9,8 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.Objects;
 
-/** Shared filesystem operations for durable media metadata sidecar persistence. */
+/** Shared filesystem operations for media metadata sidecar persistence. */
 public final class MediaMetadataSidecarFiles {
 
     private MediaMetadataSidecarFiles() {
@@ -22,6 +23,9 @@ public final class MediaMetadataSidecarFiles {
      * If atomic moves are unsupported, replacement falls back to a regular move.
      */
     public static void writeAtomically(Path destination, String content) throws IOException {
+        Objects.requireNonNull(destination, "destination");
+        Objects.requireNonNull(content, "content");
+
         Path target = destination.toAbsolutePath().normalize();
         Path parent = target.getParent();
         if (parent == null || target.getFileName() == null) {
