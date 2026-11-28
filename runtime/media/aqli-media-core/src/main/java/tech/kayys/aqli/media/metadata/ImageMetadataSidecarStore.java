@@ -54,7 +54,7 @@ public final class ImageMetadataSidecarStore {
         payload.put("metadata", request.metadata() == null ? Map.of()
                 : new LinkedHashMap<>(request.metadata()));
 
-        MediaMetadataSidecarFiles.writeAtomically(sidecarPath,
+        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecarPath,
                 MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
         return new WriteResult(sidecarPath, false);
     }
@@ -106,7 +106,7 @@ public final class ImageMetadataSidecarStore {
         root.put("output_size_bytes", sizeBytes);
         root.put("output_sha256", sha256);
 
-        MediaMetadataSidecarFiles.writeAtomically(sidecarPath,
+        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecarPath,
                 MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root));
         return new RefreshResult(sidecarPath.toAbsolutePath().normalize(),
                 imagePath.toAbsolutePath().normalize(), sizeBytes, sha256);
