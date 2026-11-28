@@ -3,14 +3,15 @@ package tech.kayys.aqli.media.metadata;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.Objects;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
 /** Shared filesystem operations for media metadata sidecar persistence. */
