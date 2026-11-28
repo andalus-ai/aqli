@@ -12,6 +12,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -53,7 +60,9 @@ class MediaMetadataSidecarFilesTest {
             @Override
             public void replace(Path source, Path target) throws IOException {
                 replacementAttempts.incrementAndGet();
-                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                synchronized (replacementLock) {
+                    Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
             }
 
             @Override
@@ -169,6 +178,85 @@ class MediaMetadataSidecarFilesTest {
                 () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(null, "content"));
 
         assertFalse(Files.exists(sidecar.getParent()));
+    }
+
+
+    @Test
+    void concurrentWritesUseIndependentTemporaryFilesAndPublishCompletePayloads() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        String firstContent = "first-" + "a".repeat(32_768);
+        String secondContent = "second-" + "b".repeat(32_768);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch bothWritersReady = new CountDownLatch(2);
+        Set<Path> temporaryPaths = ConcurrentHashMap.newKeySet();
+        Object replacementLock = new Object();
+
+        MediaMetadataSidecarFiles.FileOperations fileOperations = new MediaMetadataSidecarFiles.FileOperations() {
+            @Override
+            public void atomicMove(Path source, Path target) throws IOException {
+                temporaryPaths.add(source.toAbsolutePath().normalize());
+                bothWritersReady.countDown();
+                try {
+                    if (!bothWritersReady.await(10, TimeUnit.SECONDS)) {
+                        throw new IOException("concurrent writers did not both reach replacement");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("interrupted while coordinating concurrent sidecar writes", interrupted);
+                }
+                synchronized (replacementLock) {
+                    Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+
+            @Override
+            public void replace(Path source, Path target) throws IOException {
+                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            @Override
+            public void deleteTemporary(Path temporary) throws IOException {
+                Files.deleteIfExists(temporary);
+            }
+        };
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> writeAfterStart(start, sidecar, firstContent, fileOperations));
+            Future<?> second = executor.submit(() -> writeAfterStart(start, sidecar, secondContent, fileOperations));
+            start.countDown();
+            first.get(15, TimeUnit.SECONDS);
+            second.get(15, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(2, temporaryPaths.size(), "each invocation should own a distinct temporary file");
+        String published = Files.readString(sidecar);
+        assertTrue(published.equals(firstContent) || published.equals(secondContent),
+                "the destination must contain one complete writer payload");
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertEquals(1, files.count(), "successful concurrent writes should leave no temporary files");
+        }
+    }
+
+    private static void writeAfterStart(
+            CountDownLatch start,
+            Path sidecar,
+            String content,
+            MediaMetadataSidecarFiles.FileOperations fileOperations) {
+        try {
+            if (!start.await(10, TimeUnit.SECONDS)) {
+                throw new IOException("concurrent sidecar write was not released");
+            }
+            MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, content, fileOperations);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("interrupted before concurrent sidecar write", interrupted);
+        } catch (IOException failure) {
+            throw new RuntimeException(failure);
+        }
     }
 
     @Test
