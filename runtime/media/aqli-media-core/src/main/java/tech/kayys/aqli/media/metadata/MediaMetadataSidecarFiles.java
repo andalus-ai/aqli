@@ -10,9 +10,17 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
+import java.util.Arrays;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** Shared filesystem operations for media metadata sidecar persistence. */
 public final class MediaMetadataSidecarFiles {
+
+    private static final ReentrantLock[] SIDE_CAR_LOCKS = new ReentrantLock[64];
+
+    static {
+        Arrays.setAll(SIDE_CAR_LOCKS, ignored -> new ReentrantLock());
+    }
 
     private static final FileOperations FILE_OPERATIONS = new FileOperations() {
         @Override
@@ -51,6 +59,54 @@ public final class MediaMetadataSidecarFiles {
      */
     public static void writeWithAtomicMoveFallback(Path destination, String content) throws IOException {
         writeWithAtomicMoveFallback(destination, content, FILE_OPERATIONS);
+    }
+
+    /**
+     * Creates the destination's parent directories for a sidecar write.
+     * Read-only operations must not call this method.
+     */
+    public static void createSidecarParentDirectories(Path destination) throws IOException {
+        Objects.requireNonNull(destination, "destination");
+        Path target = destination.toAbsolutePath().normalize();
+        Path parent = target.getParent();
+        if (parent == null || target.getFileName() == null) {
+            throw new IOException("sidecar destination must be a file path: " + destination);
+        }
+        Files.createDirectories(parent);
+    }
+
+    /**
+     * Runs a complete sidecar operation under a JVM-local and operating-system file lock.
+     * The hidden sibling lock file is intentionally retained: deleting it can split concurrent
+     * processes across different inodes. Network filesystems may provide different lock semantics.
+     */
+    public static <T> T withSidecarLock(Path destination, SidecarOperation<T> operation) throws Exception {
+        Objects.requireNonNull(destination, "destination");
+        Objects.requireNonNull(operation, "operation");
+        Path target = destination.toAbsolutePath().normalize();
+        Path parent = target.getParent();
+        if (parent == null || target.getFileName() == null) {
+            throw new IOException("sidecar destination must be a file path: " + destination);
+        }
+        if (!Files.isDirectory(parent)) {
+            throw new IOException("sidecar parent directory does not exist: " + parent);
+        }
+
+        Path lockPath = parent.resolve("." + target.getFileName() + ".lock");
+        ReentrantLock processLock = SIDE_CAR_LOCKS[Math.floorMod(target.hashCode(), SIDE_CAR_LOCKS.length)];
+        processLock.lock();
+        try (FileChannel channel = FileChannel.open(lockPath,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             FileLock ignored = channel.lock()) {
+            return operation.execute();
+        } finally {
+            processLock.unlock();
+        }
+    }
+
+    @FunctionalInterface
+    public interface SidecarOperation<T> {
+        T execute() throws Exception;
     }
 
     static void writeWithAtomicMoveFallback(Path destination, String content, FileOperations fileOperations)
