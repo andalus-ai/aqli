@@ -90,6 +90,30 @@ class ImageMetadataSidecarStoreTest {
     }
 
     @Test
+    void verifiesOutputIntegrityWithoutCreatingALockFile() throws Exception {
+        Path image = tempDir.resolve("generated.png");
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(image, "image-bytes");
+        Files.writeString(sidecar, """
+                {
+                  "type": "aqli_image_metadata",
+                  "output_path": "generated.png",
+                  "output_size_bytes": 11,
+                  "output_sha256": "%s"
+                }
+                """.formatted(MediaFileIntegrity.sha256Hex(image)));
+
+        ImageMetadataSidecarStore.VerificationResult result =
+                ImageMetadataSidecarStore.verify(sidecar, null);
+
+        assertEquals(image.toAbsolutePath().normalize(), result.imagePath());
+        assertEquals(Files.size(image), result.sizeBytes());
+        assertEquals(MediaFileIntegrity.sha256Hex(image), result.sha256());
+        assertFalse(Files.exists(tempDir.resolve(".metadata.json.lock")),
+                "read-only verification must not create a lock file");
+    }
+
+    @Test
     void preservesExistingMetadataWhenRefreshingIntegrityFields() throws Exception {
         Path image = tempDir.resolve("generated.png");
         Path sidecar = tempDir.resolve("metadata.json");
