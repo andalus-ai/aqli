@@ -343,6 +343,7 @@ class MediaMetadataSidecarFilesTest {
         Path holderEntered = tempDir.resolve("holder-entered");
         Path releaseHolder = tempDir.resolve("release-holder");
         Path contenderEntered = tempDir.resolve("contender-entered");
+        Path contenderAttempting = tempDir.resolve("contender-attempting");
         String helperClass = "tech.kayys.aqli.media.metadata.MediaMetadataSidecarFilesTest$SidecarLockProcess";
         String java = Path.of(System.getProperty("java.home"), "bin",
                 System.getProperty("os.name").toLowerCase().contains("win") ? "java.exe" : "java").toString();
@@ -355,10 +356,11 @@ class MediaMetadataSidecarFilesTest {
         try {
             awaitFile(holderEntered, holder, "holder process should acquire the sidecar lock");
             contender = new ProcessBuilder(java, "-cp", classpath, helperClass,
-                    "contend", sidecar.toString(), contenderEntered.toString(), "-")
+                    "contend", sidecar.toString(), contenderEntered.toString(), "-", contenderAttempting.toString())
                     .redirectErrorStream(true).start();
 
-            Thread.sleep(300);
+            awaitFile(contenderAttempting, contender, "contender process should attempt the lock");
+            Thread.sleep(150);
             assertFalse(Files.exists(contenderEntered),
                     "a second JVM must wait while the first JVM holds the sidecar lock");
 
@@ -395,6 +397,9 @@ class MediaMetadataSidecarFilesTest {
             Path sidecar = Path.of(args[1]);
             Path entered = Path.of(args[2]);
             Path release = Path.of(args[3]);
+            if ("contend".equals(args[0])) {
+                Files.createFile(Path.of(args[4]));
+            }
             MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
                 Files.createFile(entered);
                 if ("hold".equals(args[0])) {
