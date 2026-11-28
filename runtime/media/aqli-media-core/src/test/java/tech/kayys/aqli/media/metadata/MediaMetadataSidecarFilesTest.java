@@ -336,6 +336,81 @@ class MediaMetadataSidecarFilesTest {
                 MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> "completed"));
     }
 
+
+    @Test
+    void sidecarLockSerializesOperationsAcrossProcesses() throws Exception {
+        Path sidecar = tempDir.resolve("cross-process.json");
+        Path holderEntered = tempDir.resolve("holder-entered");
+        Path releaseHolder = tempDir.resolve("release-holder");
+        Path contenderEntered = tempDir.resolve("contender-entered");
+        String helperClass = "tech.kayys.aqli.media.metadata.MediaMetadataSidecarFilesTest$SidecarLockProcess";
+        String java = Path.of(System.getProperty("java.home"), "bin",
+                System.getProperty("os.name").toLowerCase().contains("win") ? "java.exe" : "java").toString();
+        String classpath = System.getProperty("java.class.path");
+
+        Process holder = new ProcessBuilder(java, "-cp", classpath, helperClass,
+                "hold", sidecar.toString(), holderEntered.toString(), releaseHolder.toString())
+                .redirectErrorStream(true).start();
+        Process contender = null;
+        try {
+            awaitFile(holderEntered, holder, "holder process should acquire the sidecar lock");
+            contender = new ProcessBuilder(java, "-cp", classpath, helperClass,
+                    "contend", sidecar.toString(), contenderEntered.toString(), "-")
+                    .redirectErrorStream(true).start();
+
+            Thread.sleep(300);
+            assertFalse(Files.exists(contenderEntered),
+                    "a second JVM must wait while the first JVM holds the sidecar lock");
+
+            Files.createFile(releaseHolder);
+            assertTrue(holder.waitFor(10, TimeUnit.SECONDS), "holder process should finish");
+            assertTrue(contender.waitFor(10, TimeUnit.SECONDS), "contender process should finish");
+            assertEquals(0, holder.exitValue());
+            assertEquals(0, contender.exitValue());
+            assertTrue(Files.exists(contenderEntered));
+        } finally {
+            Files.createFile(releaseHolder);
+            if (holder.isAlive()) {
+                holder.destroyForcibly();
+            }
+            if (contender != null && contender.isAlive()) {
+                contender.destroyForcibly();
+            }
+        }
+    }
+
+    private static void awaitFile(Path marker, Process process, String message) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!Files.exists(marker) && System.nanoTime() < deadline && process.isAlive()) {
+            Thread.sleep(20);
+        }
+        assertTrue(Files.exists(marker), message);
+    }
+
+    public static final class SidecarLockProcess {
+        private SidecarLockProcess() {
+        }
+
+        public static void main(String[] args) throws Exception {
+            Path sidecar = Path.of(args[1]);
+            Path entered = Path.of(args[2]);
+            Path release = Path.of(args[3]);
+            MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                Files.createFile(entered);
+                if ("hold".equals(args[0])) {
+                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                    while (!Files.exists(release) && System.nanoTime() < deadline) {
+                        Thread.sleep(20);
+                    }
+                    if (!Files.exists(release)) {
+                        throw new IOException("timed out waiting for parent process to release lock");
+                    }
+                }
+                return null;
+            });
+        }
+    }
+
     @Test
     void writesUtf8ContentBeforeReplacingDestination() throws Exception {
         Path sidecar = tempDir.resolve("metadata.json");
