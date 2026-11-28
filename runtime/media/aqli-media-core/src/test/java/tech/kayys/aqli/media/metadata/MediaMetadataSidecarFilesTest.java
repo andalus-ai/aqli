@@ -320,6 +320,20 @@ class MediaMetadataSidecarFilesTest {
     }
 
     @Test
+    void sidecarLockIsReleasedWhenOperationFails() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        IOException expected = new IOException("forced sidecar operation failure");
+
+        IOException thrown = assertThrows(IOException.class,
+                () -> MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                    throw expected;
+                }));
+
+        assertSame(expected, thrown);
+        assertEquals("completed", MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> "completed"));
+    }
+
+    @Test
     void writesUtf8ContentBeforeReplacingDestination() throws Exception {
         Path sidecar = tempDir.resolve("metadata.json");
         String content = "{\"prompt\":\"こんにちは 🌳\"}";
