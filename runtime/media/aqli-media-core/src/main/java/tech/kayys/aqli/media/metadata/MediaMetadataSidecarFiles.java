@@ -3,14 +3,15 @@ package tech.kayys.aqli.media.metadata;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.Objects;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
 /** Shared filesystem operations for media metadata sidecar persistence. */
@@ -78,7 +79,8 @@ public final class MediaMetadataSidecarFiles {
     /**
      * Runs a complete sidecar operation under a JVM-local and operating-system file lock.
      * The hidden sibling lock file is intentionally retained: deleting it can split concurrent
-     * processes across different inodes. Network filesystems may provide different lock semantics.
+     * processes across different inodes. Parent-directory aliases are resolved before selecting
+     * the lock identity. Network filesystems may provide different lock semantics.
      */
     public static <T> T withSidecarLock(Path destination, SidecarOperation<T> operation) throws Exception {
         Objects.requireNonNull(destination, "destination");
@@ -92,8 +94,12 @@ public final class MediaMetadataSidecarFiles {
             throw new IOException("sidecar parent directory does not exist: " + parent);
         }
 
-        Path lockPath = parent.resolve("." + target.getFileName() + ".lock");
-        ReentrantLock processLock = SIDE_CAR_LOCKS[Math.floorMod(target.hashCode(), SIDE_CAR_LOCKS.length)];
+        // Resolve parent-directory aliases so two paths to the same directory entry share one
+        // JVM stripe and one OS lock file.
+        Path canonicalTarget = parent.toRealPath().resolve(target.getFileName());
+        Path lockPath = canonicalTarget.getParent().resolve("." + canonicalTarget.getFileName() + ".lock");
+        ReentrantLock processLock = SIDE_CAR_LOCKS[
+                Math.floorMod(canonicalTarget.hashCode(), SIDE_CAR_LOCKS.length)];
         processLock.lock();
         try (FileChannel channel = FileChannel.open(lockPath,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE);
