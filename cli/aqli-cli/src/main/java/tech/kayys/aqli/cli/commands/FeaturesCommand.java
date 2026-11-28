@@ -12,6 +12,7 @@ import picocli.CommandLine.Parameters;
 import tech.kayys.aqli.cli.util.ExternalPluginClasspath;
 import tech.kayys.aqli.cli.commands.features.packaging.ExtensionPackageReader;
 import tech.kayys.aqli.cli.commands.features.diagnostics.FeatureCollisionScanner;
+import tech.kayys.aqli.cli.commands.features.install.FeatureInstallLockStore;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldKindCatalog;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator;
 import tech.kayys.aqli.cli.commands.features.scaffold.ScaffoldContentGenerator.ScaffoldDefinition;
@@ -2534,58 +2535,20 @@ public class FeaturesCommand implements Runnable {
     }
 
     private static Path installLockPath(Path featureDir) {
-        Path root = featureDir == null ? Path.of(".") : featureDir;
-        return normalize(root.resolve(INSTALL_LOCKFILE));
+        return FeatureInstallLockStore.path(featureDir);
     }
 
     private static Path legacyInstallLockPath(Path featureDir) {
-        Path root = featureDir == null ? Path.of(".") : featureDir;
-        return normalize(root.resolve(LEGACY_INSTALL_LOCKFILE));
+        return FeatureInstallLockStore.legacyPath(featureDir);
     }
 
     private static Path installLockReadPath(Path featureDir) {
-        Path preferred = installLockPath(featureDir);
-        if (Files.isRegularFile(preferred)) {
-            return preferred;
-        }
-        Path legacy = legacyInstallLockPath(featureDir);
-        if (Files.isRegularFile(legacy)) {
-            return legacy;
-        }
-        return preferred;
+        return FeatureInstallLockStore.readPath(featureDir);
     }
 
     private static FeatureInstallLockState readInstallLock(Path featureDir) {
-        if (featureDir == null) {
-            return new FeatureInstallLockState(Map.of(), "");
-        }
-        Path lockfile = installLockReadPath(featureDir);
-        if (!Files.isRegularFile(lockfile)) {
-            return new FeatureInstallLockState(Map.of(), "");
-        }
-        try (var input = Files.newInputStream(lockfile)) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> root = new ObjectMapper().readValue(input, Map.class);
-            Object rawFeatures = root == null ? null : firstNonNull(root.get("extensions"), root.get("features"));
-            if (!(rawFeatures instanceof Map<?, ?> rawMap)) {
-                return new FeatureInstallLockState(Map.of(), "Extension install lock has no 'extensions' object: " + lockfile);
-            }
-            Map<String, Map<String, Object>> features = new LinkedHashMap<>();
-            rawMap.forEach((key, value) -> {
-                if (key != null && value instanceof Map<?, ?> rawEntry) {
-                    Map<String, Object> entry = new LinkedHashMap<>();
-                    rawEntry.forEach((entryKey, entryValue) -> {
-                        if (entryKey != null) {
-                            entry.put(String.valueOf(entryKey), entryValue);
-                        }
-                    });
-                    features.put(String.valueOf(key), entry);
-                }
-            });
-            return new FeatureInstallLockState(Map.copyOf(features), "");
-        } catch (Exception e) {
-            return new FeatureInstallLockState(Map.of(), "Extension install lock is not readable: " + e.getMessage());
-        }
+        FeatureInstallLockStore.State state = FeatureInstallLockStore.read(featureDir);
+        return new FeatureInstallLockState(state.entries(), state.error());
     }
 
     private static FeatureJarReport applyInstallLock(
@@ -2971,28 +2934,14 @@ public class FeaturesCommand implements Runnable {
             ExtensionPackageReader.PackageReport packageReport) throws java.io.IOException {
         Path rootDir = normalize(featureDir);
         Path target = normalize(jarPath);
-        Files.createDirectories(rootDir);
-        FeatureInstallLockState state = readInstallLock(rootDir);
-        Map<String, Map<String, Object>> features = new LinkedHashMap<>(state.features());
-        String filename = target.getFileName() == null ? target.toString() : target.getFileName().toString();
         Map<String, Object> entry = installLockEntry(target, report, packageReport);
-        features.put(filename, entry);
-        writeInstallLock(rootDir, features);
+        FeatureInstallLockStore.put(rootDir, target, entry, runtimeCompatibilityContext().toMap());
         return entry;
     }
 
     private static void removeInstallLockEntry(Path featureDir, Path jarPath) throws java.io.IOException {
-        Path rootDir = normalize(featureDir);
-        FeatureInstallLockState state = readInstallLock(rootDir);
-        if (state.features().isEmpty()) {
-            return;
-        }
-        Map<String, Map<String, Object>> features = new LinkedHashMap<>(state.features());
-        Path name = jarPath.getFileName();
-        if (name != null) {
-            features.remove(name.toString());
-        }
-        writeInstallLock(rootDir, features);
+        FeatureInstallLockStore.remove(normalize(featureDir), normalize(jarPath),
+                runtimeCompatibilityContext().toMap());
     }
 
     private static FeatureMigrationReport migrateLegacyExtensions(
@@ -3828,19 +3777,7 @@ public class FeaturesCommand implements Runnable {
     private static void writeInstallLock(
             Path featureDir,
             Map<String, Map<String, Object>> features) throws java.io.IOException {
-        Map<String, Object> lock = new LinkedHashMap<>();
-        lock.put("schema_version", 1);
-        lock.put("updated_at", Instant.now().toString());
-        lock.put("runtime", runtimeCompatibilityContext().toMap());
-        lock.put("extensions", features);
-        lock.put("features", features);
-        Files.createDirectories(featureDir);
-        Files.writeString(
-                installLockPath(featureDir),
-                new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(lock) + System.lineSeparator(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING);
+        FeatureInstallLockStore.write(featureDir, features, runtimeCompatibilityContext().toMap());
     }
 
     private static Map<String, Object> installLockEntry(Path jarPath, FeatureJarReport report) {
