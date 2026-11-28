@@ -72,6 +72,7 @@ class AudioMetadataSidecarStoreTest {
         assertTrue(result.skippedBecausePathsMatch());
         assertEquals(audio.toAbsolutePath().normalize(), result.sidecarPath());
         assertEquals("audio-bytes", Files.readString(audio));
+        assertFalse(Files.exists(tempDir.resolve(".generated.wav.lock")));
     }
 
     @Test
