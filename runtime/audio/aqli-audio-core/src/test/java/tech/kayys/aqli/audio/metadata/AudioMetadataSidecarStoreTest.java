@@ -184,4 +184,18 @@ class AudioMetadataSidecarStoreTest {
         assertFalse(originalDigest.equals(refreshedDigest));
         assertEquals(refreshedDigest, result.sha256());
     }
+
+    @Test
+    void leavesExistingSidecarUnchangedWhenRefreshCannotFindOutput() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        String original = """
+                {"type":"aqli_audio_metadata","output_path":"missing.wav","output_sha256":"original"}
+                """;
+        Files.writeString(sidecar, original);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AudioMetadataSidecarStore.refresh(sidecar, null));
+
+        assertEquals(original, Files.readString(sidecar));
+    }
 }
