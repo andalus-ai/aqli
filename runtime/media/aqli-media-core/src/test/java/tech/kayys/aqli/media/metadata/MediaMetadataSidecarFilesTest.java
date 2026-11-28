@@ -2,12 +2,15 @@ package tech.kayys.aqli.media.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,68 @@ class MediaMetadataSidecarFilesTest {
         assertEquals("{\"schema_version\":1}", Files.readString(sidecar));
         try (Stream<Path> files = Files.list(sidecar.getParent())) {
             assertEquals(1, files.count(), "temporary file should be moved away");
+        }
+    }
+
+    @Test
+    void fallsBackToRegularReplacementWhenAtomicMoveIsUnsupported() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(sidecar, "old-content");
+        AtomicInteger atomicAttempts = new AtomicInteger();
+        AtomicInteger replacementAttempts = new AtomicInteger();
+
+        MediaMetadataSidecarFiles.MoveStrategy moveStrategy = new MediaMetadataSidecarFiles.MoveStrategy() {
+            @Override
+            public void atomicMove(Path source, Path target) throws IOException {
+                atomicAttempts.incrementAndGet();
+                throw new AtomicMoveNotSupportedException(source.toString(), target.toString(), "forced by test");
+            }
+
+            @Override
+            public void replace(Path source, Path target) throws IOException {
+                replacementAttempts.incrementAndGet();
+                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        };
+
+        MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", moveStrategy);
+
+        assertEquals(1, atomicAttempts.get());
+        assertEquals(1, replacementAttempts.get());
+        assertEquals("new-content", Files.readString(sidecar));
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertEquals(1, files.count(), "temporary file should be moved away");
+        }
+    }
+
+    @Test
+    void cleansTemporaryFileAndPropagatesFallbackFailure() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        Files.writeString(sidecar, "old-content");
+        IOException fallbackFailure = new IOException("forced replacement failure");
+        AtomicInteger replacementAttempts = new AtomicInteger();
+
+        MediaMetadataSidecarFiles.MoveStrategy moveStrategy = new MediaMetadataSidecarFiles.MoveStrategy() {
+            @Override
+            public void atomicMove(Path source, Path target) throws IOException {
+                throw new AtomicMoveNotSupportedException(source.toString(), target.toString(), "forced by test");
+            }
+
+            @Override
+            public void replace(Path source, Path target) throws IOException {
+                replacementAttempts.incrementAndGet();
+                throw fallbackFailure;
+            }
+        };
+
+        IOException thrown = assertThrows(IOException.class,
+                () -> MediaMetadataSidecarFiles.writeWithAtomicMoveFallback(sidecar, "new-content", moveStrategy));
+
+        assertSame(fallbackFailure, thrown);
+        assertEquals(1, replacementAttempts.get());
+        assertEquals("old-content", Files.readString(sidecar));
+        try (Stream<Path> files = Files.list(tempDir)) {
+            assertEquals(1, files.count(), "failed write should not leave a temporary file");
         }
     }
 
