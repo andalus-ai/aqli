@@ -60,9 +60,7 @@ class MediaMetadataSidecarFilesTest {
             @Override
             public void replace(Path source, Path target) throws IOException {
                 replacementAttempts.incrementAndGet();
-                synchronized (replacementLock) {
-                    Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                }
+                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
             @Override
@@ -256,6 +254,165 @@ class MediaMetadataSidecarFilesTest {
             throw new RuntimeException("interrupted before concurrent sidecar write", interrupted);
         } catch (IOException failure) {
             throw new RuntimeException(failure);
+        }
+    }
+
+
+    @Test
+    void sidecarLockDoesNotCreateMissingParentDirectories() {
+        Path sidecar = tempDir.resolve("missing/metadata.json");
+
+        assertThrows(IOException.class,
+                () -> MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> "unreachable"));
+
+        assertFalse(Files.exists(sidecar.getParent()));
+    }
+
+    @Test
+    void sidecarLockSerializesConcurrentOperationsAndRetainsLockFile() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        CountDownLatch firstEntered = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondEntered = new CountDownLatch(1);
+        AtomicInteger active = new AtomicInteger();
+        AtomicInteger maximum = new AtomicInteger();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> {
+                try {
+                    MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                        maximum.accumulateAndGet(active.incrementAndGet(), Math::max);
+                        firstEntered.countDown();
+                        try {
+                            if (!releaseFirst.await(10, TimeUnit.SECONDS)) {
+                                throw new IOException("timed out waiting to release first operation");
+                            }
+                        } finally {
+                            active.decrementAndGet();
+                        }
+                        return null;
+                    });
+                } catch (Exception failure) {
+                    throw new RuntimeException(failure);
+                }
+            });
+            assertTrue(firstEntered.await(10, TimeUnit.SECONDS));
+            Future<?> second = executor.submit(() -> {
+                try {
+                    MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                        maximum.accumulateAndGet(active.incrementAndGet(), Math::max);
+                        secondEntered.countDown();
+                        active.decrementAndGet();
+                        return null;
+                    });
+                } catch (Exception failure) {
+                    throw new RuntimeException(failure);
+                }
+            });
+            assertEquals(1, secondEntered.getCount(), "second operation must wait for the first lock");
+            releaseFirst.countDown();
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdownNow();
+        }
+        assertEquals(1, maximum.get());
+        assertTrue(Files.exists(tempDir.resolve(".metadata.json.lock")));
+    }
+
+    @Test
+    void sidecarLockIsReleasedWhenOperationFails() throws Exception {
+        Path sidecar = tempDir.resolve("metadata.json");
+        IOException expected = new IOException("forced operation failure");
+
+        IOException thrown = assertThrows(IOException.class,
+                () -> MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                    throw expected;
+                }));
+
+        assertSame(expected, thrown);
+        assertEquals("completed",
+                MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> "completed"));
+    }
+
+
+    @Test
+    void sidecarLockSerializesOperationsAcrossProcesses() throws Exception {
+        Path sidecar = tempDir.resolve("cross-process.json");
+        Path holderEntered = tempDir.resolve("holder-entered");
+        Path releaseHolder = tempDir.resolve("release-holder");
+        Path contenderEntered = tempDir.resolve("contender-entered");
+        Path contenderAttempting = tempDir.resolve("contender-attempting");
+        String helperClass = "tech.kayys.aqli.media.metadata.MediaMetadataSidecarFilesTest$SidecarLockProcess";
+        String java = Path.of(System.getProperty("java.home"), "bin",
+                System.getProperty("os.name").toLowerCase().contains("win") ? "java.exe" : "java").toString();
+        String classpath = System.getProperty("java.class.path");
+
+        Process holder = new ProcessBuilder(java, "-cp", classpath, helperClass,
+                "hold", sidecar.toString(), holderEntered.toString(), releaseHolder.toString())
+                .redirectErrorStream(true).start();
+        Process contender = null;
+        try {
+            awaitFile(holderEntered, holder, "holder process should acquire the sidecar lock");
+            contender = new ProcessBuilder(java, "-cp", classpath, helperClass,
+                    "contend", sidecar.toString(), contenderEntered.toString(), "-", contenderAttempting.toString())
+                    .redirectErrorStream(true).start();
+
+            awaitFile(contenderAttempting, contender, "contender process should attempt the lock");
+            Thread.sleep(150);
+            assertFalse(Files.exists(contenderEntered),
+                    "a second JVM must wait while the first JVM holds the sidecar lock");
+
+            Files.writeString(releaseHolder, "release");
+            assertTrue(holder.waitFor(10, TimeUnit.SECONDS), "holder process should finish");
+            assertTrue(contender.waitFor(10, TimeUnit.SECONDS), "contender process should finish");
+            assertEquals(0, holder.exitValue());
+            assertEquals(0, contender.exitValue());
+            assertTrue(Files.exists(contenderEntered));
+        } finally {
+            Files.writeString(releaseHolder, "release");
+            if (holder.isAlive()) {
+                holder.destroyForcibly();
+            }
+            if (contender != null && contender.isAlive()) {
+                contender.destroyForcibly();
+            }
+        }
+    }
+
+    private static void awaitFile(Path marker, Process process, String message) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!Files.exists(marker) && System.nanoTime() < deadline && process.isAlive()) {
+            Thread.sleep(20);
+        }
+        assertTrue(Files.exists(marker), message);
+    }
+
+    public static final class SidecarLockProcess {
+        private SidecarLockProcess() {
+        }
+
+        public static void main(String[] args) throws Exception {
+            Path sidecar = Path.of(args[1]);
+            Path entered = Path.of(args[2]);
+            Path release = Path.of(args[3]);
+            if ("contend".equals(args[0])) {
+                Files.createFile(Path.of(args[4]));
+            }
+            MediaMetadataSidecarFiles.withSidecarLock(sidecar, () -> {
+                Files.createFile(entered);
+                if ("hold".equals(args[0])) {
+                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                    while (!Files.exists(release) && System.nanoTime() < deadline) {
+                        Thread.sleep(20);
+                    }
+                    if (!Files.exists(release)) {
+                        throw new IOException("timed out waiting for parent process to release lock");
+                    }
+                }
+                return null;
+            });
         }
     }
 
