@@ -106,6 +106,8 @@ class AudioMetadataSidecarStoreTest {
         assertEquals(audio.toAbsolutePath().normalize(), result.audioPath());
         assertEquals(Files.size(audio), result.sizeBytes());
         assertEquals(MediaFileIntegrity.sha256Hex(audio), result.sha256());
+        assertFalse(Files.exists(tempDir.resolve(".metadata.json.lock")),
+                "read-only verification must not create a lock file");
     }
 
     @Test
