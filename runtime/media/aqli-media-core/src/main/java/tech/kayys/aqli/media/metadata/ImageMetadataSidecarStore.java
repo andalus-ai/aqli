@@ -24,7 +24,12 @@ public final class ImageMetadataSidecarStore {
     }
 
     public static WriteResult write(WriteRequest request) throws Exception {
-        MediaMetadataSidecarFiles.createSidecarParentDirectories(request.sidecarPath());
+        Path imagePath = request.imagePath().toAbsolutePath().normalize();
+        Path sidecarPath = request.sidecarPath().toAbsolutePath().normalize();
+        if (imagePath.equals(sidecarPath)) {
+            return new WriteResult(sidecarPath, true);
+        }
+        MediaMetadataSidecarFiles.createSidecarParentDirectories(sidecarPath);
         return MediaMetadataSidecarFiles.withSidecarLock(request.sidecarPath(),
                 () -> writeUnlocked(request));
     }
