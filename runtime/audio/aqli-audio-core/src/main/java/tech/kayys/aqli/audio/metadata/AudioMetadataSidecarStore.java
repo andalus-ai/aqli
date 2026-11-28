@@ -25,7 +25,12 @@ public final class AudioMetadataSidecarStore {
     }
 
     public static WriteResult write(WriteRequest request) throws Exception {
-        MediaMetadataSidecarFiles.createSidecarParentDirectories(request.sidecarPath());
+        Path audioPath = request.audioPath().toAbsolutePath().normalize();
+        Path sidecarPath = request.sidecarPath().toAbsolutePath().normalize();
+        if (audioPath.equals(sidecarPath)) {
+            return new WriteResult(sidecarPath, true);
+        }
+        MediaMetadataSidecarFiles.createSidecarParentDirectories(sidecarPath);
         return MediaMetadataSidecarFiles.withSidecarLock(request.sidecarPath(),
                 () -> writeUnlocked(request));
     }
@@ -64,11 +69,6 @@ public final class AudioMetadataSidecarStore {
     }
 
     public static VerificationResult verify(Path sidecarPath, Path outputOverride) throws Exception {
-        return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
-                () -> verifyUnlocked(sidecarPath, outputOverride));
-    }
-
-    private static VerificationResult verifyUnlocked(Path sidecarPath, Path outputOverride) throws Exception {
         requireRegularFile(sidecarPath, "audio metadata file not found: ");
         JsonNode root = readObject(sidecarPath, "invalid audio metadata file: ");
 
@@ -97,6 +97,7 @@ public final class AudioMetadataSidecarStore {
     }
 
     public static RefreshResult refresh(Path sidecarPath, Path outputOverride) throws Exception {
+        requireRegularFile(sidecarPath, "audio metadata file not found: ");
         return MediaMetadataSidecarFiles.withSidecarLock(sidecarPath,
                 () -> refreshUnlocked(sidecarPath, outputOverride));
     }
