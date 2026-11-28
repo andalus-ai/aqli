@@ -273,19 +273,21 @@ class MediaMetadataSidecarFilesTest {
     void sidecarLockResolvesSymbolicLinkParentToCanonicalLockFile() throws Exception {
         Path realDirectory = Files.createDirectory(tempDir.resolve("real"));
         Path aliasDirectory = tempDir.resolve("alias");
+        boolean symlinkCreated;
         try {
             Files.createSymbolicLink(aliasDirectory, realDirectory);
+            symlinkCreated = true;
         } catch (UnsupportedOperationException | SecurityException | IOException unsupported) {
-            org.junit.jupiter.api.Assumptions.abort("symbolic links are unavailable: " + unsupported);
+            symlinkCreated = false;
         }
+        org.junit.jupiter.api.Assumptions.assumeTrue(symlinkCreated,
+                "symbolic links are unavailable on this filesystem");
 
         Path aliasedSidecar = aliasDirectory.resolve("metadata.json");
         MediaMetadataSidecarFiles.withSidecarLock(aliasedSidecar, () -> "locked");
 
         assertTrue(Files.exists(realDirectory.resolve(".metadata.json.lock")),
                 "the lock file should be created under the canonical parent directory");
-        assertFalse(Files.exists(aliasDirectory.resolve(".metadata.json.lock")),
-                "the symlink alias must not create a second lock-file identity");
     }
 
     @Test
