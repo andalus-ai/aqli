@@ -1,6 +1,7 @@
 package tech.kayys.aqli.media.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,6 +44,18 @@ class MediaMetadataSidecarFilesTest {
         try (Stream<Path> files = Files.list(tempDir)) {
             assertEquals(1, files.count(), "failed write should not leave a temporary file");
         }
+    }
+
+    @Test
+    void rejectsNullInputsBeforeCreatingDirectories() {
+        Path sidecar = tempDir.resolve("not-created/metadata.json");
+
+        assertThrows(NullPointerException.class,
+                () -> MediaMetadataSidecarFiles.writeAtomically(sidecar, null));
+        assertThrows(NullPointerException.class,
+                () -> MediaMetadataSidecarFiles.writeAtomically(null, "content"));
+
+        assertFalse(Files.exists(sidecar.getParent()));
     }
 
     @Test
