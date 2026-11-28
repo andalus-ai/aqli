@@ -72,6 +72,7 @@ class AudioMetadataSidecarStoreTest {
         assertTrue(result.skippedBecausePathsMatch());
         assertEquals(audio.toAbsolutePath().normalize(), result.sidecarPath());
         assertEquals("audio-bytes", Files.readString(audio));
+        assertFalse(Files.exists(tempDir.resolve(".generated.wav.lock")));
     }
 
     @Test
@@ -106,6 +107,8 @@ class AudioMetadataSidecarStoreTest {
         assertEquals(audio.toAbsolutePath().normalize(), result.audioPath());
         assertEquals(Files.size(audio), result.sizeBytes());
         assertEquals(MediaFileIntegrity.sha256Hex(audio), result.sha256());
+        assertFalse(Files.exists(tempDir.resolve(".metadata.json.lock")),
+                "read-only verification must not create a lock file");
     }
 
     @Test
